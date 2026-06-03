@@ -1,0 +1,490 @@
+import { calculateDistance } from "@/lib/utils/geo";
+import type { BusinessFrontend } from "@/types/database";
+
+export type DistanceOrigin = { lat: number; lng: number } | null;
+const CITY_LEVEL_RADIUS_MIN_KM = 100;
+
+export type BusinessSearchInput = {
+  allBusinesses: BusinessFrontend[];
+  query: string;
+  categoryFilter: string;
+  onlineFilter: string;
+  onlineCountryCode?: string;
+  cityFilter: string;
+  locationFilter: string;
+  countryFilter: string;
+  stateFilter: string;
+  eventsFilter: string;
+  radiusKm: number | null;
+  effectiveRadiusKm: number | null;
+  hasLocationContext: boolean;
+  hasTypedLocation: boolean;
+  distanceOrigin: DistanceOrigin;
+  categorySynonymsMap: Record<string, string[]>;
+  searchSynonyms: Record<string, string[]>;
+  categoryKeywords: Record<string, string[]>;
+  categoryFilterAliases: Record<string, string[]>;
+  cityAliases: Record<string, string[]>;
+  strictSearchMode: boolean;
+  strictSearchMinScore: number;
+  getCategoryLabel: (category: string) => string;
+};
+
+export function normalizeText(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeLocationPart(value: string): string {
+  return normalizeText(value || "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function getAdministrativeLocationLabels(address: Pick<BusinessFrontend["address"], "city" | "state" | "stateCode" | "country" | "countryCode">): string[] {
+  const city = normalizeLocationPart(address.city || "");
+  const state = normalizeLocationPart(address.state || "");
+  const stateCode = normalizeLocationPart(address.stateCode || "");
+  const country = normalizeLocationPart(address.country || "");
+  const countryCode = normalizeLocationPart(address.countryCode || "");
+
+  const labels = [
+    city,
+    state,
+    stateCode,
+    country,
+    countryCode,
+    [city, state].filter(Boolean).join(" "),
+    [city, stateCode].filter(Boolean).join(" "),
+    [city, country].filter(Boolean).join(" "),
+    [city, countryCode].filter(Boolean).join(" "),
+    [city, state, country].filter(Boolean).join(" "),
+    [city, stateCode, countryCode].filter(Boolean).join(" "),
+    [city, state, countryCode].filter(Boolean).join(" "),
+    [city, stateCode, country].filter(Boolean).join(" "),
+  ];
+
+  return Array.from(new Set(labels.filter(Boolean)));
+}
+
+export function hasReliableBusinessLocation(business: Pick<BusinessFrontend, "address">): boolean {
+  const { city, countryCode, state, stateCode, lat, lng } = business.address;
+  return (
+    !!normalizeText(city || "") &&
+    !!normalizeText(countryCode || "") &&
+    (!!normalizeText(state || "") || !!normalizeText(stateCode || "")) &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    !(lat === 0 && lng === 0)
+  );
+}
+
+export function hasPreciseBusinessLocation(business: Pick<BusinessFrontend, "address">): boolean {
+  const normalizedStreet = normalizeLocationPart(business.address.street || "");
+  if (!hasReliableBusinessLocation(business) || !normalizedStreet) return false;
+
+  const administrativeLabels = getAdministrativeLocationLabels(business.address);
+  return !administrativeLabels.includes(normalizedStreet);
+}
+
+export function hasCityLevelBusinessLocation(business: Pick<BusinessFrontend, "address">): boolean {
+  return hasReliableBusinessLocation(business) && !hasPreciseBusinessLocation(business);
+}
+
+export function cityMatches(
+  businessCity: string,
+  selectedCity: string,
+  cityAliases: Record<string, string[]>
+): boolean {
+  const normalizedBusinessCity = normalizeText(businessCity);
+  const normalizedSelectedCity = normalizeText(selectedCity);
+  if (!normalizedBusinessCity || !normalizedSelectedCity) return false;
+
+  const businessTerms = expandCityTerms(normalizedBusinessCity, cityAliases);
+  const selectedTerms = expandCityTerms(normalizedSelectedCity, cityAliases);
+  const hasAliasIntersection = businessTerms.some((term) => selectedTerms.includes(term));
+  if (hasAliasIntersection) return true;
+
+  return (
+    normalizedBusinessCity === normalizedSelectedCity ||
+    normalizedBusinessCity.includes(normalizedSelectedCity) ||
+    normalizedSelectedCity.includes(normalizedBusinessCity)
+  );
+}
+
+export function buildCityAliases(groups: string[][]): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  groups.forEach((group) => {
+    const normalized = Array.from(new Set(group.map((c) => normalizeText(c))));
+    normalized.forEach((name) => {
+      map[name] = normalized.filter((other) => other !== name);
+    });
+  });
+  return map;
+}
+
+export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[] {
+  const {
+    allBusinesses,
+    query,
+    categoryFilter,
+    onlineFilter,
+    onlineCountryCode,
+    cityFilter,
+    locationFilter,
+    countryFilter,
+    stateFilter,
+    eventsFilter,
+    radiusKm,
+    effectiveRadiusKm,
+    hasLocationContext,
+    hasTypedLocation,
+    distanceOrigin,
+    categorySynonymsMap,
+    searchSynonyms,
+    categoryKeywords,
+    categoryFilterAliases,
+    cityAliases,
+    strictSearchMode,
+    strictSearchMinScore,
+    getCategoryLabel,
+  } = input;
+
+  let filtered = allBusinesses;
+  const baseBusinesses = allBusinesses;
+  const scoreByBusinessId = new Map<string, number>();
+  const geospatialBusinesses = allBusinesses.filter((b) => hasPreciseBusinessLocation(b));
+
+  if (query) {
+    const q = normalizeText(query);
+    const relatedTerms = Array.from(
+      new Set([
+        ...(searchSynonyms[q] || []),
+        ...getCategoryTermsMatchedBySynonym(q, categorySynonymsMap),
+      ])
+    );
+
+    filtered = filtered.filter((b) => {
+      const effectiveKeywords = getEffectiveCategoryKeywords(
+        b.category,
+        categorySynonymsMap,
+        categoryKeywords,
+        categoryFilterAliases,
+        getCategoryLabel
+      );
+      const score = getBusinessMatchScore(
+        b,
+        q,
+        effectiveKeywords,
+        relatedTerms,
+        categoryFilterAliases,
+        getCategoryLabel
+      );
+      scoreByBusinessId.set(b.id, score);
+      return strictSearchMode ? score >= strictSearchMinScore : score > 0;
+    });
+  }
+
+  if (categoryFilter) {
+    filtered = filtered.filter((b) =>
+      matchesCategoryFilter(b.category, categoryFilter, categoryFilterAliases, getCategoryLabel)
+    );
+  }
+
+  if (onlineFilter === "1") {
+    filtered = filtered.filter((b) => b.attendanceType === "online");
+  }
+
+  if (onlineCountryCode) {
+    const country = onlineCountryCode.toLowerCase();
+    filtered = filtered.filter(
+      (b) => b.attendanceType !== "online" || (b.address.countryCode || "").toLowerCase() === country
+    );
+  }
+
+  if (eventsFilter === "1") {
+    const today = new Date().toISOString().slice(0, 10);
+    filtered = filtered.filter((b) => (b.events || []).some((event) => !!event?.date && event.date >= today));
+  }
+
+  if (cityFilter && !(distanceOrigin && effectiveRadiusKm)) {
+    filtered = filtered.filter(
+      (b) => hasReliableBusinessLocation(b) && cityMatches(b.address.city || "", cityFilter, cityAliases)
+    );
+  }
+
+  if (countryFilter) {
+    filtered = filtered.filter((b) => b.address.countryCode.toLowerCase() === countryFilter.toLowerCase());
+  }
+
+  if (stateFilter) {
+    filtered = filtered.filter((b) => b.address.stateCode.toLowerCase() === stateFilter.toLowerCase());
+  }
+
+  if (locationFilter.trim() && !cityFilter.trim() && !(distanceOrigin && effectiveRadiusKm)) {
+    const normalizedLocation = normalizeText(locationFilter);
+    filtered = filtered.filter((b) => {
+      if (!hasPreciseBusinessLocation(b)) return false;
+      const addressText = normalizeText(
+        [b.address.street, b.address.city, b.address.state, b.address.country].filter(Boolean).join(" ")
+      );
+      const city = normalizeText(b.address.city || "");
+      const state = normalizeText(b.address.state || "");
+      const country = normalizeText(b.address.country || "");
+      return (
+        addressText.includes(normalizedLocation) ||
+        normalizedLocation.includes(city) ||
+        normalizedLocation.includes(state) ||
+        normalizedLocation.includes(country)
+      );
+    });
+  }
+
+  if (onlineFilter !== "1" && effectiveRadiusKm && !distanceOrigin && !hasTypedLocation) {
+    // Sem origem válida para calcular distância: mantém apenas negócios online.
+    filtered = filtered.filter((b) => b.attendanceType === "online");
+  } else if (onlineFilter !== "1" && effectiveRadiusKm && distanceOrigin) {
+    // Em busca por raio, retornamos negócios físicos com localização exata.
+    // Cadastros só em nível de cidade entram apenas em raios amplos.
+    const nearbyPhysicalBusinesses = filtered.filter((b) => {
+      if (b.attendanceType === "online") return false;
+      const isPrecise = hasPreciseBusinessLocation(b);
+      const isCityLevel = hasCityLevelBusinessLocation(b);
+      if (!isPrecise && !(isCityLevel && effectiveRadiusKm >= CITY_LEVEL_RADIUS_MIN_KM)) return false;
+      const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
+      return distance <= effectiveRadiusKm;
+    });
+    filtered = nearbyPhysicalBusinesses;
+  }
+
+  if (onlineFilter !== "1" && filtered.length === 0 && distanceOrigin && hasLocationContext && !radiusKm) {
+    const normalizedQuery = normalizeText(query);
+    const baseScoped = baseBusinesses.filter((b) => {
+      if (!hasPreciseBusinessLocation(b)) return false;
+      const passesQuery = !query || matchesBusinessTextQuery(b, normalizedQuery);
+      const passesCategory =
+        !categoryFilter ||
+        matchesCategoryFilter(b.category, categoryFilter, categoryFilterAliases, getCategoryLabel);
+      const passesCountry = !countryFilter || b.address.countryCode.toLowerCase() === countryFilter.toLowerCase();
+      const passesState = !stateFilter || b.address.stateCode.toLowerCase() === stateFilter.toLowerCase();
+      return passesQuery && passesCategory && passesCountry && passesState;
+    });
+
+    const within = (km: number) =>
+      baseScoped.filter((b) => b.attendanceType !== "online" && calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng) <= km);
+
+    const near150 = within(150);
+    if (near150.length > 0) {
+      filtered = near150;
+    } else {
+      const sameState = baseScoped.filter((b) => {
+        const ref = geospatialBusinesses.find((x) => cityMatches(x.address.city || "", cityFilter || locationFilter, cityAliases));
+        if (!ref) return false;
+        return (
+          b.address.countryCode.toLowerCase() === ref.address.countryCode.toLowerCase() &&
+          b.address.stateCode.toLowerCase() === ref.address.stateCode.toLowerCase()
+        );
+      });
+      if (sameState.length > 0) filtered = sameState;
+    }
+  }
+
+  if (filtered.length === 0) {
+    const hasHardFilters = !!(categoryFilter || query || cityFilter || countryFilter || stateFilter || radiusKm);
+
+    if (!hasHardFilters && locationFilter.trim()) {
+      const normalizedLocal = normalizeText(locationFilter);
+      const localFallback = geospatialBusinesses.filter((b) => {
+        const city = normalizeText(b.address.city || "");
+        const state = normalizeText(b.address.state || "");
+        const country = normalizeText(b.address.country || "");
+        return (
+          city.includes(normalizedLocal) ||
+          normalizedLocal.includes(city) ||
+          state.includes(normalizedLocal) ||
+          country.includes(normalizedLocal)
+        );
+      });
+      if (localFallback.length > 0) return localFallback;
+    }
+  }
+
+  if (query && filtered.length > 0) {
+    if (distanceOrigin) {
+      return [...filtered].sort((a, b) => {
+        const scoreA = scoreByBusinessId.get(a.id) || 0;
+        const scoreB = scoreByBusinessId.get(b.id) || 0;
+        if (scoreA !== scoreB) return scoreB - scoreA;
+        if (a.attendanceType === "online" && b.attendanceType !== "online") return 1;
+        if (b.attendanceType === "online" && a.attendanceType !== "online") return -1;
+        if (a.attendanceType === "online" && b.attendanceType === "online") return 0;
+        const distA = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, a.address.lat, a.address.lng);
+        const distB = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
+        return distA - distB;
+      });
+    }
+
+    return [...filtered].sort((a, b) => {
+      const scoreA = scoreByBusinessId.get(a.id) || 0;
+      const scoreB = scoreByBusinessId.get(b.id) || 0;
+      return scoreB - scoreA;
+    });
+  }
+
+  if (distanceOrigin) {
+    return [...filtered].sort((a, b) => {
+      if (a.attendanceType === "online" && b.attendanceType !== "online") return 1;
+      if (b.attendanceType === "online" && a.attendanceType !== "online") return -1;
+      if (a.attendanceType === "online" && b.attendanceType === "online") return 0;
+      const distA = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, a.address.lat, a.address.lng);
+      const distB = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
+      return distA - distB;
+    });
+  }
+
+  return filtered;
+}
+
+function getCategoryTermsMatchedBySynonym(
+  normalizedQuery: string,
+  categorySynonymsMap: Record<string, string[]>
+): string[] {
+  if (!normalizedQuery) return [];
+  const terms: string[] = [];
+
+  for (const [categoryLabel, synonyms] of Object.entries(categorySynonymsMap || {})) {
+    const hasMatch = (synonyms || []).some((syn) => {
+      const normalizedSyn = normalizeText(syn || "");
+      if (!normalizedSyn) return false;
+      return (
+        normalizedSyn === normalizedQuery ||
+        matchesNormalizedQueryTokens(normalizedSyn, normalizedQuery) ||
+        matchesNormalizedQueryTokens(normalizedQuery, normalizedSyn)
+      );
+    });
+    if (hasMatch) terms.push(categoryLabel);
+  }
+
+  return terms;
+}
+
+function expandCityTerms(normalizedCity: string, cityAliases: Record<string, string[]>): string[] {
+  const base = normalizedCity.trim();
+  if (!base) return [];
+  const aliasList = cityAliases[base] || [];
+  return Array.from(new Set([base, ...aliasList.map((a) => normalizeText(a))]));
+}
+
+function matchesCategoryFilter(
+  category: string,
+  filter: string,
+  categoryFilterAliases: Record<string, string[]>,
+  getCategoryLabel: (category: string) => string
+): boolean {
+  const normalizedCategory = normalizeText(getCategoryLabel(category));
+  const normalizedFilter = normalizeText(filter);
+  const aliases = categoryFilterAliases[normalizedFilter] || [];
+  const terms = Array.from(new Set([filter, ...aliases]));
+  return terms.some((term) => {
+    const normalizedTerm = normalizeText(term);
+    if (!normalizedTerm) return false;
+    return (
+      normalizedCategory === normalizedTerm ||
+      normalizedCategory.includes(normalizedTerm) ||
+      normalizedTerm.includes(normalizedCategory)
+    );
+  });
+}
+
+function getBusinessSearchBlob(b: BusinessFrontend): string {
+  const menuText = (b.menu || []).map((item) => `${item?.name || ""} ${item?.description || ""}`).join(" ");
+  return normalizeText(
+    [
+      b.name || "",
+      b.description || "",
+      b.category || "",
+      b.address?.city || "",
+      ...(b.services || []),
+      ...(b.keywords || []),
+      b.isVeganFriendly ? "vegano vegan" : "",
+      b.isVegetarianFriendly ? "vegetariano vegetarian" : "",
+      b.isGlutenFreeFriendly ? "sem gluten gluten free sem trigo" : "",
+      menuText,
+    ].join(" ")
+  );
+}
+
+function matchesBusinessTextQuery(b: BusinessFrontend, normalizedQuery: string): boolean {
+  if (!normalizedQuery) return true;
+  const blob = getBusinessSearchBlob(b);
+  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+  return terms.every((term) => blob.includes(term));
+}
+
+function getEffectiveCategoryKeywords(
+  businessCategoryLabel: string,
+  categorySynonymsMap: Record<string, string[]>,
+  categoryKeywords: Record<string, string[]>,
+  categoryFilterAliases: Record<string, string[]>,
+  getCategoryLabel: (category: string) => string
+): string[] {
+  if (!businessCategoryLabel) return [];
+  const direct = categorySynonymsMap[businessCategoryLabel];
+  if (direct && direct.length > 0) return direct;
+
+  const normalizedBusinessCategory = normalizeText(getCategoryLabel(businessCategoryLabel));
+  const normalizedKeyMatch = Object.entries(categorySynonymsMap).find(([configuredCategory]) => {
+    const normalizedConfigured = normalizeText(configuredCategory);
+    if (!normalizedConfigured) return false;
+    return (
+      normalizedConfigured === normalizedBusinessCategory ||
+      normalizedBusinessCategory.includes(normalizedConfigured) ||
+      normalizedConfigured.includes(normalizedBusinessCategory)
+    );
+  });
+  if (normalizedKeyMatch && normalizedKeyMatch[1].length > 0) return normalizedKeyMatch[1];
+
+  const matchedEntry = Object.entries(categorySynonymsMap).find(([configuredCategory]) =>
+    matchesCategoryFilter(businessCategoryLabel, configuredCategory, categoryFilterAliases, getCategoryLabel)
+  );
+  if (matchedEntry && matchedEntry[1].length > 0) return matchedEntry[1];
+
+  return categoryKeywords[businessCategoryLabel] || [];
+}
+
+function matchesNormalizedQueryTokens(targetNormalizedText: string, queryNormalizedText: string): boolean {
+  if (!targetNormalizedText || !queryNormalizedText) return false;
+  const targetTokens = new Set(targetNormalizedText.split(/\s+/).filter(Boolean));
+  const queryTokens = queryNormalizedText.split(/\s+/).filter(Boolean);
+  if (queryTokens.length === 0) return false;
+  return queryTokens.every((token) => targetTokens.has(token));
+}
+
+function getBusinessMatchScore(
+  b: BusinessFrontend,
+  normalizedQuery: string,
+  categoryKeywords: string[],
+  relatedTerms: string[],
+  categoryFilterAliases: Record<string, string[]>,
+  getCategoryLabel: (category: string) => string
+): number {
+  if (!normalizedQuery) return 1;
+  const directTextMatch = matchesBusinessTextQuery(b, normalizedQuery);
+  const categoryKeywordMatch = (categoryKeywords || []).some((kw) =>
+    matchesNormalizedQueryTokens(normalizeText(kw), normalizedQuery)
+  );
+  const synonymCategoryMatch = (relatedTerms || []).some((term) =>
+    matchesCategoryFilter(b.category, term, categoryFilterAliases, getCategoryLabel)
+  );
+
+  let score = 0;
+  if (directTextMatch) score += 5;
+  if (categoryKeywordMatch) score += 3;
+  // Match por sinônimo de categoria precisa sobreviver ao modo estrito.
+  if (synonymCategoryMatch) score += 4;
+  return score;
+}

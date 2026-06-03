@@ -1,0 +1,37 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/client",
+  "functions": {
+    "api/ssr.js": {
+      "includeFiles": "dist/server/**"
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "caramelinho.com"
+        }
+      ],
+      "status": 301,
+      "dest": "https://www.caramelinho.com/$1"
+    },
+    {
+      "src": "/ads.txt",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "public, max-age=3600"
+      },
+      "dest": "/ads.txt"
+    },
+    { "src": "/sitemap.xml", "dest": "/api/sitemap-index" },
+    { "src": "/sitemaps/static.xml", "dest": "/api/sitemap-static" },
+    { "src": "/sitemaps/businesses-([^/]+)\\.xml", "dest": "/api/sitemap-businesses?page=$1" },
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/api/ssr" }
+  ]
+}
