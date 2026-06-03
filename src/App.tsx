@@ -31,6 +31,12 @@ function ScrollToTop() {
   return null;
 }
 
+function isIndexableSearch(search: string) {
+  if (!search) return true;
+  const params = new URLSearchParams(search);
+  return ["categoria", "cidade", "local", "q"].some((key) => (params.get(key) || "").trim().length > 0);
+}
+
 function CanonicalManager() {
   const { pathname, search } = useLocation();
 
@@ -38,7 +44,7 @@ function CanonicalManager() {
     if (typeof window === "undefined") return;
     const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
     const isSearchPage = pathname === "/buscar";
-    const canonicalPath = isSearchPage ? pathname : `${pathname}${search}`;
+    const canonicalPath = isSearchPage && !isIndexableSearch(search) ? pathname : `${pathname}${search}`;
     const canonicalUrl = `${window.location.origin}${canonicalPath}`;
 
     setCanonical(canonicalUrl);
@@ -49,7 +55,7 @@ function CanonicalManager() {
       return;
     }
 
-    if (isSearchPage && search) {
+    if (isSearchPage && search && !isIndexableSearch(search)) {
       setRobots("noindex,follow,max-image-preview:large");
       return;
     }
@@ -64,6 +70,14 @@ type AppProps = {
   router?: "browser" | "static";
   location?: string;
   initialBusiness?: BusinessFrontend | null;
+  initialBusinesses?: BusinessFrontend[];
+  initialFeaturedBusinesses?: BusinessFrontend[];
+  initialAvailableLocations?: Array<{
+    countryCode: string;
+    countryName: string;
+    states: { code: string; name: string; cities: string[] }[];
+  }>;
+  initialSearchSuggestions?: string[];
   isBusinessPage?: boolean;
 };
 
@@ -75,15 +89,42 @@ function AppRouter({ router = "browser", location, children }: AppProps & { chil
   return <BrowserRouter>{children}</BrowserRouter>;
 }
 
-export default function App({ router = "browser", location, initialBusiness = null }: AppProps = {}) {
+export default function App({
+  router = "browser",
+  location,
+  initialBusiness = null,
+  initialBusinesses = [],
+  initialFeaturedBusinesses = [],
+  initialAvailableLocations = [],
+  initialSearchSuggestions = [],
+}: AppProps = {}) {
   return (
     <AuthProvider>
       <AppRouter router={router} location={location}>
         <ScrollToTop />
         <CanonicalManager />
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/buscar" element={<SearchResults />} />
+          <Route
+            path="/"
+            element={
+              <Home
+                initialBusinesses={initialBusinesses}
+                initialFeaturedBusinesses={initialFeaturedBusinesses}
+                initialAvailableLocations={initialAvailableLocations}
+                initialSearchSuggestions={initialSearchSuggestions}
+              />
+            }
+          />
+          <Route
+            path="/buscar"
+            element={
+              <SearchResults
+                initialBusinesses={initialBusinesses}
+                initialAvailableLocations={initialAvailableLocations}
+                initialSearchSuggestions={initialSearchSuggestions}
+              />
+            }
+          />
           <Route path="/cadastro" element={<Register />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/redefinir-senha" element={<ResetPassword />} />

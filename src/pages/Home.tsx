@@ -63,15 +63,39 @@ const countryCodeToFlag = (countryCode: string) => {
   return String.fromCodePoint(...normalized.split("").map((char) => REGIONAL_INDICATOR_A + char.charCodeAt(0) - A));
 };
 
-export default function Home() {
+function extractCities(
+  locations: { states: { cities: string[] }[] }[]
+): string[] {
+  const cities = new Set<string>();
+  locations.forEach((location) => {
+    location.states.forEach((state) => {
+      state.cities.forEach((city) => cities.add(city));
+    });
+  });
+  return Array.from(cities);
+}
+
+type HomeProps = {
+  initialBusinesses?: BusinessFrontend[];
+  initialFeaturedBusinesses?: BusinessFrontend[];
+  initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
+  initialSearchSuggestions?: string[];
+};
+
+export default function Home({
+  initialBusinesses = [],
+  initialFeaturedBusinesses = [],
+  initialAvailableLocations = [],
+  initialSearchSuggestions = [],
+}: HomeProps = {}) {
   const navigate = useNavigate();
   const { session, unreadMessages } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
-  const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>([]);
-  const [featuredBusinesses, setFeaturedBusinesses] = useState<BusinessFrontend[]>([]);
-  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
-  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinesses);
+  const [featuredBusinesses, setFeaturedBusinesses] = useState<BusinessFrontend[]>(initialFeaturedBusinesses);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>(initialSearchSuggestions);
+  const [citySuggestions, setCitySuggestions] = useState<string[]>(() => extractCities(initialAvailableLocations));
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCountryCode, setApproxCountryCode] = useState("");
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
@@ -140,7 +164,7 @@ export default function Home() {
 
   useEffect(() => {
     const loadData = async () => {
-      const businesses = await getAllBusinesses();
+      const businesses = initialBusinesses.length > 0 ? initialBusinesses : await getAllBusinesses();
       const approxGeo = await getApproxGeoByIp({
         timeoutMs: 3000,
         maxAgeMs: 24 * 60 * 60 * 1000,
@@ -172,24 +196,20 @@ export default function Home() {
         }
       }
 
-      const regionalFeatured = await getFeaturedBusinessesForRegion(region, 6);
+      const regionalFeatured = initialFeaturedBusinesses.length > 0
+        ? initialFeaturedBusinesses
+        : await getFeaturedBusinessesForRegion(region, 6);
       
       setAllBusinesses(regionalBusinesses);
       setFeaturedBusinesses(regionalFeatured);
     };
 
     loadData();
-    getAvailableLocations().then(locations => {
-      const cities = new Set<string>();
-      locations.forEach(l => {
-        l.states.forEach((s) => {
-          s.cities.forEach((c: string) => cities.add(c));
-        });
-      });
-      setCitySuggestions(Array.from(cities));
-    });
-    getSearchSuggestions().then(setSearchSuggestions);
-  }, []);
+    if (initialAvailableLocations.length === 0) {
+      getAvailableLocations().then((locations) => setCitySuggestions(extractCities(locations)));
+    }
+    if (initialSearchSuggestions.length === 0) getSearchSuggestions().then(setSearchSuggestions);
+  }, [initialAvailableLocations, initialBusinesses, initialFeaturedBusinesses, initialSearchSuggestions]);
 
   const handleUseCurrentLocationInput = async () => {
     setIsResolvingLocationInput(true);
@@ -271,7 +291,7 @@ export default function Home() {
       (params.get("origem_lat") && params.get("origem_lng"))
     );
     if (!hasQuery && !hasLocationContext) {
-      setLocationNoticeMessage("Digite o que você procura ou informe sua cidade para iniciar a busca.");
+      setLocationNoticeMessage("Digite o que procura ou informe sua cidade para iniciar a busca.");
       setLocationNoticeOpen(true);
       setIsSubmittingSearch(false);
       return;
@@ -488,7 +508,7 @@ export default function Home() {
                   onChange={setSearchQuery}
                   suggestions={searchSuggestions}
                   disableLocalSuggestions
-                  placeholder="Buscar por produto ou serviço (Ex: coxinha)"
+                  placeholder="Buscar por produto ou servico (Ex: coxinha)"
                   icon="search"
                   inputClassName="h-12 sm:h-full text-base sm:text-2xl placeholder:text-[11px] sm:placeholder:text-sm"
                 />
@@ -806,17 +826,6 @@ function normalizeText(value?: string | null): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 

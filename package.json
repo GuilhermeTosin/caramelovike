@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "vike dev --host 0.0.0.0",
         "build": "vike build",
-        "build:prerender": "node scripts/build-prerender-safe.mjs",
+        "build:prerender": "vike build",
         "prepreview": "npm run check:encoding",
         "lint": "eslint .",
         "preview": "vike preview --host 0.0.0.0",

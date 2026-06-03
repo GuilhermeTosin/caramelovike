@@ -211,7 +211,29 @@ const parseCoordParam = (raw: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-export default function SearchResults() {
+type SearchResultsProps = {
+  initialBusinesses?: BusinessFrontend[];
+  initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
+  initialSearchSuggestions?: string[];
+};
+
+function extractCities(
+  locations: { states: { cities: string[] }[] }[]
+): string[] {
+  const cities = new Set<string>();
+  locations.forEach((location) => {
+    location.states.forEach((state) => {
+      state.cities.forEach((city) => cities.add(city));
+    });
+  });
+  return Array.from(cities);
+}
+
+export default function SearchResults({
+  initialBusinesses = [],
+  initialAvailableLocations = [],
+  initialSearchSuggestions = [],
+}: SearchResultsProps = {}) {
   const navigate = useNavigate();
   const { session, unreadMessages } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -243,10 +265,10 @@ export default function SearchResults() {
   const [searchInput, setSearchInput] = useState(query);
   const [locationInput, setLocationInput] = useState(locationFilter);
   const [showMap, setShowMap] = useState(false);
-  const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>([]);
-  const [availableLocations, setAvailableLocations] = useState<any[]>([]);
-  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
-  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinesses);
+  const [availableLocations, setAvailableLocations] = useState<any[]>(initialAvailableLocations);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>(initialSearchSuggestions);
+  const [citySuggestions, setCitySuggestions] = useState<string[]>(() => extractCities(initialAvailableLocations));
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCoords, setApproxCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCountryCode, setApproxCountryCode] = useState("");
@@ -259,7 +281,7 @@ export default function SearchResults() {
   const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
     getCategorySynonymsConfig()
   );
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(initialBusinesses.length === 0);
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
   const [showCommunityFindForm, setShowCommunityFindForm] = useState(false);

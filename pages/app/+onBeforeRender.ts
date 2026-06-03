@@ -1,10 +1,27 @@
 import type { PageContextServer } from "vike/types";
-import { getBusinessByCountryAndSlug, getBusinessBySlug } from "@/services/businesses";
+import {
+  getAllBusinesses,
+  getAvailableLocations,
+  getBusinessByCountryAndSlug,
+  getBusinessBySlug,
+  getSearchSuggestions,
+} from "@/services/businesses";
+import { getFeaturedBusinessesForRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
+
+type AvailableLocation = {
+  countryCode: string;
+  countryName: string;
+  states: Array<{ code: string; name: string; cities: string[] }>;
+};
 
 type PageContext = PageContextServer & {
   urlOriginal?: string;
   initialBusiness?: BusinessFrontend | null;
+  initialBusinesses?: BusinessFrontend[];
+  initialFeaturedBusinesses?: BusinessFrontend[];
+  initialAvailableLocations?: AvailableLocation[];
+  initialSearchSuggestions?: string[];
   isBusinessPage?: boolean;
 };
 
@@ -21,6 +38,24 @@ function parseBusinessPath(pathname: string) {
   return null;
 }
 
+async function getPublicDirectoryData(includeFeatured: boolean) {
+  const [businesses, featuredBusinesses, availableLocations, searchSuggestions] = await Promise.all([
+    getAllBusinesses().catch(() => [] as BusinessFrontend[]),
+    includeFeatured
+      ? getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[])
+      : Promise.resolve([] as BusinessFrontend[]),
+    getAvailableLocations().catch(() => [] as AvailableLocation[]),
+    getSearchSuggestions().catch(() => [] as string[]),
+  ]);
+
+  return {
+    initialBusinesses: businesses,
+    initialFeaturedBusinesses: featuredBusinesses,
+    initialAvailableLocations: availableLocations,
+    initialSearchSuggestions: searchSuggestions,
+  };
+}
+
 export async function onBeforeRender(pageContext: PageContext) {
   const pathname = (() => {
     try {
@@ -29,6 +64,26 @@ export async function onBeforeRender(pageContext: PageContext) {
       return "/";
     }
   })();
+
+  if (pathname === "/") {
+    return {
+      pageContext: {
+        ...(await getPublicDirectoryData(true)),
+        initialBusiness: null,
+        isBusinessPage: false,
+      },
+    };
+  }
+
+  if (pathname === "/buscar") {
+    return {
+      pageContext: {
+        ...(await getPublicDirectoryData(false)),
+        initialBusiness: null,
+        isBusinessPage: false,
+      },
+    };
+  }
 
   const businessRoute = parseBusinessPath(pathname);
   if (!businessRoute) {
