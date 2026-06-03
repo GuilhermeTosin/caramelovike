@@ -75,7 +75,7 @@ export async function onBeforeRender(pageContext: PageContext) {
     };
   }
 
-  if (pathname === "/buscar") {
+  if (pathname === "/buscar" || pathname === "/negocios" || pathname.startsWith("/negocios/")) {
     return {
       pageContext: {
         ...(await getPublicDirectoryData(false)),

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const PUBLIC_PAGE_PATHS = ["/", "/buscar", "/sobre", "/contato", "/privacidade", "/termos", "/negocio-verificado"];
+const PUBLIC_PAGE_PATHS = ["/", "/negocios", "/buscar", "/sobre", "/contato", "/privacidade", "/termos", "/negocio-verificado"];
 
 function getBaseUrl(req: VercelRequest) {
   const proto = String(req.headers["x-forwarded-proto"] || "https");

@@ -28,6 +28,10 @@ export default function SiteFooter() {
                 <MapPin className="w-4 h-4" />
                 Buscar negócios
               </Link>
+              <Link to="/negocios" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+                <Store className="w-4 h-4" />
+                Todos os negócios
+              </Link>
               <Link to="/cadastro" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Store className="w-4 h-4" />
                 Cadastrar negócio

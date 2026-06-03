@@ -13,7 +13,8 @@ type CachedSitemapData = {
   rows: SitemapBusinessRow[];
 };
 
-const CHUNK_SIZE = 1000;
+export const BUSINESS_SITEMAP_CHUNK_SIZE = 1000;
+const SUPABASE_PAGE_SIZE = 1000;
 const CACHE_TTL_MS = 15 * 60 * 1000;
 let cache: CachedSitemapData | null = null;
 
@@ -43,9 +44,10 @@ function buildBusinessUrl(baseUrl: string, row: SitemapBusinessRow): string | nu
   const state = normalizePart(String(row.state_code || ""));
   const city = normalizePart(String(row.city || ""));
 
-  if (!slug || !country) return null;
-  if (state && city) return `${baseUrl}/${country}/${state}/${city}/${slug}`;
-  return `${baseUrl}/${country}/${slug}`;
+  if (!slug) return null;
+  if (country && state && city) return `${baseUrl}/${country}/${state}/${city}/${slug}`;
+  if (country) return `${baseUrl}/${country}/${slug}`;
+  return `${baseUrl}/go/${slug}`;
 }
 
 async function fetchBusinessesForSitemap(): Promise<SitemapBusinessRow[]> {
@@ -55,19 +57,29 @@ async function fetchBusinessesForSitemap(): Promise<SitemapBusinessRow[]> {
     throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SECRET_KEY) são obrigatórios.");
   }
 
-  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code,state_code,city,updated_at&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null`;
-  const response = await fetch(endpoint, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      Accept: "application/json; charset=utf-8",
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`Falha ao consultar businesses para sitemap (${response.status}).`);
+  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code,state_code,city,updated_at&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null&order=created_at.desc`;
+  const rows: SitemapBusinessRow[] = [];
+
+  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const response = await fetch(endpoint, {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        Accept: "application/json; charset=utf-8",
+        Range: `${from}-${to}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Falha ao consultar businesses para sitemap (${response.status}).`);
+    }
+
+    const pageRows = (await response.json()) as SitemapBusinessRow[];
+    rows.push(...pageRows);
+    if (pageRows.length < SUPABASE_PAGE_SIZE) break;
   }
-  const rows = (await response.json()) as SitemapBusinessRow[];
-  return rows.filter((r) => !!r.slug && !!r.country_code);
+
+  return rows.filter((r) => !!r.slug);
 }
 
 export async function getSitemapRows(forceRefresh = false): Promise<SitemapBusinessRow[]> {
@@ -80,13 +92,14 @@ export async function getSitemapRows(forceRefresh = false): Promise<SitemapBusin
 }
 
 export function getBusinessSitemapChunksCount(rows: SitemapBusinessRow[]): number {
-  return Math.max(1, Math.ceil(rows.length / CHUNK_SIZE));
+  return Math.max(1, Math.ceil(rows.length / BUSINESS_SITEMAP_CHUNK_SIZE));
 }
 
 export function buildSitemapIndexXml(baseUrl: string, rows: SitemapBusinessRow[]): string {
   const now = new Date().toISOString();
   const chunks = getBusinessSitemapChunksCount(rows);
   const staticSitemapLoc = `${baseUrl}/sitemaps/static.xml`;
+  const directoriesSitemapLoc = `${baseUrl}/sitemaps/directories.xml`;
   const businesses = Array.from({ length: chunks }, (_, i) => {
     const page = i + 1;
     return `<sitemap><loc>${baseUrl}/sitemaps/businesses-${page}.xml</loc><lastmod>${now}</lastmod></sitemap>`;
@@ -95,6 +108,7 @@ export function buildSitemapIndexXml(baseUrl: string, rows: SitemapBusinessRow[]
   return `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap><loc>${staticSitemapLoc}</loc><lastmod>${now}</lastmod></sitemap>
+  <sitemap><loc>${directoriesSitemapLoc}</loc><lastmod>${now}</lastmod></sitemap>
   ${businesses}
 </sitemapindex>`;
 }
@@ -102,6 +116,7 @@ export function buildSitemapIndexXml(baseUrl: string, rows: SitemapBusinessRow[]
 export function buildStaticSitemapXml(baseUrl: string): string {
   const urls = [
     "/",
+    "/negocios",
     "/buscar",
     "/sobre",
     "/contato",
@@ -120,8 +135,8 @@ export function buildStaticSitemapXml(baseUrl: string): string {
 }
 
 export function buildBusinessSitemapXml(baseUrl: string, rows: SitemapBusinessRow[], page: number): string {
-  const start = (page - 1) * CHUNK_SIZE;
-  const pageRows = rows.slice(start, start + CHUNK_SIZE);
+  const start = (page - 1) * BUSINESS_SITEMAP_CHUNK_SIZE;
+  const pageRows = rows.slice(start, start + BUSINESS_SITEMAP_CHUNK_SIZE);
   const body = pageRows
     .map((row) => {
       const loc = buildBusinessUrl(baseUrl, row);
@@ -130,6 +145,45 @@ export function buildBusinessSitemapXml(baseUrl: string, rows: SitemapBusinessRo
       return `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>weekly</changefreq></url>`;
     })
     .filter(Boolean)
+    .join("");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  ${body}
+</urlset>`;
+}
+
+export function buildDirectorySitemapXml(baseUrl: string, rows: SitemapBusinessRow[]): string {
+  const now = new Date().toISOString();
+  const urls = new Set<string>([`${baseUrl}/negocios`]);
+  const cityCounts = new Map<string, number>();
+
+  rows.forEach((row) => {
+    const country = normalizePart(String(row.country_code || ""));
+    const state = normalizePart(String(row.state_code || ""));
+    const city = normalizePart(String(row.city || ""));
+    if (!country) return;
+
+    urls.add(`${baseUrl}/negocios/${country}`);
+    if (!state) return;
+
+    urls.add(`${baseUrl}/negocios/${country}/${state}`);
+    if (!city) return;
+
+    const cityUrl = `${baseUrl}/negocios/${country}/${state}/${city}`;
+    urls.add(cityUrl);
+    cityCounts.set(cityUrl, (cityCounts.get(cityUrl) || 0) + 1);
+  });
+
+  cityCounts.forEach((count, cityUrl) => {
+    const pages = Math.ceil(count / 100);
+    for (let page = 2; page <= pages; page += 1) {
+      urls.add(`${cityUrl}/pagina/${page}`);
+    }
+  });
+
+  const body = Array.from(urls)
+    .map((loc) => `<url><loc>${loc}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq></url>`)
     .join("");
 
   return `<?xml version="1.0" encoding="UTF-8"?>

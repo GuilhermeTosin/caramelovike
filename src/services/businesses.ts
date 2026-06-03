@@ -319,16 +319,27 @@ function mergeBusinessEvents(
 }
 
 export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
-  const { data } = await supabase
-    .from("businesses")
-    .select("*")
-    .or("moderation_status.eq.approved,moderation_status.is.null")
-    .order("created_at", { ascending: false });
+  const pageSize = 1000;
+  const businessRows: Business[] = [];
 
-  if (!data) return [];
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data } = await supabase
+      .from("businesses")
+      .select("*")
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    const pageRows = (data || []) as Business[];
+    businessRows.push(...pageRows);
+    if (pageRows.length < pageSize) break;
+  }
+
+  if (businessRows.length === 0) return [];
 
   // Buscar nomes dos proprietarios
-  const ownerIds = [...new Set(data.map((b: Business) => b.owner_id))];
+  const ownerIds = [...new Set(businessRows.map((b: Business) => b.owner_id))];
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, name")
@@ -338,7 +349,6 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
     (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
   );
 
-  const businessRows = data as Business[];
   const businessIds = businessRows.map((b) => b.id);
   const { data: linkedEventsRows } = await supabase
     .from("events")

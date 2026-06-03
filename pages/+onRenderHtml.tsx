@@ -7,6 +7,7 @@ type PageContext = {
   Page: React.ComponentType<{ pageContext: PageContext }>;
   urlOriginal?: string;
   initialBusiness?: BusinessFrontend | null;
+  initialBusinesses?: BusinessFrontend[];
   isBusinessPage?: boolean;
 };
 
@@ -48,6 +49,117 @@ function buildBusinessDescription(business: BusinessFrontend) {
   const services = (business.services || []).filter(Boolean).slice(0, 3).join(", ");
   const details = services ? ` Especialidades: ${services}.` : "";
   return `${business.name} em ${place}. Encontre informações de contato, avaliações e detalhes sobre esse ${categoryLabel}.${details}`.trim();
+}
+
+function slugifyMetaPart(value: string) {
+  return value
+    .toString()
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "")
+    .replace(/--+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+}
+
+function titleCaseFromSlug(value: string) {
+  return value
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function findDirectoryLabels(
+  businesses: BusinessFrontend[],
+  countryCode: string,
+  stateCode: string,
+  citySlug: string
+) {
+  const matchingCountry = businesses.find(
+    (business) => (business.address.countryCode || "").toLowerCase() === countryCode
+  );
+  const matchingState = businesses.find(
+    (business) =>
+      (business.address.countryCode || "").toLowerCase() === countryCode &&
+      (business.address.stateCode || "").toLowerCase() === stateCode
+  );
+  const matchingCity = businesses.find(
+    (business) =>
+      (business.address.countryCode || "").toLowerCase() === countryCode &&
+      (business.address.stateCode || "").toLowerCase() === stateCode &&
+      slugifyMetaPart(business.address.city || "") === citySlug
+  );
+
+  return {
+    country: matchingCountry?.address.country || countryCode.toUpperCase(),
+    state: matchingState?.address.state || stateCode.toUpperCase(),
+    city: matchingCity?.address.city || titleCaseFromSlug(citySlug),
+  };
+}
+
+function getDirectoryPageMeta(urlOriginal: string | undefined, businesses: BusinessFrontend[]) {
+  const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts[0] !== "negocios") return null;
+
+  const countryCode = (parts[1] || "").toLowerCase();
+  const stateCode = (parts[2] || "").toLowerCase();
+  const citySlug = slugifyMetaPart(parts[3] || "");
+  const pageNumber = parts[4] === "pagina" ? Math.max(1, Number(parts[5] || "1")) : 1;
+  const pageSuffix = pageNumber > 1 ? ` - Página ${pageNumber}` : "";
+
+  if (!countryCode) {
+    return {
+      title: `Negócios brasileiros por país${pageSuffix} | Caramelinho.com`,
+      description:
+        "Explore o diretório de negócios brasileiros no exterior por país, estado e cidade. Encontre empresas, serviços e produtos da comunidade brasileira.",
+    };
+  }
+
+  const labels = findDirectoryLabels(businesses, countryCode, stateCode, citySlug);
+
+  if (!stateCode) {
+    return {
+      title: `Negócios brasileiros no ${labels.country}${pageSuffix} | Caramelinho.com`,
+      description: `Encontre negócios brasileiros no ${labels.country}. Navegue por estados, regiões e cidades com empresas e serviços da comunidade brasileira.`,
+    };
+  }
+
+  if (!citySlug) {
+    return {
+      title: `Negócios brasileiros em ${labels.state}, ${labels.country}${pageSuffix} | Caramelinho.com`,
+      description: `Veja cidades com negócios brasileiros em ${labels.state}, ${labels.country}. Descubra restaurantes, serviços, profissionais e lojas da comunidade brasileira.`,
+    };
+  }
+
+  return {
+    title: `Negócios brasileiros em ${labels.city}${pageSuffix} | Caramelinho.com`,
+    description: `Encontre negócios brasileiros em ${labels.city}, ${labels.state}. Veja empresas, serviços, produtos, contatos e páginas de negócios da comunidade brasileira na região.`,
+  };
+}
+
+function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] = []) {
+  const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
+  if (pathname === "/negocios" || pathname.startsWith("/negocios/")) {
+    return getDirectoryPageMeta(urlOriginal, businesses) || {
+      title: "Negócios brasileiros por país | Caramelinho.com",
+      description: "Explore o diretório de negócios brasileiros no exterior por país, estado e cidade.",
+    };
+  }
+  if (pathname === "/buscar") {
+    return {
+      title: "Buscar negocios brasileiros | Caramelinho.com",
+      description: "Busque negocios, servicos, produtos e eventos brasileiros perto de voce no exterior.",
+    };
+  }
+  return {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  };
 }
 
 function jsonLdScript(data: unknown) {
@@ -147,8 +259,9 @@ export function onRenderHtml(pageContext: PageContext) {
   const canonicalUrl = getCanonicalUrl(pageContext.urlOriginal);
   const business = pageContext.initialBusiness || null;
   const isBusinessPage = !!pageContext.isBusinessPage && !!business;
-  const pageTitle = isBusinessPage ? buildBusinessTitle(business) : SITE_TITLE;
-  const pageDescription = isBusinessPage ? buildBusinessDescription(business) : SITE_DESCRIPTION;
+  const staticMeta = getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || []);
+  const pageTitle = isBusinessPage ? buildBusinessTitle(business) : staticMeta.title;
+  const pageDescription = isBusinessPage ? buildBusinessDescription(business) : staticMeta.description;
   const pageImage = isBusinessPage
     ? business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg"
     : "https://www.caramelinho.com/og-image.jpg";

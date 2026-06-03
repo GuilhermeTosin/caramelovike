@@ -6,6 +6,7 @@ import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
 import type { BusinessFrontend } from "@/types/database";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
+import BusinessDirectoryPage from "@/pages/BusinessDirectoryPage";
 import BusinessPage from "@/pages/BusinessPage";
 import Register from "@/pages/Register";
 import Login from "@/pages/Login";
@@ -125,6 +126,11 @@ export default function App({
               />
             }
           />
+          <Route path="/negocios" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
+          <Route path="/negocios/:countryCode" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
+          <Route path="/negocios/:countryCode/:stateCode" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
+          <Route path="/negocios/:countryCode/:stateCode/:citySlug" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
+          <Route path="/negocios/:countryCode/:stateCode/:citySlug/pagina/:page" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
           <Route path="/cadastro" element={<Register />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/redefinir-senha" element={<ResetPassword />} />

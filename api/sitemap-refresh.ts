@@ -1,9 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-
-type SitemapBusinessRow = {
-  slug: string | null;
-  country_code: string | null;
-};
+import { BUSINESS_SITEMAP_CHUNK_SIZE, getBusinessSitemapChunksCount, getSitemapRows } from "./_sitemap";
 
 type JwtPayload = {
   sub?: string;
@@ -30,8 +26,7 @@ function decodeJwtPayload(token: string): JwtPayload | null {
   try {
     const parts = token.split(".");
     if (parts.length < 2) return null;
-    const payloadRaw = parts[1];
-    const payloadJson = Buffer.from(payloadRaw, "base64url").toString("utf-8");
+    const payloadJson = Buffer.from(parts[1], "base64url").toString("utf-8");
     return JSON.parse(payloadJson) as JwtPayload;
   } catch {
     return null;
@@ -43,6 +38,7 @@ async function isAdmin(accessToken: string): Promise<{ ok: boolean; reason?: str
   const serviceRoleKey = getServiceRoleKey();
   if (!url || !serviceRoleKey) return { ok: false, reason: "missing_env" };
   if (!accessToken) return { ok: false, reason: "missing_token" };
+
   const jwtPayload = decodeJwtPayload(accessToken);
   const userId = jwtPayload?.sub || "";
   const now = Math.floor(Date.now() / 1000);
@@ -61,33 +57,11 @@ async function isAdmin(accessToken: string): Promise<{ ok: boolean; reason?: str
     }
   );
   if (!roleResp.ok) return { ok: false, reason: `profiles_query_failed_${roleResp.status}` };
+
   const rows = (await roleResp.json()) as Array<{ role?: string }>;
   const role = (rows[0]?.role || "").toLowerCase();
   if (role !== "admin") return { ok: false, reason: "role_not_admin", role };
   return { ok: true, role };
-}
-
-async function countBusinessesForSitemap(): Promise<number> {
-  const url = getSupabaseUrl();
-  const serviceRoleKey = getServiceRoleKey();
-  if (!url || !serviceRoleKey) {
-    throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não configurados.");
-  }
-
-  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null`;
-  const response = await fetch(endpoint, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      Accept: "application/json; charset=utf-8",
-    },
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`Falha ao consultar negócios (${response.status}) ${text}`.trim());
-  }
-  const rows = (await response.json()) as SitemapBusinessRow[];
-  return rows.filter((r) => !!r.slug && !!r.country_code).length;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -103,13 +77,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: "Acesso negado.", reason: admin.reason, role: admin.role || null });
     }
 
-    const businessCount = await countBusinessesForSitemap();
-    const chunkSize = 1000;
-    const sitemapChunks = Math.max(1, Math.ceil(businessCount / chunkSize));
+    const rows = await getSitemapRows(true);
+    const sitemapChunks = getBusinessSitemapChunksCount(rows);
 
     return res.status(200).json({
       ok: true,
-      businessUrls: businessCount,
+      businessUrls: rows.length,
+      chunkSize: BUSINESS_SITEMAP_CHUNK_SIZE,
       sitemapChunks,
       refreshedAt: new Date().toISOString(),
     });
