@@ -18,6 +18,7 @@ $env
 .next/
 .npm-cache/
 build/
+supabase/.temp/
 
 node_modules
 dist
