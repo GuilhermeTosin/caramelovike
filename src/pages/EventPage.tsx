@@ -7,6 +7,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { getCommunityEventById } from "@/services/events";
 import type { CommunityEvent } from "@/types/database";
 import { setSeoMeta } from "@/lib/seo";
+import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 
 export default function EventPage() {
   const { eventId } = useParams();
@@ -89,8 +90,7 @@ export default function EventPage() {
               </div>
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                {...getExternalLinkProps()}
                 className="inline-flex items-center gap-2 rounded-md bg-secondary px-3 py-2 hover:bg-secondary/80"
               >
                 <MapPin className="w-4 h-4 text-amber-600" />
@@ -108,7 +108,7 @@ export default function EventPage() {
 
             {event.ticket_url ? (
               <div className="mt-6">
-                <a href={event.ticket_url} target="_blank" rel="noopener noreferrer nofollow">
+                <a href={event.ticket_url} {...getExternalLinkProps()}>
                   <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0">
                     Comprar ingressos
                   </Button>

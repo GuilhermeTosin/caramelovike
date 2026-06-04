@@ -11,7 +11,7 @@ const targetRootFiles = ["index.html", "package.json", ".editorconfig", ".gitatt
 const suspicious = [
   /\uFFFD/,
   /\u00C3|\u00C2/,
-  /N\?o|n\?o|h\?|H\?|voc\?|Voc\?/,
+  /(?:^|[^A-Za-z])(?:N\?o|n\?o|h\?|H\?|voc\?|Voc\?)(?:[^A-Za-z]|$)/,
   /â€”|â€“|â€œ|â€|â€¢/,
   /Alimentaaao|Servi\?os|Constru\?\?|Saade|Finanaas|Educaaao|Comarcio|Mudanaa/,
   /serviaos|construaao|traduaa|imigraa|localizaaao|referancia|histarico|cadigos/,

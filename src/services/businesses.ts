@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Business, BusinessFrontend, Review } from "@/types/database";
 import type { CommunityEvent } from "@/types/database";
+import { getFollowLinksBusinessIds } from "@/services/searchPreferences";
 
 export const BUSINESS_CATEGORY_OPTIONS = [
   { id: "food", label: "Alimentação (Restaurantes, Padarias, Cafés)" },
@@ -200,7 +201,11 @@ export const COUNTRIES: Record<string, { name: string; states: Record<string, st
   },
 };
 
-export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
+export function toFrontend(
+  b: Business,
+  ownerName?: string,
+  options?: { allowFollowExternalLinks?: boolean }
+): BusinessFrontend {
   const categoryId = getCategoryId((b as any).category_id || "");
   const verifiedUntil = b.owner_verified_until || null;
   const isVerifiedByDate =
@@ -253,6 +258,7 @@ export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
     instagram: b.instagram || undefined,
     facebook: b.facebook || undefined,
     whatsapp: b.whatsapp || undefined,
+    allowFollowExternalLinks: !!options?.allowFollowExternalLinks,
     reviews: (b.reviews || []).map((r: any) => ({
       id: r.id,
       business_id: r.business_id || r.businessId,
@@ -273,6 +279,10 @@ export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
     events: b.events || [],
     createdAt: b.created_at,
   };
+}
+
+function buildFollowLinksBusinessIdSet(ids: string[]): Set<string> {
+  return new Set(ids.map((id) => String(id || "").trim()).filter(Boolean));
 }
 
 function mergeBusinessEvents(
@@ -364,13 +374,16 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
     return acc;
   }, new Map<string, CommunityEvent[]>());
 
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+
   return businessRows.map((b) =>
     toFrontend(
       {
         ...b,
         events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
       } as Business,
-      ownerNames.get(b.owner_id)
+      ownerNames.get(b.owner_id),
+      { allowFollowExternalLinks: followLinksBusinessIds.has(b.id) }
     )
   );
 }
@@ -506,6 +519,8 @@ export async function getBusinessesByRadiusRpc(params: {
     return acc;
   }, new Map<string, CommunityEvent[]>());
 
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+
   const byId = new Map(
     businessRows.map((b) => [
       b.id,
@@ -514,7 +529,8 @@ export async function getBusinessesByRadiusRpc(params: {
           ...b,
           events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
         } as Business,
-        ownerNames.get(b.owner_id)
+        ownerNames.get(b.owner_id),
+        { allowFollowExternalLinks: followLinksBusinessIds.has(b.id) }
       ),
     ])
   );
@@ -589,7 +605,8 @@ export async function getBusinessBySlug(
 
   biz.events = mergeBusinessEvents(biz.events, (linkedEventsRows || []) as CommunityEvent[]);
 
-  return toFrontend(biz, profile?.name);
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  return toFrontend(biz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 export async function getBusinessByCountryAndSlug(
@@ -629,7 +646,8 @@ export async function getBusinessByCountryAndSlug(
     created_at: r.created_at,
   })) as Review[];
 
-  return toFrontend(biz, profile?.name);
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  return toFrontend(biz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 export async function getBusinessByShortSlug(slug: string): Promise<BusinessFrontend | null> {
@@ -675,7 +693,8 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
     .eq("id", biz.owner_id)
     .maybeSingle();
 
-  return toFrontend(biz, profile?.name);
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  return toFrontend(biz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 export async function isBusinessSlugAvailable(
@@ -828,13 +847,17 @@ export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFro
     return acc;
   }, new Map<string, CommunityEvent[]>());
 
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+
   return businessRows.map((b) => {
     const withReviews: Business = {
       ...b,
       reviews: reviewsByBusinessId.get(b.id) || [],
       events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
     };
-    return toFrontend(withReviews, profile?.name);
+    return toFrontend(withReviews, profile?.name, {
+      allowFollowExternalLinks: followLinksBusinessIds.has(b.id),
+    });
   });
 }
 
@@ -1019,7 +1042,12 @@ export async function getPendingBusinessesForAdmin(): Promise<BusinessFrontend[]
     (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
   );
 
-  return (data as Business[]).map((b) => toFrontend(b, ownerNames.get(b.owner_id)));
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  return (data as Business[]).map((b) =>
+    toFrontend(b, ownerNames.get(b.owner_id), {
+      allowFollowExternalLinks: followLinksBusinessIds.has(b.id),
+    })
+  );
 }
 
 export async function setBusinessModerationStatus(

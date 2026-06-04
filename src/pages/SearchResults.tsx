@@ -39,6 +39,7 @@ import { geocodeAddress } from "@/lib/google-maps";
 import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
+import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
@@ -1838,8 +1839,7 @@ export default function SearchResults({
                                 {address ? (
                                   <a
                                     href={mapsUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer nofollow"
+                                    {...getExternalLinkProps()}
                                     className="text-xs text-primary hover:underline"
                                   >
                                     {address}
@@ -2221,8 +2221,7 @@ export default function SearchResults({
                         {address ? (
                           <a
                             href={mapsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer nofollow"
+                            {...getExternalLinkProps()}
                             className="text-xs text-primary hover:underline"
                           >
                             {address}

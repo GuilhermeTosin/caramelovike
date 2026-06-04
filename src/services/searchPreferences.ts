@@ -4,6 +4,7 @@ export type CategorySynonymsMap = Record<string, string[]>;
 
 const STORAGE_KEY = "caramelinho_search_category_synonyms_v1";
 const DB_KEY = "category_synonyms";
+const FOLLOW_LINKS_BUSINESS_IDS_KEY = "follow_links_business_ids";
 
 export const DEFAULT_CATEGORY_SYNONYMS: CategorySynonymsMap = {
   "Alimentação": ["restaurante", "lanchonete", "lanches", "padaria", "comida", "gastronomia", "café", "almoço", "jantar", "marmita"],
@@ -50,6 +51,17 @@ function normalizeConfig(input: unknown): CategorySynonymsMap {
   return merged;
 }
 
+function normalizeBusinessIdList(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return Array.from(
+    new Set(
+      input
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 export async function getGlobalCategorySynonymsConfig(): Promise<CategorySynonymsMap> {
   try {
     const { data, error } = await supabase
@@ -82,6 +94,37 @@ export async function saveGlobalCategorySynonymsConfig(config: CategorySynonymsM
     if (error) return false;
     saveCategorySynonymsConfig(payload);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getFollowLinksBusinessIds(): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from("search_settings")
+      .select("value")
+      .eq("key", FOLLOW_LINKS_BUSINESS_IDS_KEY)
+      .maybeSingle();
+
+    if (error || !data?.value) return [];
+    return normalizeBusinessIdList(data.value);
+  } catch {
+    return [];
+  }
+}
+
+export async function saveFollowLinksBusinessIds(ids: string[]): Promise<boolean> {
+  try {
+    const payload = normalizeBusinessIdList(ids);
+    const { error } = await supabase.from("search_settings").upsert(
+      {
+        key: FOLLOW_LINKS_BUSINESS_IDS_KEY,
+        value: payload,
+      },
+      { onConflict: "key" }
+    );
+    return !error;
   } catch {
     return false;
   }

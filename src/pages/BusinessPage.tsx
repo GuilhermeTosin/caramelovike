@@ -46,6 +46,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setHreflang, setJsonLd, setRobots } from "@/lib/seo";
+import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
 import NotFound from "@/pages/NotFound";
@@ -538,7 +539,7 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
     trackBusinessClick(business.id, "whatsapp", session?.userId);
     const wpp = business.whatsapp.replace(/\s+/g, "").replace(/[^0-9]/g, "");
     const text = encodeURIComponent(`Olá! Vi seu negócio no Caramelinho.com: ${business.name}`);
-    window.open(`https://wa.me/${wpp}?text=${text}`, "_blank");
+    window.open(`https://wa.me/${wpp}?text=${text}`, "_blank", "noopener,noreferrer");
   };
 
   const handleRoute = () => {
@@ -551,7 +552,11 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
     const query = business.address.lat && business.address.lng
       ? `${business.address.lat},${business.address.lng}`
       : `${business.address.street}, ${business.address.city}, ${business.address.country}`;
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`, "_blank");
+    window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   };
 
   const handleExternalClick = (type: "phone" | "email" | "website") => {
@@ -979,8 +984,7 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
                               </span>
                               <a
                                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                {...getExternalLinkProps()}
                                 className="inline-flex items-center gap-1.5 rounded-md bg-secondary px-2.5 py-1 hover:bg-secondary/80"
                                 title="Abrir no Google Maps"
                               >
@@ -994,8 +998,7 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
                               {event.ticketUrl?.trim() ? (
                                 <a
                                   href={event.ticketUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer nofollow"
+                                  {...getExternalLinkProps()}
                                   className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-2.5 py-1 font-medium hover:opacity-90"
                                 >
                                   <Ticket className="w-4 h-4" />
@@ -1293,8 +1296,7 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
                       <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                       <a
                         href={business.website.startsWith("http") ? business.website : `https://${business.website}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        {...getExternalLinkProps({ allowFollow: business.allowFollowExternalLinks })}
                         onClick={() => handleExternalClick("website")}
                         className="text-sm text-primary hover:underline truncate"
                       >
@@ -1352,8 +1354,7 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
                     {business.instagram && (
                       <a
                         href={buildInstagramUrl(business.instagram)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        {...getExternalLinkProps({ allowFollow: business.allowFollowExternalLinks })}
                         className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Instagram className="w-4 h-4 text-pink-600" />
@@ -1363,8 +1364,7 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
                     {business.facebook && (
                       <a
                         href={buildFacebookUrl(business.facebook)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        {...getExternalLinkProps({ allowFollow: business.allowFollowExternalLinks })}
                         className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Facebook className="w-4 h-4 text-blue-600" />
@@ -1387,7 +1387,7 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
                     className="justify-start"
                     onClick={() => {
                       const text = encodeURIComponent(`Confira ${business.name} no Caramelinho: ${shareUrl}`);
-                      window.open(`https://wa.me/?text=${text}`, "_blank");
+                      window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
                     }}
                   >
                     <MessageCircle className="w-4 h-4 mr-2 text-green-600" />
@@ -1398,7 +1398,11 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
                     className="justify-start"
                     onClick={() => {
                       const url = encodeURIComponent(shareUrl);
-                      window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank");
+                      window.open(
+                        `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+                        "_blank",
+                        "noopener,noreferrer"
+                      );
                     }}
                   >
                     <Facebook className="w-4 h-4 mr-2 text-blue-600" />
@@ -1660,8 +1664,6 @@ function formatInstagramDisplay(value: string): string {
 function formatFacebookDisplay(value: string): string {
   return normalizeSocialValue(value) || value;
 }
-
-
 
 
 

@@ -235,6 +235,7 @@ export interface BusinessFrontend {
   instagram?: string;
   facebook?: string;
   whatsapp?: string;
+  allowFollowExternalLinks?: boolean;
   reviews: Review[];
   averageRating: number;
   ownerVerified: boolean;

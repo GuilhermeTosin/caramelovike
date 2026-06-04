@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { MapPin, Store, LogIn, FileText, ScrollText, Info, Mail, Instagram, Facebook } from "lucide-react";
+import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 
 export default function SiteFooter() {
   return (
@@ -68,11 +69,11 @@ export default function SiteFooter() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-3">Siga-nos</h4>
             <div className="space-y-2 text-sm">
-              <a href="" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors" aria-label="Facebook">
+              <a href="" {...getExternalLinkProps()} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors" aria-label="Facebook">
                 <Facebook className="w-4 h-4" />
                 Facebook
               </a>
-              <a href="" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors" aria-label="Instagram">
+              <a href="" {...getExternalLinkProps()} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors" aria-label="Instagram">
                 <Instagram className="w-4 h-4" />
                 Instagram
               </a>
