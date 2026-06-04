@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff } from "lucide-react";
+import { MapPin, Star, Store, Briefcase, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -606,11 +606,6 @@ export default function Home({
               <h2 className="text-3xl font-bold text-foreground">Negócios em Destaque</h2>
               <p className="mt-2 text-muted-foreground">Recomendados pelo Caramelinho</p>
             </div>
-            <Button asChild variant="outline">
-              <Link to="/buscar">
-                Ver Todos <ChevronRight className="w-4 h-4 ml-1" />
-              </Link>
-            </Button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -826,7 +821,6 @@ function normalizeText(value?: string | null): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
-
 
 
 
