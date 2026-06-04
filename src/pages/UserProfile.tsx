@@ -394,6 +394,7 @@ export default function UserProfile() {
   // Reviews I made (on any business)
   const [givenReviews, setGivenReviews] = useState<(Review & { businessName: string; businessSlug: string; businessId: string })[]>([]);
   const [subAvaliacoesTab, setSubAvaliacoesTab] = useState("recebidas");
+  const isServerRender = typeof window === "undefined";
 
   // Edit review state
   const [editingReview, setEditingReview] = useState<{
@@ -1986,6 +1987,17 @@ export default function UserProfile() {
     safeAllBusinessesPage * ALL_BUSINESSES_PER_PAGE
   );
 
+  if (isServerRender) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <PawPrint className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4 animate-pulse" />
+          <p className="text-muted-foreground">Carregando seu perfil...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -2020,7 +2032,12 @@ export default function UserProfile() {
           <h1 className="text-xl font-bold mb-2">Ops! Perfil não encontrado</h1>
           <p className="text-muted-foreground mb-6">Não conseguimos carregar suas informações. Isso pode acontecer se seu perfil ainda não foi criado no banco de dados.</p>
           <div className="flex flex-col gap-3">
-            <Button onClick={() => window.location.reload()} className="w-full caramelo-gradient text-white border-0">
+            <Button
+              onClick={() => {
+                if (typeof window !== "undefined") window.location.reload();
+              }}
+              className="w-full caramelo-gradient text-white border-0"
+            >
               Tentar Novamente
             </Button>
             <Button variant="ghost" onClick={logout} className="w-full">
