@@ -35,10 +35,6 @@
     { "src": "/api/(.*)", "dest": "/api/$1" },
 
     { "handle": "filesystem" },
-    { "src": "/go/([^/]+)", "dest": "/index.html" },
-    { "src": "/eventos/([^/]+)", "dest": "/index.html" },
-    { "src": "/([A-Za-z]{2})/([^/]+)/([^/]+)/([^/]+)", "dest": "/index.html" },
-    { "src": "/([A-Za-z]{2})/([^/]+)", "dest": "/index.html" },
     { "src": "/(.*)", "dest": "/api/ssr" }
   ]
 }
