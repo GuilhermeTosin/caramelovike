@@ -2,7 +2,6 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import {
   BUSINESS_SITEMAP_CHUNK_SIZE,
   clearSitemapCache,
-  countSitemapBusinessRows,
 } from "./_sitemap";
 
 type JwtPayload = {
@@ -89,14 +88,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     clearSitemapCache();
-    const businessUrls = await countSitemapBusinessRows();
-    const sitemapChunks = Math.max(1, Math.ceil(businessUrls / BUSINESS_SITEMAP_CHUNK_SIZE));
 
     return res.status(200).json({
       ok: true,
-      businessUrls,
+      businessUrls: null,
       chunkSize: BUSINESS_SITEMAP_CHUNK_SIZE,
-      sitemapChunks,
+      sitemapChunks: null,
       refreshedAt: new Date().toISOString(),
     });
   } catch (error) {
