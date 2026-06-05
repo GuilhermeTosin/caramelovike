@@ -96,15 +96,20 @@ export async function onBeforeRender(pageContext: PageContext) {
   }
 
   let business: BusinessFrontend | null = null;
-  if (businessRoute.kind === "full") {
-    business = await getBusinessBySlug(
-      businessRoute.countryCode,
-      businessRoute.stateCode,
-      businessRoute.city,
-      businessRoute.businessName,
-    );
-  } else if (businessRoute.kind === "country") {
-    business = await getBusinessByCountryAndSlug(businessRoute.countryCode, businessRoute.businessName);
+  try {
+    if (businessRoute.kind === "full") {
+      business = await getBusinessBySlug(
+        businessRoute.countryCode,
+        businessRoute.stateCode,
+        businessRoute.city,
+        businessRoute.businessName,
+      );
+    } else if (businessRoute.kind === "country") {
+      business = await getBusinessByCountryAndSlug(businessRoute.countryCode, businessRoute.businessName);
+    }
+  } catch (error) {
+    console.error("[onBeforeRender] business lookup failed:", error);
+    business = null;
   }
 
   return {

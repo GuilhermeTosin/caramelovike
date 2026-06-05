@@ -51,6 +51,25 @@ function buildBusinessDescription(business: BusinessFrontend) {
   return `${business.name} em ${place}. Encontre informações de contato, avaliações e detalhes sobre esse ${categoryLabel}.${details}`.trim();
 }
 
+function buildFallbackBusinessMeta(urlOriginal?: string) {
+  const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
+  const parts = pathname.split("/").filter(Boolean);
+  const citySlug = parts[2] || "";
+  const cityName = titleCaseFromSlug(citySlug);
+
+  if (parts.length === 4 && cityName) {
+    return {
+      title: `Negócio brasileiro em ${cityName} | Caramelinho.com`,
+      description: `Encontre informações de contato, avaliações e detalhes sobre negócios brasileiros em ${cityName}.`,
+    };
+  }
+
+  return {
+    title: "Negócio brasileiro | Caramelinho.com",
+    description: "Encontre informações de contato, avaliações e detalhes sobre negócios brasileiros no exterior.",
+  };
+}
+
 function slugifyMetaPart(value: string) {
   return value
     .toString()
@@ -258,15 +277,21 @@ export function onRenderHtml(pageContext: PageContext) {
   const pageHtml = renderToString(<Page pageContext={pageContext} />);
   const canonicalUrl = getCanonicalUrl(pageContext.urlOriginal);
   const business = pageContext.initialBusiness || null;
-  const isBusinessPage = !!pageContext.isBusinessPage && !!business;
+  const isBusinessPage = !!pageContext.isBusinessPage;
+  const businessHasData = !!business;
   const staticMeta = getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || []);
-  const pageTitle = isBusinessPage ? buildBusinessTitle(business) : staticMeta.title;
-  const pageDescription = isBusinessPage ? buildBusinessDescription(business) : staticMeta.description;
-  const pageImage = isBusinessPage
+  const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal);
+  const pageTitle = isBusinessPage
+    ? (businessHasData ? buildBusinessTitle(business) : fallbackBusinessMeta.title)
+    : staticMeta.title;
+  const pageDescription = isBusinessPage
+    ? (businessHasData ? buildBusinessDescription(business) : fallbackBusinessMeta.description)
+    : staticMeta.description;
+  const pageImage = isBusinessPage && businessHasData
     ? business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg"
     : "https://www.caramelinho.com/og-image.jpg";
   const robotsContent = getRobotsContent(pageContext.urlOriginal);
-  const jsonLd = isBusinessPage
+  const jsonLd = isBusinessPage && businessHasData
     ? [
         buildWebsiteJsonLd(),
         buildBusinessJsonLd(business, canonicalUrl, pageImage),
@@ -296,7 +321,7 @@ export function onRenderHtml(pageContext: PageContext) {
     <meta property="og:image" content="${pageImage}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="${isBusinessPage ? business.name : "Logo do Caramelinho.com"}" />
+    <meta property="og:image:alt" content="${isBusinessPage && businessHasData ? business.name : "Logo do Caramelinho.com"}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${pageTitle}" />
     <meta name="twitter:description" content="${pageDescription}" />
