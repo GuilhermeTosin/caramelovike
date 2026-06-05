@@ -1,4 +1,5 @@
 import type { VercelRequest } from "@vercel/node";
+import { createClient } from "@supabase/supabase-js";
 
 type SitemapBusinessRow = {
   slug: string | null;
@@ -16,6 +17,7 @@ type CachedSitemapData = {
 export const BUSINESS_SITEMAP_CHUNK_SIZE = 1000;
 const SUPABASE_PAGE_SIZE = 1000;
 const CACHE_TTL_MS = 15 * 60 * 1000;
+const MAX_SITEMAP_PAGES = 200;
 let cache: CachedSitemapData | null = null;
 
 export function clearSitemapCache(): void {
@@ -54,37 +56,47 @@ function buildBusinessUrl(baseUrl: string, row: SitemapBusinessRow): string | nu
   return `${baseUrl}/go/${slug}`;
 }
 
-async function fetchBusinessesForSitemap(): Promise<SitemapBusinessRow[]> {
+function getSitemapSupabaseClient() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const apiKey =
+  const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SECRET_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     process.env.VITE_SUPABASE_ANON_KEY ||
     "";
-  if (!url || !apiKey) {
-    throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SECRET_KEY) são obrigatórios.");
+
+  if (!url || !key) {
+    throw new Error("SUPABASE_URL e uma chave do Supabase sao obrigatorios.");
   }
 
-  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code,state_code,city,updated_at&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null&order=created_at.desc`;
+  return createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+async function fetchBusinessesForSitemap(): Promise<SitemapBusinessRow[]> {
+  const supabase = getSitemapSupabaseClient();
   const rows: SitemapBusinessRow[] = [];
 
-  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+  for (let page = 0; page < MAX_SITEMAP_PAGES; page += 1) {
+    const from = page * SUPABASE_PAGE_SIZE;
     const to = from + SUPABASE_PAGE_SIZE - 1;
-    const response = await fetch(endpoint, {
-      headers: {
-        apikey: apiKey,
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json; charset=utf-8",
-        "Range-Unit": "items",
-        Range: `${from}-${to}`,
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`Falha ao consultar businesses para sitemap (${response.status}).`);
+    const { data, error } = await supabase
+      .from("businesses")
+      .select("slug,country_code,state_code,city,updated_at")
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .not("slug", "is", null)
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      throw new Error(`Falha ao consultar businesses para sitemap (${error.message}).`);
     }
 
-    const pageRows = (await response.json()) as SitemapBusinessRow[];
+    const pageRows = (data || []) as SitemapBusinessRow[];
     rows.push(...pageRows);
     if (pageRows.length < SUPABASE_PAGE_SIZE) break;
   }
@@ -101,52 +113,48 @@ export async function getSitemapRows(forceRefresh = false): Promise<SitemapBusin
   return rows;
 }
 
-function parseContentRangeTotal(contentRange: string): number {
-  const match = /\/(\d+|\*)\s*$/.exec(contentRange || "");
-  if (!match || match[1] === "*") return 0;
-  const total = Number(match[1]);
-  return Number.isFinite(total) && total >= 0 ? total : 0;
+export async function getSitemapBusinessCount(): Promise<number> {
+  const supabase = getSitemapSupabaseClient();
+  const { count, error } = await supabase
+    .from("businesses")
+    .select("id", { count: "exact", head: true })
+    .or("moderation_status.eq.approved,moderation_status.is.null")
+    .not("slug", "is", null);
+
+  if (error) {
+    throw new Error(`Failed to count businesses for sitemap (${error.message}).`);
+  }
+
+  return count || 0;
 }
 
-export async function countSitemapBusinessRows(): Promise<number> {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const apiKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SECRET_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    "";
-  if (!url || !apiKey) {
-    throw new Error("SUPABASE_URL and a Supabase key are required to count sitemap rows.");
+export async function getSitemapBusinessPage(page: number): Promise<SitemapBusinessRow[]> {
+  const supabase = getSitemapSupabaseClient();
+  const safePage = Math.max(1, Math.floor(page || 1));
+  const from = (safePage - 1) * SUPABASE_PAGE_SIZE;
+  const to = from + SUPABASE_PAGE_SIZE - 1;
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("slug,country_code,state_code,city,updated_at")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
+    .not("slug", "is", null)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    throw new Error(`Falha ao consultar businesses para sitemap (${error.message}).`);
   }
 
-  const endpoint = `${url}/rest/v1/businesses?select=id&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null`;
-  const response = await fetch(endpoint, {
-    headers: {
-      apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json; charset=utf-8",
-      "Range-Unit": "items",
-      Range: "0-0",
-      Prefer: "count=exact",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to count businesses for sitemap (${response.status}).`);
-  }
-
-  const total = parseContentRangeTotal(response.headers.get("content-range") || "");
-  return total;
+  return ((data || []) as SitemapBusinessRow[]).filter((r) => !!r.slug);
 }
 
 export function getBusinessSitemapChunksCount(rows: SitemapBusinessRow[]): number {
   return Math.max(1, Math.ceil(rows.length / BUSINESS_SITEMAP_CHUNK_SIZE));
 }
 
-export function buildSitemapIndexXml(baseUrl: string, rows: SitemapBusinessRow[]): string {
+export function buildSitemapIndexXml(baseUrl: string, businessCount: number): string {
   const now = new Date().toISOString();
-  const chunks = getBusinessSitemapChunksCount(rows);
+  const chunks = Math.max(1, Math.ceil(Math.max(0, businessCount) / BUSINESS_SITEMAP_CHUNK_SIZE));
   const staticSitemapLoc = `${baseUrl}/sitemaps/static.xml`;
   const directoriesSitemapLoc = `${baseUrl}/sitemaps/directories.xml`;
   const businesses = Array.from({ length: chunks }, (_, i) => {

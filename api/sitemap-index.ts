@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildSitemapIndexXml, getBaseUrl, getSitemapRows } from "./_sitemap";
+import { buildSitemapIndexXml, getBaseUrl, getSitemapBusinessCount } from "./_sitemap";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const baseUrl = getBaseUrl(req);
-    const rows = await getSitemapRows();
-    const xml = buildSitemapIndexXml(baseUrl, rows);
+    const businessCount = await getSitemapBusinessCount();
+    const xml = buildSitemapIndexXml(baseUrl, businessCount);
 
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
     res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
