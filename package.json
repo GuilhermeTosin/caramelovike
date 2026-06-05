@@ -4,6 +4,9 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
+        "generate:sitemaps": "node scripts/generate-sitemaps.mjs",
+        "prebuild": "npm run generate:sitemaps",
+        "predev": "npm run generate:sitemaps",
         "dev": "vike dev --host 0.0.0.0",
         "build": "vike build",
         "build:prerender": "vike build",

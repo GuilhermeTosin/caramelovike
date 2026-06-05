@@ -57,11 +57,11 @@ export default function SearchSettingsTab({
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
               <Button type="button" variant="outline" onClick={onRefreshSitemap}>
-                Atualizar sitemap
+                Recarregar sitemap
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              O sitemap público é servido em <code>/sitemap.xml</code>, com dois arquivos públicos: <code>/sitemaps/static.xml</code> e <code>/sitemaps/businesses.xml</code>.
+              O sitemap público é gerado no build e servido como arquivo estático em <code>/sitemap.xml</code>, com dois arquivos públicos: <code>/sitemaps/static.xml</code> e <code>/sitemaps/businesses.xml</code>.
             </p>
           </div>
           <div>
