@@ -52,8 +52,13 @@ function buildBusinessUrl(baseUrl: string, row: SitemapBusinessRow): string | nu
 
 async function fetchBusinessesForSitemap(): Promise<SitemapBusinessRow[]> {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "";
-  if (!url || !serviceRoleKey) {
+  const apiKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    "";
+  if (!url || !apiKey) {
     throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SECRET_KEY) são obrigatórios.");
   }
 
@@ -64,9 +69,10 @@ async function fetchBusinessesForSitemap(): Promise<SitemapBusinessRow[]> {
     const to = from + SUPABASE_PAGE_SIZE - 1;
     const response = await fetch(endpoint, {
       headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: apiKey,
+        Authorization: `Bearer ${apiKey}`,
         Accept: "application/json; charset=utf-8",
+        "Range-Unit": "items",
         Range: `${from}-${to}`,
       },
     });

@@ -19,7 +19,12 @@ function getSupabaseUrl(): string {
 }
 
 function getServiceRoleKey(): string {
-  return getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SUPABASE_SECRET_KEY");
+  return (
+    getEnv("SUPABASE_SERVICE_ROLE_KEY") ||
+    getEnv("SUPABASE_SECRET_KEY") ||
+    getEnv("SUPABASE_ANON_KEY") ||
+    getEnv("VITE_SUPABASE_ANON_KEY")
+  );
 }
 
 function decodeJwtPayload(token: string): JwtPayload | null {
@@ -35,8 +40,7 @@ function decodeJwtPayload(token: string): JwtPayload | null {
 
 async function isAdmin(accessToken: string): Promise<{ ok: boolean; reason?: string; role?: string }> {
   const url = getSupabaseUrl();
-  const serviceRoleKey = getServiceRoleKey();
-  if (!url || !serviceRoleKey) return { ok: false, reason: "missing_env" };
+  if (!url) return { ok: false, reason: "missing_env_url" };
   if (!accessToken) return { ok: false, reason: "missing_token" };
 
   const jwtPayload = decodeJwtPayload(accessToken);
@@ -45,6 +49,9 @@ async function isAdmin(accessToken: string): Promise<{ ok: boolean; reason?: str
   if (!userId) return { ok: false, reason: "invalid_token_sub" };
   if (jwtPayload?.exp && jwtPayload.exp < now) return { ok: false, reason: "expired_token" };
   if (FALLBACK_ADMIN_USER_IDS.has(userId)) return { ok: true, role: "admin_fallback" };
+
+  const serviceRoleKey = getServiceRoleKey();
+  if (!serviceRoleKey) return { ok: false, reason: "missing_env_key" };
 
   const roleResp = await fetch(
     `${url}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(userId)}&limit=1`,
