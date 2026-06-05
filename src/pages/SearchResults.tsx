@@ -533,7 +533,7 @@ export default function SearchResults({
               stateCode: stateFilter || undefined,
               query: query || undefined,
               city: rpcCityFilter,
-              includeOnline: false,
+              includeOnline: true,
               onlineCountryCode: (countryFilter || originCountryParam || undefined),
             })
           : getAllBusinesses();

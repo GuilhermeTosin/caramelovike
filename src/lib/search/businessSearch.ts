@@ -251,7 +251,11 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
     // Em busca por raio, retornamos negócios físicos com localização exata.
     // Cadastros só em nível de cidade entram apenas em raios amplos.
     const nearbyPhysicalBusinesses = filtered.filter((b) => {
-      if (b.attendanceType === "online") return false;
+      if (b.attendanceType === "online") {
+        if (!hasReliableBusinessLocation(b)) return false;
+        const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
+        return distance <= effectiveRadiusKm;
+      }
       const isPrecise = hasPreciseBusinessLocation(b);
       const isCityLevel = hasCityLevelBusinessLocation(b);
       if (!isPrecise && !(isCityLevel && effectiveRadiusKm >= CITY_LEVEL_RADIUS_MIN_KM)) return false;

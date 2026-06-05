@@ -346,4 +346,100 @@ describe("businessSearch location safety", () => {
     expect(narrowRadiusResults.map((b) => b.id)).toEqual(["montreal-full"]);
     expect(wideRadiusResults.map((b) => b.id)).toEqual(["montreal-full", "montreal-city-only"]);
   });
+
+  it("inclui negocio online aprovado quando ele esta dentro do raio e da cidade buscada", () => {
+    const montrealOnline = createBusiness({
+      id: "montreal-online",
+      name: "Finalement Esfihas MTL",
+      attendanceType: "online",
+      address: {
+        ...createBusiness({}).address,
+        street: "",
+        city: "Montreal",
+        state: "Quebec",
+        country: "Canada",
+        countryCode: "ca",
+        stateCode: "qc",
+        lat: 45.5017,
+        lng: -73.5673,
+      },
+      keywords: ["esfihas", "esfiha"],
+    });
+
+    const results = filterBusinesses({
+      allBusinesses: [montrealOnline],
+      query: "esfiha",
+      categoryFilter: "",
+      onlineFilter: "",
+      onlineCountryCode: "",
+      cityFilter: "Montreal",
+      locationFilter: "Montreal",
+      countryFilter: "",
+      stateFilter: "",
+      eventsFilter: "",
+      radiusKm: 50,
+      effectiveRadiusKm: 50,
+      hasLocationContext: true,
+      hasTypedLocation: true,
+      distanceOrigin: { lat: 45.5017, lng: -73.5673 },
+      categorySynonymsMap: {},
+      searchSynonyms: {},
+      categoryKeywords: {},
+      categoryFilterAliases: {},
+      cityAliases,
+      strictSearchMode: false,
+      strictSearchMinScore: 0,
+      getCategoryLabel: (value) => value,
+    });
+
+    expect(results.map((b) => b.id)).toEqual(["montreal-online"]);
+  });
+
+  it("nao inclui negocio online de Montreal em busca por raio em Edogawa", () => {
+    const montrealOnline = createBusiness({
+      id: "montreal-online",
+      name: "Finalement Esfihas MTL",
+      attendanceType: "online",
+      address: {
+        ...createBusiness({}).address,
+        street: "",
+        city: "Montreal",
+        state: "Quebec",
+        country: "Canada",
+        countryCode: "ca",
+        stateCode: "qc",
+        lat: 45.5017,
+        lng: -73.5673,
+      },
+      keywords: ["esfihas", "esfiha"],
+    });
+
+    const results = filterBusinesses({
+      allBusinesses: [montrealOnline],
+      query: "esfiha",
+      categoryFilter: "",
+      onlineFilter: "",
+      onlineCountryCode: "",
+      cityFilter: "Edogawa City",
+      locationFilter: "Edogawa City",
+      countryFilter: "",
+      stateFilter: "",
+      eventsFilter: "",
+      radiusKm: 50,
+      effectiveRadiusKm: 50,
+      hasLocationContext: true,
+      hasTypedLocation: true,
+      distanceOrigin: { lat: 35.7258341, lng: 139.8828889 },
+      categorySynonymsMap: {},
+      searchSynonyms: {},
+      categoryKeywords: {},
+      categoryFilterAliases: {},
+      cityAliases,
+      strictSearchMode: false,
+      strictSearchMinScore: 0,
+      getCategoryLabel: (value) => value,
+    });
+
+    expect(results).toEqual([]);
+  });
 });
