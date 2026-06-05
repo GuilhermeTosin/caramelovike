@@ -1,5 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { BUSINESS_SITEMAP_CHUNK_SIZE, getBusinessSitemapChunksCount, getSitemapRows } from "./_sitemap";
+import {
+  BUSINESS_SITEMAP_CHUNK_SIZE,
+  clearSitemapCache,
+  countSitemapBusinessRows,
+} from "./_sitemap";
 
 type JwtPayload = {
   sub?: string;
@@ -84,12 +88,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: "Acesso negado.", reason: admin.reason, role: admin.role || null });
     }
 
-    const rows = await getSitemapRows(true);
-    const sitemapChunks = getBusinessSitemapChunksCount(rows);
+    clearSitemapCache();
+    const businessUrls = await countSitemapBusinessRows();
+    const sitemapChunks = Math.max(1, Math.ceil(businessUrls / BUSINESS_SITEMAP_CHUNK_SIZE));
 
     return res.status(200).json({
       ok: true,
-      businessUrls: rows.length,
+      businessUrls,
       chunkSize: BUSINESS_SITEMAP_CHUNK_SIZE,
       sitemapChunks,
       refreshedAt: new Date().toISOString(),

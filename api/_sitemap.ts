@@ -18,6 +18,10 @@ const SUPABASE_PAGE_SIZE = 1000;
 const CACHE_TTL_MS = 15 * 60 * 1000;
 let cache: CachedSitemapData | null = null;
 
+export function clearSitemapCache(): void {
+  cache = null;
+}
+
 function normalizePart(value: string): string {
   return encodeURIComponent(
     value
@@ -95,6 +99,45 @@ export async function getSitemapRows(forceRefresh = false): Promise<SitemapBusin
   const rows = await fetchBusinessesForSitemap();
   cache = { fetchedAt: Date.now(), rows };
   return rows;
+}
+
+function parseContentRangeTotal(contentRange: string): number {
+  const match = /\/(\d+|\*)\s*$/.exec(contentRange || "");
+  if (!match || match[1] === "*") return 0;
+  const total = Number(match[1]);
+  return Number.isFinite(total) && total >= 0 ? total : 0;
+}
+
+export async function countSitemapBusinessRows(): Promise<number> {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const apiKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    "";
+  if (!url || !apiKey) {
+    throw new Error("SUPABASE_URL and a Supabase key are required to count sitemap rows.");
+  }
+
+  const endpoint = `${url}/rest/v1/businesses?select=id&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null`;
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: apiKey,
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json; charset=utf-8",
+      "Range-Unit": "items",
+      Range: "0-0",
+      Prefer: "count=exact",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to count businesses for sitemap (${response.status}).`);
+  }
+
+  const total = parseContentRangeTotal(response.headers.get("content-range") || "");
+  return total;
 }
 
 export function getBusinessSitemapChunksCount(rows: SitemapBusinessRow[]): number {
