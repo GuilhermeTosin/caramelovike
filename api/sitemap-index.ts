@@ -4,7 +4,7 @@ import { buildSitemapIndexXml, getBaseUrl, getSitemapBusinessCount } from "./_si
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const baseUrl = getBaseUrl(req);
-    const businessCount = await getSitemapBusinessCount();
+    const businessCount = await getSitemapBusinessCount().catch(() => 0);
     const xml = buildSitemapIndexXml(baseUrl, businessCount);
 
     res.setHeader("Content-Type", "application/xml; charset=utf-8");

@@ -4,7 +4,7 @@ import { buildDirectorySitemapXml, getBaseUrl, getSitemapRows } from "./_sitemap
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const baseUrl = getBaseUrl(req);
-    const rows = await getSitemapRows();
+    const rows = await getSitemapRows().catch(() => []);
     const xml = buildDirectorySitemapXml(baseUrl, rows);
 
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
