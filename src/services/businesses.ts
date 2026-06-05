@@ -650,6 +650,53 @@ export async function getBusinessByCountryAndSlug(
   return toFrontend(biz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
+export async function getBusinessById(
+  id: string,
+  options?: { includeUnapproved?: boolean }
+): Promise<BusinessFrontend | null> {
+  let query = supabase.from("businesses").select("*").eq("id", id);
+  if (!options?.includeUnapproved) {
+    query = query.or("moderation_status.eq.approved,moderation_status.is.null");
+  }
+
+  const { data } = await query.maybeSingle();
+  if (!data) return null;
+
+  const biz = data as Business;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", biz.owner_id)
+    .maybeSingle();
+
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("business_id", biz.id)
+    .order("created_at", { ascending: false });
+
+  biz.reviews = (reviews || []).map((r: any) => ({
+    id: r.id,
+    business_id: r.business_id,
+    user_id: r.user_id,
+    user_name: r.user_name || "Usuário",
+    rating: r.rating,
+    comment: r.comment,
+    created_at: r.created_at,
+  })) as Review[];
+
+  const { data: linkedEventsRows } = await supabase
+    .from("events")
+    .select("*")
+    .eq("business_id", biz.id)
+    .eq("status", "published");
+
+  biz.events = mergeBusinessEvents(biz.events, (linkedEventsRows || []) as CommunityEvent[]);
+
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  return toFrontend(biz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+}
+
 export async function getBusinessByShortSlug(slug: string): Promise<BusinessFrontend | null> {
   const normalizedSlug = (slug || "").trim().toLowerCase();
   if (!normalizedSlug) return null;

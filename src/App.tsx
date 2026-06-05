@@ -44,6 +44,7 @@ function CanonicalManager() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
+    const isPrivatePreviewPath = pathname.startsWith("/preview/negocio/");
     const isSearchPage = pathname === "/buscar";
     const canonicalPath = isSearchPage && !isIndexableSearch(search) ? pathname : `${pathname}${search}`;
     const canonicalUrl = `${window.location.origin}${canonicalPath}`;
@@ -51,7 +52,7 @@ function CanonicalManager() {
     setCanonical(canonicalUrl);
     upsertMetaTag("property", "og:url", canonicalUrl);
 
-    if (privatePaths.has(pathname)) {
+    if (privatePaths.has(pathname) || isPrivatePreviewPath) {
       setRobots("noindex,nofollow,noarchive");
       return;
     }
@@ -142,6 +143,7 @@ export default function App({
           <Route path="/termos" element={<TermsPage />} />
           <Route path="/eventos/:eventId" element={<EventPage />} />
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
+          <Route path="/preview/negocio/:businessId" element={<BusinessPage previewMode />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
           <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPage initialBusiness={initialBusiness} />} />
           <Route path="/:countryCode/:businessName" element={<BusinessPage initialBusiness={initialBusiness} />} />

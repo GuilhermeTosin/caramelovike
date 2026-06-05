@@ -31,6 +31,7 @@
     { "src": "/cadastro", "dest": "/index.html" },
     { "src": "/redefinir-senha", "dest": "/index.html" },
     { "src": "/negocio/wizard", "dest": "/index.html" },
+    { "src": "/preview/negocio/(.*)", "dest": "/index.html" },
     { "src": "/sitemap.xml", "dest": "/api/sitemap-index" },
     { "src": "/sitemaps/static.xml", "dest": "/api/sitemap-static" },
     { "src": "/sitemaps/directories.xml", "dest": "/api/sitemap-directories" },
@@ -38,6 +39,10 @@
     { "src": "/api/(.*)", "dest": "/api/$1" },
 
     { "handle": "filesystem" },
+    { "src": "/go/([^/]+)", "dest": "/index.html" },
+    { "src": "/eventos/([^/]+)", "dest": "/index.html" },
+    { "src": "/([A-Za-z]{2})/([^/]+)/([^/]+)/([^/]+)", "dest": "/index.html" },
+    { "src": "/([A-Za-z]{2})/([^/]+)", "dest": "/index.html" },
     { "src": "/(.*)", "dest": "/api/ssr" }
   ]
 }

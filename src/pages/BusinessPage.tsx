@@ -36,7 +36,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { getAllBusinesses, getBusinessBySlug, getBusinessByCountryAndSlug, getCountryName, getStateName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
+import { getAllBusinesses, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
 import { getOrCreateConversation } from "@/services/messages";
 import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
@@ -53,6 +53,7 @@ import NotFound from "@/pages/NotFound";
 
 type BusinessPageProps = {
   initialBusiness?: BusinessFrontend | null;
+  previewMode?: boolean;
 };
 
 const WEEKDAY_SCHEMA_MAP: Record<string, string> = {
@@ -114,8 +115,8 @@ function normalizeLocationPart(value: string) {
     .trim();
 }
 
-export default function BusinessPage({ initialBusiness = null }: BusinessPageProps = {}) {
-  const { countryCode, stateCode, city, businessName } = useParams();
+export default function BusinessPage({ initialBusiness = null, previewMode = false }: BusinessPageProps = {}) {
+  const { countryCode, stateCode, city, businessName, businessId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -179,7 +180,9 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
 
   const loadBusiness = async () => {
     let biz: BusinessFrontend | null = null;
-    if (countryCode && stateCode && city && businessName) {
+    if (previewMode && businessId) {
+      biz = await getBusinessById(businessId, { includeUnapproved: true });
+    } else if (countryCode && stateCode && city && businessName) {
       biz = await getBusinessBySlug(countryCode, stateCode, city, businessName);
     } else if (countryCode && businessName) {
       biz = await getBusinessByCountryAndSlug(countryCode, businessName);
@@ -261,7 +264,7 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
     return () => {
       active = false;
     };
-  }, [countryCode, stateCode, city, businessName]);
+  }, [previewMode, businessId, countryCode, stateCode, city, businessName]);
 
   useEffect(() => {
     if (!business) {
@@ -409,6 +412,12 @@ export default function BusinessPage({ initialBusiness = null }: BusinessPagePro
     setJsonLd("business-local", localBusinessJsonLd);
     setJsonLd("business-breadcrumb", breadcrumbJsonLd);
   }, [business, location.pathname]);
+
+  useEffect(() => {
+    if (!previewMode) return;
+    setCanonical(`${window.location.origin}${location.pathname}`);
+    setRobots("noindex,nofollow,noarchive");
+  }, [previewMode, location.pathname]);
 
   useEffect(() => {
     if (!session || !business || session.userId === business.ownerId) {
@@ -1664,7 +1673,6 @@ function formatInstagramDisplay(value: string): string {
 function formatFacebookDisplay(value: string): string {
   return normalizeSocialValue(value) || value;
 }
-
 
 
 
