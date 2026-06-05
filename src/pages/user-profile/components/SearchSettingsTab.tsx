@@ -61,7 +61,7 @@ export default function SearchSettingsTab({
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              O sitemap público é servido em <code>/sitemap.xml</code> e segmentado automaticamente em arquivos menores de negócios.
+              O sitemap público é servido em <code>/sitemap.xml</code>, com dois arquivos públicos: <code>/sitemaps/static.xml</code> e <code>/sitemaps/businesses.xml</code>.
             </p>
           </div>
           <div>

@@ -34,8 +34,7 @@
     { "src": "/preview/negocio/(.*)", "dest": "/index.html" },
     { "src": "/sitemap.xml", "dest": "/api/sitemap-index" },
     { "src": "/sitemaps/static.xml", "dest": "/api/sitemap-static" },
-    { "src": "/sitemaps/directories.xml", "dest": "/api/sitemap-directories" },
-    { "src": "/sitemaps/businesses-([^/]+)\\.xml", "dest": "/api/sitemap-businesses?page=$1" },
+    { "src": "/sitemaps/businesses.xml", "dest": "/api/sitemap-businesses" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
 
     { "handle": "filesystem" },

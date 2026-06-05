@@ -151,7 +151,7 @@ export function useAdminSearchSettings({ isAdmin }: UseAdminSearchSettingsOption
         toast.error((payload?.error || "Não foi possível atualizar o sitemap.") + reason);
         return;
       }
-      toast.success(`Sitemap atualizado: ${payload.businessUrls || 0} negócios em ${payload.sitemapChunks || 0} arquivo(s).`);
+      toast.success("Sitemap atualizado.");
     } catch {
       toast.error("Erro ao atualizar sitemap.");
     }
