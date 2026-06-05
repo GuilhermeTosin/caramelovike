@@ -2,13 +2,10 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { dangerouslySkipEscape, escapeInject } from "vike/server";
 import type { BusinessFrontend } from "@/types/database";
+import { PageContextProvider, type RendererPageContext } from "@/renderer/pageContext";
 
-type PageContext = {
-  Page: React.ComponentType<{ pageContext: PageContext }>;
-  urlOriginal?: string;
-  initialBusiness?: BusinessFrontend | null;
-  initialBusinesses?: BusinessFrontend[];
-  isBusinessPage?: boolean;
+type PageContext = RendererPageContext & {
+  Page: React.ComponentType<{ pageContext: RendererPageContext }>;
 };
 
 const SITE_TITLE = "Caramelinho.com - Encontre negócios brasileiros no mundo";
@@ -34,6 +31,21 @@ function getRobotsContent(urlOriginal?: string) {
   if (!isIndexableSearchUrl(urlOriginal)) return "noindex,follow,max-image-preview:large";
   return "index,follow,max-image-preview:large";
 }
+
+function getRobotsContentForPage(urlOriginal?: string, is404?: boolean) {
+  if (is404) {
+    return "noindex,nofollow,noarchive";
+  }
+  return getRobotsContent(urlOriginal);
+}
+
+function getErrorPageMeta() {
+  return {
+    title: "Página não encontrada | Caramelinho.com",
+    description: "A página solicitada não foi encontrada. Use a busca ou volte para a inicial do Caramelinho.",
+  };
+}
+
 
 function buildBusinessTitle(business: BusinessFrontend) {
   const categoryLabel = (business.category || "Negócio brasileiro").split("(")[0].trim();
@@ -274,23 +286,34 @@ function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl:
 
 export function onRenderHtml(pageContext: PageContext) {
   const { Page } = pageContext;
-  const pageHtml = renderToString(<Page pageContext={pageContext} />);
+  const pageHtml = renderToString(
+    <PageContextProvider pageContext={pageContext}>
+      <Page pageContext={pageContext} />
+    </PageContextProvider>,
+  );
   const canonicalUrl = getCanonicalUrl(pageContext.urlOriginal);
   const business = pageContext.initialBusiness || null;
   const isBusinessPage = !!pageContext.isBusinessPage;
+  const isErrorPage = !!pageContext.is404;
   const businessHasData = !!business;
-  const staticMeta = getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || []);
+  const staticMeta = isErrorPage
+    ? getErrorPageMeta()
+    : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || []);
   const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal);
-  const pageTitle = isBusinessPage
+  const pageTitle = isErrorPage
+    ? staticMeta.title
+    : isBusinessPage
     ? (businessHasData ? buildBusinessTitle(business) : fallbackBusinessMeta.title)
     : staticMeta.title;
-  const pageDescription = isBusinessPage
+  const pageDescription = isErrorPage
+    ? staticMeta.description
+    : isBusinessPage
     ? (businessHasData ? buildBusinessDescription(business) : fallbackBusinessMeta.description)
     : staticMeta.description;
   const pageImage = isBusinessPage && businessHasData
     ? business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg"
     : "https://www.caramelinho.com/og-image.jpg";
-  const robotsContent = getRobotsContent(pageContext.urlOriginal);
+  const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, pageContext.is404);
   const jsonLd = isBusinessPage && businessHasData
     ? [
         buildWebsiteJsonLd(),

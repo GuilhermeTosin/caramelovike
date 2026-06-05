@@ -1,11 +1,8 @@
 import React from "react";
 import { hydrateRoot } from "react-dom/client";
+import { PageContextProvider, type RendererPageContext } from "@/renderer/pageContext";
 
-type PageContext = {
-  Page: React.ComponentType<{ pageContext: PageContext }>;
-};
-
-export function onRenderClient(pageContext: PageContext) {
+export function onRenderClient(pageContext: RendererPageContext & { Page: React.ComponentType<{ pageContext: RendererPageContext }> }) {
   const { Page } = pageContext;
   const container = document.getElementById("root");
 
@@ -16,7 +13,9 @@ export function onRenderClient(pageContext: PageContext) {
   hydrateRoot(
     container,
     <React.StrictMode>
-      <Page pageContext={pageContext} />
+      <PageContextProvider pageContext={pageContext}>
+        <Page pageContext={pageContext} />
+      </PageContextProvider>
     </React.StrictMode>,
   );
 }

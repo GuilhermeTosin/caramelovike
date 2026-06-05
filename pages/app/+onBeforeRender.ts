@@ -1,4 +1,5 @@
 import type { PageContextServer } from "vike/types";
+import { render } from "vike/abort";
 import {
   getAllBusinesses,
   getAvailableLocations,
@@ -23,6 +24,7 @@ type PageContext = PageContextServer & {
   initialAvailableLocations?: AvailableLocation[];
   initialSearchSuggestions?: string[];
   isBusinessPage?: boolean;
+  isPrerendering?: boolean;
 };
 
 function parseBusinessPath(pathname: string) {
@@ -36,6 +38,31 @@ function parseBusinessPath(pathname: string) {
     return { kind: "country" as const, countryCode, businessName };
   }
   return null;
+}
+
+function isKnownAppPath(pathname: string) {
+  const exactPaths = new Set([
+    "/",
+    "/buscar",
+    "/negocios",
+    "/cadastro",
+    "/entrar",
+    "/redefinir-senha",
+    "/perfil",
+    "/negocio-verificado",
+    "/sobre",
+    "/contato",
+    "/privacidade",
+    "/termos",
+    "/negocio/wizard",
+  ]);
+
+  if (exactPaths.has(pathname)) return true;
+  if (pathname.startsWith("/negocios/")) return true;
+  if (pathname.startsWith("/eventos/")) return true;
+  if (pathname.startsWith("/preview/negocio/")) return true;
+  if (pathname.startsWith("/go/")) return true;
+  return !!parseBusinessPath(pathname);
 }
 
 async function getPublicDirectoryData(includeFeatured: boolean) {
@@ -57,6 +84,7 @@ async function getPublicDirectoryData(includeFeatured: boolean) {
 }
 
 export async function onBeforeRender(pageContext: PageContext) {
+  const isPrerendering = !!pageContext.isPrerendering;
   const pathname = (() => {
     try {
       return new URL(pageContext.urlOriginal || "/", "http://localhost").pathname;
@@ -64,6 +92,18 @@ export async function onBeforeRender(pageContext: PageContext) {
       return "/";
     }
   })();
+
+  if (!isKnownAppPath(pathname)) {
+    if (isPrerendering) {
+      return {
+        pageContext: {
+          initialBusiness: null,
+          isBusinessPage: false,
+        },
+      };
+    }
+    throw render(404);
+  }
 
   if (pathname === "/") {
     return {
@@ -110,6 +150,18 @@ export async function onBeforeRender(pageContext: PageContext) {
   } catch (error) {
     console.error("[onBeforeRender] business lookup failed:", error);
     business = null;
+  }
+
+  if (!business) {
+    if (isPrerendering) {
+      return {
+        pageContext: {
+          initialBusiness: null,
+          isBusinessPage: true,
+        },
+      };
+    }
+    throw render(404);
   }
 
   return {

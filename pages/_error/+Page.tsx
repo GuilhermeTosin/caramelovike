@@ -1,28 +1,31 @@
-import { Compass, Home, Search } from "lucide-react";
+import { AlertTriangle, Home, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import NotFound from "@/pages/NotFound";
+import { usePageContext } from "@/renderer/pageContext";
 
-export default function NotFound() {
+export { Page };
+
+function GenericErrorPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background to-muted/30 text-foreground">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full bg-amber-200/12 blur-3xl" />
-        <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-emerald-200/12 blur-3xl" />
+        <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full bg-red-200/12 blur-3xl" />
+        <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-amber-200/12 blur-3xl" />
       </div>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10 sm:px-6">
         <div className="grid w-full items-center gap-10 md:grid-cols-2 md:gap-12">
           <section className="order-2 md:order-1">
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-50/70 px-3 py-1 text-xs font-semibold text-amber-900">
-              <Compass className="h-3.5 w-3.5" />
-              Erro 404
+            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-red-300/35 bg-red-50/70 px-3 py-1 text-xs font-semibold text-red-900">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Erro inesperado
             </p>
             <h1 className="text-3xl font-extrabold leading-[1.2] tracking-tight sm:text-4xl">
-              O Caramelinho farejou...
-              <span className="block text-primary">mas não encontrou essa página</span>
+              O Caramelinho encontrou um problema
+              <span className="block text-primary">tente novamente em instantes</span>
             </h1>
             <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Essa página não está disponível no momento. Mas você pode continuar explorando os melhores negócios
-              brasileiros por aqui.
+              Ocorreu um erro ao carregar esta página. Se o problema persistir, volte para a inicial ou para a busca.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -43,10 +46,10 @@ export default function NotFound() {
 
           <section className="order-1 flex justify-center md:order-2">
             <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-amber-200/20 blur-2xl" />
+              <div className="absolute inset-0 rounded-full bg-red-200/20 blur-2xl" />
               <img
                 src="/logo.webp"
-                alt="Caramelinho com lupa procurando páginas"
+                alt="Caramelinho com aviso de erro"
                 width={420}
                 height={382}
                 loading="eager"
@@ -59,4 +62,14 @@ export default function NotFound() {
       </div>
     </div>
   );
+}
+
+function Page() {
+  const pageContext = usePageContext();
+
+  if (pageContext.is404) {
+    return <NotFound />;
+  }
+
+  return <GenericErrorPage />;
 }
