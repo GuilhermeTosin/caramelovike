@@ -4,15 +4,15 @@ import { setSeoMeta } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { submitContactMessage } from "@/services/contact";
 import { toast } from "sonner";
+import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 
 export default function ContactPage() {
-  const { session, unreadMessages } = useAuth();
+  const { session } = useAuth();
   const [name, setName] = useState(session?.name || "");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
@@ -80,41 +80,7 @@ export default function ContactPage() {
               </div>
             </Link>
 
-            <div className="flex items-center gap-1.5 sm:gap-4">
-              {session ? (
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <Link to="/perfil?tab=mensagens" className="relative group">
-                    <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10">
-                      <MessageCircle className="w-5 h-5" />
-                      {unreadMessages > 0 && (
-                        <span className="absolute top-0 right-0 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                          {unreadMessages > 9 ? "9+" : unreadMessages}
-                        </span>
-                      )}
-                    </Button>
-                  </Link>
-                  <Link to="/perfil">
-                    <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-10">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="w-3 h-3 text-primary" />
-                      </div>
-                      <span className="font-medium max-w-[90px] sm:max-w-none truncate">{session.name.split(" ")[0]}</span>
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Link to="/entrar">
-                    <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground hover:text-foreground">Entrar</Button>
-                  </Link>
-                  <Link to="/cadastro">
-                    <Button size="sm" className="px-6 caramelo-gradient text-white border-0" style={{ borderRadius: "12px" }}>
-                      Cadastrar
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
+            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-4" />
           </div>
         </div>
       </header>

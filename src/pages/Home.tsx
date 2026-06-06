@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, Store, Briefcase, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff } from "lucide-react";
+import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import { siteContent, MASCOT_PHRASES } from "@/data/siteContent";
 import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getSearchSuggestions } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
-import { useAuth } from "@/contexts/AuthContext";
+import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import {
   geocodeLocationWithCountryFallback,
@@ -89,7 +89,6 @@ export default function Home({
   initialSearchSuggestions = [],
 }: HomeProps = {}) {
   const navigate = useNavigate();
-  const { session, unreadMessages } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinesses);
@@ -429,41 +428,7 @@ export default function Home({
               </div>
             </Link>
             
-            <div className="flex items-center gap-1.5 sm:gap-4">
-              {session ? (
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <Link to="/perfil?tab=mensagens" className="relative group">
-                    <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10">
-                      <MessageCircle className="w-5 h-5" />
-                      {unreadMessages > 0 && (
-                        <span className="absolute top-0 right-0 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                          {unreadMessages > 9 ? "9+" : unreadMessages}
-                        </span>
-                      )}
-                    </Button>
-                  </Link>
-                  <Link to="/perfil">
-                    <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-10">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="w-3 h-3 text-primary" />
-                      </div>
-                      <span className="font-medium max-w-[90px] sm:max-w-none truncate">{session.name.split(" ")[0]}</span>
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Link to="/entrar">
-                    <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground hover:text-foreground">Entrar</Button>
-                  </Link>
-                  <Link to="/cadastro">
-                    <Button size="sm" className="px-6 caramelo-gradient text-white border-0" style={{ borderRadius: "12px" }}>
-                      Cadastrar
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
+            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-4" />
           </div>
         </div>
       </header>
@@ -818,9 +783,6 @@ function normalizeText(value?: string | null): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
-
-
-
 
 
 

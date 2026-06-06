@@ -15,7 +15,6 @@ import {
   MessageCircle,
   Instagram,
   Facebook,
-  User,
   Share2,
   Link2,
   CalendarDays,
@@ -43,6 +42,7 @@ import { trackBusinessClick } from "@/services/analytics";
 import { createBusinessReport } from "@/services/reports";
 import type { BusinessFrontend } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
+import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setHreflang, setJsonLd, setRobots } from "@/lib/seo";
@@ -120,7 +120,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { session, user, refreshUnread, unreadMessages } = useAuth();
+  const { session, user, refreshUnread } = useAuth();
 
   const [business, setBusiness] = useState<BusinessFrontend | null>(initialBusiness);
   const [loading, setLoading] = useState(!initialBusiness);
@@ -707,41 +707,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
                 <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </Link>
-            <div className="flex items-center gap-1.5 sm:gap-3">
-              {session ? (
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <Link to="/perfil?tab=mensagens" className="relative group">
-                    <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10">
-                      <MessageCircle className="w-4 h-4" />
-                      {unreadMessages > 0 && (
-                        <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                          {unreadMessages > 9 ? "9+" : unreadMessages}
-                        </span>
-                      )}
-                    </Button>
-                  </Link>
-                  <Link to="/perfil">
-                    <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-10">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="w-3 h-3 text-primary" />
-                      </div>
-                      <span className="font-medium max-w-[90px] sm:max-w-none truncate">{session.name.split(" ")[0]}</span>
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Link to="/entrar">
-                    <Button variant="ghost" size="sm" className="rounded-full">Entrar</Button>
-                  </Link>
-                  <Link to="/cadastro">
-                    <Button size="sm" className="rounded-full px-5 caramelo-gradient text-white border-0">
-                      Cadastrar
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
+            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
           </div>
         </div>
       </header>
@@ -1673,11 +1639,6 @@ function formatInstagramDisplay(value: string): string {
 function formatFacebookDisplay(value: string): string {
   return normalizeSocialValue(value) || value;
 }
-
-
-
-
-
 
 
 
