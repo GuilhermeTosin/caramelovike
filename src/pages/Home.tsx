@@ -447,7 +447,7 @@ export default function Home({
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 caramelo-gradient opacity-5" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-200/20 via-transparent to-transparent" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 lg:py-28 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-16 sm:py-24 lg:py-28 relative">
           <div className="max-w-6xl mx-auto">
             <div className="max-w-3xl mx-auto text-center">
               <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
