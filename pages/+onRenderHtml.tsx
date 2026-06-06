@@ -2,7 +2,7 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { dangerouslySkipEscape, escapeInject } from "vike/server";
 import type { BusinessFrontend } from "@/types/database";
-import { PageContextProvider, type RendererPageContext } from "@/renderer/pageContext";
+import type { RendererPageContext } from "@/renderer/pageContext";
 
 type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
@@ -286,11 +286,7 @@ function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl:
 
 export function onRenderHtml(pageContext: PageContext) {
   const { Page } = pageContext;
-  const pageHtml = renderToString(
-    <PageContextProvider pageContext={pageContext}>
-      <Page pageContext={pageContext} />
-    </PageContextProvider>,
-  );
+  const pageHtml = renderToString(<Page pageContext={pageContext} />);
   const canonicalUrl = getCanonicalUrl(pageContext.urlOriginal);
   const business = pageContext.initialBusiness || null;
   const isBusinessPage = !!pageContext.isBusinessPage;

@@ -1,7 +1,6 @@
 import { AlertTriangle, Home, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import type { RendererPageContext } from "@/renderer/pageContext";
 import NotFound from "@/pages/NotFound";
-import { usePageContext } from "@/renderer/pageContext";
 
 export { Page };
 
@@ -29,18 +28,20 @@ function GenericErrorPage() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild className="min-h-11 px-5">
-                <a href="/">
-                  <Home className="mr-2 h-4 w-4" />
-                  Voltar para a inicial
-                </a>
-              </Button>
-              <Button asChild variant="outline" className="min-h-11 px-5">
-                <a href="/buscar">
-                  <Search className="mr-2 h-4 w-4" />
-                  Ir para buscar
-                </a>
-              </Button>
+              <a
+                href="/"
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90"
+              >
+                <Home className="mr-2 h-4 w-4" />
+                Voltar para a inicial
+              </a>
+              <a
+                href="/buscar"
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-border bg-background px-5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+              >
+                <Search className="mr-2 h-4 w-4" />
+                Ir para buscar
+              </a>
             </div>
           </section>
 
@@ -64,10 +65,10 @@ function GenericErrorPage() {
   );
 }
 
-function Page() {
-  const pageContext = usePageContext();
+function Page({ pageContext }: { pageContext: RendererPageContext }) {
+  const { is404, abortStatusCode, abortReason } = pageContext;
 
-  if (pageContext.is404) {
+  if (is404 || abortStatusCode === 404 || abortReason === "not-found") {
     return <NotFound />;
   }
 

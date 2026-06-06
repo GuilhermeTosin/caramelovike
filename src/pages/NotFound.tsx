@@ -1,5 +1,27 @@
 import { Compass, Home, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
+function ActionLink({
+  href,
+  children,
+  variant = "solid",
+}: {
+  href: string;
+  children: React.ReactNode;
+  variant?: "solid" | "outline";
+}) {
+  const base =
+    "inline-flex min-h-11 items-center justify-center rounded-full px-5 text-sm font-semibold transition-colors";
+  const styles =
+    variant === "solid"
+      ? "bg-primary text-primary-foreground hover:opacity-90"
+      : "border border-border bg-background text-foreground hover:bg-muted";
+
+  return (
+    <a href={href} className={`${base} ${styles}`}>
+      {children}
+    </a>
+  );
+}
 
 export default function NotFound() {
   return (
@@ -26,18 +48,14 @@ export default function NotFound() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild className="min-h-11 px-5">
-                <a href="/">
-                  <Home className="mr-2 h-4 w-4" />
-                  Voltar para a inicial
-                </a>
-              </Button>
-              <Button asChild variant="outline" className="min-h-11 px-5">
-                <a href="/buscar">
-                  <Search className="mr-2 h-4 w-4" />
-                  Ir para buscar
-                </a>
-              </Button>
+              <ActionLink href="/">
+                <Home className="mr-2 h-4 w-4" />
+                Voltar para a inicial
+              </ActionLink>
+              <ActionLink href="/buscar" variant="outline">
+                <Search className="mr-2 h-4 w-4" />
+                Ir para buscar
+              </ActionLink>
             </div>
           </section>
 
