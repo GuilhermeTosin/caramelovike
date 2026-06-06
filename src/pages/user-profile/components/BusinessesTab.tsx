@@ -45,11 +45,11 @@ export default function BusinessesTab({
   return (
     <TabsContent value="negocios" className="mt-0">
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-foreground">Meus negocios</h2>
+        <h2 className="text-2xl font-bold text-foreground">Meus negócios</h2>
         <Link to="/negocio/wizard">
           <Button size="sm">
             <Plus className="mr-1 h-3.5 w-3.5" />
-            Adicionar novo negocio
+            Adicionar novo negócio
           </Button>
         </Link>
       </div>
@@ -57,16 +57,16 @@ export default function BusinessesTab({
       {loadingMyBusinesses ? (
         <Card className="border-border p-8 text-center">
           <Store className="mx-auto mb-3 h-12 w-12 animate-pulse text-muted-foreground/30" />
-          <p className="mb-1 text-muted-foreground">Carregando seus negocios...</p>
+          <p className="mb-1 text-muted-foreground">Carregando seus negócios...</p>
         </Card>
       ) : myBusinesses.length === 0 ? (
         <Card className="border-border p-8 text-center">
           <Store className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
-          <p className="mb-4 text-muted-foreground">Voce ainda nao cadastrou nenhum negocio.</p>
+          <p className="mb-4 text-muted-foreground">Você ainda não cadastrou nenhum negócio.</p>
           <Link to="/negocio/wizard">
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Cadastrar negocio
+              Cadastrar negócio
             </Button>
           </Link>
         </Card>
@@ -135,7 +135,7 @@ export default function BusinessesTab({
                 <span className="flex shrink-0 items-center gap-1 whitespace-nowrap leading-tight">
                   <Star className="h-3 w-3 shrink-0 text-amber-500" />
                   <span>
-                    {biz.averageRating.toFixed(1)} ({biz.reviews.length} {biz.reviews.length === 1 ? "avaliacao" : "avaliacoes"})
+                    {biz.averageRating.toFixed(1)} ({biz.reviews.length} {biz.reviews.length === 1 ? "avaliação" : "avaliações"})
                   </span>
                 </span>
               </div>
@@ -152,12 +152,12 @@ export default function BusinessesTab({
                   {getCategoryId(biz.category) === "food" ? (
                     <Button size="sm" variant="outline" onClick={() => onOpenMenuModal(biz)} className="w-full sm:w-auto">
                       <BookOpen className="mr-1.5 h-3.5 w-3.5" />
-                      Cardapio
+                      Cardápio
                     </Button>
                   ) : (
                     <Button size="sm" variant="outline" onClick={() => onOpenServicesModal(biz)} className="w-full sm:w-auto">
                       <BookOpen className="mr-1.5 h-3.5 w-3.5" />
-                      Servicos
+                      Serviços
                     </Button>
                   )}
 
@@ -180,7 +180,7 @@ export default function BusinessesTab({
                       className="w-full sm:w-auto"
                       title={
                         getMyVerificationStatusByBusiness(biz.id) === "pending"
-                          ? "Ja existe uma solicitacao pendente"
+                          ? "Já existe uma solicitação pendente"
                           : "Solicitar verificacao"
                       }
                     >
@@ -195,7 +195,7 @@ export default function BusinessesTab({
                       variant="outline"
                       asChild
                       aria-label={`Ver ${biz.name}`}
-                      title={biz.moderationStatus === "approved" ? "Ver negocio" : "Pre-visualizar negocio em analise"}
+                    title={biz.moderationStatus === "approved" ? "Ver negócio" : "Pré-visualizar negócio em análise"}
                     >
                       <Link
                         to={biz.moderationStatus === "approved" ? buildBusinessUrl(biz) : `/preview/negocio/${biz.id}`}
@@ -212,7 +212,7 @@ export default function BusinessesTab({
                       className="border-destructive/30 text-destructive hover:bg-destructive/10"
                       onClick={() => onDeleteMyBusiness(biz)}
                       aria-label={`Excluir ${biz.name}`}
-                      title="Excluir negocio"
+                      title="Excluir negócio"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

@@ -211,12 +211,12 @@ export function useBusinessManagement({
 
     if (!normalized) {
       setShortSlugStatus("idle");
-      setShortSlugMessage("Escolha um link curto para compartilhar seu negocio.");
+      setShortSlugMessage("Escolha um link curto para compartilhar seu negócio.");
       return;
     }
     if (normalized.includes("caramelinho")) {
       setShortSlugStatus("invalid");
-      setShortSlugMessage('Nao use "caramelinho" no link curto. Escolha algo unico do seu negocio.');
+      setShortSlugMessage('Não use "caramelinho" no link curto. Escolha algo único do seu negócio.');
       return;
     }
     if (normalized.length < 3) {
@@ -237,7 +237,7 @@ export function useBusinessManagement({
         setShortSlugMessage("Disponivel.");
       } else {
         setShortSlugStatus("taken");
-        setShortSlugMessage("Indisponivel. Esse link ja esta em uso.");
+        setShortSlugMessage("Indisponível. Esse link já está em uso.");
       }
     }, 500);
 
@@ -268,7 +268,7 @@ export function useBusinessManagement({
     const validFiles = files.filter((file) => {
       const validTypes = ["image/jpeg", "image/png", "image/webp"];
       if (!validTypes.includes(file.type)) {
-        toast.error(`Formato invalido: ${file.name}. Use JPG, PNG ou WEBP.`);
+        toast.error(`Formato inválido: ${file.name}. Use JPG, PNG ou WEBP.`);
         return false;
       }
       if (file.size > 5 * 1024 * 1024) {
@@ -283,7 +283,7 @@ export function useBusinessManagement({
       const existingCount = existingPhotos.length;
       const total = prev.length + validFiles.length + existingCount;
       if (total > 8) {
-        toast.error("Limite maximo de 8 fotos no total.");
+        toast.error("Limite máximo de 8 fotos no total.");
         return [...prev, ...validFiles].slice(0, 8 - existingCount - prev.length);
       }
       return [...prev, ...validFiles];
@@ -297,7 +297,7 @@ export function useBusinessManagement({
       return;
     }
     if (file.type !== "application/pdf") {
-      toast.error("Formato invalido. O cardapio completo deve ser um arquivo PDF.");
+      toast.error("Formato inválido. O cardápio completo deve ser um arquivo PDF.");
       event.target.value = "";
       return;
     }
@@ -328,15 +328,15 @@ export function useBusinessManagement({
     const isCreateMode = creatingBusiness;
     if (!isCreateMode && !editingBusiness) return;
     if (!editFormData.name || !editFormData.category || !editFormData.description) {
-      toast.error("Preencha os campos obrigatorios: Nome, Categoria e Descricao");
+      toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
       return;
     }
     if (!editFormData.phone.trim() || !editFormData.email.trim()) {
-      toast.error("Telefone e email sao obrigatorios.");
+      toast.error("Telefone e e-mail são obrigatórios.");
       return;
     }
     if (!editFormData.street || !editFormData.city || !editFormData.stateCode) {
-      toast.error("O endereco completo (Rua, Cidade e Estado) e obrigatorio.");
+      toast.error("O endereço completo (Rua, Cidade e Estado) é obrigatório.");
       return;
     }
     if (
@@ -354,7 +354,7 @@ export function useBusinessManagement({
         },
       })
     ) {
-      toast.error("Informe um endereco especifico. Usar apenas cidade/estado/pais nao e suficiente.");
+      toast.error("Informe um endereço específico. Usar apenas cidade/estado/país não é suficiente.");
       return;
     }
 
@@ -364,15 +364,15 @@ export function useBusinessManagement({
       .filter(Boolean);
     const desiredSlug = slugify((editFormData.shortSlug || editFormData.name).trim());
     if (!desiredSlug) {
-      toast.error("Defina um link curto valido para o negocio.");
+      toast.error("Defina um link curto válido para o negócio.");
       return;
     }
     if (!/^[a-z0-9-]+$/.test(desiredSlug)) {
-      toast.error("Use apenas letras, numeros e hifen (-) no link curto.");
+      toast.error("Use apenas letras, números e hífen (-) no link curto.");
       return;
     }
     if (desiredSlug.includes("caramelinho")) {
-      toast.error('Nao use "caramelinho" no link curto. Escolha algo unico do seu negocio.');
+      toast.error('Não use "caramelinho" no link curto. Escolha algo único do seu negócio.');
       return;
     }
     const slugAvailable = await isBusinessSlugAvailable(desiredSlug, editingBusiness?.id);
@@ -382,7 +382,7 @@ export function useBusinessManagement({
       const suggestion1 = `${desiredSlug}-${baseCity || "local"}`.replace(/-+$/g, "");
       const suggestion2 = `${desiredSlug}-${baseState || "oficial"}`.replace(/-+$/g, "");
       const suggestion3 = `${desiredSlug}-${Date.now().toString().slice(-4)}`;
-      toast.error(`Esse link curto ja esta em uso. Tente: ${suggestion1}, ${suggestion2} ou ${suggestion3}.`);
+      toast.error(`Esse link curto já está em uso. Tente: ${suggestion1}, ${suggestion2} ou ${suggestion3}.`);
       return;
     }
 
@@ -430,7 +430,7 @@ export function useBusinessManagement({
         photos: existingPhotos,
       });
       if (!created) {
-        toast.error("Erro ao criar negocio.");
+        toast.error("Erro ao criar negócio.");
         setSavingBusiness(false);
         return;
       }
@@ -471,7 +471,7 @@ export function useBusinessManagement({
     }
 
     if (!ok) {
-      toast.error(isCreateMode ? "Erro ao criar negocio." : "Erro ao atualizar negocio.");
+      toast.error(isCreateMode ? "Erro ao criar negócio." : "Erro ao atualizar negócio.");
       setSavingBusiness(false);
       return;
     }
@@ -498,10 +498,10 @@ export function useBusinessManagement({
     if (!deleteTarget) return;
     const ok = await deleteBusiness(deleteTarget.id);
     if (!ok) {
-      toast.error("Erro ao remover negocio.");
+      toast.error("Erro ao remover negócio.");
       return;
     }
-    toast.success("Negocio removido com sucesso!");
+      toast.success("Negócio removido com sucesso!");
     setDeleteTarget(null);
     await onOwnedBusinessesRefresh(sessionUserId);
     await onAllBusinessesRefresh();
@@ -542,7 +542,7 @@ export function useBusinessManagement({
     }
     setMenuNameErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
-      toast.error("No cardapio, o nome do item e obrigatorio.");
+      toast.error("No cardápio, o nome do item é obrigatório.");
       return;
     }
 
@@ -559,11 +559,11 @@ export function useBusinessManagement({
     });
     setSavingMenu(false);
     if (!ok) {
-      toast.error("Nao foi possivel salvar o cardapio.");
+      toast.error("Não foi possível salvar o cardápio.");
       return;
     }
     await onOwnedBusinessesRefresh(sessionUserId);
-    toast.success("Cardapio salvo com sucesso.");
+    toast.success("Cardápio salvo com sucesso.");
     setMenuBusiness(null);
   };
 
@@ -594,7 +594,7 @@ export function useBusinessManagement({
     }
     setServiceNameErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
-      toast.error("Em servicos, o nome do servico e obrigatorio.");
+      toast.error("Em serviços, o nome do serviço é obrigatório.");
       return;
     }
     const legacyServices = normalized.map((item) => item.name).filter(Boolean);
@@ -605,11 +605,11 @@ export function useBusinessManagement({
     });
     setSavingServices(false);
     if (!ok) {
-      toast.error("Nao foi possivel salvar os servicos.");
+      toast.error("Não foi possível salvar os serviços.");
       return;
     }
     await onOwnedBusinessesRefresh(sessionUserId);
-    toast.success("Servicos salvos com sucesso.");
+    toast.success("Serviços salvos com sucesso.");
     setServiceBusiness(null);
   };
 
@@ -658,18 +658,18 @@ export function useBusinessManagement({
       if (!hasAnyData) continue;
 
       if (!event.title?.trim() || !event.date?.trim() || !event.location?.trim()) {
-        toast.error("Nos eventos, preencha pelo menos titulo, data e local.");
+      toast.error("Nos eventos, preencha pelo menos título, data e local.");
         setSavingEvents(false);
         return;
       }
       const eventDateIso = parseBrDateToIso(event.date || "");
       if (!eventDateIso) {
-        toast.error(`Data invalida no evento "${event.title}". Use dd-mm-yyyy.`);
+        toast.error(`Data inválida no evento "${event.title}". Use dd-mm-yyyy.`);
         setSavingEvents(false);
         return;
       }
       if (!event.isFree && !event.price?.trim()) {
-        toast.error(`Informe o preco do evento "${event.title}" ou marque entrada franca.`);
+        toast.error(`Informe o preço do evento "${event.title}" ou marque entrada franca.`);
         setSavingEvents(false);
         return;
       }
@@ -698,7 +698,7 @@ export function useBusinessManagement({
     const syncResult = await replaceBusinessLinkedEvents(sessionUserId, eventsBusiness.id, normalizedEvents);
     setSavingEvents(false);
     if (!ok || !syncResult.ok) {
-      toast.error("Nao foi possivel salvar os eventos.");
+      toast.error("Não foi possível salvar os eventos.");
       return;
     }
     toast.success("Eventos salvos com sucesso.");
@@ -718,18 +718,18 @@ export function useBusinessManagement({
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (error) {
       console.error("Erro ao abrir PDF privado:", error);
-      toast.error("Nao foi possivel abrir o PDF agora.");
+      toast.error("Não foi possível abrir o PDF agora.");
     }
   };
 
   const handleAddCoupon = () => {
     if (!couponForm.title.trim() || !couponForm.description.trim() || !couponForm.expiresAt) {
-      toast.error("Preencha titulo, descricao e data limite antes de adicionar.");
+      toast.error("Preencha título, descrição e data limite antes de adicionar.");
       return;
     }
     const expiresAtIso = parseBrDateToIso(couponForm.expiresAt);
     if (!expiresAtIso) {
-      toast.error("Data limite invalida. Use o formato dd-mm-yyyy.");
+      toast.error("Data limite inválida. Use o formato dd-mm-yyyy.");
       return;
     }
     setCouponItems((prev) => [
@@ -759,7 +759,7 @@ export function useBusinessManagement({
       !!couponForm.title.trim() && !!couponForm.description.trim() && !!couponForm.expiresAt;
 
     if (hasDraftField && !isDraftComplete) {
-      toast.error("Complete titulo, descricao e data limite da promocao atual ou limpe-os antes de salvar.");
+      toast.error("Complete título, descrição e data limite da promoção atual ou limpe-os antes de salvar.");
       return;
     }
 
@@ -767,7 +767,7 @@ export function useBusinessManagement({
     if (isDraftComplete) {
       const expiresAtIso = parseBrDateToIso(couponForm.expiresAt);
       if (!expiresAtIso) {
-        toast.error("Data limite invalida. Use o formato dd-mm-yyyy.");
+        toast.error("Data limite inválida. Use o formato dd-mm-yyyy.");
         return;
       }
       promotionsToSave.push({
@@ -784,11 +784,11 @@ export function useBusinessManagement({
     });
     setSavingCoupon(false);
     if (!ok) {
-      toast.error("Nao foi possivel salvar a promocao. Verifique se a coluna 'promotions' existe na tabela businesses.");
+      toast.error("Não foi possível salvar a promoção. Verifique se a coluna 'promotions' existe na tabela businesses.");
       return;
     }
     await onOwnedBusinessesRefresh(sessionUserId);
-    toast.success("Promocao salva com sucesso.");
+    toast.success("Promoção salva com sucesso.");
     setCouponBusiness(null);
   };
 

@@ -22,19 +22,19 @@ function walk(dir, out = []) {
 }
 
 function score(text) {
-  const markers = [/Ãƒ/g, /Ã‚/g, /Ã¯Â¿Â½/g, /\uFFFD/g, /â€”|â€“|â€œ|â€|â€¢/g];
+  const markers = [/Ãƒ/g, /Ã‚/g, /?Â¿Â½/g, /\uFFFD/g, /?|?|?|â€|â€¢/g];
   return markers.reduce((sum, rx) => sum + (text.match(rx)?.length || 0), 0);
 }
 
 function normalizeSymbols(text) {
   return text
     .replace(/^(\uFEFF|\uFFFD)+/, "")
-    .replace(/Ã¢â‚¬Å“/g, "\"")
-    .replace(/Ã¢â‚¬Â/g, "\"")
-    .replace(/Ã¢â‚¬Ëœ/g, "'")
-    .replace(/Ã¢â‚¬â„¢/g, "'")
-    .replace(/Ã¢â‚¬â€œ/g, "-")
-    .replace(/Ã¢â‚¬â€/g, "-")
+    .replace(/?â‚¬Å“/g, "\"")
+    .replace(/?â‚¬Â/g, "\"")
+    .replace(/?â‚¬Ëœ/g, "'")
+    .replace(/?â‚¬â„¢/g, "'")
+    .replace(/?â‚¬?/g, "-")
+    .replace(/?â‚¬?/g, "-")
     .replace(/Ã‚Â·/g, "-")
     .replace(/Ã‚/g, "");
 }

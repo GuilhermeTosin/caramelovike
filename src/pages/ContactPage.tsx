@@ -115,7 +115,7 @@ export default function ContactPage() {
                   className="mt-1.5"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="voce@email.com"
+                  placeholder="seu-email@exemplo.com"
                 />
               </div>
               <div>

@@ -44,7 +44,7 @@ export function useOwnershipAdmin({
   const handleApproveOwnership = async (request: OwnerClaimRequest) => {
     const result = await approveOwnershipRequest(request.id);
     if (!result.ok) {
-      toast.error(result.error || "Erro ao aprovar solicitacao.");
+      toast.error(result.error || "Erro ao aprovar solicitação.");
       return;
     }
     toast.success(`Ownership transferido para ${request.requester_name || request.requester_email}.`);
@@ -54,17 +54,17 @@ export function useOwnershipAdmin({
   const handleRejectOwnership = async (request: OwnerClaimRequest) => {
     const result = await rejectOwnershipRequest(request.id);
     if (!result.ok) {
-      toast.error(result.error || "Erro ao recusar solicitacao.");
+      toast.error(result.error || "Erro ao recusar solicitação.");
       return;
     }
-    toast.success("Solicitacao recusada.");
+    toast.success("Solicitação recusada.");
     await loadOwnershipAdminData();
   };
 
   const handleDirectTransfer = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!transferBusinessId || !transferEmail.trim()) {
-      toast.error("Selecione o negocio e informe o email do novo dono.");
+      toast.error("Selecione o negócio e informe o e-mail do novo dono.");
       return;
     }
 

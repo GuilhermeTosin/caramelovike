@@ -37,7 +37,7 @@ export default function VerificationAdminTab({
         <div>
           <h2 className="text-2xl font-bold text-foreground">Verificações</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Analise solicitações de negócios que querem o selo de verificado.
+            Análise de solicitações de negócios que querem o selo de verificado.
           </p>
         </div>
         <Card className="border-border overflow-hidden">

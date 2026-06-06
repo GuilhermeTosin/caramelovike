@@ -40,7 +40,7 @@ export default function OwnershipAdminTab({
         <div>
           <h2 className="text-2xl font-bold text-foreground">Ownership</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Aprove solicitacoes de donos ou transfira um negocio diretamente por email.
+            Aprove solicitações de donos ou transfira um negócio diretamente por e-mail.
           </p>
         </div>
 
@@ -52,7 +52,7 @@ export default function OwnershipAdminTab({
           <form onSubmit={onSubmitTransfer} className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1fr_auto]">
             <Select value={transferBusinessId} onValueChange={onTransferBusinessIdChange}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione o negocio" />
+                <SelectValue placeholder="Selecione o negócio" />
               </SelectTrigger>
               <SelectContent>
                 {allBusinesses.map((business) => (
@@ -66,7 +66,7 @@ export default function OwnershipAdminTab({
               type="email"
               value={transferEmail}
               onChange={(event) => onTransferEmailChange(event.target.value)}
-              placeholder="email do novo dono"
+              placeholder="e-mail do novo dono"
             />
             <Button type="submit">Transferir</Button>
           </form>
@@ -75,9 +75,9 @@ export default function OwnershipAdminTab({
         <Card className="overflow-hidden border-border">
           <div className="flex items-center justify-between gap-4 border-b border-border p-5">
             <div>
-              <h3 className="font-semibold">Solicitacoes pendentes</h3>
+            <h3 className="font-semibold">Solicitações pendentes</h3>
               <p className="text-sm text-muted-foreground">
-                Pedidos feitos pelo botao &quot;Sou dono deste negocio&quot;.
+                Pedidos feitos pelo botão &quot;Sou dono deste negócio&quot;.
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={onRefresh} disabled={ownershipLoading}>
@@ -86,23 +86,23 @@ export default function OwnershipAdminTab({
           </div>
 
           {ownershipLoading ? (
-            <div className="p-8 text-center text-muted-foreground">Carregando solicitacoes...</div>
+            <div className="p-8 text-center text-muted-foreground">Carregando solicitações...</div>
           ) : ownershipRequests.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">Nenhuma solicitacao pendente.</div>
+            <div className="p-8 text-center text-muted-foreground">Nenhuma solicitação pendente.</div>
           ) : (
             <div className="divide-y divide-border">
               {ownershipRequests.map((request) => (
                 <div key={request.id} className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="font-semibold">{request.business?.name || "negocio"}</h4>
+                      <h4 className="font-semibold">{request.business?.name || "negócio"}</h4>
                       <Badge variant="secondary">
-                        {request.business?.city || "Cidade nao informada"}
+                        {request.business?.city || "Cidade não informada"}
                         {request.business?.country_code ? `, ${request.business.country_code.toUpperCase()}` : ""}
                       </Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Solicitado por {request.requester_name || "Usuario"} · {request.requester_email || "sem email"}
+                      Solicitado por {request.requester_name || "Usuário"} · {request.requester_email || "sem e-mail"}
                     </p>
                     {request.message ? <p className="mt-2 text-sm text-foreground/80">{request.message}</p> : null}
                     <p className="mt-2 text-xs text-muted-foreground">

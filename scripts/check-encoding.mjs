@@ -10,22 +10,18 @@ const targetRootFiles = ["index.html", "package.json", ".editorconfig", ".gitatt
 
 const suspicious = [
   /\uFFFD/,
-  /\u00C3|\u00C2/,
-  /(?:^|[^A-Za-z])(?:N\?o|n\?o|h\?|H\?|voc\?|Voc\?)(?:[^A-Za-z]|$)/,
-  /â€”|â€“|â€œ|â€|â€¢/,
-  /Alimentaaao|Servi\?os|Constru\?\?|Saade|Finanaas|Educaaao|Comarcio|Mudanaa/,
-  /serviaos|construaao|traduaa|imigraa|localizaaao|referancia|histarico|cadigos/,
-  /endereao|portuguas|negacios|madico|clanica|psicalogo|imavel|cafa|almoao|crianaa|opaaes/,
+  /[ÃÂ][\u0080-\u00BF]/,
+  /â[\u0080-\u00BF]/,
 ];
 
 function walk(dir, out = []) {
-  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (ent.isDirectory()) {
-      if (ignoreDirs.has(ent.name)) continue;
-      walk(path.join(dir, ent.name), out);
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (ignoreDirs.has(entry.name)) continue;
+      walk(path.join(dir, entry.name), out);
     } else {
-      const fp = path.join(dir, ent.name);
-      if (includeExt.has(path.extname(fp))) out.push(fp);
+      const fullPath = path.join(dir, entry.name);
+      if (includeExt.has(path.extname(fullPath))) out.push(fullPath);
     }
   }
   return out;
@@ -38,9 +34,7 @@ for (const dir of targetDirs) {
 }
 for (const file of targetRootFiles) {
   const fullPath = path.join(root, file);
-  if (fs.existsSync(fullPath)) {
-    targets.push(fullPath);
-  }
+  if (fs.existsSync(fullPath)) targets.push(fullPath);
 }
 
 const findings = [];
@@ -54,7 +48,7 @@ for (const file of targets) {
   });
 }
 
-if (findings.length) {
+if (findings.length > 0) {
   console.error("Encoding issues detected:\n");
   console.error(findings.slice(0, 300).join("\n"));
   if (findings.length > 300) {

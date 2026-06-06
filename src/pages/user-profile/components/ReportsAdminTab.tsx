@@ -43,13 +43,13 @@ export default function ReportsAdminTab({
     <TabsContent value="denuncias" className="mt-0">
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Denuncias</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Analise denuncias enviadas pelos usuarios.</p>
+          <h2 className="text-2xl font-bold text-foreground">Denúncias</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Análise de denúncias enviadas pelos usuários.</p>
         </div>
 
         <Card className="overflow-hidden border-border">
           <div className="flex items-center justify-between gap-4 border-b border-border p-5">
-            <h3 className="font-semibold">Fila de denuncias</h3>
+              <h3 className="font-semibold">Fila de denúncias</h3>
             <div className="flex items-center gap-2">
               <Button
                 variant={reportsKind === "negocios" ? "default" : "outline"}
@@ -57,7 +57,7 @@ export default function ReportsAdminTab({
                 onClick={() => onReportsKindChange("negocios")}
                 disabled={reportsLoading}
               >
-                Negocios
+                Negócios
               </Button>
               <Button
                 variant={reportsKind === "achadinhos" ? "default" : "outline"}
@@ -90,16 +90,16 @@ export default function ReportsAdminTab({
           </div>
 
           {reportsLoading ? (
-            <div className="p-8 text-center text-muted-foreground">Carregando denuncias...</div>
+            <div className="p-8 text-center text-muted-foreground">Carregando denúncias...</div>
           ) : reportsKind === "negocios" && reports.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              {reportsView === "archived" ? "Nenhuma denuncia arquivada." : "Nenhuma denuncia registrada."}
+              {reportsView === "archived" ? "Nenhuma denúncia arquivada." : "Nenhuma denúncia registrada."}
             </div>
           ) : reportsKind === "achadinhos" && communityFindReports.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
               {reportsView === "archived"
-                ? "Nenhuma denuncia de achadinho arquivada."
-                : "Nenhuma denuncia de achadinho registrada."}
+                ? "Nenhuma denúncia de achadinho arquivada."
+                : "Nenhuma denúncia de achadinho registrada."}
             </div>
           ) : reportsKind === "negocios" ? (
             <div className="divide-y divide-border">
@@ -117,16 +117,16 @@ export default function ReportsAdminTab({
                           rel="noreferrer"
                           className="font-semibold text-primary hover:underline"
                         >
-                          {report.business?.name || "negocio"}
+                          {report.business?.name || "negócio"}
                         </a>
                       ) : (
-                        <h4 className="font-semibold">{report.business?.name || "negocio"}</h4>
+                        <h4 className="font-semibold">{report.business?.name || "negócio"}</h4>
                       )}
                       <Badge variant={report.status === "pending" ? "secondary" : "default"}>{report.status}</Badge>
                       <Badge variant="outline">{report.reason}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {report.business?.city || "Cidade nao informada"}
+                      {report.business?.city || "Cidade não informada"}
                       {report.business?.country_code ? `, ${report.business.country_code.toUpperCase()}` : ""}
                     </p>
                     {report.details ? <p className="mt-2 text-sm">{report.details}</p> : null}
@@ -136,7 +136,7 @@ export default function ReportsAdminTab({
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => onReportStatus(report.id, "reviewing")}>
-                      Em analise
+                      Em análise
                     </Button>
                     <Button size="sm" onClick={() => onReportStatus(report.id, "resolved")}>
                       Resolver
@@ -183,7 +183,7 @@ export default function ReportsAdminTab({
                       <Badge variant="outline">{report.reason}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {report.find?.location_name || "Local nao informado"}
+                      {report.find?.location_name || "Local não informado"}
                     </p>
                     {report.message?.message ? (
                       <p className="mt-2 text-sm text-foreground/80">
@@ -201,7 +201,7 @@ export default function ReportsAdminTab({
                       variant="outline"
                       onClick={() => onCommunityFindReportStatus(report.id, "reviewing")}
                     >
-                      Em analise
+                      Em análise
                     </Button>
                     <Button size="sm" onClick={() => onCommunityFindReportStatus(report.id, "resolved")}>
                       Resolver

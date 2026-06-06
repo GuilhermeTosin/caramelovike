@@ -40,7 +40,12 @@ export function useInboxAndReviews({ sessionUserId, refreshUnread }: UseInboxAnd
   const [confirmDeleteReview, setConfirmDeleteReview] = useState<ConfirmDeleteReviewState | null>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: "smooth",
+    });
   };
 
   useEffect(() => {

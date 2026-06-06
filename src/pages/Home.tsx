@@ -470,7 +470,7 @@ export default function Home({
                   onChange={setSearchQuery}
                   suggestions={searchSuggestions}
                   disableLocalSuggestions
-                  placeholder="Buscar por produto ou servico (Ex: coxinha)"
+                  placeholder="Buscar por produto ou serviço (Ex: coxinha)"
                   icon="search"
                   inputClassName="h-12 sm:h-full text-base sm:text-2xl placeholder:text-[11px] sm:placeholder:text-sm"
                 />
@@ -783,7 +783,6 @@ function normalizeText(value?: string | null): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
-
 
 
 

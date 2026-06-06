@@ -42,7 +42,7 @@ export default function FeaturedPlacementsTab({
         <div>
           <h2 className="text-2xl font-bold text-foreground">Destaques Regionais</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Gerencie campanhas de destaque por cidade, estado/provincia, pais ou global.
+            Gerencie campanhas de destaque por cidade, estado/província, país ou global.
           </p>
         </div>
 
@@ -54,10 +54,10 @@ export default function FeaturedPlacementsTab({
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div>
-                <Label>Negocio</Label>
+                <Label>Negócio</Label>
                 <Select value={featuredForm.businessId} onValueChange={onBusinessChange}>
                   <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Selecione o negocio" />
+                    <SelectValue placeholder="Selecione o negócio" />
                   </SelectTrigger>
                   <SelectContent>
                     {allBusinesses.map((business) => (
@@ -82,15 +82,15 @@ export default function FeaturedPlacementsTab({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="city">Cidade</SelectItem>
-                    <SelectItem value="state">Estado/Provincia</SelectItem>
-                    <SelectItem value="country">Pais</SelectItem>
+                    <SelectItem value="state">Estado/Província</SelectItem>
+                    <SelectItem value="country">País</SelectItem>
                     <SelectItem value="global">Global</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label>Pais</Label>
+                <Label>País</Label>
                 <Input
                   value={featuredForm.countryCode}
                   onChange={(event) =>
@@ -103,7 +103,7 @@ export default function FeaturedPlacementsTab({
               </div>
 
               <div>
-                <Label>Estado/Provincia</Label>
+                <Label>Estado/Província</Label>
                 <Input
                   value={featuredForm.stateCode}
                   onChange={(event) =>
@@ -157,7 +157,7 @@ export default function FeaturedPlacementsTab({
               </div>
 
               <div>
-                <Label>Preco cobrado (centavos)</Label>
+                <Label>Preço cobrado (centavos)</Label>
                 <Input
                   type="number"
                   value={featuredForm.priceCents}
@@ -206,7 +206,7 @@ export default function FeaturedPlacementsTab({
                 <div key={placement.id} className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="font-semibold">{placement.business?.name || "negocio removido"}</h4>
+                      <h4 className="font-semibold">{placement.business?.name || "negócio removido"}</h4>
                       <Badge variant={placement.status === "active" ? "default" : "secondary"}>
                         {placement.status}
                       </Badge>

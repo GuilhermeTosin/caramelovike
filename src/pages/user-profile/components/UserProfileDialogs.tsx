@@ -232,7 +232,7 @@ export default function UserProfileDialogs({
         >
           <DialogHeader>
             <DialogTitle>
-              {creatingBusiness ? "Adicionar novo negocio" : `Editar ${editFormData.name || "negocio"}`}
+              {creatingBusiness ? "Adicionar novo negócio" : `Editar ${editFormData.name || "negócio"}`}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
@@ -241,7 +241,7 @@ export default function UserProfileDialogs({
                 <h3 className="text-base font-semibold">Dados principais</h3>
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="edit-name">Nome do negocio *</Label>
+                <Label htmlFor="edit-name">Nome do negócio *</Label>
                 <Input
                   id="edit-name"
                   value={editFormData.name}
@@ -252,7 +252,7 @@ export default function UserProfileDialogs({
               </div>
 
               <div className="sm:col-span-2">
-                <Label htmlFor="edit-short-slug">Link curto do negocio</Label>
+                <Label htmlFor="edit-short-slug">Link curto do negócio</Label>
                 <div className="mt-1.5 flex items-center overflow-hidden rounded-md border border-input bg-background">
                   <span className="whitespace-nowrap border-r border-input bg-secondary/50 px-3 py-2 text-sm text-muted-foreground">
                     caramelinho.com/go/
@@ -267,7 +267,7 @@ export default function UserProfileDialogs({
                   />
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Este e o link simples para compartilhar seu negocio em redes sociais, WhatsApp e cartoes.
+                  Este é o link simples para compartilhar seu negócio em redes sociais, WhatsApp e cartões.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Exemplo: caramelinho.com/go/{editFormData.shortSlug || "pizzaria-do-ze"}
@@ -302,27 +302,27 @@ export default function UserProfileDialogs({
               </div>
 
               <div className="sm:col-span-2">
-                <Label htmlFor="edit-description">Descricao *</Label>
+                <Label htmlFor="edit-description">Descrição *</Label>
                 <div className="mt-1 rounded-md border border-amber-300/70 bg-amber-50/70 px-3 py-2">
                   <p className="text-sm leading-relaxed text-amber-900/90">
-                    Esta e a informacao mais importante da pagina do seu negocio. Explique com clareza o que voce
-                    oferece, seus diferenciais, publico atendido e regiao de atuacao.
+                    Esta é a informação mais importante da página do seu negócio. Explique com clareza o que você
+                    oferece, seus diferenciais, público atendido e região de atuação.
                   </p>
                 </div>
                 <Textarea
                   id="edit-description"
                   value={editFormData.description}
                   onChange={(event) => handleEditInputChange("description", event.target.value)}
-                  placeholder="Descreva seu negocio..."
+                  placeholder="Descreva seu negócio..."
                   className="mt-1.5 min-h-[160px]"
                 />
               </div>
 
               {getCategoryId(editFormData.category) === "food" ? (
                 <div className="sm:col-span-2 rounded-lg border border-emerald-300/70 bg-emerald-50/70 p-4">
-                  <h3 className="text-base font-semibold text-emerald-900">Publicos tambem atendidos</h3>
+                  <h3 className="text-base font-semibold text-emerald-900">Públicos também atendidos</h3>
                   <p className="mt-1 text-sm text-emerald-900/80">
-                    Marque os selos que seu negocio atende. Isso aparece no card, na pagina do negocio e tambem entra
+                    Marque os selos que seu negócio atende. Isso aparece no card, na página do negócio e também entra
                     como criterio de busca.
                   </p>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -354,24 +354,24 @@ export default function UserProfileDialogs({
                           setEditFormData((prev) => ({ ...prev, isGlutenFreeFriendly: event.target.checked }))
                         }
                       />
-                      Sem gluten
+                      Sem glúten
                     </label>
                   </div>
                 </div>
               ) : null}
 
               <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                <h3 className="text-base font-semibold">Oferta e conteudo</h3>
+                <h3 className="text-base font-semibold">Oferta e conteúdo</h3>
               </div>
 
               <div className="sm:col-span-2 rounded-lg border border-amber-300/70 bg-amber-50/70 p-4">
                 <h3 className="text-base font-semibold text-amber-900">Palavras-chave para busca</h3>
                 <p className="mt-2 text-sm leading-relaxed text-amber-900/80">
-                  Use termos reais que seus clientes digitam, incluindo variacoes e sinonimos. Separe por virgula e
-                  evite termos muito genericos.
+                  Use termos reais que seus clientes digitam, incluindo variações e sinônimos. Separe por vírgula e
+                  evite termos muito genéricos.
                 </p>
                 <Label htmlFor="edit-keywords" className="mt-3 block">
-                  Palavras-chave (separadas por virgula)
+                  Palavras-chave (separadas por vírgula)
                 </Label>
                 <Textarea
                   id="edit-keywords"
@@ -582,10 +582,10 @@ export default function UserProfileDialogs({
               </div>
 
               <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                <h3 className="text-base font-semibold">Localizacao</h3>
+                <h3 className="text-base font-semibold">Localização</h3>
               </div>
               <div className="sm:col-span-2">
-                <Label>Endereco</Label>
+                <Label>Endereço</Label>
                 <div className="mt-1.5">
                   <AddressAutocomplete
                     key={creatingBusiness ? "new-business-address" : editingBusiness?.id}
@@ -611,7 +611,7 @@ export default function UserProfileDialogs({
               onClick={handleSaveBusiness}
               disabled={savingBusiness}
             >
-              {savingBusiness ? "Enviando imagens..." : creatingBusiness ? "Criar negocio" : "Salvar alteracoes"}
+              {savingBusiness ? "Enviando imagens..." : creatingBusiness ? "Criar negócio" : "Salvar alterações"}
             </Button>
           </div>
         </DialogContent>
@@ -620,14 +620,14 @@ export default function UserProfileDialogs({
       <Dialog open={!!couponBusiness} onOpenChange={(open) => !open && setCouponBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Promocoes - {couponBusiness?.name || "negocio"}</DialogTitle>
+            <DialogTitle>Promoções - {couponBusiness?.name || "negócio"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
               <div className="space-y-3">
                 <Label>Cupons cadastrados</Label>
                 {couponItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhuma promocao cadastrada ainda.</p>
+                  <p className="text-sm text-muted-foreground">Nenhuma promoção cadastrada ainda.</p>
                 ) : (
                   <div className="space-y-2">
                     {couponItems.map((item, index) => (
@@ -660,7 +660,7 @@ export default function UserProfileDialogs({
                 )}
               </div>
               <div>
-                <Label htmlFor="profile-coupon-title">Titulo da promocao</Label>
+                <Label htmlFor="profile-coupon-title">Título da promoção</Label>
                 <Input
                   id="profile-coupon-title"
                   className="mt-1.5"
@@ -669,7 +669,7 @@ export default function UserProfileDialogs({
                 />
               </div>
               <div>
-                <Label htmlFor="profile-coupon-description">Descricao da promocao</Label>
+                <Label htmlFor="profile-coupon-description">Descrição da promoção</Label>
                 <Textarea
                   id="profile-coupon-description"
                   className="mt-1.5 min-h-[120px]"
@@ -678,7 +678,7 @@ export default function UserProfileDialogs({
                 />
               </div>
               <div>
-                <Label htmlFor="profile-coupon-code">Codigo promocional</Label>
+                <Label htmlFor="profile-coupon-code">Código promocional</Label>
                 <Input
                   id="profile-coupon-code"
                   className="mt-1.5"
@@ -687,7 +687,7 @@ export default function UserProfileDialogs({
                 />
               </div>
               <div>
-                <Label htmlFor="profile-coupon-expiry">Data limite da promocao</Label>
+                <Label htmlFor="profile-coupon-expiry">Data limite da promoção</Label>
                 <div className="mt-1.5 flex items-center gap-2">
                   <Input
                     id="profile-coupon-expiry"
@@ -727,7 +727,7 @@ export default function UserProfileDialogs({
               <div>
                 <Button type="button" variant="outline" onClick={handleAddCoupon}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Adicionar promocao
+                  Adicionar promoção
                 </Button>
               </div>
             </div>
@@ -737,7 +737,7 @@ export default function UserProfileDialogs({
               Cancelar
             </Button>
             <Button className="border-0 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleSaveCoupon} disabled={savingCoupon}>
-              {savingCoupon ? "Salvando..." : "Salvar promocao"}
+              {savingCoupon ? "Salvando..." : "Salvar promoção"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -746,16 +746,16 @@ export default function UserProfileDialogs({
       <Dialog open={!!menuBusiness} onOpenChange={(open) => !open && setMenuBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Cardapio - {menuBusiness?.name || "negocio"}</DialogTitle>
+            <DialogTitle>Cardápio - {menuBusiness?.name || "negócio"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
               <div className="space-y-4 rounded-lg border border-emerald-300/70 bg-emerald-50/60 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-emerald-900">Itens do cardapio</Label>
+                    <Label className="text-emerald-900">Itens do cardápio</Label>
                     <p className="mt-1 text-sm text-emerald-900/80">
-                      Adicione itens com nome, descricao e preco para facilitar a busca e conversao.
+                      Adicione itens com nome, descrição e preço para facilitar a busca e conversão.
                     </p>
                   </div>
                   <Button
@@ -806,7 +806,7 @@ export default function UserProfileDialogs({
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Preco (opcional)</Label>
+                          <Label className="text-xs">Preço (opcional)</Label>
                           <Input
                             value={item.price}
                             onChange={(event) =>
@@ -821,7 +821,7 @@ export default function UserProfileDialogs({
                         </div>
                       </div>
                       <div>
-                        <Label className="text-xs">Descricao</Label>
+                        <Label className="text-xs">Descrição</Label>
                         <Input
                           value={item.description}
                           onChange={(event) =>
@@ -838,14 +838,14 @@ export default function UserProfileDialogs({
                   ))}
                   {menuItems.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-border bg-white py-6 text-center">
-                      <p className="text-xs text-muted-foreground">Nenhum item no cardapio. Adicione o primeiro.</p>
+                      <p className="text-xs text-muted-foreground">Nenhum item no cardápio. Adicione o primeiro.</p>
                     </div>
                   ) : null}
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="menu-modal-pdf">Cardapio completo (PDF, opcional)</Label>
+                <Label htmlFor="menu-modal-pdf">Cardápio completo (PDF, opcional)</Label>
                 <div className="mt-1.5">
                   <label
                     htmlFor="menu-modal-pdf"
@@ -903,7 +903,7 @@ export default function UserProfileDialogs({
               Cancelar
             </Button>
             <Button className="border-0 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleSaveMenu} disabled={savingMenu}>
-              {savingMenu ? "Salvando..." : "Salvar cardapio"}
+              {savingMenu ? "Salvando..." : "Salvar cardápio"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -912,16 +912,16 @@ export default function UserProfileDialogs({
       <Dialog open={!!serviceBusiness} onOpenChange={(open) => !open && setServiceBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Servicos - {serviceBusiness?.name || "negocio"}</DialogTitle>
+            <DialogTitle>Serviços - {serviceBusiness?.name || "negócio"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
               <div className="space-y-4 rounded-lg border border-sky-300/70 bg-sky-50/60 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-sky-900">Itens de servico</Label>
+                    <Label className="text-sky-900">Itens de serviço</Label>
                     <p className="mt-1 text-sm text-sky-900/80">
-                      Cadastre nome, descricao e preco opcional de cada servico.
+                      Cadastre nome, descrição e preço opcional de cada serviço.
                     </p>
                   </div>
                   <Button
@@ -941,7 +941,7 @@ export default function UserProfileDialogs({
                     }
                   >
                     <Plus className="mr-1 h-3.5 w-3.5" />
-                    Adicionar servico
+                    Adicionar serviço
                   </Button>
                 </div>
                 <div className="space-y-3">
@@ -958,7 +958,7 @@ export default function UserProfileDialogs({
                       </Button>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="sm:col-span-2">
-                          <Label className="text-xs">Nome do servico</Label>
+                          <Label className="text-xs">Nome do serviço</Label>
                           <Input
                             value={item.name}
                             onChange={(event) =>
@@ -972,7 +972,7 @@ export default function UserProfileDialogs({
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Preco (opcional)</Label>
+                          <Label className="text-xs">Preço (opcional)</Label>
                           <Input
                             value={item.price}
                             onChange={(event) =>
@@ -987,7 +987,7 @@ export default function UserProfileDialogs({
                         </div>
                       </div>
                       <div>
-                        <Label className="text-xs">Descricao</Label>
+                        <Label className="text-xs">Descrição</Label>
                         <Input
                           value={item.description}
                           onChange={(event) =>
@@ -1004,7 +1004,7 @@ export default function UserProfileDialogs({
                   ))}
                   {serviceItems.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-border bg-white py-6 text-center">
-                      <p className="text-xs text-muted-foreground">Nenhum servico cadastrado ainda.</p>
+                      <p className="text-xs text-muted-foreground">Nenhum serviço cadastrado ainda.</p>
                     </div>
                   ) : null}
                 </div>
@@ -1016,7 +1016,7 @@ export default function UserProfileDialogs({
               Cancelar
             </Button>
             <Button className="border-0 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleSaveServices} disabled={savingServices}>
-              {savingServices ? "Salvando..." : "Salvar servicos"}
+              {savingServices ? "Salvando..." : "Salvar serviços"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1025,7 +1025,7 @@ export default function UserProfileDialogs({
       <Dialog open={!!eventsBusiness} onOpenChange={(open) => !open && setEventsBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Eventos - {eventsBusiness?.name || "negocio"}</DialogTitle>
+            <DialogTitle>Eventos - {eventsBusiness?.name || "negócio"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
@@ -1034,7 +1034,7 @@ export default function UserProfileDialogs({
                   <div>
                     <h3 className="text-base font-semibold text-violet-900">Agenda de eventos</h3>
                     <p className="mt-1 text-sm text-violet-900/80">
-                      Divulgue datas, local, flyer e preco para atrair mais publico.
+                      Divulgue datas, local, flyer e preço para atrair mais público.
                     </p>
                   </div>
                   <Button
@@ -1076,7 +1076,7 @@ export default function UserProfileDialogs({
                           </Button>
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
-                              <Label className="text-xs">Titulo do evento *</Label>
+                              <Label className="text-xs">Título do evento *</Label>
                               <Input
                                 className="mt-1"
                                 value={event.title}
@@ -1175,7 +1175,7 @@ export default function UserProfileDialogs({
                             />
                           </div>
                           <div>
-                            <Label className="text-xs">Descricao</Label>
+                            <Label className="text-xs">Descrição</Label>
                             <Textarea
                               className="mt-1"
                               rows={2}
@@ -1224,7 +1224,7 @@ export default function UserProfileDialogs({
                             </div>
                             {!event.isFree ? (
                               <div>
-                                <Label className="text-xs">Preco</Label>
+                              <Label className="text-xs">Preço</Label>
                                 <Input
                                   className="mt-1"
                                   value={event.price}
@@ -1308,18 +1308,18 @@ export default function UserProfileDialogs({
       <Dialog open={!!verificationBusiness} onOpenChange={(open) => !open && setVerificationBusiness(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Solicitar negocio verificado</DialogTitle>
+            <DialogTitle>Solicitar negócio verificado</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              Requisitos: minimo de 5 avaliacoes e Instagram do negocio configurado.
+              Requisitos: mínimo de 5 avaliações e Instagram do negócio configurado.
             </div>
             <div className="text-sm text-muted-foreground">
-              Negocio: <strong>{verificationBusiness?.name}</strong>
+              Negócio: <strong>{verificationBusiness?.name}</strong>
               <br />
-              Avaliacoes atuais: <strong>{verificationBusiness?.reviews.length || 0}</strong>
+              Avaliações atuais: <strong>{verificationBusiness?.reviews.length || 0}</strong>
               <br />
-              Instagram cadastrado: <strong>{verificationBusiness?.instagram ? "Sim" : "Nao"}</strong>
+              Instagram cadastrado: <strong>{verificationBusiness?.instagram ? "Sim" : "Não"}</strong>
             </div>
             <div>
               <Label htmlFor="verification-instagram-post">Link do post no Instagram marcando o Caramelinho *</Label>
@@ -1337,7 +1337,7 @@ export default function UserProfileDialogs({
               Cancelar
             </Button>
             <Button onClick={handleSubmitVerificationRequest} disabled={verificationSubmitting}>
-              {verificationSubmitting ? "Enviando..." : "Enviar solicitacao"}
+              {verificationSubmitting ? "Enviando..." : "Enviar solicitação"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1348,15 +1348,15 @@ export default function UserProfileDialogs({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
-              ATENCAO
+              ATENÇÃO
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <p>
-              Voce esta prestes a <strong>APAGAR DEFINITIVAMENTE</strong> o negocio <strong>"{deleteTarget?.name}"</strong>.
+              Você está prestes a <strong>APAGAR DEFINITIVAMENTE</strong> o negócio <strong>"{deleteTarget?.name}"</strong>.
             </p>
             <p className="font-semibold text-red-600">
-              Esta acao e irreversivel e todos os dados relacionados serao perdidos.
+              Esta ação é irreversível e todos os dados relacionados serão perdidos.
             </p>
             <p>Deseja continuar mesmo assim?</p>
           </div>
@@ -1365,7 +1365,7 @@ export default function UserProfileDialogs({
               Cancelar
             </Button>
             <Button className="bg-red-600 text-white hover:bg-red-700" onClick={handleConfirmDeleteMyBusiness}>
-              Sim, apagar negocio
+              Sim, apagar negócio
             </Button>
           </DialogFooter>
         </DialogContent>

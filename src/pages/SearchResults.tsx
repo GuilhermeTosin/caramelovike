@@ -867,7 +867,7 @@ export default function SearchResults({
   useEffect(() => {
     const baseTitle = "Buscar negócios brasileiros";
     const cityText = cityFilter ? ` em ${cityFilter}` : "";
-    const categoryText = categoryFilterId ? (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase()) : "negocios e servicos";
+    const categoryText = categoryFilterId ? (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase()) : "negócios e serviços";
     const queryPart = query ? ` para ${query}` : "";
 
     setSeoMeta(

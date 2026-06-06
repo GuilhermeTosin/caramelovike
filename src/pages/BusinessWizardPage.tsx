@@ -201,7 +201,7 @@ export default function BusinessWizardPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (field === "name") {
       const v = String(value || "").trim();
-      setNameError(v ? "" : "Nome do negocio e obrigatorio.");
+      setNameError(v ? "" : "Nome do negócio é obrigatório.");
     }
   };
 
@@ -294,7 +294,7 @@ export default function BusinessWizardPage() {
     if (slug.includes("caramelinho")) {
       Promise.resolve().then(() => {
         setSlugStatus("error");
-        setSlugMessage('Nao use "caramelinho" no link curto.');
+        setSlugMessage('Não use "caramelinho" no link curto.');
         setCheckingSlug(false);
       });
       return;
@@ -389,7 +389,7 @@ export default function BusinessWizardPage() {
   const validateCurrentStep = async () => {
     if (step === 1) {
       if (!form.name.trim() || !form.shortSlug.trim() || !form.category) {
-        if (!form.name.trim()) setNameError("Nome do negocio e obrigatorio.");
+        if (!form.name.trim()) setNameError("Nome do negócio é obrigatório.");
         toast.error("Preencha nome, link curto e categoria.");
         return false;
       }
@@ -527,9 +527,9 @@ export default function BusinessWizardPage() {
     }
 
     if (!form.name.trim()) {
-      setNameError("Nome do negocio e obrigatorio.");
+      setNameError("Nome do negócio é obrigatório.");
       setStep(1);
-      toast.error("Preencha o nome do negocio.");
+      toast.error("Preencha o nome do negócio.");
       return;
     }
 
