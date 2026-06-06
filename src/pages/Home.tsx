@@ -26,6 +26,7 @@ import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions"
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
+import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
 
@@ -629,6 +630,9 @@ export default function Home({
               <Link
                 key={biz.id}
                 to={buildBusinessUrl(biz)}
+                state={{ preloadedBusiness: biz }}
+                onMouseEnter={preloadBusinessPageChunk}
+                onFocus={preloadBusinessPageChunk}
                 className="group"
               >
                 <Card className="overflow-hidden border-border h-full">

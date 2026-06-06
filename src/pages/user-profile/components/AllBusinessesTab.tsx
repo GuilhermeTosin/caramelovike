@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { TabsContent } from "@/components/ui/tabs";
 import { buildBusinessUrl } from "@/services/businesses";
+import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 
 type AllBusinessesTabProps = {
@@ -68,7 +69,13 @@ export default function AllBusinessesTab({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Link to={buildBusinessUrl(biz)} className="font-semibold text-foreground hover:text-primary transition-colors">
+                      <Link
+                        to={buildBusinessUrl(biz)}
+                        state={{ preloadedBusiness: biz }}
+                        onMouseEnter={preloadBusinessPageChunk}
+                        onFocus={preloadBusinessPageChunk}
+                        className="font-semibold text-foreground hover:text-primary transition-colors"
+                      >
                         {biz.name}
                       </Link>
                       <Badge variant="secondary">{getCategoryLabel(biz.category).split(" (")[0]}</Badge>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
 import { buildBusinessUrl, getCategoryId } from "@/services/businesses";
+import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 
 type BusinessesTabProps = {
@@ -84,7 +85,13 @@ export default function BusinessesTab({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link to={buildBusinessUrl(biz)} className="font-bold text-foreground transition-colors hover:text-primary">
+                    <Link
+                      to={buildBusinessUrl(biz)}
+                      state={{ preloadedBusiness: biz }}
+                      onMouseEnter={preloadBusinessPageChunk}
+                      onFocus={preloadBusinessPageChunk}
+                      className="font-bold text-foreground transition-colors hover:text-primary"
+                    >
                       {biz.name}
                     </Link>
                     {biz.moderationStatus === "pending" ? (
@@ -197,11 +204,14 @@ export default function BusinessesTab({
                       aria-label={`Ver ${biz.name}`}
                     title={biz.moderationStatus === "approved" ? "Ver negócio" : "Pré-visualizar negócio em análise"}
                     >
-                      <Link
-                        to={biz.moderationStatus === "approved" ? buildBusinessUrl(biz) : `/preview/negocio/${biz.id}`}
-                        target={biz.moderationStatus === "approved" ? "_blank" : undefined}
-                        rel={biz.moderationStatus === "approved" ? "noreferrer" : undefined}
-                      >
+                    <Link
+                      to={biz.moderationStatus === "approved" ? buildBusinessUrl(biz) : `/preview/negocio/${biz.id}`}
+                      state={{ preloadedBusiness: biz }}
+                      onMouseEnter={preloadBusinessPageChunk}
+                      onFocus={preloadBusinessPageChunk}
+                      target={biz.moderationStatus === "approved" ? "_blank" : undefined}
+                      rel={biz.moderationStatus === "approved" ? "noreferrer" : undefined}
+                    >
                         <Eye className="h-3.5 w-3.5" />
                       </Link>
                     </Button>

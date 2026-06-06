@@ -56,6 +56,10 @@ type BusinessPageProps = {
   previewMode?: boolean;
 };
 
+type BusinessPageLocationState = {
+  preloadedBusiness?: BusinessFrontend | null;
+} | null;
+
 const WEEKDAY_SCHEMA_MAP: Record<string, string> = {
   domingo: "Sunday",
   segunda: "Monday",
@@ -122,8 +126,11 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
   const location = useLocation();
   const { session, user, refreshUnread } = useAuth();
 
-  const [business, setBusiness] = useState<BusinessFrontend | null>(initialBusiness);
-  const [loading, setLoading] = useState(!initialBusiness);
+  const routeState = location.state as BusinessPageLocationState;
+  const seededBusiness = initialBusiness || routeState?.preloadedBusiness || null;
+
+  const [business, setBusiness] = useState<BusinessFrontend | null>(seededBusiness);
+  const [loading, setLoading] = useState(!seededBusiness);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(-1);
   const [reviewRating, setReviewRating] = useState<number>(0);
@@ -1429,7 +1436,12 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
             <h2 className="text-2xl font-bold mb-6">Negócios similares na região</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {similarBusinesses.map((item) => (
-                <Link key={item.id} to={buildBusinessUrl(item)} className="group">
+                <Link
+                  key={item.id}
+                  to={buildBusinessUrl(item)}
+                  state={{ preloadedBusiness: item }}
+                  className="group"
+                >
                   <Card className="overflow-hidden border-border h-full">
                     <div className="aspect-[16/10] bg-muted relative overflow-hidden">
                       <img
@@ -1639,10 +1651,6 @@ function formatInstagramDisplay(value: string): string {
 function formatFacebookDisplay(value: string): string {
   return normalizeSocialValue(value) || value;
 }
-
-
-
-
 
 
 

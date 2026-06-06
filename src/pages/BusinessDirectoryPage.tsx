@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import { buildBusinessUrl, getCountryName, getStateName, slugify } from "@/services/businesses";
+import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 
 const PAGE_SIZE = 100;
@@ -240,6 +241,9 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
                 <Link
                   key={business.id}
                   to={buildBusinessUrl(business)}
+                  state={{ preloadedBusiness: business }}
+                  onMouseEnter={preloadBusinessPageChunk}
+                  onFocus={preloadBusinessPageChunk}
                   className="block px-5 py-4 hover:bg-muted/40 transition-colors"
                 >
                   <h2 className="text-base font-bold text-foreground">{business.name}</h2>

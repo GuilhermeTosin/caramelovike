@@ -7,7 +7,6 @@ import type { BusinessFrontend } from "@/types/database";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
 import BusinessDirectoryPage from "@/pages/BusinessDirectoryPage";
-import BusinessPage from "@/pages/BusinessPage";
 import Register from "@/pages/Register";
 import Login from "@/pages/Login";
 import ResetPassword from "@/pages/ResetPassword";
@@ -21,6 +20,7 @@ import ContactPage from "@/pages/ContactPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
 import NotFound from "@/pages/NotFound";
+import BusinessPageRoute from "@/pages/BusinessPageRoute";
 
 function ScrollToTop() {
   const { pathname, search } = useLocation();
@@ -143,10 +143,10 @@ export default function App({
           <Route path="/termos" element={<TermsPage />} />
           <Route path="/eventos/:eventId" element={<EventPage />} />
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
-          <Route path="/preview/negocio/:businessId" element={<BusinessPage previewMode />} />
+          <Route path="/preview/negocio/:businessId" element={<BusinessPageRoute previewMode />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
-          <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPage initialBusiness={initialBusiness} />} />
-          <Route path="/:countryCode/:businessName" element={<BusinessPage initialBusiness={initialBusiness} />} />
+          <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} />} />
+          <Route path="/:countryCode/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppRouter>

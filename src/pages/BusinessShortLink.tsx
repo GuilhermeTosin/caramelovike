@@ -20,7 +20,7 @@ export default function BusinessShortLink() {
           setLoading(false);
           return;
         }
-        navigate(buildBusinessUrl(business), { replace: true });
+        navigate(buildBusinessUrl(business), { replace: true, state: { preloadedBusiness: business } });
       } catch {
         if (!cancelled) setLoading(false);
       }
@@ -59,4 +59,3 @@ export default function BusinessShortLink() {
     </div>
   );
 }
-

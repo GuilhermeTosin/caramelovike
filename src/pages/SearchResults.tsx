@@ -42,6 +42,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
+import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import type { CommunityEvent } from "@/types/database";
@@ -1972,7 +1973,14 @@ export default function SearchResults({
             ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {paginatedBusinesses.map((biz) => (
-                <Link key={biz.id} to={buildBusinessUrl(biz)} className="group h-full">
+                <Link
+                  key={biz.id}
+                  to={buildBusinessUrl(biz)}
+                  state={{ preloadedBusiness: biz }}
+                  onMouseEnter={preloadBusinessPageChunk}
+                  onFocus={preloadBusinessPageChunk}
+                  className="group h-full"
+                >
                   <Card className="overflow-hidden border-border h-full">
                     <div className="aspect-[16/10] bg-muted relative overflow-hidden">
                       <img
