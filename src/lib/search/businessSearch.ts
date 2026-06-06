@@ -1,4 +1,5 @@
 import { calculateDistance } from "@/lib/utils/geo";
+import { getCategoryId } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
 
 export type DistanceOrigin = { lat: number; lng: number } | null;
@@ -389,8 +390,14 @@ function matchesCategoryFilter(
   categoryFilterAliases: Record<string, string[]>,
   getCategoryLabel: (category: string) => string
 ): boolean {
-  const normalizedCategory = normalizeText(getCategoryLabel(category));
+  const categoryId = getCategoryId(category);
+  const filterId = getCategoryId(filter);
   const normalizedFilter = normalizeText(filter);
+  if (categoryId === filterId && (filterId !== "other" || normalizedFilter === "outros" || normalizedFilter === "other")) {
+    return true;
+  }
+
+  const normalizedCategory = normalizeText(getCategoryLabel(category));
   const aliases = categoryFilterAliases[normalizedFilter] || [];
   const terms = Array.from(new Set([filter, ...aliases]));
   return terms.some((term) => {

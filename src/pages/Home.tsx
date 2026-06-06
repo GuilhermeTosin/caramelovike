@@ -27,22 +27,22 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 
-const CATEGORIES = [
-  { name: "Alimentação", icon: Utensils, aliases: ["Alimentação", "Alimentacao"] },
-  { name: "Saúde & Beleza", icon: HeartPulse, aliases: ["Saúde & Beleza", "Saude e Beleza"] },
-  { name: "Automotivo", icon: Car, aliases: ["Automotivo", "Serviços Automotivos", "Servicos Automotivos"] },
-  { name: "Construção", icon: Hammer, aliases: ["Construção", "Construcao", "Construção & Reformas", "Construcao & Reformas"] },
-  { name: "Advocacia & Traduções", icon: Scale, aliases: ["Advocacia", "Advocacia & Consultoria"] },
-  { name: "Educação", icon: GraduationCap, aliases: ["Educação", "Educacao", "Educação & Idiomas", "Educacao & Idiomas"] },
-  { name: "Contabilidade", icon: Landmark, aliases: ["Contabilidade & Finanças", "Contabilidade", "Finanças", "Financas"] },
-  { name: "Comércio", icon: ShoppingBag, aliases: ["Comércio & Varejo", "Comercio & Varejo", "Comércio", "Comercio"] },
-  { name: "Transporte & Mudança", icon: Truck, aliases: ["Transporte & Mudança", "Transporte & Mudancas", "Transporte & Mudanças", "Transporte"] },
-  { name: "Imobiliária", icon: Building2, aliases: ["Imobiliária", "Imobiliaria"] },
-  { name: "Artistas", icon: Music, aliases: ["Artistas", "Arte", "Música", "Musica"] },
-  { name: "Serviços para Pets", icon: PawPrint, aliases: ["Serviços para Pets", "Servicos para Pets", "Pet", "Pets"] },
-  { name: "Cuidados Infantis e de Idosos", icon: User, aliases: ["Cuidados Infantis e de Idosos", "Babas & Acompanhantes", "Babá", "Baba", "Acompanhante", "Cuidadora", "Cuidador"] },
-  { name: "Diaristas", icon: SprayCan, aliases: ["Diaristas", "Diarista", "Faxina", "Limpeza"] },
-  { name: "Outros", icon: MoreHorizontal, aliases: ["Outros"] },
+const HOME_CATEGORIES = [
+  { id: "food", name: "Alimentação", icon: Utensils },
+  { id: "health_beauty", name: "Saúde & Beleza", icon: HeartPulse },
+  { id: "auto", name: "Automotivo", icon: Car },
+  { id: "construction", name: "Construção", icon: Hammer },
+  { id: "legal_consulting", name: "Advocacia & Traduções", icon: Scale },
+  { id: "education", name: "Educação", icon: GraduationCap },
+  { id: "accounting_finance", name: "Contabilidade", icon: Landmark },
+  { id: "retail", name: "Comércio", icon: ShoppingBag },
+  { id: "transport_moving", name: "Transporte & Mudança", icon: Truck },
+  { id: "real_estate", name: "Imobiliária", icon: Building2 },
+  { id: "artists", name: "Artistas", icon: Music },
+  { id: "pets", name: "Serviços para Pets", icon: PawPrint },
+  { id: "child_elder_care", name: "Cuidados Infantis e de Idosos", icon: User },
+  { id: "cleaning", name: "Diaristas", icon: SprayCan },
+  { id: "other", name: "Outros", icon: MoreHorizontal },
 ];
 const CURRENT_LOCATION_LABEL = "Minha localização";
 const DEFAULT_GEO_FALLBACK = {
@@ -372,12 +372,9 @@ export default function Home({
     return () => window.clearTimeout(timer);
   }, []);
   const categories = useMemo(() => {
-    return CATEGORIES.map((cat) => ({
+    return HOME_CATEGORIES.map((cat) => ({
       ...cat,
-      count: allBusinesses.filter((biz) => {
-        const category = normalizeText(biz.category);
-        return cat.aliases.some((alias) => category.includes(normalizeText(alias)));
-      }).length,
+      count: allBusinesses.filter((biz) => biz.categoryId === cat.id).length,
     }));
   }, [allBusinesses]);
 
@@ -581,11 +578,11 @@ export default function Home({
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {categories.map((cat) => (
             <Link
-              key={cat.name}
-              to={`/buscar?categoria=${encodeURIComponent(cat.name)}`}
+              key={cat.id}
+              to={`/buscar?categoria=${encodeURIComponent(cat.id)}`}
               onClick={(event) => {
                 event.preventDefault();
-                void handleCategorySearch(cat.name);
+                void handleCategorySearch(cat.id);
               }}
               className="flex flex-col items-center gap-3 p-6 rounded-xl bg-card border border-border card-hover"
             >
@@ -821,7 +818,6 @@ function normalizeText(value?: string | null): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
-
 
 
 

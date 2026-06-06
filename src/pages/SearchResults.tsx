@@ -25,7 +25,7 @@ import {
   getAllBusinesses, 
   getBusinessesByRadiusRpc,
   buildBusinessUrl, 
-  BUSINESS_CATEGORIES, 
+  BUSINESS_CATEGORY_OPTIONS, 
   getCategoryLabel,
   getCategoryId,
   getAvailableLocations,
@@ -240,6 +240,7 @@ export default function SearchResults({
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const categoryFilter = searchParams.get("categoria") || "";
+  const categoryFilterId = categoryFilter.trim() ? getCategoryId(categoryFilter) : "";
   const cityFilter = searchParams.get("cidade") || "";
   const locationFilter = searchParams.get("local") || cityFilter;
   const countryFilter = searchParams.get("pais") || "";
@@ -528,7 +529,7 @@ export default function SearchResults({
               radiusKm: initialRadius as number,
               limit: RESULTS_PER_PAGE,
               offset,
-              categoryId: categoryFilter ? getCategoryId(categoryFilter) : undefined,
+              categoryId: categoryFilterId || undefined,
               countryCode: countryFilter || undefined,
               stateCode: stateFilter || undefined,
               query: query || undefined,
@@ -846,8 +847,8 @@ export default function SearchResults({
   );
   const emptyStateMessage = useMemo(() => {
     const parts: string[] = [];
-    if (categoryFilter) {
-      parts.push(`para ${categoryFilter.split("(")[0].trim().toLowerCase()}`);
+    if (categoryFilterId) {
+      parts.push(`para ${getCategoryLabel(categoryFilterId).split("(")[0].trim().toLowerCase()}`);
     }
     const cityOrLocal = cityFilter.trim() || locationFilter.trim();
     if (cityOrLocal) {
@@ -865,7 +866,7 @@ export default function SearchResults({
   useEffect(() => {
     const baseTitle = "Buscar negócios brasileiros";
     const cityText = cityFilter ? ` em ${cityFilter}` : "";
-    const categoryText = categoryFilter ? (CATEGORY_SEO_TEXT[categoryFilter] || categoryFilter.toLowerCase()) : "negócios e serviços";
+    const categoryText = categoryFilterId ? (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase()) : "negocios e servicos";
     const queryPart = query ? ` para ${query}` : "";
 
     setSeoMeta(
@@ -878,7 +879,7 @@ export default function SearchResults({
     return filterBusinesses({
       allBusinesses,
       query,
-      categoryFilter,
+      categoryFilter: categoryFilterId || categoryFilter,
       onlineFilter: "",
       onlineCountryCode: countryFilter || originCountryParam,
       cityFilter,
@@ -1310,7 +1311,7 @@ export default function SearchResults({
   const renderFilterControls = () => (
     <div className="space-y-3">
       <Select
-        value={categoryFilter || "all"}
+        value={categoryFilterId || "all"}
         onValueChange={(v) => {
           const params = getParamsWithCurrentLocation();
           params.delete("pagina");
@@ -1324,9 +1325,9 @@ export default function SearchResults({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Todas as categorias</SelectItem>
-          {BUSINESS_CATEGORIES.filter((cat) => cat !== "Turismo & Viagens").map((cat) => (
-              <SelectItem key={cat} value={cat}>
-               {cat.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduções" : cat.split("(")[0].trim()}
+          {BUSINESS_CATEGORY_OPTIONS.filter((cat) => cat.id !== "tourism").map((cat) => (
+              <SelectItem key={cat.id} value={cat.id}>
+               {cat.label.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduções" : cat.label.split("(")[0].trim()}
               </SelectItem>
           ))}
         </SelectContent>

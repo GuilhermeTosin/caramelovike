@@ -45,19 +45,65 @@ export const BUSINESS_CATEGORIES = BUSINESS_CATEGORY_OPTIONS.map(
   (c) => CATEGORY_LABEL_BY_ID[c.id] || c.label
 ) as readonly string[];
 
-const CATEGORY_ID_BY_LABEL: Record<string, string> = Object.fromEntries(
-  BUSINESS_CATEGORY_OPTIONS.flatMap((c) => {
-    const canonicalLabel = CATEGORY_LABEL_BY_ID[c.id] || c.label;
-    return [
-      [canonicalLabel.toLowerCase(), c.id],
-      [c.label.toLowerCase(), c.id],
-    ];
-  })
-);
+const CATEGORY_INPUT_ALIASES_BY_ID: Record<string, string[]> = {
+  food: ["alimentacao", "restaurantes", "padarias", "cafes"],
+  auto: ["automotivo", "servicos automotivos"],
+  health_beauty: ["saude & beleza", "saude e beleza"],
+  construction: ["construcao", "construcao & reformas"],
+  legal_consulting: [
+    "advocacia",
+    "advocacia & consultoria",
+    "advocacia & traducoes",
+    "juridico",
+    "traducao",
+    "traducoes",
+    "imigracao",
+    "visto",
+  ],
+  accounting_finance: ["contabilidade", "contabilidade & financas", "financas"],
+  education: ["educacao", "educacao & idiomas"],
+  retail: ["comercio", "comercio & varejo"],
+  transport_moving: ["transporte", "transporte & mudanca", "transporte & mudancas", "mudanca", "mudancas"],
+  pets: ["servicos para pets", "pets", "pet"],
+  child_elder_care: ["cuidados infantis e de idosos", "babas & acompanhantes", "baba", "cuidadora", "cuidador"],
+  cleaning: ["diaristas", "limpeza", "faxina"],
+  real_estate: ["imobiliaria"],
+  tourism: ["turismo", "turismo & viagens", "viagens"],
+  artists: ["artistas", "arte", "musica"],
+  other: ["outros"],
+};
+
+const CATEGORY_ID_BY_INPUT = new Map<string, string>();
+
+function normalizeCategoryInput(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function registerCategoryInput(id: string, input: string) {
+  const normalized = normalizeCategoryInput(input);
+  if (!normalized) return;
+  if (!CATEGORY_ID_BY_INPUT.has(normalized)) {
+    CATEGORY_ID_BY_INPUT.set(normalized, id);
+  }
+}
+
+for (const option of BUSINESS_CATEGORY_OPTIONS) {
+  registerCategoryInput(option.id, option.id);
+  registerCategoryInput(option.id, option.label);
+}
+
+for (const [id, aliases] of Object.entries(CATEGORY_INPUT_ALIASES_BY_ID)) {
+  aliases.forEach((alias) => registerCategoryInput(id, alias));
+}
 
 export function getCategoryId(value: string): string {
-  if (!value) return "other";
-  return CATEGORY_LABEL_BY_ID[value] ? value : (CATEGORY_ID_BY_LABEL[value.toLowerCase()] || "other");
+  const normalized = normalizeCategoryInput(value);
+  if (!normalized) return "other";
+  return CATEGORY_ID_BY_INPUT.get(normalized) || "other";
 }
 
 export function getCategoryLabel(value: string): string {

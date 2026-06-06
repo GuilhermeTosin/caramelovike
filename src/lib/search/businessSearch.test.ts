@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BusinessFrontend } from "@/types/database";
 import { buildCityAliases, filterBusinesses } from "@/lib/search/businessSearch";
+import { getCategoryId } from "@/services/businesses";
 import "./businessSearchLocation.test";
 
 const categoryFilterAliases: Record<string, string[]> = {
@@ -86,7 +87,7 @@ function runSearch(options: {
   return filterBusinesses({
     allBusinesses: options.allBusinesses,
     query: options.query || "",
-    categoryFilter: "",
+    categoryFilter: options.categoryFilter || "",
     cityFilter: options.cityFilter || "",
     locationFilter: options.locationFilter || "",
     countryFilter: "",
@@ -172,4 +173,31 @@ describe("businessSearch", () => {
 
     expect(results.map((b) => b.id)).toEqual(["tokyo-1"]);
   });
+  it("resolve categorias da home para IDs canonicos", () => {
+    expect(getCategoryId("Advocacia & Traducoes")).toBe("legal_consulting");
+    expect(getCategoryId("Transporte & Mudanca")).toBe("transport_moving");
+  });
+
+  it("filtra negocios por categoryId sem depender do nome", () => {
+    const legalBusiness = createBusiness({
+      id: "legal",
+      categoryId: "legal_consulting",
+      category: "Advocacia & Consultoria",
+      name: "Advocacia Montreal",
+    });
+    const foodBusiness = createBusiness({
+      id: "food",
+      categoryId: "food",
+      category: "Alimentacao",
+      name: "Padaria Montreal",
+    });
+
+    const results = runSearch({
+      allBusinesses: [legalBusiness, foodBusiness],
+      categoryFilter: "legal_consulting",
+    });
+
+    expect(results.map((b) => b.id)).toEqual(["legal"]);
+  });
+
 });
