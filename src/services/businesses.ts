@@ -112,6 +112,11 @@ export function getCategoryLabel(value: string): string {
   return CATEGORY_LABEL_BY_ID[categoryId] || "Outros";
 }
 
+export function isBusinessVerified(business: Pick<Business, "owner_verified" | "owner_verified_until">): boolean {
+  const verifiedUntil = business.owner_verified_until || null;
+  return !!business.owner_verified && !!verifiedUntil && new Date(verifiedUntil).getTime() >= Date.now();
+}
+
 export function isFoodCategory(value: string): boolean {
   return getCategoryId(value) === "food";
 }
@@ -254,9 +259,7 @@ export function toFrontend(
 ): BusinessFrontend {
   const categoryId = getCategoryId((b as any).category_id || "");
   const verifiedUntil = b.owner_verified_until || null;
-  const isVerifiedByDate =
-    !!b.owner_verified &&
-    (!verifiedUntil || new Date(verifiedUntil).getTime() >= Date.now());
+  const isVerifiedByDate = isBusinessVerified(b);
   const moderationStatus =
     b.moderation_status === "pending" || b.moderation_status === "rejected"
       ? b.moderation_status

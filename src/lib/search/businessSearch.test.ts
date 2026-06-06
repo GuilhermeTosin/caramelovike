@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { BusinessFrontend } from "@/types/database";
+import type { Business, BusinessFrontend } from "@/types/database";
 import {
   buildCityAliases,
   filterBusinesses,
   resolveSearchQueryCategoryIds,
 } from "@/lib/search/businessSearch";
-import { getCategoryId } from "@/services/businesses";
+import { getCategoryId, isBusinessVerified, toFrontend } from "@/services/businesses";
 import "./businessSearchLocation.test";
 
 const categoryFilterAliases: Record<string, string[]> = {
@@ -76,6 +76,59 @@ function createBusiness(overrides: Partial<BusinessFrontend>): BusinessFrontend 
     promotions: [],
     events: [],
     createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function createRawBusiness(overrides: Partial<Business>): Business {
+  return {
+    id: "biz-raw-default",
+    owner_id: "owner-1",
+    name: "Negocio",
+    slug: "negocio",
+    category_id: "food",
+    category: "Alimentacao",
+    description: "Descricao",
+    hero_image: null,
+    logo_url: null,
+    street: "Rua",
+    city: "Mirabel",
+    state: "Quebec",
+    country: "Canada",
+    country_code: "CA",
+    state_code: "QC",
+    attendance_type: "presencial",
+    postal_code: "00000",
+    lat: 45.6794,
+    lng: -74.0036,
+    services: [],
+    service_items: [],
+    keywords: [],
+    menu: [],
+    menu_pdf_url: null,
+    is_brazilian_owned: false,
+    serves_portuguese: false,
+    is_vegan_friendly: false,
+    is_vegetarian_friendly: false,
+    is_gluten_free_friendly: false,
+    photos: [],
+    phone: null,
+    email: null,
+    website: null,
+    instagram: null,
+    facebook: null,
+    whatsapp: null,
+    reviews: [],
+    average_rating: 0,
+    owner_verified: false,
+    owner_verified_until: null,
+    moderation_status: "approved",
+    moderation_reviewed_at: null,
+    moderation_reviewed_by: null,
+    opening_hours: [],
+    promotions: [],
+    events: [],
+    created_at: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
 }
@@ -203,6 +256,29 @@ describe("businessSearch", () => {
     });
 
     expect(results.map((b) => b.id)).toEqual(["legal"]);
+  });
+
+  it("only treats businesses as verified when they have a valid verification expiry", () => {
+    const transferred = toFrontend(
+      createRawBusiness({
+        id: "transferred",
+        owner_verified: true,
+        owner_verified_until: null,
+      }),
+      "Owner"
+    );
+    const verified = toFrontend(
+      createRawBusiness({
+        id: "verified",
+        owner_verified: true,
+        owner_verified_until: "2030-01-01T00:00:00.000Z",
+      }),
+      "Owner"
+    );
+
+    expect(isBusinessVerified(createRawBusiness({ owner_verified: true, owner_verified_until: null }))).toBe(false);
+    expect(transferred.ownerVerified).toBe(false);
+    expect(verified.ownerVerified).toBe(true);
   });
 
   it("mantem negocios da categoria quando a busca vem de sinonimo", () => {
