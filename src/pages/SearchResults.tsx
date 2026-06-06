@@ -2076,20 +2076,23 @@ export default function SearchResults({
             </div>
             ))}
             {totalResults > RESULTS_PER_PAGE && (
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+              <div className="mt-8 flex flex-nowrap items-center justify-center gap-2 sm:flex-wrap">
                 {safeCurrentPage <= 1 ? (
                   <Button type="button" variant="outline" size="sm" disabled>
                     <ChevronLeft className="w-4 h-4 mr-1" />
-                    Anterior
+                      <span className="hidden sm:inline">Anterior</span>
                   </Button>
                 ) : (
                   <Button asChild type="button" variant="outline" size="sm">
                     <Link to={getPageHref(safeCurrentPage - 1)}>
                       <ChevronLeft className="w-4 h-4 mr-1" />
-                      Anterior
+                      <span className="hidden sm:inline">Anterior</span>
                     </Link>
                   </Button>
                 )}
+                <span className="sm:hidden text-xs font-medium text-muted-foreground whitespace-nowrap">
+                  Página {safeCurrentPage} de {totalPages}
+                </span>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <Button
                     asChild
@@ -2097,7 +2100,7 @@ export default function SearchResults({
                     type="button"
                     variant={page === safeCurrentPage ? "default" : "outline"}
                     size="sm"
-                    className="min-w-9"
+                    className="min-w-9 hidden sm:inline-flex"
                   >
                     <Link to={getPageHref(page)} aria-current={page === safeCurrentPage ? "page" : undefined}>
                       {page}
@@ -2106,13 +2109,13 @@ export default function SearchResults({
                 ))}
                 {safeCurrentPage >= totalPages ? (
                   <Button type="button" variant="outline" size="sm" disabled>
-                    Próxima
+                      <span className="hidden sm:inline">Próxima</span>
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 ) : (
                   <Button asChild type="button" variant="outline" size="sm">
                     <Link to={getPageHref(safeCurrentPage + 1)}>
-                      Próxima
+                      <span className="hidden sm:inline">Próxima</span>
                       <ChevronRight className="w-4 h-4 ml-1" />
                     </Link>
                   </Button>
