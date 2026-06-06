@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff } from "lucide-react";
+import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff, CalendarDays, BadgePercent, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,54 @@ import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions"
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
+
+type SearchMode = "businesses" | "events" | "achadinhos";
+
+const HOME_SEARCH_MODES: Record<
+  SearchMode,
+  {
+    label: string;
+    description: string;
+    placeholder: string;
+    ctaLabel: string;
+    modeParam?: "eventos" | "achadinhos";
+    quickTags: string[];
+    icon: typeof Store;
+    accentClass: string;
+  }
+> = {
+  businesses: {
+    label: "Negócios",
+    description: "Procure negócios brasileiros, serviços, lojas e profissionais perto de você.",
+    placeholder: "Buscar por produto ou serviço (Ex: coxinha)",
+    ctaLabel: "Farejar negócios",
+    quickTags: ["Padaria", "Mecânico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"],
+    icon: Store,
+    accentClass: "bg-emerald-600 text-white shadow-md",
+  },
+  events: {
+    label: "Eventos",
+    description: "Encontre festas, feiras, encontros e inaugurações da comunidade brasileira.",
+    placeholder: "Buscar por festa, feira ou encontro",
+    ctaLabel: "Farejar eventos",
+    modeParam: "eventos",
+    quickTags: ["Festa", "Show", "Feira", "Inauguração", "Encontro", "Samba"],
+    icon: CalendarDays,
+    accentClass: "bg-amber-500 text-white shadow-md",
+  },
+  achadinhos: {
+    label: "Achadinhos",
+    description: "Descubra promoções, ofertas e novidades compartilhadas pela comunidade.",
+    placeholder: "Buscar por promoção, desconto ou novidade",
+    ctaLabel: "Farejar achadinhos",
+    modeParam: "achadinhos",
+    quickTags: ["Promoção", "Desconto", "Oferta", "Outlet", "Novidade", "Cupom"],
+    icon: BadgePercent,
+    accentClass: "bg-sky-600 text-white shadow-md",
+  },
+};
+
+const HOME_SEARCH_MODE_ORDER: SearchMode[] = ["businesses", "events", "achadinhos"];
 
 const HOME_CATEGORIES = [
   { id: "food", name: "Alimentação", icon: Utensils },
@@ -91,6 +139,7 @@ export default function Home({
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<SearchMode>("businesses");
   const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinesses);
   const [featuredBusinesses, setFeaturedBusinesses] = useState<BusinessFrontend[]>(initialFeaturedBusinesses);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>(initialSearchSuggestions);
@@ -229,17 +278,12 @@ export default function Home({
     }
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (Date.now() < suppressSubmitUntilRef.current) return;
-    if (secretActive) return;
-    setIsSubmittingSearch(true);
-    const params = new URLSearchParams();
-    if (searchQuery.trim()) params.set("q", searchQuery.trim());
-    const locationText = locationQuery.trim();
+  const appendLocationContext = async (params: URLSearchParams, rawLocationText: string) => {
+    const locationText = rawLocationText.trim();
     const isCurrentLocationText =
       normalizeText(locationText) === normalizeText(CURRENT_LOCATION_LABEL);
     const hasExplicitCity = !!locationText && !isCurrentLocationText;
+
     if (hasExplicitCity) {
       params.set("cidade", locationText);
       params.set("local", locationText);
@@ -258,38 +302,44 @@ export default function Home({
         params.set("origem_source", "city");
         if (resolved.countryCode) params.set("origem_pais", resolved.countryCode);
       }
-    }
-    if (!hasExplicitCity) {
-      const approx = await getApproxGeoByIp({
-        timeoutMs: 3000,
-        maxAgeMs: 24 * 60 * 60 * 1000,
-        fallback: DEFAULT_GEO_FALLBACK,
-      });
-      const coords = userCoords || (approx ? { lat: approx.lat, lng: approx.lng } : null);
-      if (coords) {
-        setUserCoords(coords);
-        if (approx?.city) {
-          setLocationQuery((prev) => (prev.trim() ? prev : approx.city!));
-        }
-        params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-        params.set("auto_raio", "1");
-        params.set("origem_lat", String(coords.lat));
-        params.set("origem_lng", String(coords.lng));
-        params.set("origem_source", approx?.source === "cache" ? "ip_cache" : "ip");
-        if (approx?.countryCode) params.set("origem_pais", approx.countryCode.toLowerCase());
-        else params.delete("origem_pais");
-      }
+      return true;
     }
 
-    // Se o usuário selecionou uma cidade que sabemos o país/estado, podemos ser mais específicos
-    // Mas por simplicidade no momento, passamos apenas como query de cidade
+    const approx = await getApproxGeoByIp({
+      timeoutMs: 3000,
+      maxAgeMs: 24 * 60 * 60 * 1000,
+      fallback: DEFAULT_GEO_FALLBACK,
+    });
+    const coords = userCoords || (approx ? { lat: approx.lat, lng: approx.lng } : null);
+    if (coords) {
+      setUserCoords(coords);
+      if (approx?.city) {
+        setLocationQuery((prev) => (prev.trim() ? prev : approx.city!));
+      }
+      params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
+      params.set("auto_raio", "1");
+      params.set("origem_lat", String(coords.lat));
+      params.set("origem_lng", String(coords.lng));
+      params.set("origem_source", approx?.source === "cache" ? "ip_cache" : "ip");
+      if (approx?.countryCode) params.set("origem_pais", approx.countryCode.toLowerCase());
+      else params.delete("origem_pais");
+    }
+
+    return !!coords;
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (Date.now() < suppressSubmitUntilRef.current) return;
+    if (secretActive) return;
+    setIsSubmittingSearch(true);
+    const params = new URLSearchParams();
     const hasQuery = !!searchQuery.trim();
-    const hasLocationContext = !!(
-      params.get("cidade") ||
-      params.get("local") ||
-      (params.get("origem_lat") && params.get("origem_lng"))
-    );
-    if (!hasQuery && !hasLocationContext) {
+    const modeParam = HOME_SEARCH_MODES[searchMode].modeParam;
+    if (modeParam) params.set(modeParam, "1");
+    if (hasQuery) params.set("q", searchQuery.trim());
+    const hasLocationContext = await appendLocationContext(params, locationQuery);
+    if (searchMode === "businesses" && !hasQuery && !hasLocationContext) {
       setLocationNoticeMessage("Digite o que procura ou informe sua cidade para iniciar a busca.");
       setLocationNoticeOpen(true);
       setIsSubmittingSearch(false);
@@ -303,30 +353,10 @@ export default function Home({
   const handleQuickTagSearch = async (tag: string) => {
     setIsSubmittingSearch(true);
     const params = new URLSearchParams();
+    const modeParam = HOME_SEARCH_MODES[searchMode].modeParam;
+    if (modeParam) params.set(modeParam, "1");
     params.set("q", tag.trim());
-
-    const approx = await getApproxGeoByIp({
-      timeoutMs: 3000,
-      maxAgeMs: 24 * 60 * 60 * 1000,
-      fallback: DEFAULT_GEO_FALLBACK,
-    });
-    const coords = userCoords || (approx ? { lat: approx.lat, lng: approx.lng } : null);
-    if (coords) {
-      setUserCoords(coords);
-      if (approx?.city) {
-        params.set("cidade", approx.city);
-        params.set("local", approx.city);
-        setLocationQuery((prev) => (prev.trim() ? prev : approx.city!));
-      }
-      params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-      params.set("auto_raio", "1");
-      params.set("origem_lat", String(coords.lat));
-      params.set("origem_lng", String(coords.lng));
-      params.set("origem_source", approx?.source === "cache" ? "ip_cache" : "ip");
-      if (approx?.countryCode) params.set("origem_pais", approx.countryCode.toLowerCase());
-      else params.delete("origem_pais");
-    }
-
+    await appendLocationContext(params, locationQuery);
     navigate(`/buscar?${params.toString()}`);
     setIsSubmittingSearch(false);
   };
@@ -335,29 +365,7 @@ export default function Home({
     setIsSubmittingSearch(true);
     const params = new URLSearchParams();
     params.set("categoria", category);
-
-    const approx = await getApproxGeoByIp({
-      timeoutMs: 3000,
-      maxAgeMs: 24 * 60 * 60 * 1000,
-      fallback: DEFAULT_GEO_FALLBACK,
-    });
-    const coords = userCoords || (approx ? { lat: approx.lat, lng: approx.lng } : null);
-    if (coords) {
-      setUserCoords(coords);
-      if (approx?.city) {
-        params.set("cidade", approx.city);
-        params.set("local", approx.city);
-        setLocationQuery((prev) => (prev.trim() ? prev : approx.city!));
-      }
-      params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-      params.set("auto_raio", "1");
-      params.set("origem_lat", String(coords.lat));
-      params.set("origem_lng", String(coords.lng));
-      params.set("origem_source", approx?.source === "cache" ? "ip_cache" : "ip");
-      if (approx?.countryCode) params.set("origem_pais", approx.countryCode.toLowerCase());
-      else params.delete("origem_pais");
-    }
-
+    await appendLocationContext(params, locationQuery);
     navigate(`/buscar?${params.toString()}`);
     setIsSubmittingSearch(false);
   };
@@ -376,6 +384,8 @@ export default function Home({
       count: allBusinesses.filter((biz) => biz.categoryId === cat.id).length,
     }));
   }, [allBusinesses]);
+
+  const activeSearchMode = HOME_SEARCH_MODES[searchMode];
 
   const popularCities = useMemo(() => {
     const cityCounts = new Map<string, { name: string; countryCode: string; count: number }>();
@@ -438,11 +448,12 @@ export default function Home({
         <div className="absolute inset-0 caramelo-gradient opacity-5" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-200/20 via-transparent to-transparent" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 lg:py-28 relative">
-          <div className="max-w-3xl mx-auto text-center">
-            <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
-              <PawPrint className="w-4 h-4 mr-1.5 inline-block text-amber-600" />
-              {mascotPhrase}
-            </Badge>
+          <div className="max-w-6xl mx-auto">
+            <div className="max-w-3xl mx-auto text-center">
+              <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
+                <PawPrint className="w-4 h-4 mr-1.5 inline-block text-amber-600" />
+                {mascotPhrase}
+              </Badge>
             <h1
               className={`text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-foreground transition-all duration-500 ${
                 secretActive ? "scale-[1.01]" : ""
@@ -460,36 +471,72 @@ export default function Home({
             <p className="mt-5 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed whitespace-pre-line">
               {siteContent.heroSubtitle}
             </p>
+            </div>
 
-            {/* Dual Search Bar */}
-            <form onSubmit={handleSearch} className="mt-8 sm:mt-10 max-w-4xl mx-auto">
-              <div className="flex flex-col sm:flex-row gap-0 rounded-2xl sm:rounded-3xl border border-border bg-white shadow-xl focus-within:ring-2 ring-primary/20 transition-all h-auto sm:h-24 p-2 sm:p-0">
-                <SearchInputWithSuggestions
-                  className="sm:flex-[1.6] rounded-xl sm:rounded-none"
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  suggestions={searchSuggestions}
-                  disableLocalSuggestions
-                  placeholder="Buscar por produto ou serviço (Ex: coxinha)"
-                  icon="search"
-                  inputClassName="h-12 sm:h-full text-base sm:text-2xl placeholder:text-[11px] sm:placeholder:text-sm"
-                />
-                <div className="hidden sm:block w-px h-10 bg-border/50 self-center" />
-                <div className="sm:hidden h-px bg-border/50 mx-1" />
-                <SearchInputWithSuggestions
-                  className="sm:flex-[0.9] rounded-xl sm:rounded-none"
-                  value={locationQuery}
-                  onChange={setLocationQuery}
-                  suggestions={citySuggestions}
-                  onUseCurrentLocation={handleUseCurrentLocationInput}
-                  isLoading={isResolvingLocationInput}
-                  placeholder="Em qual cidade?"
-                  icon="location"
-                  inputClassName="h-12 sm:h-full text-base sm:text-2xl placeholder:text-[11px] sm:placeholder:text-sm"
-                />
-                <div className="pt-2 sm:p-3 flex items-center">
-                  <Button type="submit" size="lg" disabled={isSubmittingSearch} className="w-full sm:w-auto h-11 sm:h-14 px-6 sm:px-10 caramelo-gradient hover:opacity-90 text-white border-0 font-bold text-sm sm:text-base" style={{ borderRadius: "12px" }}>
-                    {isSubmittingSearch ? "Farejando..." : "Farejar"}
+            {/* Search Bar */}
+            <form onSubmit={handleSearch} className="mt-8 sm:mt-10 w-full">
+              <div className="mb-3 sm:mb-4 rounded-2xl bg-white/92 px-2.5 py-2.5 sm:px-3 shadow-sm backdrop-blur-sm">
+                <div className="flex flex-wrap justify-center gap-2">
+                  {HOME_SEARCH_MODE_ORDER.map((mode) => {
+                    const modeConfig = HOME_SEARCH_MODES[mode];
+                    const ModeIcon = modeConfig.icon;
+                    const isActive = searchMode === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setSearchMode(mode)}
+                        aria-pressed={isActive}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all ${
+                          isActive
+                            ? `${modeConfig.accentClass} border-transparent`
+                            : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <ModeIcon className="w-4 h-4" />
+                        {modeConfig.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-center text-xs sm:text-sm leading-relaxed text-slate-600">
+                  {activeSearchMode.description}
+                </p>
+              </div>
+              <div className="relative w-full overflow-visible rounded-2xl sm:rounded-3xl bg-white shadow-xl focus-within:ring-2 ring-primary/20 transition-all p-2 sm:p-2 min-h-[112px] sm:min-h-[88px]">
+                <div className="flex flex-col sm:flex-row gap-0 sm:pr-[262px] pt-[5px]">
+                  <SearchInputWithSuggestions
+                    className="sm:flex-[1.7] rounded-xl sm:rounded-none"
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    suggestions={searchSuggestions}
+                    disableLocalSuggestions
+                    placeholder={activeSearchMode.placeholder}
+                    icon="search"
+                    inputClassName="h-12 sm:h-16 text-base sm:text-xl placeholder:text-[11px] sm:placeholder:text-sm"
+                  />
+                  <div className="hidden sm:block w-px h-10 bg-border/50 self-center" />
+                  <SearchInputWithSuggestions
+                    className="sm:flex-[0.9] rounded-xl sm:rounded-none"
+                    value={locationQuery}
+                    onChange={setLocationQuery}
+                    suggestions={citySuggestions}
+                    onUseCurrentLocation={handleUseCurrentLocationInput}
+                    isLoading={isResolvingLocationInput}
+                    placeholder="Em qual cidade?"
+                    icon="location"
+                    inputClassName="h-12 sm:h-16 text-base sm:text-xl placeholder:text-[11px] sm:placeholder:text-sm"
+                  />
+                </div>
+                <div className="mt-2 sm:mt-0 sm:absolute sm:right-2 sm:top-2 sm:bottom-2 sm:w-[250px]">
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingSearch}
+                    className="w-full h-12 sm:h-full px-6 sm:px-8 caramelo-gradient hover:opacity-90 text-white border-0 font-bold text-sm sm:text-base py-0 leading-none inline-flex items-center justify-center gap-2"
+                    style={{ borderRadius: "12px" }}
+                  >
+                    <PawPrint className="w-4 h-4 shrink-0" />
+                    {isSubmittingSearch ? "Farejando..." : activeSearchMode.ctaLabel}
                   </Button>
                 </div>
               </div>
@@ -497,14 +544,21 @@ export default function Home({
 
             {/* Quick tags */}
             <div className="mt-6 flex flex-wrap gap-2 justify-center">
-              {["Padaria", "Mecânico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"].map((tag) => (
+              {activeSearchMode.quickTags.map((tag) => (
                 <button
                   key={tag}
+                  type="button"
                   onClick={() => {
                     setSearchQuery(tag);
                     void handleQuickTagSearch(tag);
                   }}
-                  className="px-3 py-1.5 text-sm rounded-full bg-secondary text-secondary-foreground hover:bg-amber-100 transition-colors"
+                  className={`px-3 py-1.5 text-xs sm:text-sm rounded-full transition-colors ${
+                    searchMode === "businesses"
+                      ? "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                      : searchMode === "events"
+                        ? "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                        : "bg-sky-50 text-sky-800 hover:bg-sky-100"
+                  }`}
                 >
                   {tag}
                 </button>
@@ -783,22 +837,3 @@ function normalizeText(value?: string | null): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
