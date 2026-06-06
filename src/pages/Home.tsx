@@ -455,7 +455,7 @@ export default function Home({
                 {mascotPhrase}
               </Badge>
             <h1
-              className={`text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-foreground transition-all duration-500 ${
+              className={`text-[1.8rem] sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-foreground transition-all duration-500 ${
                 secretActive ? "scale-[1.01]" : ""
               }`}
             >
@@ -468,7 +468,7 @@ export default function Home({
               </span>
               <span> no mundo todo</span>
             </h1>
-            <p className="mt-5 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed whitespace-pre-line">
+            <p className="mt-5 text-[1rem] sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed whitespace-pre-line">
               {siteContent.heroSubtitle}
             </p>
             </div>
