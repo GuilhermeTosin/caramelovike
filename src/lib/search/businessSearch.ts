@@ -96,6 +96,42 @@ export function hasCityLevelBusinessLocation(business: Pick<BusinessFrontend, "a
   return hasReliableBusinessLocation(business) && !hasPreciseBusinessLocation(business);
 }
 
+export function resolveSearchQueryCategoryIds(
+  query: string,
+  categorySynonymsMap: Record<string, string[]>,
+  searchSynonyms: Record<string, string[]>
+): string[] {
+  const normalizedQuery = normalizeText(query || "");
+  if (!normalizedQuery) return [];
+
+  const ids = new Set<string>();
+
+  for (const [categoryLabel, synonyms] of Object.entries(categorySynonymsMap || {})) {
+    const hasMatch = (synonyms || []).some((syn) => {
+      const normalizedSyn = normalizeText(syn || "");
+      if (!normalizedSyn) return false;
+      return (
+        normalizedSyn === normalizedQuery ||
+        matchesNormalizedQueryTokens(normalizedSyn, normalizedQuery) ||
+        matchesNormalizedQueryTokens(normalizedQuery, normalizedSyn)
+      );
+    });
+    if (hasMatch) {
+      const categoryId = getCategoryId(categoryLabel);
+      if (categoryId && categoryId !== "other") ids.add(categoryId);
+    }
+  }
+
+  for (const term of searchSynonyms[normalizedQuery] || []) {
+    const categoryId = getCategoryId(term);
+    if (categoryId && categoryId !== "other") {
+      ids.add(categoryId);
+    }
+  }
+
+  return Array.from(ids);
+}
+
 export function cityMatches(
   businessCity: string,
   selectedCity: string,
@@ -186,7 +222,16 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
         getCategoryLabel
       );
       scoreByBusinessId.set(b.id, score);
-      return strictSearchMode ? score >= strictSearchMinScore : score > 0;
+      const directTextMatch = matchesBusinessTextQuery(b, q);
+      const categoryKeywordMatch = (effectiveKeywords || []).some((kw) =>
+        matchesNormalizedQueryTokens(normalizeText(kw), q)
+      );
+      const synonymCategoryMatch = (relatedTerms || []).some((term) =>
+        matchesCategoryFilter(b.category, term, categoryFilterAliases, getCategoryLabel)
+      );
+      return strictSearchMode
+        ? score >= strictSearchMinScore || categoryKeywordMatch || synonymCategoryMatch || directTextMatch
+        : score > 0;
     });
   }
 
@@ -493,9 +538,9 @@ function getBusinessMatchScore(
   );
 
   let score = 0;
-  if (directTextMatch) score += 5;
-  if (categoryKeywordMatch) score += 3;
+  if (directTextMatch) score += 1000;
+  if (categoryKeywordMatch) score += 800;
   // Match por sinônimo de categoria precisa sobreviver ao modo estrito.
-  if (synonymCategoryMatch) score += 4;
+  if (synonymCategoryMatch) score += 600;
   return score;
 }

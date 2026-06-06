@@ -53,6 +53,7 @@ import {
   filterBusinesses,
   hasPreciseBusinessLocation,
   hasReliableBusinessLocation,
+  resolveSearchQueryCategoryIds,
   normalizeText,
 } from "@/lib/search/businessSearch";
 import {
@@ -284,6 +285,10 @@ export default function SearchResults({
   const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
     getCategorySynonymsConfig()
   );
+  const queryCategoryIds = useMemo(
+    () => resolveSearchQueryCategoryIds(query, categorySynonymsMap, SEARCH_SYNONYMS),
+    [query, categorySynonymsMap]
+  );
   const [initialLoading, setInitialLoading] = useState(initialBusinesses.length === 0);
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
@@ -494,6 +499,7 @@ export default function SearchResults({
       initialLng !== null &&
       !!initialRadius &&
       initialRadius > 0 &&
+      queryCategoryIds.length === 0 &&
       !requiresCityLevelFallback &&
       (!hasCityContext || hasCityAlignedOrigin)
     );
@@ -506,6 +512,7 @@ export default function SearchResults({
     originLocalParam,
     originSourceParam,
     isEventMode,
+    queryCategoryIds,
   ]);
 
   useEffect(() => {

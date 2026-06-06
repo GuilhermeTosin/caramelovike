@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { BusinessFrontend } from "@/types/database";
-import { buildCityAliases, filterBusinesses } from "@/lib/search/businessSearch";
+import {
+  buildCityAliases,
+  filterBusinesses,
+  resolveSearchQueryCategoryIds,
+} from "@/lib/search/businessSearch";
 import { getCategoryId } from "@/services/businesses";
 import "./businessSearchLocation.test";
 
@@ -83,6 +87,7 @@ function runSearch(options: {
   locationFilter?: string;
   radiusKm?: number | null;
   distanceOrigin?: { lat: number; lng: number } | null;
+  categorySynonymsMap?: Record<string, string[]>;
 }): BusinessFrontend[] {
   return filterBusinesses({
     allBusinesses: options.allBusinesses,
@@ -98,7 +103,7 @@ function runSearch(options: {
     hasLocationContext: !!(options.cityFilter || options.locationFilter),
     hasTypedLocation: !!(options.locationFilter || "").trim(),
     distanceOrigin: options.distanceOrigin ?? null,
-    categorySynonymsMap: {},
+    categorySynonymsMap: options.categorySynonymsMap || {},
     searchSynonyms,
     categoryKeywords,
     categoryFilterAliases,
@@ -198,6 +203,41 @@ describe("businessSearch", () => {
     });
 
     expect(results.map((b) => b.id)).toEqual(["legal"]);
+  });
+
+  it("mantem negocios da categoria quando a busca vem de sinonimo", () => {
+    const categorySynonymsMap = {
+      "Advocacia & Consultoria": ["traducoes"],
+    };
+
+    const keywordRichBusiness = createBusiness({
+      id: "rich",
+      categoryId: "legal_consulting",
+      category: "Advocacia & Consultoria",
+      name: "Traducoes e Imigracao",
+      description: "Servicos para traducoes e documentos",
+      keywords: ["traducoes"],
+    });
+    const categoryOnlyBusiness = createBusiness({
+      id: "plain",
+      categoryId: "legal_consulting",
+      category: "Advocacia & Consultoria",
+      name: "Escritorio Montreal",
+      description: "Atendimento juridico",
+      keywords: [],
+    });
+
+    expect(resolveSearchQueryCategoryIds("traducoes", categorySynonymsMap, {})).toEqual([
+      "legal_consulting",
+    ]);
+
+    const results = runSearch({
+      allBusinesses: [categoryOnlyBusiness, keywordRichBusiness],
+      query: "traducoes",
+      categorySynonymsMap,
+    });
+
+    expect(results.map((b) => b.id)).toEqual(["rich", "plain"]);
   });
 
 });
