@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 const OUTPUTS = [
   "public/sitemap.xml",
   "public/sitemaps/static.xml",
+  "public/sitemaps/businesses-fallback.xml",
 ];
 
 function getEnv(name) {
@@ -50,6 +51,10 @@ function buildStaticSitemapXml(baseUrl) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  ${body}\n</urlset>\n`;
 }
 
+function buildEmptyBusinessSitemapXml() {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n</urlset>\n`;
+}
+
 async function ensureDirForFile(filePath) {
   await mkdir(dirname(filePath), { recursive: true });
 }
@@ -62,6 +67,7 @@ async function main() {
   const files = [
     { path: OUTPUTS[0], content: indexXml },
     { path: OUTPUTS[1], content: staticXml },
+    { path: OUTPUTS[2], content: buildEmptyBusinessSitemapXml() },
   ];
 
   for (const file of files) {

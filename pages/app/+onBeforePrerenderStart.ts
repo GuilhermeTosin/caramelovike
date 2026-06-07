@@ -1,5 +1,6 @@
 import {
   getAllBusinesses,
+  buildBusinessUrl,
   slugify,
 } from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
@@ -62,6 +63,12 @@ function buildDirectoryUrls(businesses: BusinessFrontend[]) {
   return Array.from(urls);
 }
 
+function buildBusinessUrls(businesses: BusinessFrontend[]) {
+  return businesses
+    .map((business) => buildBusinessUrl(business))
+    .filter((url): url is string => !!url);
+}
+
 function buildStaticSitemapXml(baseUrl: string) {
   const now = new Date().toISOString();
   const urls = [
@@ -110,9 +117,19 @@ export async function onBeforePrerenderStart() {
   ]);
 
   const eventUrls = events.map((event) => `/eventos/${event.id}`);
+  const businessUrls = buildBusinessUrls(businesses);
 
   const baseUrl = "https://www.caramelinho.com";
   await writeGeneratedSitemapFiles(baseUrl).catch(() => {});
+  const businessFallbackXml = buildBusinessSitemapXml(baseUrl, businessUrls);
+  const publicDir = join(process.cwd(), "public");
+  const distClientDir = join(process.cwd(), "dist", "client");
+  const sitemapDir = join(publicDir, "sitemaps");
+  const distSitemapDir = join(distClientDir, "sitemaps");
+  await mkdir(sitemapDir, { recursive: true });
+  await mkdir(distSitemapDir, { recursive: true });
+  await writeFile(join(sitemapDir, "businesses-fallback.xml"), businessFallbackXml, "utf8");
+  await writeFile(join(distSitemapDir, "businesses-fallback.xml"), businessFallbackXml, "utf8");
 
   return uniqueUrls([
     ...STATIC_PUBLIC_URLS,
