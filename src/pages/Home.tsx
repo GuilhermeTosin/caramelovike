@@ -26,7 +26,7 @@ import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions"
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
-import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
+import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
 
@@ -626,13 +626,16 @@ export default function Home({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredBusinesses.slice(0, 6).map((biz) => (
+            {featuredBusinesses.slice(0, 6).map((biz, index) => {
+              const prioritizeImage = index < 3;
+              return (
               <Link
                 key={biz.id}
                 to={buildBusinessUrl(biz)}
                 state={{ preloadedBusiness: biz }}
-                onMouseEnter={preloadBusinessPageChunk}
-                onFocus={preloadBusinessPageChunk}
+                onMouseEnter={() => preloadBusinessPageAssets(biz)}
+                onFocus={() => preloadBusinessPageAssets(biz)}
+                onPointerDown={() => preloadBusinessPageAssets(biz)}
                 className="group"
               >
                 <Card className="overflow-hidden border-border h-full">
@@ -652,7 +655,8 @@ export default function Home({
                       sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 31vw"
                       alt={biz.name}
                       className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
-                      loading="lazy"
+                      loading={prioritizeImage ? "eager" : "lazy"}
+                      fetchpriority={prioritizeImage ? "high" : "low"}
                       decoding="async"
                     />
                     <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
@@ -729,9 +733,10 @@ export default function Home({
                       </div>
                     )}
                   </div>
-                </Card>
-              </Link>
-            ))}
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
 
           {featuredBusinesses.length === 0 && (

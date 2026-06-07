@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
 import { buildBusinessUrl, getCategoryId } from "@/services/businesses";
-import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
+import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 
 type BusinessesTabProps = {
@@ -88,8 +88,9 @@ export default function BusinessesTab({
                     <Link
                       to={buildBusinessUrl(biz)}
                       state={{ preloadedBusiness: biz }}
-                      onMouseEnter={preloadBusinessPageChunk}
-                      onFocus={preloadBusinessPageChunk}
+                      onMouseEnter={() => preloadBusinessPageAssets(biz)}
+                      onFocus={() => preloadBusinessPageAssets(biz)}
+                      onPointerDown={() => preloadBusinessPageAssets(biz)}
                       className="font-bold text-foreground transition-colors hover:text-primary"
                     >
                       {biz.name}
@@ -207,8 +208,9 @@ export default function BusinessesTab({
                     <Link
                       to={biz.moderationStatus === "approved" ? buildBusinessUrl(biz) : `/preview/negocio/${biz.id}`}
                       state={{ preloadedBusiness: biz }}
-                      onMouseEnter={preloadBusinessPageChunk}
-                      onFocus={preloadBusinessPageChunk}
+                      onMouseEnter={() => preloadBusinessPageAssets(biz)}
+                      onFocus={() => preloadBusinessPageAssets(biz)}
+                      onPointerDown={() => preloadBusinessPageAssets(biz)}
                       target={biz.moderationStatus === "approved" ? "_blank" : undefined}
                       rel={biz.moderationStatus === "approved" ? "noreferrer" : undefined}
                     >

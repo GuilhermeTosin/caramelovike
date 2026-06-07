@@ -42,7 +42,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
-import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
+import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import type { CommunityEvent } from "@/types/database";
@@ -312,6 +312,7 @@ export default function SearchResults({
   const [locationNoticeOpen, setLocationNoticeOpen] = useState(false);
   const [locationNoticeTitle, setLocationNoticeTitle] = useState("Aviso");
   const [locationNoticeMessage, setLocationNoticeMessage] = useState("");
+  const [loadedBusinessImages, setLoadedBusinessImages] = useState<Record<string, boolean>>({});
   const effectivePage = currentPage;
   const {
     finds: communityFinds,
@@ -323,6 +324,10 @@ export default function SearchResults({
     setLocationNoticeTitle(title);
     setLocationNoticeMessage(message);
     setLocationNoticeOpen(true);
+  }, []);
+
+  const markBusinessImageLoaded = useCallback((businessId: string) => {
+    setLoadedBusinessImages((current) => (current[businessId] ? current : { ...current, [businessId]: true }));
   }, []);
 
   useEffect(() => {
@@ -1972,33 +1977,54 @@ export default function SearchResults({
               </div>
             ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {paginatedBusinesses.map((biz) => (
+              {paginatedBusinesses.map((biz, index) => {
+                const prioritizeImage = index < 4;
+                const businessCardImageSource = biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80";
+                const businessCardPreviewUrl = getOptimizedImageUrl(
+                  businessCardImageSource,
+                  { width: 64, quality: 45, format: "webp" }
+                );
+                const businessCardImageUrl = getOptimizedImageUrl(
+                  businessCardImageSource,
+                  { width: 768, quality: 80, format: "webp" }
+                );
+                const businessCardImageSrcSet =
+                  getOptimizedImageSrcSet(
+                    businessCardImageSource,
+                    [480, 768, 1024],
+                    80
+                  ) || undefined;
+                const businessCardImageLoaded = !!loadedBusinessImages[biz.id];
+                return (
                 <Link
                   key={biz.id}
                   to={buildBusinessUrl(biz)}
                   state={{ preloadedBusiness: biz }}
-                  onMouseEnter={preloadBusinessPageChunk}
-                  onFocus={preloadBusinessPageChunk}
+                  onMouseEnter={() => preloadBusinessPageAssets(biz)}
+                  onFocus={() => preloadBusinessPageAssets(biz)}
+                  onPointerDown={() => preloadBusinessPageAssets(biz)}
                   className="group h-full"
                 >
                   <Card className="overflow-hidden border-border h-full">
-                    <div className="aspect-[16/10] bg-muted relative overflow-hidden">
+                    <div
+                      className="aspect-[16/10] bg-muted relative overflow-hidden"
+                      style={{
+                        backgroundImage: businessCardPreviewUrl ? `url(${businessCardPreviewUrl})` : undefined,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }}
+                    >
                       <img
-                        src={getOptimizedImageUrl(
-                          biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
-                          { width: 768, quality: 80, format: "webp" }
-                        )}
-                        srcSet={
-                          getOptimizedImageSrcSet(
-                            biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
-                            [480, 768, 1024],
-                            80
-                          ) || undefined
-                        }
+                        src={businessCardImageUrl}
+                        srcSet={businessCardImageSrcSet}
                         sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 31vw"
                         alt={biz.name}
-                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
-                        loading="lazy"
+                        onLoad={() => markBusinessImageLoaded(biz.id)}
+                        onError={() => markBusinessImageLoaded(biz.id)}
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-all duration-500 ease-out"
+                        style={{ opacity: businessCardImageLoaded ? 1 : 0 }}
+                        loading={prioritizeImage ? "eager" : "lazy"}
+                        fetchpriority={prioritizeImage ? "high" : "low"}
                         decoding="async"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
@@ -2080,7 +2106,8 @@ export default function SearchResults({
                     </div>
                   </Card>
                 </Link>
-              ))}
+                );
+              })}
             </div>
             ))}
             {totalResults > RESULTS_PER_PAGE && (

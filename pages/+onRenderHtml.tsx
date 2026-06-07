@@ -3,6 +3,7 @@ import { renderToString } from "react-dom/server";
 import { dangerouslySkipEscape, escapeInject } from "vike/server";
 import type { BusinessFrontend } from "@/types/database";
 import type { RendererPageContext } from "@/renderer/pageContext";
+import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 
 type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
@@ -61,6 +62,37 @@ function buildBusinessDescription(business: BusinessFrontend) {
   const services = (business.services || []).filter(Boolean).slice(0, 3).join(", ");
   const details = services ? ` Especialidades: ${services}.` : "";
   return `${business.name} em ${place}. Encontre informações de contato, avaliações e detalhes sobre esse ${categoryLabel}.${details}`.trim();
+}
+
+function buildBusinessHeroImageAssets(imageUrl: string) {
+  const optimizedImageUrl = getOptimizedImageUrl(imageUrl, { width: 1280, quality: 80, format: "webp" });
+  const srcSet = getOptimizedImageSrcSet(imageUrl, [720, 960, 1280], 80);
+
+  let preloadHtml = `<link rel="preload" as="image" href="${optimizedImageUrl}" fetchpriority="high" />`;
+  try {
+    const origin = new URL(optimizedImageUrl).origin;
+    if (origin && origin !== "https://www.caramelinho.com") {
+      preloadHtml = [
+        `<link rel="preconnect" href="${origin}" />`,
+        `<link rel="dns-prefetch" href="${origin}" />`,
+        preloadHtml,
+      ].join("\n");
+    }
+  } catch {
+    // Keep the preload tag even if URL parsing fails.
+  }
+
+  if (srcSet) {
+    preloadHtml = preloadHtml.replace(
+      'fetchpriority="high" />',
+      `imagesrcset="${srcSet}" imagesizes="100vw" fetchpriority="high" />`
+    );
+  }
+
+  return {
+    optimizedImageUrl,
+    preloadHtml,
+  };
 }
 
 function buildFallbackBusinessMeta(urlOriginal?: string) {
@@ -296,6 +328,10 @@ export function onRenderHtml(pageContext: PageContext) {
     ? getErrorPageMeta()
     : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || []);
   const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal);
+  const businessHeroAssets =
+    isBusinessPage && businessHasData
+      ? buildBusinessHeroImageAssets(business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg")
+      : null;
   const pageTitle = isErrorPage
     ? staticMeta.title
     : isBusinessPage
@@ -307,7 +343,7 @@ export function onRenderHtml(pageContext: PageContext) {
     ? (businessHasData ? buildBusinessDescription(business) : fallbackBusinessMeta.description)
     : staticMeta.description;
   const pageImage = isBusinessPage && businessHasData
-    ? business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg"
+    ? businessHeroAssets?.optimizedImageUrl || business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg"
     : "https://www.caramelinho.com/og-image.jpg";
   const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, pageContext.is404);
   const jsonLd = isBusinessPage && businessHasData
@@ -347,6 +383,7 @@ export function onRenderHtml(pageContext: PageContext) {
     <meta name="twitter:image" content="${pageImage}" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    ${businessHeroAssets ? dangerouslySkipEscape(businessHeroAssets.preloadHtml) : ""}
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"

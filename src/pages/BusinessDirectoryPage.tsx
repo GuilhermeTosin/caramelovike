@@ -1,7 +1,8 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
-import { buildBusinessUrl, getCountryName, getStateName, slugify } from "@/services/businesses";
-import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
+import { buildBusinessUrl, getAllBusinesses, getCountryName, getStateName, slugify } from "@/services/businesses";
+import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 
 const PAGE_SIZE = 100;
@@ -129,7 +130,39 @@ function Header() {
 
 export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirectoryPageProps) {
   const params = useParams();
-  const sortedBusinesses = [...businesses].sort(sortBusinesses);
+  const [directoryBusinesses, setDirectoryBusinesses] = useState<BusinessFrontend[]>(businesses);
+  const [loadingBusinesses, setLoadingBusinesses] = useState(businesses.length === 0);
+
+  useEffect(() => {
+    let active = true;
+
+    setDirectoryBusinesses(businesses);
+    if (businesses.length > 0) {
+      setLoadingBusinesses(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setLoadingBusinesses(true);
+    void getAllBusinesses()
+      .then((rows) => {
+        if (!active) return;
+        setDirectoryBusinesses(rows);
+        setLoadingBusinesses(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setDirectoryBusinesses([]);
+        setLoadingBusinesses(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [businesses]);
+
+  const sortedBusinesses = useMemo(() => [...directoryBusinesses].sort(sortBusinesses), [directoryBusinesses]);
   const {
     countryCode,
     stateCode,
@@ -195,7 +228,13 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
           )}
         </nav>
 
-        {level === "countries" && (
+        {loadingBusinesses && directoryBusinesses.length === 0 ? (
+          <section className="mt-8 rounded-2xl border border-border bg-white p-6">
+            <p className="text-sm text-muted-foreground">Carregando países com negócios publicados...</p>
+          </section>
+        ) : null}
+
+        {level === "countries" && !loadingBusinesses && (
           <DirectoryGrid
             title="Países"
             items={Array.from(countryCounts.entries()).map(([code, count]) => ({
@@ -206,7 +245,7 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
           />
         )}
 
-        {level === "states" && (
+        {level === "states" && !loadingBusinesses && (
           <DirectoryGrid
             title="Estados e regiões"
             items={Array.from(stateCounts.entries()).map(([code, count]) => ({
@@ -217,7 +256,7 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
           />
         )}
 
-        {level === "cities" && (
+        {level === "cities" && !loadingBusinesses && (
           <DirectoryGrid
             title="Cidades"
             items={Array.from(cityCounts.entries()).map(([slug, count]) => ({
@@ -228,7 +267,7 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
           />
         )}
 
-        {level === "businesses" && (
+        {level === "businesses" && !loadingBusinesses && (
           <section className="mt-8 rounded-2xl border border-border bg-white overflow-hidden">
             <div className="px-5 py-4 border-b border-border bg-muted/30">
               <p className="text-sm text-muted-foreground">
@@ -242,8 +281,9 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
                   key={business.id}
                   to={buildBusinessUrl(business)}
                   state={{ preloadedBusiness: business }}
-                  onMouseEnter={preloadBusinessPageChunk}
-                  onFocus={preloadBusinessPageChunk}
+                  onMouseEnter={() => preloadBusinessPageAssets(business)}
+                  onFocus={() => preloadBusinessPageAssets(business)}
+                  onPointerDown={() => preloadBusinessPageAssets(business)}
                   className="block px-5 py-4 hover:bg-muted/40 transition-colors"
                 >
                   <h2 className="text-base font-bold text-foreground">{business.name}</h2>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { PawPrint } from "lucide-react";
 import type { BusinessFrontend } from "@/types/database";
 import { getLoadedBusinessPageModule, preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
@@ -26,9 +27,18 @@ function BusinessPageLoading() {
 }
 
 export default function BusinessPageRoute(props: BusinessPageProps = {}) {
+  const { countryCode, stateCode, city, businessName, businessId } = useParams();
   const [PageComponent, setPageComponent] = useState<BusinessPageModule["default"] | null>(
     () => getLoadedBusinessPageModule()?.default ?? null
   );
+  const routeKey = [
+    props.previewMode ? "preview" : "public",
+    countryCode || "",
+    stateCode || "",
+    city || "",
+    businessName || "",
+    businessId || "",
+  ].join("|");
 
   useEffect(() => {
     if (PageComponent) return;
@@ -44,13 +54,13 @@ export default function BusinessPageRoute(props: BusinessPageProps = {}) {
   }, [PageComponent]);
 
   if (PageComponent) {
-    return <PageComponent {...props} />;
+    return <PageComponent key={routeKey} {...props} />;
   }
 
   if (import.meta.env.SSR) {
     const ServerComponent = getLoadedBusinessPageModule()?.default;
     if (ServerComponent) {
-      return <ServerComponent {...props} />;
+      return <ServerComponent key={routeKey} {...props} />;
     }
   }
 

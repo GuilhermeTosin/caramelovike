@@ -1,4 +1,9 @@
+import { getOptimizedImageSrcSet, getOptimizedImageUrl, preloadResponsiveImage } from "@/lib/images";
+import type { BusinessFrontend } from "@/types/database";
+
 type BusinessPageModule = typeof import("@/pages/BusinessPage");
+
+const BUSINESS_HERO_FALLBACK = "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&q=80";
 
 let loadedBusinessPageModule: BusinessPageModule | null = null;
 let loadingBusinessPageModule: Promise<BusinessPageModule> | null = null;
@@ -20,4 +25,17 @@ export function preloadBusinessPageChunk() {
 
 export function getLoadedBusinessPageModule() {
   return loadedBusinessPageModule;
+}
+
+export function preloadBusinessHeroImage(business: Pick<BusinessFrontend, "heroImage" | "logoUrl">) {
+  if (typeof document === "undefined") return;
+  const source = business.heroImage || business.logoUrl || BUSINESS_HERO_FALLBACK;
+  const url = getOptimizedImageUrl(source, { width: 1280, quality: 80, format: "webp" });
+  const srcSet = getOptimizedImageSrcSet(source, [720, 960, 1280], 80);
+  preloadResponsiveImage(url, { srcSet, sizes: "100vw" });
+}
+
+export function preloadBusinessPageAssets(business: Pick<BusinessFrontend, "heroImage" | "logoUrl">) {
+  void preloadBusinessPageChunk();
+  preloadBusinessHeroImage(business);
 }

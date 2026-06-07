@@ -50,6 +50,7 @@ import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
 import NotFound from "@/pages/NotFound";
+import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 
 type BusinessPageProps = {
   initialBusiness?: BusinessFrontend | null;
@@ -127,7 +128,12 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
   const { session, user, refreshUnread } = useAuth();
 
   const routeState = location.state as BusinessPageLocationState;
-  const seededBusiness = initialBusiness || routeState?.preloadedBusiness || null;
+  const currentPathname = location.pathname;
+  const initialBusinessMatchesRoute =
+    !!initialBusiness &&
+    !previewMode &&
+    buildBusinessUrl(initialBusiness) === currentPathname;
+  const seededBusiness = routeState?.preloadedBusiness || (initialBusinessMatchesRoute ? initialBusiness : null);
 
   const [business, setBusiness] = useState<BusinessFrontend | null>(seededBusiness);
   const [loading, setLoading] = useState(!seededBusiness);
@@ -141,6 +147,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
   const [editComment, setEditComment] = useState("");
   const [savingEditReview, setSavingEditReview] = useState(false);
   const [hasPendingOwnershipRequest, setHasPendingOwnershipRequest] = useState(false);
+  const [heroImageLoaded, setHeroImageLoaded] = useState(false);
 
   const isOnlineOnly = business?.attendanceType === "online";
   const [requestingOwnership, setRequestingOwnership] = useState(false);
@@ -174,6 +181,10 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
     !!searchParams.get("cidade") ||
     !!searchParams.get("local");
   const galleryPhotos = (business?.photos || []).slice(0, 8);
+  const heroImageSource = business?.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&q=80";
+  const heroImagePreviewUrl = getOptimizedImageUrl(heroImageSource, { width: 64, quality: 45, format: "webp" });
+  const heroImageUrl = getOptimizedImageUrl(heroImageSource, { width: 1280, quality: 80, format: "webp" });
+  const heroImageSrcSet = getOptimizedImageSrcSet(heroImageSource, [720, 960, 1280], 80);
   const initialTab =
     requestedTab === "about" ||
     requestedTab === "services" ||
@@ -264,6 +275,12 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
+    setBusiness(seededBusiness);
+    setLoading(!seededBusiness);
+    setSelectedPhoto(null);
+    setSelectedPhotoIndex(-1);
+    setSimilarBusinesses([]);
+    setHeroImageLoaded(false);
     let active = true;
     Promise.resolve().then(() => {
       if (active) void loadBusiness();
@@ -672,7 +689,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
     !!session?.userId &&
     (business?.reviews || []).some((r) => r.user_id === session.userId);
 
-  if (loading) {
+  if (loading && !business) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -719,10 +736,30 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
         </div>
       </header>
 
-      <div className="relative h-[400px] sm:h-[500px] overflow-hidden">
-        <img src={business.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&q=80"} alt={business.name} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
+      <div
+        className="relative h-[400px] sm:h-[500px] overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950"
+        style={{
+          backgroundImage: heroImagePreviewUrl ? `url(${heroImagePreviewUrl})` : undefined,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <img
+          key={business.id}
+          src={heroImageUrl}
+          srcSet={heroImageSrcSet || undefined}
+          sizes="100vw"
+          alt={business.name}
+          onLoad={() => setHeroImageLoaded(true)}
+          onError={() => setHeroImageLoaded(true)}
+          className="absolute inset-0 z-0 w-full h-full object-cover transition-opacity duration-500"
+          style={{ opacity: heroImageLoaded ? 1 : 0 }}
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+        />
+        <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 z-20 p-6 sm:p-10">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-end gap-6">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-4 border-white bg-white shrink-0">
               <img src={business.logoUrl || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&q=80"} alt="" className="w-full h-full object-cover" />
@@ -1435,11 +1472,16 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
           <section className="mt-14">
             <h2 className="text-2xl font-bold mb-6">Negócios similares na região</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {similarBusinesses.map((item) => (
+              {similarBusinesses.map((item, index) => {
+                const prioritizeImage = index < 2;
+                return (
                 <Link
                   key={item.id}
                   to={buildBusinessUrl(item)}
                   state={{ preloadedBusiness: item }}
+                  onMouseEnter={() => preloadBusinessPageAssets(item)}
+                  onFocus={() => preloadBusinessPageAssets(item)}
+                  onPointerDown={() => preloadBusinessPageAssets(item)}
                   className="group"
                 >
                   <Card className="overflow-hidden border-border h-full">
@@ -1458,7 +1500,8 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
                         }
                         sizes="(max-width: 640px) 92vw, 30vw"
                         alt={item.name}
-                        loading="lazy"
+                        loading={prioritizeImage ? "eager" : "lazy"}
+                        fetchpriority={prioritizeImage ? "high" : "low"}
                         decoding="async"
                         className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
                       />
@@ -1552,9 +1595,10 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
                         </div>
                       )}
                     </div>
-                  </Card>
+                    </Card>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}
