@@ -1,10 +1,13 @@
 import React from "react";
-import { createRoot, hydrateRoot } from "react-dom/client";
+import { createRoot } from "react-dom/client";
 import type { RendererPageContext } from "@/renderer/pageContext";
 import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
 
-function shouldPreloadBusinessPage(urlOriginal?: string) {
-  const pathname = new URL(urlOriginal || "/", window.location.origin).pathname;
+function getPathname(urlOriginal?: string) {
+  return new URL(urlOriginal || "/", window.location.origin).pathname;
+}
+
+function isBusinessRoute(pathname: string) {
   return (
     pathname.startsWith("/preview/negocio/") ||
     pathname.startsWith("/go/") ||
@@ -21,14 +24,11 @@ export async function onRenderClient(pageContext: RendererPageContext & { Page: 
     throw new Error("Missing #root element for client hydration.");
   }
 
-  if (shouldPreloadBusinessPage(pageContext.urlOriginal)) {
+  const pathname = getPathname(pageContext.urlOriginal);
+
+  if (isBusinessRoute(pathname)) {
     await preloadBusinessPageChunk();
   }
 
-  if (pageContext.isBusinessPage) {
-    createRoot(container).render(<React.StrictMode><Page pageContext={pageContext} /></React.StrictMode>);
-    return;
-  }
-
-  hydrateRoot(container, <React.StrictMode><Page pageContext={pageContext} /></React.StrictMode>);
+  createRoot(container).render(<React.StrictMode><Page pageContext={pageContext} /></React.StrictMode>);
 }
