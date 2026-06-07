@@ -13,8 +13,6 @@ export async function getOrCreateConversation(
   businessId?: string,
   businessName?: string
 ): Promise<ConversationFrontend | null> {
-  console.log("[getOrCreateConversation] Iniciando:", { senderId, receiverId, businessId });
-
   if (!senderId || !receiverId) {
     console.error("[getOrCreateConversation] IDs ausentes:", { senderId, receiverId });
     return null;

@@ -47,11 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadingUserIdRef.current = userId;
 
     try {
-      console.log("AuthContext: Iniciando carregamento para", userId);
       let profile = await getProfileById(userId);
       
       if (!profile) {
-        console.log("AuthContext: Perfil não encontrado, tentando criar...");
         const defaultName = email.split("@")[0] || "Usuário";
         const success = await updateProfile(userId, { name: defaultName });
         if (success) {
@@ -135,7 +133,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, supaSession) => {
-        console.log("AuthContext: Evento Supabase:", event);
         const s = buildSession(supaSession);
         setSession(s);
 
@@ -178,4 +175,3 @@ export function useAuth(): AuthContextType {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
-
