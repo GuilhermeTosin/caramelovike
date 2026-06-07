@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes, StaticRouter, useLocation } from "react-router-dom";
 import { useEffect, type ReactNode } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
@@ -151,6 +152,7 @@ export default function App({
         </Routes>
       </AppRouter>
       <Toaster richColors position="top-center" />
+      <Analytics />
     </AuthProvider>
   );
 }
