@@ -13,14 +13,9 @@ type CachedSitemapData = {
   rows: SitemapBusinessRow[];
 };
 
-type SearchSettingRow = {
-  value: unknown;
-};
-
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 7000;
 const PAGE_SIZE = 1000;
-const BUSINESS_SITEMAP_SNAPSHOT_KEY = "business_sitemap_xml";
 
 let cache: CachedSitemapData | null = null;
 
@@ -60,20 +55,6 @@ function getSitemapSourceConfig() {
   if (!url || !key) {
     throw new Error("SUPABASE_URL e uma chave do Supabase sao obrigatorios.");
   }
-
-  return { url, key };
-}
-
-function getSitemapReadConfig() {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const key =
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SECRET_KEY ||
-    "";
-
-  if (!url || !key) return null;
 
   return { url, key };
 }
@@ -182,59 +163,6 @@ export function buildEmptyBusinessSitemapXml(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 </urlset>`;
-}
-
-export async function getBusinessSitemapSnapshotXml(): Promise<string | null> {
-  const config = getSitemapReadConfig();
-  if (!config) return null;
-
-  try {
-    const params = new URLSearchParams();
-    params.set("select", "value");
-    params.set("key", `eq.${BUSINESS_SITEMAP_SNAPSHOT_KEY}`);
-    params.set("limit", "1");
-
-    const response = await fetch(`${config.url}/rest/v1/search_settings?${params.toString()}`, {
-      headers: {
-        apikey: config.key,
-        Authorization: `Bearer ${config.key}`,
-        Accept: "application/json; charset=utf-8",
-      },
-    });
-
-    if (!response.ok) return null;
-
-    const rows = (await response.json()) as SearchSettingRow[];
-    const value = rows?.[0]?.value;
-    return typeof value === "string" ? value.trim() || null : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function saveBusinessSitemapSnapshotXml(xml: string): Promise<boolean> {
-  const { url, key } = getSitemapSourceConfig();
-
-  try {
-    const response = await fetch(`${url}/rest/v1/search_settings?on_conflict=key`, {
-      method: "POST",
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json; charset=utf-8",
-        Prefer: "resolution=merge-duplicates,return=representation",
-        Accept: "application/json; charset=utf-8",
-      },
-      body: JSON.stringify({
-        key: BUSINESS_SITEMAP_SNAPSHOT_KEY,
-        value: xml,
-      }),
-    });
-
-    return response.ok;
-  } catch {
-    return false;
-  }
 }
 
 function buildBusinessUrl(baseUrl: string, row: SitemapBusinessRow): string | null {

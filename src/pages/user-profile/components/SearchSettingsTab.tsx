@@ -65,8 +65,8 @@ export default function SearchSettingsTab({
             </div>
             <p className="text-[11px] text-muted-foreground">
               O sitemap público é servido em <code>/sitemap.xml</code>, com dois arquivos públicos:{" "}
-              <code>/sitemaps/static.xml</code> e <code>/sitemaps/businesses.xml</code>. O sitemap de negócios usa
-              um snapshot persistido com fallback estático.
+              <code>/sitemaps/static.xml</code> e <code>/sitemaps/businesses.xml</code>. O sitemap de negócios
+              consulta a base atual e usa um fallback estático se o Supabase estiver indisponível.
             </p>
           </div>
 
