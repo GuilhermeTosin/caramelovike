@@ -9,7 +9,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       ok: true,
       refreshedAt: new Date().toISOString(),
-      note: "Sitemaps are generated at build time.",
+      note: "Sitemap de negocios e servido dinamicamente.",
     });
   } catch (error) {
     return res.status(500).json({

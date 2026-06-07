@@ -47,23 +47,29 @@ export default function SearchSettingsTab({
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Configuração de Busca</h2>
-          <p className="text-sm text-muted-foreground mt-1">Edite sinônimos por categoria para melhorar a relevância dos resultados.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Edite sinônimos por categoria para melhorar a relevância dos resultados.
+          </p>
         </div>
-        <Card className="p-6 border-border space-y-4">
-          <div className="rounded-xl border border-border p-4 space-y-3 bg-secondary/20">
+
+        <Card className="space-y-4 border-border p-6">
+          <div className="space-y-3 rounded-xl border border-border bg-secondary/20 p-4">
             <h3 className="font-semibold text-foreground">Sitemap</h3>
             <p className="text-xs text-muted-foreground">
               Atualize manualmente o sitemap sempre que quiser forçar uma nova geração das URLs públicas.
             </p>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="button" variant="outline" onClick={onRefreshSitemap}>
                 Recarregar sitemap
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              O sitemap público é gerado no build e servido como arquivo estático em <code>/sitemap.xml</code>, com dois arquivos públicos: <code>/sitemaps/static.xml</code> e <code>/sitemaps/businesses.xml</code>.
+              O sitemap público é servido em <code>/sitemap.xml</code>, com dois arquivos públicos:{" "}
+              <code>/sitemaps/static.xml</code> e <code>/sitemaps/businesses.xml</code>. O sitemap de negócios é
+              gerado dinamicamente.
             </p>
           </div>
+
           <div>
             <Label>Categoria</Label>
             <Select value={searchSynonymsCategory} onValueChange={onSearchSynonymsCategoryChange}>
@@ -72,11 +78,14 @@ export default function SearchSettingsTab({
               </SelectTrigger>
               <SelectContent>
                 {Object.keys(searchSynonymsConfig).map((cat) => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
           <div>
             <Label>Sinônimos (separados por vírgula)</Label>
             <Textarea
@@ -86,17 +95,23 @@ export default function SearchSettingsTab({
               placeholder="Ex: advogado, jurídico, imigração, tradução"
             />
           </div>
+
           <div className="flex flex-wrap gap-2">
             <Button onClick={onSaveSearchSynonyms}>Salvar sinônimos</Button>
-            <Button variant="outline" onClick={onResetSearchSynonyms}>Restaurar padrão</Button>
+            <Button variant="outline" onClick={onResetSearchSynonyms}>
+              Restaurar padrão
+            </Button>
           </div>
-          <div className="rounded-xl border border-border p-4 space-y-4 bg-secondary/20">
+
+          <div className="space-y-4 rounded-xl border border-border bg-secondary/20 p-4">
             <div>
               <h3 className="font-semibold text-foreground">Links follow por negócio</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Por padrão, links externos públicos saem com <code>ugc nofollow noopener</code>. Aqui você escolhe os negócios que podem sair sem <code>nofollow</code>.
+              <p className="mt-1 text-xs text-muted-foreground">
+                Por padrão, links externos públicos saem com <code>ugc nofollow noopener</code>. Aqui você escolhe os
+                negócios que podem sair sem <code>nofollow</code>.
               </p>
             </div>
+
             <div>
               <Label>Negócio</Label>
               <Select value={selectedFollowBusinessId} onValueChange={onSelectedFollowBusinessIdChange}>
@@ -112,6 +127,7 @@ export default function SearchSettingsTab({
                 </SelectContent>
               </Select>
             </div>
+
             <div className="flex flex-wrap gap-2">
               <Button onClick={onEnableBusinessFollowLinks} disabled={savingFollowLinksBusinessIds}>
                 Liberar follow
@@ -126,6 +142,7 @@ export default function SearchSettingsTab({
                 </Button>
               ) : null}
             </div>
+
             <div className="space-y-2">
               <Label>Negócios com follow liberado</Label>
               {followLinksBusinessIds.length === 0 ? (
@@ -143,7 +160,7 @@ export default function SearchSettingsTab({
                         className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs hover:bg-secondary"
                       >
                         <span>{biz.name}</span>
-                        <X className="w-3 h-3" />
+                        <X className="h-3 w-3" />
                       </button>
                     );
                   })}

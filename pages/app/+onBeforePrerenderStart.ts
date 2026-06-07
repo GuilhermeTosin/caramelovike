@@ -1,5 +1,4 @@
 import {
-  buildBusinessUrl,
   getAllBusinesses,
   slugify,
 } from "@/services/businesses";
@@ -89,7 +88,7 @@ function buildBusinessSitemapXml(baseUrl: string, businessUrls: string[]) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  ${body}\n</urlset>\n`;
 }
 
-async function writeGeneratedSitemapFiles(baseUrl: string, businessUrls: string[]) {
+async function writeGeneratedSitemapFiles(baseUrl: string) {
   const publicDir = join(process.cwd(), "public");
   const distClientDir = join(process.cwd(), "dist", "client");
   const sitemapDir = join(publicDir, "sitemaps");
@@ -102,8 +101,6 @@ async function writeGeneratedSitemapFiles(baseUrl: string, businessUrls: string[
   await writeFile(join(distClientDir, "sitemap.xml"), indexXml, "utf8");
   await writeFile(join(sitemapDir, "static.xml"), buildStaticSitemapXml(baseUrl), "utf8");
   await writeFile(join(distSitemapDir, "static.xml"), buildStaticSitemapXml(baseUrl), "utf8");
-  await writeFile(join(sitemapDir, "businesses.xml"), buildBusinessSitemapXml(baseUrl, businessUrls), "utf8");
-  await writeFile(join(distSitemapDir, "businesses.xml"), buildBusinessSitemapXml(baseUrl, businessUrls), "utf8");
 }
 
 export async function onBeforePrerenderStart() {
@@ -112,18 +109,14 @@ export async function onBeforePrerenderStart() {
     getPublishedCommunityEvents().catch(() => [] as CommunityEvent[]),
   ]);
 
-  const businessUrls = businesses
-    .map((business) => buildBusinessUrl(business))
-    .filter((url) => !url.startsWith("/go/"));
   const eventUrls = events.map((event) => `/eventos/${event.id}`);
 
   const baseUrl = "https://www.caramelinho.com";
-  await writeGeneratedSitemapFiles(baseUrl, businessUrls).catch(() => {});
+  await writeGeneratedSitemapFiles(baseUrl).catch(() => {});
 
   return uniqueUrls([
     ...STATIC_PUBLIC_URLS,
     ...buildDirectoryUrls(businesses),
-    ...businessUrls,
     ...eventUrls,
   ]);
 }

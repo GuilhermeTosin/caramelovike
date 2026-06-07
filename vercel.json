@@ -33,6 +33,7 @@
     { "src": "/negocio/wizard", "dest": "/index.html" },
     { "src": "/preview/negocio/(.*)", "dest": "/index.html" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/sitemaps/businesses.xml", "dest": "/api/sitemap-businesses" },
 
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api/ssr" }
