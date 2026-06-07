@@ -41,7 +41,7 @@ import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions"
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
-import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
+import { getOptimizedImageSrcSet, getOptimizedImageUrl, preloadResponsiveImage } from "@/lib/images";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
@@ -96,6 +96,15 @@ const SEARCH_SYNONYMS: Record<string, string[]> = {
   unha: ["Saúde & Beleza", "Manicure"],
   cabelo: ["Saúde & Beleza", "Cabeleireiro"],
 };
+
+function getCardImageAssets(source: string) {
+  const imageSource = source || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80";
+  return {
+    previewUrl: getOptimizedImageUrl(imageSource, { width: 64, quality: 45, format: "webp" }),
+    imageUrl: getOptimizedImageUrl(imageSource, { width: 768, quality: 80, format: "webp" }),
+    srcSet: getOptimizedImageSrcSet(imageSource, [480, 768, 1024], 80) || undefined,
+  };
+}
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   "Alimentação (Restaurantes, Padarias, Cafés)": [
@@ -313,6 +322,8 @@ export default function SearchResults({
   const [locationNoticeTitle, setLocationNoticeTitle] = useState("Aviso");
   const [locationNoticeMessage, setLocationNoticeMessage] = useState("");
   const [loadedBusinessImages, setLoadedBusinessImages] = useState<Record<string, boolean>>({});
+  const [loadedEventImages, setLoadedEventImages] = useState<Record<string, boolean>>({});
+  const [loadedCommunityFindImages, setLoadedCommunityFindImages] = useState<Record<string, boolean>>({});
   const effectivePage = currentPage;
   const {
     finds: communityFinds,
@@ -328,6 +339,20 @@ export default function SearchResults({
 
   const markBusinessImageLoaded = useCallback((businessId: string) => {
     setLoadedBusinessImages((current) => (current[businessId] ? current : { ...current, [businessId]: true }));
+  }, []);
+
+  const markEventImageLoaded = useCallback((eventKey: string) => {
+    setLoadedEventImages((current) => (current[eventKey] ? current : { ...current, [eventKey]: true }));
+  }, []);
+
+  const markCommunityFindImageLoaded = useCallback((findId: string) => {
+    setLoadedCommunityFindImages((current) => (current[findId] ? current : { ...current, [findId]: true }));
+  }, []);
+
+  const preloadCardImage = useCallback((source?: string | null) => {
+    if (!source) return;
+    const assets = getCardImageAssets(source);
+    preloadResponsiveImage(assets.imageUrl, { srcSet: assets.srcSet, sizes: "100vw" });
   }, []);
 
   useEffect(() => {
@@ -1773,15 +1798,38 @@ export default function SearchResults({
 
               {paginatedCommunityFinds.length > 0 ? (
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {paginatedCommunityFinds.map((find) => (
-                    <Card key={find.id} className="p-3 border-border">
+                  {paginatedCommunityFinds.map((find, index) => {
+                    const findImageSource = find.photo_url || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80";
+                    const findImageAssets = getCardImageAssets(findImageSource);
+                    const findImageLoaded = !!loadedCommunityFindImages[find.id];
+                    const prioritizeImage = index < 4;
+                    return (
+                    <Card
+                      key={find.id}
+                      className="p-3 border-border"
+                      onMouseEnter={() => preloadCardImage(findImageSource)}
+                    >
                       {find.photo_url ? (
-                        <div className="mb-3 rounded-md overflow-hidden border border-border">
+                        <div
+                          className="mb-3 rounded-md overflow-hidden border border-border bg-muted"
+                          style={{
+                            backgroundImage: findImageAssets.previewUrl ? `url(${findImageAssets.previewUrl})` : undefined,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                          }}
+                        >
                           <img
-                            src={find.photo_url}
+                            src={findImageAssets.imageUrl}
+                            srcSet={findImageAssets.srcSet}
+                            sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 31vw"
                             alt={`Foto do achadinho ${find.product_name}`}
-                            className="w-full h-36 object-cover cursor-pointer"
-                            loading="lazy"
+                            onLoad={() => markCommunityFindImageLoaded(find.id)}
+                            onError={() => markCommunityFindImageLoaded(find.id)}
+                            className="w-full h-36 object-cover cursor-pointer transition-all duration-500 ease-out"
+                            style={{ opacity: findImageLoaded ? 1 : 0 }}
+                            loading={prioritizeImage ? "eager" : "lazy"}
+                            fetchpriority={prioritizeImage ? "high" : "low"}
+                            decoding="async"
                             onClick={async () => {
                               await openCommunityFindDialog(find);
                               const params = new URLSearchParams(searchParams);
@@ -1901,7 +1949,7 @@ export default function SearchResults({
                         </div>
                       </div>
                     </Card>
-                  ))}
+                  );})}
                 </div>
               ) : (
                 <p className="mt-4 text-sm text-muted-foreground">
@@ -1913,7 +1961,15 @@ export default function SearchResults({
 
             {!isCommunityFindsMode && (isEventMode ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                {paginatedEvents.map((item) => (
+                {paginatedEvents.map((item, index) => {
+                  const eventImageSource =
+                    (item.type === "business"
+                      ? item.evt.flyerUrl || item.biz.heroImage
+                      : item.evt.flyer_url) || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80";
+                  const eventImageAssets = getCardImageAssets(eventImageSource);
+                  const eventImageLoaded = !!loadedEventImages[item.key];
+                  const prioritizeImage = index < 4;
+                  return (
                   <Link
                     key={item.key}
                     to={
@@ -1926,19 +1982,32 @@ export default function SearchResults({
                     onClick={(e) => {
                       if (item.type === "community" && !item.evt.id) e.preventDefault();
                     }}
+                    onMouseEnter={() => preloadCardImage(eventImageSource)}
+                    onFocus={() => preloadCardImage(eventImageSource)}
+                    onPointerDown={() => preloadCardImage(eventImageSource)}
                     className="group h-full"
                   >
                     <Card className="overflow-hidden border-border h-full">
-                      <div className="aspect-[16/10] bg-muted relative overflow-hidden">
+                      <div
+                        className="aspect-[16/10] bg-muted relative overflow-hidden"
+                        style={{
+                          backgroundImage: eventImageAssets.previewUrl ? `url(${eventImageAssets.previewUrl})` : undefined,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                        }}
+                      >
                         <img
-                          src={
-                            (item.type === "business"
-                              ? item.evt.flyerUrl || item.biz.heroImage
-                              : item.evt.flyer_url) || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"
-                          }
+                          src={eventImageAssets.imageUrl}
+                          srcSet={eventImageAssets.srcSet}
+                          sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 31vw"
                           alt={item.evt.title}
-                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
-                          loading="lazy"
+                          onLoad={() => markEventImageLoaded(item.key)}
+                          onError={() => markEventImageLoaded(item.key)}
+                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-all duration-500 ease-out"
+                          style={{ opacity: eventImageLoaded ? 1 : 0 }}
+                          loading={prioritizeImage ? "eager" : "lazy"}
+                          fetchpriority={prioritizeImage ? "high" : "low"}
+                          decoding="async"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                         <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
@@ -1973,7 +2042,7 @@ export default function SearchResults({
                       </div>
                     </Card>
                   </Link>
-                ))}
+                );})}
               </div>
             ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">

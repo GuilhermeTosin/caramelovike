@@ -147,7 +147,6 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
   const [editComment, setEditComment] = useState("");
   const [savingEditReview, setSavingEditReview] = useState(false);
   const [hasPendingOwnershipRequest, setHasPendingOwnershipRequest] = useState(false);
-  const [heroImageLoaded, setHeroImageLoaded] = useState(false);
 
   const isOnlineOnly = business?.attendanceType === "online";
   const [requestingOwnership, setRequestingOwnership] = useState(false);
@@ -182,9 +181,9 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
     !!searchParams.get("local");
   const galleryPhotos = (business?.photos || []).slice(0, 8);
   const heroImageSource = business?.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&q=80";
-  const heroImagePreviewUrl = getOptimizedImageUrl(heroImageSource, { width: 64, quality: 45, format: "webp" });
-  const heroImageUrl = getOptimizedImageUrl(heroImageSource, { width: 1280, quality: 80, format: "webp" });
-  const heroImageSrcSet = getOptimizedImageSrcSet(heroImageSource, [720, 960, 1280], 80);
+  const heroImagePreviewUrl = getOptimizedImageUrl(heroImageSource, { width: 240, quality: 55, format: "webp" });
+  const heroImageUrl = getOptimizedImageUrl(heroImageSource, { width: 1024, quality: 76, format: "webp" });
+  const heroImageSrcSet = getOptimizedImageSrcSet(heroImageSource, [480, 720, 960, 1024], 76);
   const initialTab =
     requestedTab === "about" ||
     requestedTab === "services" ||
@@ -280,7 +279,6 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
     setSelectedPhoto(null);
     setSelectedPhotoIndex(-1);
     setSimilarBusinesses([]);
-    setHeroImageLoaded(false);
     let active = true;
     Promise.resolve().then(() => {
       if (active) void loadBusiness();
@@ -736,30 +734,29 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
         </div>
       </header>
 
-      <div
-        className="relative h-[400px] sm:h-[500px] overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950"
-        style={{
-          backgroundImage: heroImagePreviewUrl ? `url(${heroImagePreviewUrl})` : undefined,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
+      <div className="relative h-[400px] sm:h-[500px] overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950">
+        <img
+          src={heroImagePreviewUrl}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 z-0 w-full h-full object-cover scale-110 blur-2xl opacity-90 pointer-events-none"
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+        />
         <img
           key={business.id}
           src={heroImageUrl}
           srcSet={heroImageSrcSet || undefined}
           sizes="100vw"
           alt={business.name}
-          onLoad={() => setHeroImageLoaded(true)}
-          onError={() => setHeroImageLoaded(true)}
-          className="absolute inset-0 z-0 w-full h-full object-cover transition-opacity duration-500"
-          style={{ opacity: heroImageLoaded ? 1 : 0 }}
+          className="absolute inset-0 z-10 w-full h-full object-cover pointer-events-none"
           loading="eager"
           fetchpriority="high"
           decoding="async"
         />
-        <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 z-20 p-6 sm:p-10">
+        <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 z-30 p-6 sm:p-10">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-end gap-6">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-4 border-white bg-white shrink-0">
               <img src={business.logoUrl || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&q=80"} alt="" className="w-full h-full object-cover" />

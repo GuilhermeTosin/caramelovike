@@ -30,8 +30,8 @@ export function getLoadedBusinessPageModule() {
 export function preloadBusinessHeroImage(business: Pick<BusinessFrontend, "heroImage" | "logoUrl">) {
   if (typeof document === "undefined") return;
   const source = business.heroImage || business.logoUrl || BUSINESS_HERO_FALLBACK;
-  const url = getOptimizedImageUrl(source, { width: 1280, quality: 80, format: "webp" });
-  const srcSet = getOptimizedImageSrcSet(source, [720, 960, 1280], 80);
+  const url = getOptimizedImageUrl(source, { width: 1024, quality: 76, format: "webp" });
+  const srcSet = getOptimizedImageSrcSet(source, [480, 720, 960, 1024], 76);
   preloadResponsiveImage(url, { srcSet, sizes: "100vw" });
 }
 
