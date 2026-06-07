@@ -181,9 +181,9 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
     !!searchParams.get("local");
   const galleryPhotos = (business?.photos || []).slice(0, 8);
   const heroImageSource = business?.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&q=80";
-  const heroImagePreviewUrl = getOptimizedImageUrl(heroImageSource, { width: 240, quality: 55, format: "webp" });
-  const heroImageUrl = getOptimizedImageUrl(heroImageSource, { width: 1024, quality: 76, format: "webp" });
-  const heroImageSrcSet = getOptimizedImageSrcSet(heroImageSource, [480, 720, 960, 1024], 76);
+  const heroImagePreviewUrl = getOptimizedImageUrl(heroImageSource, { width: 96, quality: 35, format: "webp" });
+  const heroImageUrl = getOptimizedImageUrl(heroImageSource, { width: 960, quality: 72, format: "webp" });
+  const heroImageSrcSet = getOptimizedImageSrcSet(heroImageSource, [480, 640, 800, 960], 72);
   const initialTab =
     requestedTab === "about" ||
     requestedTab === "services" ||
@@ -739,9 +739,9 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
           src={heroImagePreviewUrl}
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 z-0 w-full h-full object-cover scale-110 blur-2xl opacity-90 pointer-events-none"
+          className="absolute inset-0 z-0 w-full h-full object-cover scale-110 blur-2xl opacity-85 pointer-events-none"
           loading="eager"
-          fetchpriority="high"
+          fetchpriority="low"
           decoding="async"
         />
         <img

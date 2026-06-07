@@ -27,6 +27,8 @@ const IMAGE_PRESETS: Record<string, ImagePreset> = {
   avatar: { maxWidth: 600, maxHeight: 600, quality: 0.85 },
 };
 
+const IMAGE_CACHE_CONTROL = "31536000";
+
 function getImagePresetFromPath(path: string): ImagePreset {
   const fileName = path.split("/").pop() || "";
   const kind = fileName.split("_")[0].toLowerCase();
@@ -118,7 +120,7 @@ export async function uploadImage(
       .from(bucket)
       .upload(normalizedPath, uploadFile, {
         upsert: true,
-        cacheControl: "3600",
+        cacheControl: IMAGE_CACHE_CONTROL,
         contentType: uploadFile.type || undefined,
       });
 

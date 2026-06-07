@@ -18,7 +18,8 @@
         "check:encoding": "node scripts/check-encoding.mjs",
         "fix:encoding": "node scripts/fix-encoding.mjs",
         "migrate:webp": "node scripts/migrate-images-to-webp.mjs",
-        "migrate:webp:db": "node scripts/migrate-db-image-urls-to-webp.mjs"
+        "migrate:webp:db": "node scripts/migrate-db-image-urls-to-webp.mjs",
+        "refresh:image-cache": "node scripts/refresh-image-cache-control.mjs"
     },
     "reactSnap": {
         "source": "dist",

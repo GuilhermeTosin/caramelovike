@@ -65,8 +65,8 @@ function buildBusinessDescription(business: BusinessFrontend) {
 }
 
 function buildBusinessHeroImageAssets(imageUrl: string) {
-  const optimizedImageUrl = getOptimizedImageUrl(imageUrl, { width: 1024, quality: 76, format: "webp" });
-  const srcSet = getOptimizedImageSrcSet(imageUrl, [480, 720, 960, 1024], 76);
+  const optimizedImageUrl = getOptimizedImageUrl(imageUrl, { width: 960, quality: 72, format: "webp" });
+  const srcSet = getOptimizedImageSrcSet(imageUrl, [480, 640, 800, 960], 72);
 
   let preloadHtml = `<link rel="preload" as="image" href="${optimizedImageUrl}" fetchpriority="high" />`;
   try {

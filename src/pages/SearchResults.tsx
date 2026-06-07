@@ -100,9 +100,9 @@ const SEARCH_SYNONYMS: Record<string, string[]> = {
 function getCardImageAssets(source: string) {
   const imageSource = source || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80";
   return {
-    previewUrl: getOptimizedImageUrl(imageSource, { width: 64, quality: 45, format: "webp" }),
-    imageUrl: getOptimizedImageUrl(imageSource, { width: 768, quality: 80, format: "webp" }),
-    srcSet: getOptimizedImageSrcSet(imageSource, [480, 768, 1024], 80) || undefined,
+    previewUrl: getOptimizedImageUrl(imageSource, { width: 48, quality: 35, format: "webp" }),
+    imageUrl: getOptimizedImageUrl(imageSource, { width: 800, quality: 72, format: "webp" }),
+    srcSet: getOptimizedImageSrcSet(imageSource, [360, 540, 720, 800], 72) || undefined,
   };
 }
 
@@ -2049,20 +2049,20 @@ export default function SearchResults({
               {paginatedBusinesses.map((biz, index) => {
                 const prioritizeImage = index < 4;
                 const businessCardImageSource = biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80";
-                const businessCardPreviewUrl = getOptimizedImageUrl(
-                  businessCardImageSource,
-                  { width: 64, quality: 45, format: "webp" }
-                );
-                const businessCardImageUrl = getOptimizedImageUrl(
-                  businessCardImageSource,
-                  { width: 768, quality: 80, format: "webp" }
-                );
-                const businessCardImageSrcSet =
-                  getOptimizedImageSrcSet(
+                  const businessCardPreviewUrl = getOptimizedImageUrl(
                     businessCardImageSource,
-                    [480, 768, 1024],
-                    80
-                  ) || undefined;
+                    { width: 48, quality: 35, format: "webp" }
+                  );
+                  const businessCardImageUrl = getOptimizedImageUrl(
+                    businessCardImageSource,
+                    { width: 800, quality: 72, format: "webp" }
+                  );
+                  const businessCardImageSrcSet =
+                    getOptimizedImageSrcSet(
+                      businessCardImageSource,
+                      [360, 540, 720, 800],
+                      72
+                    ) || undefined;
                 const businessCardImageLoaded = !!loadedBusinessImages[biz.id];
                 return (
                 <Link

@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import sharp from "sharp";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -12,16 +11,6 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-const convertable = [".jpg", ".jpeg", ".png"];
-
-function isConvertible(path) {
-  const lower = path.toLowerCase();
-  return convertable.some((ext) => lower.endsWith(ext));
-}
-
-function toWebpPath(path) {
-  return path.replace(/\.(jpg|jpeg|png)$/i, ".webp");
-}
 
 async function listAll(prefix = "") {
   const out = [];
@@ -31,6 +20,7 @@ async function listAll(prefix = "") {
     const current = queue.shift();
     const { data, error } = await supabase.storage.from(BUCKET).list(current, { limit: 1000 });
     if (error) throw error;
+
     for (const item of data || []) {
       if (!item.name) continue;
       const full = current ? `${current}/${item.name}` : item.name;
@@ -45,17 +35,21 @@ async function listAll(prefix = "") {
   return out;
 }
 
+function isImageFile(path) {
+  return /\.(avif|gif|jpe?g|png|webp|bmp|tiff?)$/i.test(path);
+}
+
 async function main() {
   const files = await listAll("");
-  const targets = files.filter(isConvertible);
-  console.log(`Encontrados ${targets.length} arquivos para converter.`);
-  let converted = 0;
+  const targets = files.filter(isImageFile);
+  console.log(`Encontrados ${targets.length} arquivos de imagem para regravar o cache.`);
+
+  let updated = 0;
   let skipped = 0;
   let failed = 0;
 
   for (const path of targets) {
     try {
-      const webpPath = toWebpPath(path);
       const { data: downloadData, error: downloadError } = await supabase.storage.from(BUCKET).download(path);
       if (downloadError || !downloadData) {
         console.warn(`Falha no download: ${path}`);
@@ -64,40 +58,32 @@ async function main() {
       }
 
       const arrayBuffer = await downloadData.arrayBuffer();
-      const inputBuffer = Buffer.from(arrayBuffer);
-      let webpBuffer;
-      try {
-        webpBuffer = await sharp(inputBuffer).webp({ quality: 84 }).toBuffer();
-      } catch (err) {
-        console.warn(`Pulando arquivo inválido/não suportado: ${path}`);
-        skipped += 1;
-        continue;
-      }
+      const buffer = Buffer.from(arrayBuffer);
 
       const { error: uploadError } = await supabase.storage
         .from(BUCKET)
-        .upload(webpPath, webpBuffer, {
-          contentType: "image/webp",
+        .upload(path, buffer, {
+          contentType: downloadData.type || undefined,
           upsert: true,
           cacheControl: IMAGE_CACHE_CONTROL,
         });
 
       if (uploadError) {
-        console.warn(`Falha no upload WEBP: ${webpPath}`);
+        console.warn(`Falha ao atualizar cache: ${path}`);
         failed += 1;
         continue;
       }
 
-      converted += 1;
-      console.log(`Convertido: ${path} -> ${webpPath}`);
+      updated += 1;
+      console.log(`Atualizado: ${path}`);
     } catch (err) {
       console.warn(`Falha inesperada em ${path}:`, err?.message || err);
-      failed += 1;
+      skipped += 1;
     }
   }
 
-  console.log("Migração de imagens finalizada.");
-  console.log(`Resumo: convertidos=${converted}, ignorados=${skipped}, falhas=${failed}`);
+  console.log("Atualização de cache finalizada.");
+  console.log(`Resumo: atualizados=${updated}, ignorados=${skipped}, falhas=${failed}`);
 }
 
 main().catch((err) => {
