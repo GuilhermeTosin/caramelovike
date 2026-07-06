@@ -455,6 +455,11 @@ export default function Home({
                 <PawPrint className="w-4 h-4 mr-1.5 inline-block text-amber-600" />
                 {mascotPhrase}
               </Badge>
+              <div className="mb-4 flex justify-center">
+                <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">
+                  Teste de push
+                </Badge>
+              </div>
             <h1
               className={`text-[1.8rem] sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-foreground transition-all duration-500 ${
                 secretActive ? "scale-[1.01]" : ""
