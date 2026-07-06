@@ -6,6 +6,8 @@
  *   const map = new maps.Map(el, { center: { lat, lng }, zoom: 12 });
  */
 
+import { getPublicEnv } from "@/lib/publicRuntimeEnv";
+
 let loadPromise: Promise<typeof google.maps> | null = null;
 const GEOCODE_CACHE_KEY = "caramelinho:geocode-cache:v1";
 const GEOCODE_SESSION_COUNT_KEY = "caramelinho:geocode-count:v1";
@@ -13,7 +15,7 @@ const GEOCODE_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 dias
 const GEOCODE_MAX_PER_SESSION = 40;
 
 export function getMapsApiKey(): string {
-  return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+  return getPublicEnv("VITE_GOOGLE_MAPS_API_KEY");
 }
 
 export function isMapsApiAvailable(): boolean {

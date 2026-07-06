@@ -1,8 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { utf8Fetch } from "@/lib/http/utf8";
+import { getPublicEnv } from "@/lib/publicRuntimeEnv";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const supabaseUrl = getPublicEnv("VITE_SUPABASE_URL");
+const supabaseAnonKey = getPublicEnv("VITE_SUPABASE_ANON_KEY");
 const resolvedSupabaseUrl = supabaseUrl || "https://placeholder.supabase.co";
 const resolvedSupabaseAnonKey = supabaseAnonKey || "placeholder-anon-key";
 

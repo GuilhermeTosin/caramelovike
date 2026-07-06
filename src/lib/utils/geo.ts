@@ -1,4 +1,5 @@
 import { utf8Fetch } from "@/lib/http/utf8";
+import { getPublicEnv } from "@/lib/publicRuntimeEnv";
 
 const GEOIP_CACHE_KEY = "caramelinho_geoip_v1";
 const GEOIP_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -128,6 +129,31 @@ async function getCurrentPositionWithOptions(
   });
 }
 
+function resolveGeoipEndpoint(rawEndpoint: string): string | null {
+  const endpoint = rawEndpoint.trim();
+  if (!endpoint) {
+    if (typeof window === "undefined") return null;
+    return new URL("/api/geoip", window.location.origin).toString();
+  }
+
+  if (typeof window === "undefined") return endpoint;
+
+  try {
+    const resolved = new URL(endpoint, window.location.origin);
+    const currentOrigin = window.location.origin;
+    const isCaramelinhoHost =
+      resolved.hostname === "caramelinho.com" || resolved.hostname === "www.caramelinho.com";
+
+    if (isCaramelinhoHost && resolved.origin !== currentOrigin) {
+      return new URL("/api/geoip", currentOrigin).toString();
+    }
+
+    return resolved.toString();
+  } catch {
+    return new URL("/api/geoip", window.location.origin).toString();
+  }
+}
+
 export async function getCurrentPositionRobust(): Promise<{
   coords: { lat: number; lng: number } | null;
   source: "gps_precise" | "gps_fast" | "none";
@@ -178,7 +204,7 @@ export async function getApproxGeoByIp(options?: {
     if (cached) return cached;
   }
 
-  const endpoint = (import.meta.env.VITE_GEOIP_ENDPOINT || "").trim();
+  const endpoint = resolveGeoipEndpoint(getPublicEnv("VITE_GEOIP_ENDPOINT"));
   if (!endpoint) {
     if (options?.fallback) {
       return { ...options.fallback, source: "fallback" };
