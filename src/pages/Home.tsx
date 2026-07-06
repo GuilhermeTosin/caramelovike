@@ -11,11 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { siteContent, MASCOT_PHRASES } from "@/data/siteContent";
+import { getSiteContent, getMascotPhrases } from "@/data/siteContent";
+import { getHomeContent } from "@/data/homeContent";
 import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getSearchSuggestions } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import { useLocale } from "@/i18n/context";
 import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import {
   geocodeLocationWithCountryFallback,
@@ -30,70 +32,50 @@ import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
 
-const HOME_SEARCH_MODES: Record<
+const HOME_SEARCH_MODE_STYLES: Record<
   SearchMode,
   {
-    label: string;
-    description: string;
-    placeholder: string;
-    ctaLabel: string;
-    modeParam?: "eventos" | "achadinhos";
-    quickTags: string[];
     icon: typeof Store;
     accentClass: string;
+    modeParam?: "eventos" | "achadinhos";
   }
 > = {
   businesses: {
-    label: "Negócios",
-    description: "Procure negócios brasileiros, serviços, lojas e profissionais perto de você.",
-    placeholder: "Buscar por produto ou serviço (Ex: coxinha)",
-    ctaLabel: "Farejar negócios",
-    quickTags: ["Padaria", "Mecânico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"],
     icon: Store,
     accentClass: "bg-emerald-600 text-white shadow-md",
   },
   events: {
-    label: "Eventos",
-    description: "Encontre festas, feiras, encontros e inaugurações da comunidade brasileira.",
-    placeholder: "Buscar por festa, feira ou encontro",
-    ctaLabel: "Farejar eventos",
-    modeParam: "eventos",
-    quickTags: ["Festa", "Show", "Feira", "Inauguração", "Encontro", "Samba"],
     icon: CalendarDays,
     accentClass: "bg-amber-500 text-white shadow-md",
+    modeParam: "eventos",
   },
   achadinhos: {
-    label: "Achadinhos",
-    description: "Descubra promoções, ofertas e novidades compartilhadas pela comunidade.",
-    placeholder: "Buscar por promoção, desconto ou novidade",
-    ctaLabel: "Farejar achadinhos",
-    modeParam: "achadinhos",
-    quickTags: ["Promoção", "Desconto", "Oferta", "Outlet", "Novidade", "Cupom"],
     icon: BadgePercent,
     accentClass: "bg-sky-600 text-white shadow-md",
+    modeParam: "achadinhos",
   },
 };
 
 const HOME_SEARCH_MODE_ORDER: SearchMode[] = ["businesses", "events", "achadinhos"];
 
-const HOME_CATEGORIES = [
-  { id: "food", name: "Alimentação", icon: Utensils },
-  { id: "health_beauty", name: "Saúde & Beleza", icon: HeartPulse },
-  { id: "auto", name: "Automotivo", icon: Car },
-  { id: "construction", name: "Construção", icon: Hammer },
-  { id: "legal_consulting", name: "Advocacia & Traduções", icon: Scale },
-  { id: "education", name: "Educação", icon: GraduationCap },
-  { id: "accounting_finance", name: "Contabilidade", icon: Landmark },
-  { id: "retail", name: "Comércio", icon: ShoppingBag },
-  { id: "transport_moving", name: "Transporte & Mudança", icon: Truck },
-  { id: "real_estate", name: "Imobiliária", icon: Building2 },
-  { id: "artists", name: "Artistas", icon: Music },
-  { id: "pets", name: "Serviços para Pets", icon: PawPrint },
-  { id: "child_elder_care", name: "Cuidados Infantis e de Idosos", icon: User },
-  { id: "cleaning", name: "Diaristas", icon: SprayCan },
-  { id: "other", name: "Outros", icon: MoreHorizontal },
-];
-const CURRENT_LOCATION_LABEL = "Minha localização";
+const HOME_CATEGORY_ICONS: Record<string, typeof Utensils> = {
+  food: Utensils,
+  health_beauty: HeartPulse,
+  auto: Car,
+  construction: Hammer,
+  legal_consulting: Scale,
+  education: GraduationCap,
+  accounting_finance: Landmark,
+  retail: ShoppingBag,
+  transport_moving: Truck,
+  real_estate: Building2,
+  artists: Music,
+  pets: PawPrint,
+  child_elder_care: User,
+  cleaning: SprayCan,
+  other: MoreHorizontal,
+};
+
 const DEFAULT_GEO_FALLBACK = {
   lat: 45.5017,
   lng: -73.5673,
@@ -137,6 +119,10 @@ export default function Home({
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
 }: HomeProps = {}) {
+  const locale = useLocale();
+  const siteText = getSiteContent(locale);
+  const homeText = getHomeContent(locale);
+  const mascotPhrases = getMascotPhrases(locale);
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
@@ -157,11 +143,8 @@ export default function Home({
   const previousSearchRef = useRef({ query: "", location: "" });
 
   useEffect(() => {
-    setSeoMeta(
-      "Caramelinho.com | Encontre negócios brasileiros no exterior",
-      "Encontre negócios brasileiros no mundo todo: alimentação, saúde, advocacia, educação e muito mais perto de você."
-    );
-  }, []);
+    setSeoMeta(siteText.seo.homeTitle, siteText.seo.homeDescription);
+  }, [siteText]);
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -266,12 +249,12 @@ export default function Home({
     try {
       const { coords } = await getCurrentPositionRobust();
       if (!coords) {
-        setLocationNoticeMessage("Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
+        setLocationNoticeMessage(homeText.locationUnavailableMessage);
         setLocationNoticeOpen(true);
         return;
       }
       setUserCoords(coords);
-      const inferredCity = inferNearestCityFromBusinesses(allBusinesses, coords) || CURRENT_LOCATION_LABEL;
+      const inferredCity = inferNearestCityFromBusinesses(allBusinesses, coords) || homeText.currentLocationLabel;
       setLocationQuery("");
       window.setTimeout(() => setLocationQuery(inferredCity), 0);
     } finally {
@@ -282,7 +265,7 @@ export default function Home({
   const appendLocationContext = async (params: URLSearchParams, rawLocationText: string) => {
     const locationText = rawLocationText.trim();
     const isCurrentLocationText =
-      normalizeText(locationText) === normalizeText(CURRENT_LOCATION_LABEL);
+      normalizeText(locationText) === normalizeText(homeText.currentLocationLabel);
     const hasExplicitCity = !!locationText && !isCurrentLocationText;
 
     if (hasExplicitCity) {
@@ -336,12 +319,12 @@ export default function Home({
     setIsSubmittingSearch(true);
     const params = new URLSearchParams();
     const hasQuery = !!searchQuery.trim();
-    const modeParam = HOME_SEARCH_MODES[searchMode].modeParam;
+    const modeParam = HOME_SEARCH_MODE_STYLES[searchMode].modeParam;
     if (modeParam) params.set(modeParam, "1");
     if (hasQuery) params.set("q", searchQuery.trim());
     const hasLocationContext = await appendLocationContext(params, locationQuery);
     if (searchMode === "businesses" && !hasQuery && !hasLocationContext) {
-      setLocationNoticeMessage("Digite o que procura ou informe sua cidade para iniciar a busca.");
+      setLocationNoticeMessage(homeText.searchRequiresQueryOrLocationMessage);
       setLocationNoticeOpen(true);
       setIsSubmittingSearch(false);
       return;
@@ -354,7 +337,7 @@ export default function Home({
   const handleQuickTagSearch = async (tag: string) => {
     setIsSubmittingSearch(true);
     const params = new URLSearchParams();
-    const modeParam = HOME_SEARCH_MODES[searchMode].modeParam;
+    const modeParam = HOME_SEARCH_MODE_STYLES[searchMode].modeParam;
     if (modeParam) params.set(modeParam, "1");
     params.set("q", tag.trim());
     await appendLocationContext(params, locationQuery);
@@ -371,22 +354,23 @@ export default function Home({
     setIsSubmittingSearch(false);
   };
 
-  const [mascotPhrase, setMascotPhrase] = useState(() => MASCOT_PHRASES[0]);
+  const [mascotPhrase, setMascotPhrase] = useState(() => mascotPhrases[0]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setMascotPhrase(MASCOT_PHRASES[Math.floor(Math.random() * MASCOT_PHRASES.length)]);
+      setMascotPhrase(mascotPhrases[Math.floor(Math.random() * mascotPhrases.length)]);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [mascotPhrases]);
   const categories = useMemo(() => {
-    return HOME_CATEGORIES.map((cat) => ({
+    return homeText.categories.map((cat) => ({
       ...cat,
+      icon: HOME_CATEGORY_ICONS[cat.id] || MoreHorizontal,
       count: allBusinesses.filter((biz) => biz.categoryId === cat.id).length,
     }));
-  }, [allBusinesses]);
+  }, [allBusinesses, homeText.categories]);
 
-  const activeSearchMode = HOME_SEARCH_MODES[searchMode];
+  const activeSearchMode = homeText.searchModes[searchMode];
 
   const popularCities = useMemo(() => {
     const cityCounts = new Map<string, { name: string; countryCode: string; count: number }>();
@@ -435,7 +419,9 @@ export default function Home({
               </div>
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{"O SEU FARO FORA DO BRASIL"}</div>
+                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">
+                  {siteText.tagline.toUpperCase()}
+                </div>
               </div>
             </Link>
             
@@ -455,27 +441,17 @@ export default function Home({
                 <PawPrint className="w-4 h-4 mr-1.5 inline-block text-amber-600" />
                 {mascotPhrase}
               </Badge>
-              <div className="mb-4 flex justify-center">
-                <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">
-                  Teste de push
-                </Badge>
-              </div>
             <h1
               className={`text-[1.8rem] sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-foreground transition-all duration-500 ${
                 secretActive ? "scale-[1.01]" : ""
               }`}
             >
-              <span>Encontre </span>
-              <span
-                className="bg-clip-text text-transparent"
-                style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}
-              >
-                negócios brasileiros
+              <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>
+                {homeText.heroTitle}
               </span>
-              <span> no mundo todo</span>
             </h1>
             <p className="mt-5 text-[1rem] sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed whitespace-pre-line">
-              {siteContent.heroSubtitle}
+              {homeText.heroSubtitle}
             </p>
             </div>
 
@@ -484,7 +460,8 @@ export default function Home({
               <div className="mb-3 sm:mb-4 rounded-2xl bg-white/92 px-2.5 py-2.5 sm:px-3 shadow-sm backdrop-blur-sm">
                 <div className="flex flex-wrap justify-center gap-2">
                   {HOME_SEARCH_MODE_ORDER.map((mode) => {
-                    const modeConfig = HOME_SEARCH_MODES[mode];
+                    const modeConfig = HOME_SEARCH_MODE_STYLES[mode];
+                    const modeText = homeText.searchModes[mode];
                     const ModeIcon = modeConfig.icon;
                     const isActive = searchMode === mode;
                     return (
@@ -500,7 +477,7 @@ export default function Home({
                         }`}
                       >
                         <ModeIcon className="w-4 h-4" />
-                        {modeConfig.label}
+                        {modeText.label}
                       </button>
                     );
                   })}
@@ -529,7 +506,7 @@ export default function Home({
                     suggestions={citySuggestions}
                     onUseCurrentLocation={handleUseCurrentLocationInput}
                     isLoading={isResolvingLocationInput}
-                    placeholder="Em qual cidade?"
+                    placeholder={homeText.locationPlaceholder}
                     icon="location"
                     inputClassName="h-12 sm:h-16 text-base sm:text-xl placeholder:text-[11px] sm:placeholder:text-sm"
                   />
@@ -542,7 +519,7 @@ export default function Home({
                     style={{ borderRadius: "12px" }}
                   >
                     <PawPrint className="w-4 h-4 shrink-0" />
-                    {isSubmittingSearch ? "Farejando..." : activeSearchMode.ctaLabel}
+                      {isSubmittingSearch ? homeText.searchingLabel : activeSearchMode.ctaLabel}
                   </Button>
                 </div>
               </div>
@@ -579,10 +556,10 @@ export default function Home({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { label: "Negócios Cadastrados", value: "350+", icon: Store },
-              { label: "Cidades Atendidas", value: "120+", icon: MapPin },
-              { label: "Países", value: "15+", icon: Briefcase },
-              { label: "Avaliações", value: "2.5K+", icon: Star },
+              { label: homeText.stats.businesses, value: "350+", icon: Store },
+              { label: homeText.stats.cities, value: "120+", icon: MapPin },
+              { label: homeText.stats.countries, value: "15+", icon: Briefcase },
+              { label: homeText.stats.reviews, value: "2.5K+", icon: Star },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col items-center gap-1">
                 <stat.icon className="w-5 h-5 text-amber-600" />
@@ -597,8 +574,8 @@ export default function Home({
       {/* Categories Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-foreground">Categorias</h2>
-          <p className="mt-3 text-muted-foreground">Navegue por categoria para encontrar o que precisa</p>
+          <h2 className="text-3xl font-bold text-foreground">{homeText.categoriesHeading}</h2>
+          <p className="mt-3 text-muted-foreground">{homeText.categoriesDescription}</p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {categories.map((cat) => (
@@ -613,7 +590,7 @@ export default function Home({
             >
               <cat.icon className="w-7 h-7 text-primary" />
               <span className="font-medium text-sm">{cat.name}</span>
-              <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count)}</span>
+              <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count, locale)}</span>
             </Link>
           ))}
         </div>
@@ -625,8 +602,8 @@ export default function Home({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-10">
             <div>
-              <h2 className="text-3xl font-bold text-foreground">Negócios em Destaque</h2>
-              <p className="mt-2 text-muted-foreground">Recomendados pelo Caramelinho</p>
+              <h2 className="text-3xl font-bold text-foreground">{homeText.featuredHeading}</h2>
+              <p className="mt-2 text-muted-foreground">{homeText.featuredDescription}</p>
             </div>
           </div>
 
@@ -682,7 +659,7 @@ export default function Home({
                     {biz.ownerVerified ? (
                       <div className="absolute bottom-3 right-3 bg-emerald-600/95 text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
                         <Lock className="w-2.5 h-2.5" />
-                        Verificado
+                        {homeText.verifiedLabel}
                       </div>
                     ) : null}
                   </div>
@@ -708,19 +685,19 @@ export default function Home({
                         {biz.isVeganFriendly ? (
                           <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                             <Leaf className="w-3 h-3" />
-                            Vegano
+                            {homeText.veganLabel}
                           </span>
                         ) : null}
                         {biz.isVegetarianFriendly ? (
                           <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-lime-100 text-lime-800">
                             <Leaf className="w-3 h-3" />
-                            Vegetariano
+                            {homeText.vegetarianLabel}
                           </span>
                         ) : null}
                         {biz.isGlutenFreeFriendly ? (
                           <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
                             <WheatOff className="w-3 h-3" />
-                            Sem Glúten
+                            {homeText.glutenFreeLabel}
                           </span>
                         ) : null}
                       </div>
@@ -747,8 +724,8 @@ export default function Home({
           {featuredBusinesses.length === 0 && (
             <div className="text-center py-12">
               <PawPrint className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground">Nenhum negócio encontrado ainda.</p>
-              <p className="text-sm text-muted-foreground mt-1">Seja o primeiro a cadastrar!</p>
+              <p className="text-muted-foreground">{homeText.featuredEmptyTitle}</p>
+              <p className="text-sm text-muted-foreground mt-1">{homeText.featuredEmptyDescription}</p>
             </div>
           )}
         </div>
@@ -758,8 +735,8 @@ export default function Home({
       {/* Cities Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-foreground">Cidades Populares</h2>
-          <p className="mt-3 text-muted-foreground">Descubra negócios brasileiros pelo mundo</p>
+          <h2 className="text-3xl font-bold text-foreground">{homeText.citiesHeading}</h2>
+          <p className="mt-3 text-muted-foreground">{homeText.citiesDescription}</p>
         </div>
         <div className="w-full flex flex-wrap justify-center gap-4">
           {popularCities.map((city) => (
@@ -770,7 +747,7 @@ export default function Home({
             >
               <img
                 src={`https://flagcdn.com/w40/${city.countryCode.toLowerCase()}.png`}
-                alt={`Bandeira de ${city.countryCode.toUpperCase()}`}
+                alt={locale === "en" ? `Flag of ${city.countryCode.toUpperCase()}` : `Bandeira de ${city.countryCode.toUpperCase()}`}
                 className="h-5 w-7 object-cover"
                 loading="lazy"
                 onError={(e) => {
@@ -781,7 +758,7 @@ export default function Home({
               />
               <span className="text-2xl hidden">{city.flag}</span>
               <span className="font-medium text-sm">{city.name}</span>
-              <span className="text-xs text-muted-foreground">{formatBusinessCount(city.count)}</span>
+              <span className="text-xs text-muted-foreground">{formatBusinessCount(city.count, locale)}</span>
             </Link>
           ))}
         </div>
@@ -793,7 +770,7 @@ export default function Home({
           <div className="flex items-center justify-center mx-auto mb-6">
             <img
               src="/brazil-map-pin.webp"
-              alt="Ícone de localização com bandeira do Brasil"
+              alt={locale === "en" ? "Location icon with Brazil flag" : "Ícone de localização com bandeira do Brasil"}
               width={112}
               height={112}
               loading="lazy"
@@ -802,21 +779,12 @@ export default function Home({
             />
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold mb-4">
-            <span className="text-foreground">Tem um </span>
-            <span
-              className="bg-clip-text text-transparent"
-              style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}
-            >
-              negócio brasileiro
-            </span>
-            <span className="text-foreground"> no exterior?</span>
+            <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>{homeText.ctaHeading}</span>
           </h2>
-          <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
-            Cadastre seu negócio no Caramelinho e seja encontrado por milhares de brasileiros espalhados pelo mundo!
-          </p>
+          <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">{homeText.ctaDescription}</p>
           <div className="flex justify-center">
             <Button asChild size="lg" className="caramelo-gradient text-white border-0 font-bold">
-              <Link to="/cadastro">Criar Conta Gratuita</Link>
+              <Link to="/cadastro">{homeText.ctaButton}</Link>
             </Button>
           </div>
         </div>
@@ -827,13 +795,11 @@ export default function Home({
       <Dialog open={locationNoticeOpen} onOpenChange={setLocationNoticeOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Localização indisponível</DialogTitle>
+            <DialogTitle>{homeText.locationUnavailableTitle}</DialogTitle>
             <DialogDescription>{locationNoticeMessage}</DialogDescription>
           </DialogHeader>
           <div className="flex justify-end">
-            <Button type="button" onClick={() => setLocationNoticeOpen(false)}>
-              Entendi
-            </Button>
+            <Button type="button" onClick={() => setLocationNoticeOpen(false)}>{homeText.locationNoticeButton}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -848,6 +814,10 @@ function normalizeText(value?: string | null): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function formatBusinessCount(count: number): string {
+function formatBusinessCount(count: number, locale: string): string {
+  if (locale === "en") {
+    return `${count} ${count === 1 ? "business" : "businesses"}`;
+  }
+
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
