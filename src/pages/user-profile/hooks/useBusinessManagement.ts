@@ -15,6 +15,7 @@ import {
 import { getCommunityEventsByOwner, replaceBusinessLinkedEvents } from "@/services/events";
 import { generateImagePath, uploadImage } from "@/services/storage";
 import type { BusinessEvent, BusinessFrontend, Promotion } from "@/types/database";
+import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import type { BusinessHour } from "@/pages/user-profile/types";
 import {
   createDefaultBusinessHours,
@@ -327,7 +328,7 @@ export function useBusinessManagement({
     if (!sessionUserId) return;
     const isCreateMode = creatingBusiness;
     if (!isCreateMode && !editingBusiness) return;
-    if (!editFormData.name || !editFormData.category || !editFormData.description) {
+    if (!editFormData.name || !editFormData.category || !stripRichTextHtml(editFormData.description).trim()) {
       toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
       return;
     }
@@ -390,7 +391,7 @@ export function useBusinessManagement({
       name: editFormData.name,
       slug: desiredSlug,
       categoryId: editFormData.category,
-      description: editFormData.description,
+      description: sanitizeRichTextHtml(editFormData.description),
       street: editFormData.street,
       city: editFormData.city,
       state: editFormData.state,

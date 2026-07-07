@@ -41,6 +41,7 @@ import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwne
 import { trackBusinessClick } from "@/services/analytics";
 import { createBusinessReport } from "@/services/reports";
 import type { BusinessFrontend } from "@/types/database";
+import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import { useAuth } from "@/contexts/AuthContext";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import { Store } from "lucide-react";
@@ -365,7 +366,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
       "@context": "https://schema.org",
       "@type": "LocalBusiness",
       name: business.name,
-      description: business.description || undefined,
+      description: stripRichTextHtml(business.description) || undefined,
       image: [business.heroImage, business.logoUrl].filter(Boolean),
       url: canonicalUrl,
       telephone: business.phone || undefined,
@@ -855,7 +856,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
                     ) : null}
                   </div>
                 ) : null}
-                <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{business.description}</p>
+                <div className="text-muted-foreground leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ol]:list-decimal [&_ul,&_ol]:pl-5 [&_li]:mb-1" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(business.description) }} />
               </TabsContent>
 
               {getCategoryId(business.category) !== "food" && hasServiceItems && (
@@ -1692,8 +1693,3 @@ function formatInstagramDisplay(value: string): string {
 function formatFacebookDisplay(value: string): string {
   return normalizeSocialValue(value) || value;
 }
-
-
-
-
-

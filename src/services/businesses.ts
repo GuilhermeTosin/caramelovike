@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Business, BusinessFrontend, Review } from "@/types/database";
 import type { CommunityEvent } from "@/types/database";
+import { stripRichTextHtml } from "@/lib/richText";
 import { getFollowLinksBusinessIds } from "@/services/searchPreferences";
 
 export const BUSINESS_CATEGORY_OPTIONS = [
@@ -511,7 +512,7 @@ export async function getBusinessesByRadiusRpc(params: {
 
   const textIncludes = (value: unknown, term: string) => {
     if (!term) return true;
-    if (typeof value === "string") return value.toLowerCase().includes(term);
+    if (typeof value === "string") return stripRichTextHtml(value).toLowerCase().includes(term);
     if (Array.isArray(value)) return value.some((v) => textIncludes(v, term));
     if (value && typeof value === "object") return JSON.stringify(value).toLowerCase().includes(term);
     return false;

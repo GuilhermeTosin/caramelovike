@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import RichTextEditor from "@/components/RichTextEditor";
 import type { AddressResult } from "@/components/AddressAutocomplete";
 import type { BusinessFrontend, BusinessEvent, Promotion } from "@/types/database";
 import type { BusinessHour } from "@/pages/user-profile/types";
@@ -309,12 +310,12 @@ export default function UserProfileDialogs({
                     oferece, seus diferenciais, público atendido e região de atuação.
                   </p>
                 </div>
-                <Textarea
+                <RichTextEditor
                   id="edit-description"
                   value={editFormData.description}
                   onChange={(event) => handleEditInputChange("description", event.target.value)}
-                  placeholder="Descreva seu negócio..."
-                  className="mt-1.5 min-h-[160px]"
+                  placeholder="Descreva seu negocio..."
+                  className="mt-1.5"
                 />
               </div>
 

@@ -16,6 +16,7 @@ import { getHomeContent } from "@/data/homeContent";
 import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getSearchSuggestions } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
+import { stripRichTextHtml } from "@/lib/richText";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import { useLocale } from "@/i18n/context";
 import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
@@ -678,7 +679,7 @@ export default function Home({
                       </div>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">
-                      {biz.description}
+                      {stripRichTextHtml(biz.description)}
                     </p>
                     {biz.categoryId === "food" && (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
                       <div className="flex flex-wrap gap-1.5 mt-3">

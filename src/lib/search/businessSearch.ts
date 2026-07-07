@@ -1,6 +1,7 @@
 import { calculateDistance } from "@/lib/utils/geo";
 import { getCategoryId } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
+import { stripRichTextHtml } from "@/lib/richText";
 
 export type DistanceOrigin = { lat: number; lng: number } | null;
 const CITY_LEVEL_RADIUS_MIN_KM = 100;
@@ -461,7 +462,7 @@ function getBusinessSearchBlob(b: BusinessFrontend): string {
   return normalizeText(
     [
       b.name || "",
-      b.description || "",
+      stripRichTextHtml(b.description || ""),
       b.category || "",
       b.address?.city || "",
       ...(b.services || []),

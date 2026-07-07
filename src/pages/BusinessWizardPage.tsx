@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import RichTextEditor from "@/components/RichTextEditor";
 import AddressAutocomplete, { type AddressResult } from "@/components/AddressAutocomplete";
+import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import {
@@ -397,7 +399,7 @@ export default function BusinessWizardPage() {
       return runSlugCheck();
     }
     if (step === 2) {
-      if (!form.description.trim()) {
+      if (!stripRichTextHtml(form.description).trim()) {
         toast.error("Preencha a descrição.");
         return false;
       }
@@ -545,7 +547,7 @@ export default function BusinessWizardPage() {
       name: form.name.trim(),
       slug: normalizeShortSlugFinal(form.shortSlug || form.name),
       categoryId: form.category,
-      description: form.description.trim(),
+      description: sanitizeRichTextHtml(form.description),
       street: form.hasPhysicalAddress ? form.street.trim() : "",
       city: form.city.trim(),
       state: form.state.trim(),
@@ -767,11 +769,12 @@ export default function BusinessWizardPage() {
                 <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
                   Esta é a informação mais importante da página do seu negócio. É ela que ajuda o cliente a entender rapidamente o que você oferece, seus diferenciais e por que deve escolher você. Escreva de forma clara, objetiva e humana: diga os principais serviços/produtos, o público atendido, região de atuação e pontos fortes (ex.: rapidez, qualidade, atendimento em português, experiência, especialidades).
                 </p>
-                <Textarea
+                <RichTextEditor
+                  id="business-description"
                   value={form.description}
-                  onChange={(e) => updateField("description", e.target.value)}
-                  className="mt-1.5 min-h-[140px]"
-                  placeholder="Descreva claramente o que seu negócio oferece."
+                  onChange={(value) => updateField("description", value)}
+                  className="mt-1.5"
+                  placeholder="Descreva claramente o que seu negocio oferece."
                 />
               </div>
               <div>

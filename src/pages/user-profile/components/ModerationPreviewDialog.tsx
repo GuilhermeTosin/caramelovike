@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { BusinessFrontend } from "@/types/database";
+import { sanitizeRichTextHtml } from "@/lib/richText";
 
 type ModerationPreviewDialogProps = {
   business: BusinessFrontend | null;
@@ -74,7 +75,7 @@ export default function ModerationPreviewDialog({
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Descrição</p>
-              <p>{business.description || "-"}</p>
+              <div className="text-sm text-foreground leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ol]:list-decimal [&_ul,&_ol]:pl-5 [&_li]:mb-1" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(business.description || "-") }} />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Endereço</p>

@@ -21,17 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  getAllBusinesses, 
-  getBusinessesByRadiusRpc,
-  buildBusinessUrl, 
-  BUSINESS_CATEGORY_OPTIONS, 
-  getCategoryLabel,
-  getCategoryId,
-  getAvailableLocations,
-  getSearchSuggestions
-} from "@/services/businesses";
-import type { BusinessFrontend } from "@/types/database";
+import { stripRichTextHtml } from "@/lib/richText";
 import MapView from "@/components/MapView";
 import { useAuth } from "@/contexts/AuthContext";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
@@ -43,6 +33,15 @@ import { setSeoMeta } from "@/lib/seo";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl, preloadResponsiveImage } from "@/lib/images";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
+import {
+  BUSINESS_CATEGORY_OPTIONS,
+  buildBusinessUrl,
+  getAllBusinesses,
+  getAvailableLocations,
+  getCategoryId,
+  getCategoryLabel,
+  getSearchSuggestions,
+} from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import type { CommunityEvent } from "@/types/database";
@@ -2137,7 +2136,7 @@ export default function SearchResults({
                           </p>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{biz.description}</p>
+                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(biz.description)}</p>
                       {biz.categoryId === "food" && (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
                         <div className="flex flex-wrap gap-2 mt-3">
                           {biz.isVeganFriendly ? (
