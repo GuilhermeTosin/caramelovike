@@ -40,6 +40,7 @@ import {
   getAvailableLocations,
   getCategoryId,
   getCategoryLabel,
+  getBusinessesByRadiusRpc,
   getSearchSuggestions,
 } from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
@@ -2629,3 +2630,4 @@ export default function SearchResults({
     </div>
   );
 }
+
