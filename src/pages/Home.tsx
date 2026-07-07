@@ -421,7 +421,7 @@ export default function Home({
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
                 <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">
-                  {siteText.tagline.toUpperCase()}
+                  {"O SEU FARO FORA DO BRASIL".toUpperCase()}
                 </div>
               </div>
             </Link>
@@ -447,8 +447,8 @@ export default function Home({
                 secretActive ? "scale-[1.01]" : ""
               }`}
             >
-              <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>
-                {homeText.heroTitle}
+              <span>
+                Encontre <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>negócios brasileiros</span> no mundo todo
               </span>
             </h1>
             <p className="mt-5 text-[1rem] sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed whitespace-pre-line">
