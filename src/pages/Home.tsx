@@ -85,6 +85,7 @@ const DEFAULT_GEO_FALLBACK = {
   countryCode: "ca",
 } as const;
 const DEFAULT_SEARCH_RADIUS_KM = "50";
+const HOME_PUBLIC_DATA_REFRESH_MS = 5 * 60 * 1000;
 
 const countryCodeToFlag = (countryCode: string) => {
   const normalized = (countryCode || "").trim().toUpperCase();
@@ -196,13 +197,45 @@ export default function Home({
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const refreshPublicData = async () => {
+      const [businessesRes, locationsRes, suggestionsRes] = await Promise.allSettled([
+        getAllBusinesses(),
+        getAvailableLocations(),
+        getSearchSuggestions(),
+      ]);
+
+      if (cancelled) return null;
+
+      if (businessesRes.status === "fulfilled") {
+        setAllBusinesses(businessesRes.value);
+      }
+
+      if (locationsRes.status === "fulfilled") {
+        setCitySuggestions(extractCities(locationsRes.value));
+      }
+
+      if (suggestionsRes.status === "fulfilled") {
+        setSearchSuggestions(suggestionsRes.value);
+      }
+
+      return businessesRes.status === "fulfilled" ? businessesRes.value : null;
+    };
+
     const loadData = async () => {
-      const businesses = initialBusinesses.length > 0 ? initialBusinesses : await getAllBusinesses();
-      const approxGeo = await getApproxGeoByIp({
-        timeoutMs: 3000,
-        maxAgeMs: 24 * 60 * 60 * 1000,
-        fallback: DEFAULT_GEO_FALLBACK,
-      });
+      const [freshBusinesses, approxGeo] = await Promise.all([
+        refreshPublicData(),
+        getApproxGeoByIp({
+          timeoutMs: 3000,
+          maxAgeMs: 24 * 60 * 60 * 1000,
+          fallback: DEFAULT_GEO_FALLBACK,
+        }),
+      ]);
+
+      if (cancelled) return;
+
+      const businesses = freshBusinesses && freshBusinesses.length > 0 ? freshBusinesses : initialBusinesses;
       const coords = approxGeo ? { lat: approxGeo.lat, lng: approxGeo.lng } : null;
       if (approxGeo?.countryCode) setApproxCountryCode(approxGeo.countryCode);
       if (approxGeo?.city) {
@@ -210,10 +243,10 @@ export default function Home({
       }
       let regionalBusinesses = [...businesses];
       let region: FeaturedRegion | null = null;
-      
+
       if (coords) {
         setUserCoords(coords);
-        // Ordenar por distância
+        // Ordenar por distancia
         regionalBusinesses = [...businesses].sort((a, b) => {
           const distA = calculateDistance(coords.lat, coords.lng, a.address.lat, a.address.lng);
           const distB = calculateDistance(coords.lat, coords.lng, b.address.lat, b.address.lng);
@@ -232,17 +265,23 @@ export default function Home({
       const regionalFeatured = initialFeaturedBusinesses.length > 0
         ? initialFeaturedBusinesses
         : await getFeaturedBusinessesForRegion(region, 6);
-      
+
+      if (cancelled) return;
+
       setAllBusinesses(regionalBusinesses);
       setFeaturedBusinesses(regionalFeatured);
     };
 
-    loadData();
-    if (initialAvailableLocations.length === 0) {
-      getAvailableLocations().then((locations) => setCitySuggestions(extractCities(locations)));
-    }
-    if (initialSearchSuggestions.length === 0) getSearchSuggestions().then(setSearchSuggestions);
-  }, [initialAvailableLocations, initialBusinesses, initialFeaturedBusinesses, initialSearchSuggestions]);
+    void loadData();
+    const refreshTimer = window.setInterval(() => {
+      void refreshPublicData();
+    }, HOME_PUBLIC_DATA_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(refreshTimer);
+    };
+  }, [initialBusinesses, initialFeaturedBusinesses]);
 
   const handleUseCurrentLocationInput = async () => {
     setIsResolvingLocationInput(true);
