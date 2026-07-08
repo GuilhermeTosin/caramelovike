@@ -533,9 +533,11 @@ export default function Home({
                     value={searchQuery}
                     onChange={setSearchQuery}
                     suggestions={searchSuggestions}
+                    maxSuggestions={3}
                     disableLocalSuggestions
                     placeholder={activeSearchMode.placeholder}
                     icon="search"
+                    portalSuggestions={true}
                     inputClassName="h-12 sm:h-16 text-base sm:text-xl placeholder:text-[11px] sm:placeholder:text-sm"
                   />
                   <div className="hidden sm:block w-px h-10 bg-border/50 self-center" />
@@ -544,10 +546,12 @@ export default function Home({
                     value={locationQuery}
                     onChange={setLocationQuery}
                     suggestions={citySuggestions}
+                    maxSuggestions={3}
                     onUseCurrentLocation={handleUseCurrentLocationInput}
                     isLoading={isResolvingLocationInput}
                     placeholder={homeText.locationPlaceholder}
                     icon="location"
+                    portalSuggestions={true}
                     inputClassName="h-12 sm:h-16 text-base sm:text-xl placeholder:text-[11px] sm:placeholder:text-sm"
                   />
                 </div>
@@ -861,3 +865,4 @@ function formatBusinessCount(count: number, locale: string): string {
 
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
+
