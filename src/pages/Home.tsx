@@ -526,10 +526,10 @@ export default function Home({
                   {activeSearchMode.description}
                 </p>
               </div>
-              <div className="relative w-full overflow-visible rounded-2xl sm:rounded-3xl bg-white shadow-xl focus-within:ring-2 ring-primary/20 transition-all p-2 sm:p-2 min-h-[112px] sm:min-h-[88px]">
+              <div className="relative z-30 w-full overflow-visible rounded-2xl sm:rounded-3xl bg-white shadow-xl focus-within:ring-2 ring-primary/20 transition-all p-2 sm:p-2 min-h-[112px] sm:min-h-[88px]">
                 <div className="flex flex-col sm:flex-row gap-0 sm:pr-[262px] pt-[5px]">
                   <SearchInputWithSuggestions
-                    className="sm:flex-[1.7] rounded-xl sm:rounded-none"
+                    className="relative z-40 sm:flex-[1.7] rounded-xl sm:rounded-none"
                     value={searchQuery}
                     onChange={setSearchQuery}
                     suggestions={searchSuggestions}
@@ -540,7 +540,7 @@ export default function Home({
                   />
                   <div className="hidden sm:block w-px h-10 bg-border/50 self-center" />
                   <SearchInputWithSuggestions
-                    className="sm:flex-[0.9] rounded-xl sm:rounded-none"
+                    className="relative z-40 sm:flex-[0.9] rounded-xl sm:rounded-none"
                     value={locationQuery}
                     onChange={setLocationQuery}
                     suggestions={citySuggestions}
