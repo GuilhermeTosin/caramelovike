@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { BusinessFrontend } from "@/types/database";
 import { sanitizeRichTextHtml } from "@/lib/richText";
-import { getCountryName, getStateName } from "@/services/businesses";
+import { getCountryName, getStateDisplayName } from "@/services/businesses";
 
 type ModerationPreviewDialogProps = {
   business: BusinessFrontend | null;
@@ -85,7 +85,7 @@ export default function ModerationPreviewDialog({
                   business.address.street,
                   business.address.city,
                   business.address.stateCode || business.address.state
-                    ? getStateName(business.address.countryCode || business.address.country, business.address.stateCode || business.address.state)
+                    ? getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode || business.address.state, business.address.state)
                     : "",
                   getCountryName(business.address.countryCode || business.address.country),
                 ]

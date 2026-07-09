@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
-import { buildBusinessUrl, getAllBusinesses, getCountryName, getStateName, slugify } from "@/services/businesses";
+import { buildBusinessUrl, getAllBusinesses, getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 
@@ -20,11 +20,30 @@ function normalizeCode(value?: string) {
 function getCitySlug(business: BusinessFrontend) {
   return slugify(business.address.city || "");
 }
+function isCodeLikeStateLabel(value: string, stateCode: string) {
+  const label = (value || "").trim();
+  const code = (stateCode || "").trim();
+  return !!label && !!code && label.toLowerCase() === code.toLowerCase();
+}
+
+function preferStateLabel(current: string, candidate: string, stateCode: string) {
+  const currentLabel = (current || "").trim();
+  const candidateLabel = (candidate || "").trim();
+  if (!candidateLabel) return currentLabel;
+  if (!currentLabel) return candidateLabel;
+
+  const currentCodeLike = isCodeLikeStateLabel(currentLabel, stateCode);
+  const candidateCodeLike = isCodeLikeStateLabel(candidateLabel, stateCode);
+  if (currentCodeLike && !candidateCodeLike) return candidateLabel;
+  if (!currentCodeLike && candidateCodeLike) return currentLabel;
+  if (candidateLabel.length > currentLabel.length && !candidateCodeLike) return candidateLabel;
+  return currentLabel;
+}
 
 function getLocationLabel(business: BusinessFrontend) {
   const parts = [
     business.address.city,
-    business.address.state || business.address.stateCode,
+    getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode, business.address.state),
     business.address.country || business.address.countryCode,
   ].filter(Boolean);
   return parts.join(", ") || "Localização não informada";
@@ -180,6 +199,17 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
   const stateCounts = countBy(
     countryBusinesses.map((business) => normalizeCode(business.address.stateCode)).filter(Boolean)
   );
+  const stateNameByCode = useMemo(() => {
+    const map = new Map<string, string>();
+    countryBusinesses.forEach((business) => {
+      const code = normalizeCode(business.address.stateCode);
+      if (!code) return;
+      const candidate = getStateDisplayName(countryCode, code, business.address.state);
+      map.set(code, preferStateLabel(map.get(code) || "", candidate, code));
+    });
+    return map;
+  }, [countryBusinesses, countryCode]);
+
   const cityCounts = countBy(
     stateBusinesses.map((business) => getCitySlug(business)).filter(Boolean)
   );
@@ -187,11 +217,13 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
     stateBusinesses.map((business) => [getCitySlug(business), business.address.city || "Cidade"])
   );
 
+  const currentStateLabel = stateCode ? stateNameByCode.get(stateCode) || getStateDisplayName(countryCode, stateCode) : "";
+
   const currentList = level === "businesses" ? cityBusinesses : [];
   const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageBusinesses = currentList.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const title = getTitle(level, countryCode, stateCode, citySlug, cityNameBySlug);
+  const title = getTitle(level, countryCode, stateCode, currentStateLabel, citySlug, cityNameBySlug);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -222,7 +254,7 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
             <>
               <span className="text-muted-foreground">/</span>
               <Link className="text-primary hover:underline" to={`/negocios/${countryCode}/${stateCode}`}>
-                {getStateName(countryCode, stateCode) || stateCode.toUpperCase()}
+                {currentStateLabel || getStateDisplayName(countryCode, stateCode) || stateCode.toUpperCase()}
               </Link>
             </>
           )}
@@ -249,7 +281,7 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
           <DirectoryGrid
             title="Estados e regiões"
             items={Array.from(stateCounts.entries()).map(([code, count]) => ({
-              label: getStateName(countryCode, code) || code.toUpperCase(),
+              label: stateNameByCode.get(code) || getStateDisplayName(countryCode, code) || code.toUpperCase(),
               href: `/negocios/${countryCode}/${code}`,
               count,
             }))}
@@ -353,13 +385,14 @@ function getTitle(
   level: DirectoryLevel,
   countryCode: string,
   stateCode: string,
+  stateLabel: string,
   citySlug: string,
   cityNameBySlug: Map<string, string>
 ) {
   if (level === "countries") return "Negócios brasileiros por país";
   if (level === "states") return `Negócios brasileiros em ${getCountryName(countryCode) || countryCode.toUpperCase()}`;
   if (level === "cities") {
-    return `Negócios brasileiros em ${getStateName(countryCode, stateCode) || stateCode.toUpperCase()}`;
+    return `Negócios brasileiros em ${stateLabel || getStateDisplayName(countryCode, stateCode) || stateCode.toUpperCase()}`;
   }
   return `Negócios brasileiros em ${cityNameBySlug.get(citySlug) || citySlug}`;
 }

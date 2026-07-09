@@ -9,7 +9,7 @@ import {
   deleteBusiness,
   getCategoryId,
   getCountryName,
-  getStateName,
+  getStateDisplayName,
   isBusinessSlugAvailable,
   slugify,
   updateBusiness,
@@ -162,7 +162,7 @@ export function useBusinessManagement({
       street: business.address.street,
       city: business.address.city,
       state: business.address.stateCode
-        ? getStateName(business.address.countryCode || business.address.country, business.address.stateCode)
+        ? getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode, business.address.state)
         : business.address.state,
       stateCode: business.address.stateCode,
       country: getCountryName(business.address.countryCode || business.address.country),
@@ -318,7 +318,7 @@ export function useBusinessManagement({
       ...prev,
       street: place.formattedAddress,
       city: place.city,
-      state: getStateName(place.countryCode || place.country, place.stateCode || place.state) || place.state,
+      state: getStateDisplayName(place.countryCode || place.country, place.stateCode || place.state, place.state),
       stateCode: place.stateCode,
       country: getCountryName(place.countryCode || place.country) || place.country,
       countryCode: place.countryCode,

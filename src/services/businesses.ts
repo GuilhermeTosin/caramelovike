@@ -272,6 +272,38 @@ export const COUNTRIES: Record<string, { name: string; states: Record<string, st
       tas: "Tasmânia",
     },
   },
+  br: {
+    name: "Brasil",
+    states: {
+      ac: "Acre",
+      al: "Alagoas",
+      ap: "Amapá",
+      am: "Amazonas",
+      ba: "Bahia",
+      ce: "Ceará",
+      df: "Distrito Federal",
+      es: "Espírito Santo",
+      go: "Goiás",
+      ma: "Maranhão",
+      mt: "Mato Grosso",
+      ms: "Mato Grosso do Sul",
+      mg: "Minas Gerais",
+      pa: "Pará",
+      pb: "Paraíba",
+      pr: "Paraná",
+      pe: "Pernambuco",
+      pi: "Piauí",
+      rj: "Rio de Janeiro",
+      rn: "Rio Grande do Norte",
+      rs: "Rio Grande do Sul",
+      ro: "Rondônia",
+      rr: "Roraima",
+      sc: "Santa Catarina",
+      sp: "São Paulo",
+      se: "Sergipe",
+      to: "Tocantins",
+    },
+  },
 };
 
 export function toFrontend(
@@ -1307,6 +1339,41 @@ const COUNTRY_DISPLAY_NAMES_PT_BR =
     ? new Intl.DisplayNames(["pt-BR"], { type: "region" })
     : null;
 
+export function getStateDisplayName(
+  countryCode: string,
+  stateCode: string,
+  fallbackState = ""
+): string {
+  const normalizedCountry = (countryCode || "").trim().toLowerCase();
+  const normalizedState = (stateCode || "").trim().toLowerCase();
+  const mapped = COUNTRIES[normalizedCountry]?.states[normalizedState];
+  if (mapped) return mapped;
+
+  const fallback = (fallbackState || "").trim();
+  return fallback || (stateCode || "").trim().toUpperCase();
+}
+function isCodeLikeStateLabel(value: string, stateCode: string): boolean {
+  const label = (value || "").trim();
+  const code = (stateCode || "").trim();
+  if (!label || !code) return false;
+  return label.toLowerCase() === code.toLowerCase();
+}
+
+function pickBetterStateLabel(current: string, candidate: string, stateCode: string): string {
+  const currentLabel = (current || "").trim();
+  const candidateLabel = (candidate || "").trim();
+  if (!candidateLabel) return currentLabel;
+  if (!currentLabel) return candidateLabel;
+
+  const currentCodeLike = isCodeLikeStateLabel(currentLabel, stateCode);
+  const candidateCodeLike = isCodeLikeStateLabel(candidateLabel, stateCode);
+
+  if (currentCodeLike && !candidateCodeLike) return candidateLabel;
+  if (!currentCodeLike && candidateCodeLike) return currentLabel;
+  if (candidateLabel.length > currentLabel.length && !candidateCodeLike) return candidateLabel;
+  return currentLabel;
+}
+
 export function getCountryName(code?: string | null): string {
   const raw = (code || "").trim();
   if (!raw) return "";
@@ -1337,10 +1404,10 @@ function hasDiacritics(value: string): boolean {
   return false;
 }
 
-export async function getAvailableLocations(): Promise<{ countryCode: string, countryName: string, states: { code: string, name: string, cities: string[] }[] }[]> {
+export async function getAvailableLocations(): Promise<{ countryCode: string, countryName: string, states: { code: string, name: string, cities: string[] }[] }> {
   const { data } = await supabase
     .from("businesses")
-    .select("country_code, state_code, city")
+    .select("country_code, state_code, state, city")
     .or("moderation_status.eq.approved,moderation_status.is.null");
 
   if (!data) return [];
@@ -1350,28 +1417,32 @@ export async function getAvailableLocations(): Promise<{ countryCode: string, co
   data.forEach((item) => {
     const countryCode = String(item.country_code || "").toLowerCase().trim();
     const stateCode = String(item.state_code || "").toLowerCase().trim();
+    const stateName = String(item.state || "").trim();
     const city = String(item.city || "").trim();
     if (!countryCode || !stateCode || !city) return;
 
     let country = locations.find((l) => l.countryCode === countryCode);
     if (!country) {
-      country = { 
-        countryCode, 
-        countryName: getCountryName(countryCode), 
-        states: [] 
+      country = {
+        countryCode,
+        countryName: getCountryName(countryCode),
+        states: [],
       };
       locations.push(country);
     }
 
     let state = country.states.find((s: any) => s.code === stateCode);
+    const resolvedStateName = getStateDisplayName(countryCode, stateCode, stateName);
     if (!state) {
-      state = { 
-        code: stateCode, 
-        name: getStateName(countryCode, stateCode), 
+      state = {
+        code: stateCode,
+        name: resolvedStateName,
         cities: [],
         cityMap: {} as Record<string, string>,
       };
       country.states.push(state);
+    } else {
+      state.name = pickBetterStateLabel(state.name, resolvedStateName, stateCode);
     }
 
     const cityKey = normalizeCityKey(city);

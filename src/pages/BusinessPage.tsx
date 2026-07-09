@@ -35,7 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { getAllBusinesses, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
+import { getAllBusinesses, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateDisplayName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
 import { getOrCreateConversation } from "@/services/messages";
 import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
@@ -1287,7 +1287,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
                         {business.address.street ? <p>{business.address.street}</p> : null}
                         <p className="text-muted-foreground">
                           {business.address.city}
-                          {business.address.stateCode || business.address.state ? `, ${getStateName(business.address.countryCode || business.address.country, business.address.stateCode || business.address.state)}` : ""}
+                          {business.address.stateCode || business.address.state ? `, ${getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode || business.address.state, business.address.state)}` : ""}
                         </p>
                         <p className="text-muted-foreground">
                           {getCountryName(business.address.countryCode || business.address.country)}

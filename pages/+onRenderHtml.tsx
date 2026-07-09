@@ -7,7 +7,7 @@ import { getSiteContent } from "@/data/siteContent";
 import { getLocaleFromPathname, getLocalizedUrl } from "@/i18n/routing";
 import type { Locale } from "@/i18n/types";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
-import { getCountryName } from "@/services/businesses";
+import { getCountryName, getStateDisplayName } from "@/services/businesses";
 
 type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
@@ -193,7 +193,7 @@ function findDirectoryLabels(
 
   return {
     country: getCountryName(matchingCountry?.address.countryCode || matchingCountry?.address.country || countryCode) || countryCode.toUpperCase(),
-    state: matchingState?.address.state || stateCode.toUpperCase(),
+    state: getStateDisplayName(countryCode, stateCode, matchingState?.address.state),
     city: matchingCity?.address.city || titleCaseFromSlug(citySlug),
   };
 }

@@ -19,7 +19,7 @@ import {
   createBusiness,
   getAvailableLocations,
   getCountryName,
-  getStateName,
+  getStateDisplayName,
   getCategoryId,
   getBusinessesByOwner,
   getBusinessShortSlug,
@@ -357,7 +357,7 @@ export default function BusinessWizardPage() {
           street: biz.address.street || "",
           city: biz.address.city || "",
           state: biz.address.stateCode
-            ? getStateName(biz.address.countryCode || biz.address.country, biz.address.stateCode)
+            ? getStateDisplayName(biz.address.countryCode || biz.address.country, biz.address.stateCode, biz.address.state)
             : biz.address.state || "",
           stateCode: biz.address.stateCode || "",
           country: getCountryName(biz.address.countryCode || biz.address.country) || biz.address.country || "",
@@ -461,7 +461,7 @@ export default function BusinessWizardPage() {
           updateField("countryCode", only.countryCode);
           updateField("country", getCountryName(only.countryCode));
           updateField("stateCode", only.stateCode);
-          updateField("state", getStateName(only.countryCode, only.stateCode));
+          updateField("state", getStateDisplayName(only.countryCode, only.stateCode));
           setOnlineCityResolved(true);
           return true;
         }
@@ -490,7 +490,7 @@ export default function BusinessWizardPage() {
       ...prev,
       street: place.formattedAddress || place.street || "",
       city: place.city || "",
-      state: getStateName(place.countryCode || "", place.stateCode || "") || place.state || "",
+      state: getStateDisplayName(place.countryCode || "", place.stateCode || "", place.state || ""),
       stateCode: place.stateCode || "",
       country: getCountryName(place.countryCode || place.country) || place.country || "",
       countryCode: place.countryCode || "",
@@ -940,7 +940,7 @@ export default function BusinessWizardPage() {
                           const resolvedStateCode = (place.stateCode || "").toLowerCase();
                           const resolvedCountryCode = (place.countryCode || "").toLowerCase();
                           updateField("city", city);
-                          updateField("state", getStateName(resolvedCountryCode, resolvedStateCode) || place.state || "");
+                          updateField("state", getStateDisplayName(resolvedCountryCode, resolvedStateCode, place.state || ""));
                           updateField("stateCode", resolvedStateCode);
                           updateField("countryCode", resolvedCountryCode);
                           updateField("country", getCountryName(resolvedCountryCode) || place.country || "");
@@ -975,7 +975,7 @@ export default function BusinessWizardPage() {
                         {form.street?.trim() || "Endereço não preenchido"}<br />
                         {[
                           form.city?.trim(),
-                          form.stateCode?.trim() ? getStateName(form.countryCode, form.stateCode) : "",
+                          form.stateCode?.trim() ? getStateDisplayName(form.countryCode, form.stateCode, form.state) : "",
                           form.postalCode?.trim(),
                         ]
                           .filter(Boolean)
@@ -1164,7 +1164,7 @@ export default function BusinessWizardPage() {
                   <p><strong>Atendimento:</strong> {form.hasPhysicalAddress ? "Com endereço físico" : "Sem endereço físico"}</p>
                   <p>
                     <strong>Local base:</strong>{" "}
-                    {form.city ? `${form.city}${form.stateCode ? ` (${getStateName(form.countryCode, form.stateCode)})` : ""}` : "-"}
+                    {form.city ? `${form.city}${form.stateCode ? ` (${getStateDisplayName(form.countryCode, form.stateCode, form.state)})` : ""}` : "-"}
                     {form.countryCode ? `, ${getCountryName(form.countryCode)}` : ""}
                   </p>
                   <p><strong>Contato:</strong> {form.phone || "-"} / {form.email || "-"}</p>
