@@ -2,7 +2,7 @@ import type { BusinessFrontend } from "@/types/database";
 import { calculateDistance } from "@/lib/utils/geo";
 import { buildCityAliases, cityMatches, hasPreciseBusinessLocation, hasReliableBusinessLocation } from "@/lib/search/businessSearch";
 import { geocodeAddress } from "@/lib/google-maps";
-import { COUNTRIES } from "@/services/businesses";
+import { getCountryName } from "@/services/businesses";
 
 export const CITY_ALIAS_GROUPS: string[][] = [
   ["montreal", "montreal city"],
@@ -238,7 +238,7 @@ export async function geocodeLocationWithCountryFallback(
   if (!trimmed) return null;
 
   const countryCode = (preferredCountryCode || "").toLowerCase().trim();
-  const countryName = COUNTRIES[countryCode]?.name || "";
+  const countryName = getCountryName(countryCode);
   const candidates = [
     trimmed,
     countryName ? `${trimmed}, ${countryName}` : "",

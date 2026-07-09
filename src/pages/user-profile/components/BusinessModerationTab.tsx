@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
+import { getCountryName } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
 
 type BusinessModerationTabProps = {
@@ -52,8 +53,8 @@ export default function BusinessModerationTab({
                       <Badge variant="outline">Em análise</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {business.address.city || "Cidade não informada"}
-                      {business.address.countryCode ? `, ${business.address.countryCode.toUpperCase()}` : ""}
+                      {business.address.city || "Cidade n?o informada"}
+                      {getCountryName(business.address.countryCode || business.address.country) ? `, ${getCountryName(business.address.countryCode || business.address.country)}` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
                       Dono: {business.ownerName || "Usuário"} · Criado em {new Date(business.createdAt).toLocaleString("pt-BR")}

@@ -1,4 +1,5 @@
 import type { FeaturedPlacementFrontend } from "@/types/database";
+import { getCountryName } from "@/services/businesses";
 import type { BusinessHour } from "@/pages/user-profile/types";
 
 export function createDefaultBusinessHours(): BusinessHour[] {
@@ -53,9 +54,9 @@ export function getDateInputDaysFromNow(days: number): string {
 
 export function formatFeaturedScope(placement: FeaturedPlacementFrontend): string {
   if (placement.scopeType === "global") return "Global";
-  if (placement.scopeType === "country") return `País: ${placement.countryCode.toUpperCase()}`;
+  if (placement.scopeType === "country") return `Pa?s: ${getCountryName(placement.countryCode)}`;
   if (placement.scopeType === "state") {
-    return `${placement.countryCode.toUpperCase()}/${placement.stateCode.toUpperCase()}`;
+    return `${getCountryName(placement.countryCode)}/${placement.stateCode.toUpperCase()}`;
   }
   return `${placement.city}, ${placement.stateCode.toUpperCase()}`;
 }

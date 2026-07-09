@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { TabsContent } from "@/components/ui/tabs";
-import { buildBusinessUrl } from "@/services/businesses";
+import { buildBusinessUrl, getCountryName } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 
@@ -82,7 +82,7 @@ export default function AllBusinessesTab({
                       <Badge variant="secondary">{getCategoryLabel(biz.category).split(" (")[0]}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {biz.address.city}, {biz.address.countryCode.toUpperCase()} · {biz.address.country}
+                      {biz.address.city}, {getCountryName(biz.address.countryCode || biz.address.country)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

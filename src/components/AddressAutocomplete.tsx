@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { COUNTRIES } from "@/services/businesses";
+import { COUNTRIES, getCountryName } from "@/services/businesses";
 import { getMapsApiKey, isMapsApiAvailable } from "@/lib/google-maps";
 
 export interface AddressResult {
@@ -119,9 +119,10 @@ function findKnownState(
 function extractCountry(components: AddressComponentLike[]): { countryCode: string; country: string } {
   const country = components.find((comp) => (comp.types || []).includes("country"));
   if (!country) return { countryCode: "", country: "" };
+  const countryCode = compShort(country).toLowerCase();
   return {
-    countryCode: compShort(country).toLowerCase(),
-    country: compLong(country),
+    countryCode,
+    country: getCountryName(countryCode) || compLong(country),
   };
 }
 

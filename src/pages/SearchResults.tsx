@@ -41,6 +41,7 @@ import {
   getCategoryId,
   getCategoryLabel,
   getBusinessesByRadiusRpc,
+  getCountryName,
   getSearchSuggestions,
 } from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
@@ -2133,7 +2134,7 @@ export default function SearchResults({
                             <span className="truncate">{biz.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${biz.address.city}, ${biz.address.country}`}
+                            {`${biz.address.city}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
                           </p>
                         </div>
                       </div>

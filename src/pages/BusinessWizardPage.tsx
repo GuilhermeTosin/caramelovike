@@ -19,6 +19,7 @@ import {
   createBusiness,
   getAvailableLocations,
   getCountryName,
+  getStateName,
   getCategoryId,
   getBusinessesByOwner,
   getBusinessShortSlug,
@@ -355,9 +356,11 @@ export default function BusinessWizardPage() {
           whatsapp: biz.whatsapp || "",
           street: biz.address.street || "",
           city: biz.address.city || "",
-          state: biz.address.state || "",
+          state: biz.address.stateCode
+            ? getStateName(biz.address.countryCode || biz.address.country, biz.address.stateCode)
+            : biz.address.state || "",
           stateCode: biz.address.stateCode || "",
-          country: biz.address.country || "",
+          country: getCountryName(biz.address.countryCode || biz.address.country) || biz.address.country || "",
           countryCode: biz.address.countryCode || "",
           attendanceType: biz.attendanceType || "presencial",
           hasPhysicalAddress: biz.attendanceType !== "online",
@@ -458,6 +461,7 @@ export default function BusinessWizardPage() {
           updateField("countryCode", only.countryCode);
           updateField("country", getCountryName(only.countryCode));
           updateField("stateCode", only.stateCode);
+          updateField("state", getStateName(only.countryCode, only.stateCode));
           setOnlineCityResolved(true);
           return true;
         }
@@ -486,9 +490,9 @@ export default function BusinessWizardPage() {
       ...prev,
       street: place.formattedAddress || place.street || "",
       city: place.city || "",
-      state: place.state || "",
+      state: getStateName(place.countryCode || "", place.stateCode || "") || place.state || "",
       stateCode: place.stateCode || "",
-      country: place.country || "",
+      country: getCountryName(place.countryCode || place.country) || place.country || "",
       countryCode: place.countryCode || "",
       postalCode: place.postalCode || "",
       lat: place.lat || 0,
@@ -936,10 +940,10 @@ export default function BusinessWizardPage() {
                           const resolvedStateCode = (place.stateCode || "").toLowerCase();
                           const resolvedCountryCode = (place.countryCode || "").toLowerCase();
                           updateField("city", city);
-                          updateField("state", place.state || "");
+                          updateField("state", getStateName(resolvedCountryCode, resolvedStateCode) || place.state || "");
                           updateField("stateCode", resolvedStateCode);
                           updateField("countryCode", resolvedCountryCode);
-                          updateField("country", place.country || getCountryName(resolvedCountryCode));
+                          updateField("country", getCountryName(resolvedCountryCode) || place.country || "");
                           updateField("lat", place.lat || 0);
                           updateField("lng", place.lng || 0);
                           updateField("street", "");
@@ -965,13 +969,13 @@ export default function BusinessWizardPage() {
                 </p>
                 <p className="text-muted-foreground mt-1">
                   {!form.hasPhysicalAddress
-                    ? `${form.city?.trim() || "Cidade não preenchida"}${form.countryCode ? `, ${form.countryCode.toUpperCase()}` : ""}`
+                    ? `${form.city?.trim() || "Cidade n?o preenchida"}${form.countryCode ? `, ${getCountryName(form.countryCode)}` : ""}`
                     : (
                       <>
                         {form.street?.trim() || "Endereço não preenchido"}<br />
                         {[
                           form.city?.trim(),
-                          form.stateCode?.trim() ? form.stateCode.toUpperCase() : "",
+                          form.stateCode?.trim() ? getStateName(form.countryCode, form.stateCode) : "",
                           form.postalCode?.trim(),
                         ]
                           .filter(Boolean)
@@ -1160,8 +1164,8 @@ export default function BusinessWizardPage() {
                   <p><strong>Atendimento:</strong> {form.hasPhysicalAddress ? "Com endereço físico" : "Sem endereço físico"}</p>
                   <p>
                     <strong>Local base:</strong>{" "}
-                    {form.city ? `${form.city}${form.stateCode ? ` (${form.stateCode.toUpperCase()})` : ""}` : "-"}
-                    {form.countryCode ? `, ${form.countryCode.toUpperCase()}` : ""}
+                    {form.city ? `${form.city}${form.stateCode ? ` (${getStateName(form.countryCode, form.stateCode)})` : ""}` : "-"}
+                    {form.countryCode ? `, ${getCountryName(form.countryCode)}` : ""}
                   </p>
                   <p><strong>Contato:</strong> {form.phone || "-"} / {form.email || "-"}</p>
                   <p><strong>Mídia:</strong> {logoFile ? "logo" : "sem logo"}, {heroFile ? "capa" : "sem capa"}, {photoFiles.length} foto(s)</p>

@@ -227,8 +227,29 @@ export const COUNTRIES: Record<string, { name: string; states: Record<string, st
       nir: "Irlanda do Norte",
     },
   },
+  de: {
+    name: "Alemanha",
+    states: {
+      bw: "Baden-Württemberg",
+      by: "Baviera",
+      be: "Berlim",
+      bb: "Brandemburgo",
+      hb: "Bremen",
+      hh: "Hamburgo",
+      he: "Hesse",
+      mv: "Mecklemburgo-Pomerânia Ocidental",
+      ni: "Baixa Saxônia",
+      nw: "Renânia do Norte-Vestfália",
+      rp: "Renânia-Palatinado",
+      sl: "Sarre",
+      sn: "Saxônia",
+      st: "Saxônia-Anhalt",
+      sh: "Schleswig-Holstein",
+      th: "Turíngia",
+    },
+  },
   jp: {
-    name: "Japão",
+    name: "Jap?o",
     states: {
       tk: "Tóquio",
       os: "Osaka",
@@ -1281,10 +1302,24 @@ export function buildBusinessUrl(biz: BusinessFrontend): string {
   return `/go/${biz.slug}`;
 }
 
+const COUNTRY_DISPLAY_NAMES_PT_BR =
+  typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function"
+    ? new Intl.DisplayNames(["pt-BR"], { type: "region" })
+    : null;
+
 export function getCountryName(code?: string | null): string {
-  const normalized = (code || "").toLowerCase();
-  if (!normalized) return "";
-  return COUNTRIES[normalized]?.name || code || "";
+  const raw = (code || "").trim();
+  if (!raw) return "";
+
+  const normalized = raw.toLowerCase();
+  if (!/^[a-z]{2,3}$/.test(normalized)) {
+    return raw;
+  }
+
+  const intlName = COUNTRY_DISPLAY_NAMES_PT_BR?.of(normalized.toUpperCase());
+  if (intlName) return intlName;
+
+  return COUNTRIES[normalized]?.name || raw;
 }
 
 function normalizeCityKey(value: string): string {

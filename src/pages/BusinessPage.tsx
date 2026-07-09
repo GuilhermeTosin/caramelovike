@@ -399,10 +399,10 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
       review: reviewJsonLd.length > 0 ? reviewJsonLd : undefined,
       openingHoursSpecification: openingHoursSpecification.length > 0 ? openingHoursSpecification : undefined,
       priceRange: "$$",
-      areaServed: business.address.countryCode
+      areaServed: business.address.countryCode || business.address.country
         ? {
             "@type": "Country",
-            name: getCountryName(business.address.countryCode),
+            name: getCountryName(business.address.countryCode || business.address.country),
           }
         : undefined,
     };
@@ -583,7 +583,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
     trackBusinessClick(business.id, "route", session?.userId);
     const query = business.address.lat && business.address.lng
       ? `${business.address.lat},${business.address.lng}`
-      : `${business.address.street}, ${business.address.city}, ${business.address.country}`;
+      : [business.address.street, business.address.city, getCountryName(business.address.countryCode || business.address.country)].filter(Boolean).join(", ");
     window.open(
       `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`,
       "_blank",
@@ -770,7 +770,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
               <div className="flex flex-wrap items-center gap-4 text-sm sm:text-base text-white/90">
                 <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1 rounded-full border border-white/10">
                   <MapPin className="w-4 h-4 text-primary" />
-                  {`${business.address.city}${business.address.country ? `, ${business.address.country}` : ""}`}
+                  {`${business.address.city}${getCountryName(business.address.countryCode || business.address.country) ? `, ${getCountryName(business.address.countryCode || business.address.country)}` : ""}`}
                 </div>
                 {business.averageRating > 0 && (
                   <div className="flex items-center gap-1.5 bg-amber-500 px-3 py-1 rounded-full">
@@ -1287,10 +1287,10 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
                         {business.address.street ? <p>{business.address.street}</p> : null}
                         <p className="text-muted-foreground">
                           {business.address.city}
-                          {business.address.stateCode ? `, ${getStateName(business.address.countryCode, business.address.stateCode)}` : ""}
+                          {business.address.stateCode || business.address.state ? `, ${getStateName(business.address.countryCode || business.address.country, business.address.stateCode || business.address.state)}` : ""}
                         </p>
                         <p className="text-muted-foreground">
-                          {getCountryName(business.address.countryCode)}
+                          {getCountryName(business.address.countryCode || business.address.country)}
                           {business.address.postalCode ? ` — ${business.address.postalCode}` : ""}
                         </p>
                       </>
@@ -1553,7 +1553,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
                             <span className="truncate">{item.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${item.address.city}, ${item.address.country}`}
+                            {`${item.address.city}, ${getCountryName(item.address.countryCode || item.address.country)}`}
                           </p>
                         </div>
                       </div>

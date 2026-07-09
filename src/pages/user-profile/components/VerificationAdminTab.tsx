@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TabsContent } from "@/components/ui/tabs";
+import { getCountryName } from "@/services/businesses";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import type { BusinessFrontend, BusinessVerificationRequest } from "@/types/database";
 import type { VerificationAdminView } from "@/pages/user-profile/types";
@@ -103,8 +104,8 @@ export default function VerificationAdminTab({
                   <div className="flex-1 min-w-0">
                     <h4 className="font-semibold">{business.name}</h4>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {business.address.city || "Cidade não informada"}
-                      {business.address.countryCode ? `, ${business.address.countryCode.toUpperCase()}` : ""}
+                      {business.address.city || "Cidade n?o informada"}
+                      {getCountryName(business.address.countryCode || business.address.country) ? `, ${getCountryName(business.address.countryCode || business.address.country)}` : ""}
                     </p>
                     {business.ownerVerifiedUntil ? (
                       <p className="text-xs text-muted-foreground mt-2">

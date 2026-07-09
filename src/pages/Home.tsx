@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { getSiteContent, getMascotPhrases } from "@/data/siteContent";
 import { getHomeContent } from "@/data/homeContent";
-import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getSearchSuggestions } from "@/services/businesses";
+import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getCountryName, getSearchSuggestions } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
@@ -717,7 +717,7 @@ export default function Home({
                           <span className="truncate">{biz.name}</span>
                         </h3>
                         <p className="text-sm text-muted-foreground truncate">
-                          {`${biz.address.city}, ${biz.address.country}`}
+                          {`${biz.address.city}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
                         </p>
                       </div>
                     </div>

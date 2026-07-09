@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
-import { buildBusinessUrl, getCategoryId } from "@/services/businesses";
+import { buildBusinessUrl, getCategoryId, getCountryName } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 
@@ -137,7 +137,7 @@ export default function BusinessesTab({
                 <span className="flex min-w-0 items-center gap-1 leading-tight">
                   <MapPin className="h-3 w-3 shrink-0" />
                   <span className="truncate">
-                    {biz.address.city}, {biz.address.countryCode.toUpperCase()}
+                    {biz.address.city}, {getCountryName(biz.address.countryCode || biz.address.country)}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1 whitespace-nowrap leading-tight">

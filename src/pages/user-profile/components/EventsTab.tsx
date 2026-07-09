@@ -9,6 +9,7 @@ import { TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { getCurrencyPrefixForCountry } from "@/lib/currency";
+import { getCountryName, getStateName } from "@/services/businesses";
 import { formatIsoToBr, normalizeDateForInput } from "@/pages/user-profile/utils";
 import type { CommunityEvent, BusinessFrontend } from "@/types/database";
 import type { CommunityEventForm } from "@/pages/user-profile/types";
@@ -132,8 +133,13 @@ export default function EventsTab({
                       ? [
                           selectedBusiness.address.street,
                           selectedBusiness.address.city,
-                          selectedBusiness.address.state,
-                          selectedBusiness.address.country,
+                          selectedBusiness.address.stateCode || selectedBusiness.address.state
+                            ? getStateName(
+                                selectedBusiness.address.countryCode || selectedBusiness.address.country,
+                                selectedBusiness.address.stateCode || selectedBusiness.address.state
+                              )
+                            : "",
+                          getCountryName(selectedBusiness.address.countryCode || selectedBusiness.address.country),
                         ]
                           .filter(Boolean)
                           .join(", ")
