@@ -229,6 +229,24 @@ function isKnownAppPath(pathname) {
   return !!parseBusinessPath(pathname);
 }
 
+function normalizePathname(pathname) {
+  const trimmed = pathname.replace(/\/+$/, "");
+  return trimmed || "/";
+}
+
+function applyNegociosCacheHeaders(res, pathname, statusCode) {
+  if (statusCode !== 200) return;
+
+  const normalizedPathname = normalizePathname(pathname);
+  if (normalizedPathname !== "/negocios") return;
+
+  const cacheHeader = "s-maxage=900, stale-while-revalidate=86400";
+
+  res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+  res.setHeader("CDN-Cache-Control", cacheHeader);
+  res.setHeader("Vercel-CDN-Cache-Control", cacheHeader);
+}
+
 export default async function handler(req, res) {
   const { url } = req;
   if (url === undefined) throw new Error("req.url is undefined");
@@ -265,6 +283,7 @@ export default async function handler(req, res) {
   const { body, statusCode, headers } = httpResponse;
   res.statusCode = statusCode;
   headers.forEach(([name, value]) => res.setHeader(name, value));
+  applyNegociosCacheHeaders(res, new URL(url, "http://localhost").pathname, statusCode);
   if (statusCode === 404) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(render404Html());
