@@ -238,7 +238,7 @@ function applyNegociosCacheHeaders(res, pathname, statusCode) {
   if (statusCode !== 200) return;
 
   const normalizedPathname = normalizePathname(pathname);
-  if (normalizedPathname !== "/negocios") return;
+  if (normalizedPathname !== "/negocios" && !normalizedPathname.startsWith("/negocios/")) return;
 
   const cacheHeader = "s-maxage=900, stale-while-revalidate=86400";
 

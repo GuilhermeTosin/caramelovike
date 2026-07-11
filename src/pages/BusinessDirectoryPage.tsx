@@ -156,23 +156,21 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
     let active = true;
 
     setDirectoryBusinesses(businesses);
-    if (businesses.length > 0) {
-      setLoadingBusinesses(false);
-      return () => {
-        active = false;
-      };
-    }
+    setLoadingBusinesses(businesses.length === 0);
 
-    setLoadingBusinesses(true);
     void getAllBusinesses()
       .then((rows) => {
         if (!active) return;
         setDirectoryBusinesses(rows);
-        setLoadingBusinesses(false);
       })
       .catch(() => {
         if (!active) return;
-        setDirectoryBusinesses([]);
+        if (businesses.length === 0) {
+          setDirectoryBusinesses([]);
+        }
+      })
+      .finally(() => {
+        if (!active) return;
         setLoadingBusinesses(false);
       });
 
