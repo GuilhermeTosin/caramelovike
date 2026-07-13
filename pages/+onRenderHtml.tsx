@@ -58,7 +58,8 @@ function getErrorPageMeta(locale: Locale) {
 function buildPublicRuntimeEnvScript() {
   const env = {
     VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "",
-    VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "",
+    // Only the public Supabase key may cross the SSR-to-browser boundary.
+    VITE_SUPABASE_ANON_KEY: getPublicSupabaseAnonKey(),
     VITE_GEOIP_ENDPOINT: process.env.VITE_GEOIP_ENDPOINT || "",
     VITE_GOOGLE_MAPS_API_KEY: process.env.VITE_GOOGLE_MAPS_API_KEY || "",
   };
@@ -480,4 +481,32 @@ export function onRenderHtml(pageContext: PageContext) {
     <div id="root">${dangerouslySkipEscape(pageHtml)}</div>
   </body>
 </html>`;
+}
+
+function getPublicSupabaseAnonKey() {
+  const candidates = [
+    process.env.VITE_SUPABASE_ANON_KEY,
+    process.env.SUPABASE_ANON_KEY,
+  ];
+
+  return candidates
+    .map((candidate) => String(candidate || "").trim())
+    .find((candidate) => isPublicSupabaseKey(candidate)) || "";
+}
+
+function isPublicSupabaseKey(value: string) {
+  if (!value || value.startsWith("sb_secret_")) return false;
+  if (value.startsWith("sb_publishable_")) return true;
+
+  const [, encodedPayload] = value.split(".");
+  if (!encodedPayload) return false;
+
+  try {
+    const normalizedPayload = encodedPayload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, "=");
+    const payload = JSON.parse(Buffer.from(paddedPayload, "base64").toString("utf8")) as { role?: string };
+    return payload.role === "anon";
+  } catch {
+    return false;
+  }
 }
