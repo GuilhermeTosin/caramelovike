@@ -79,10 +79,10 @@ const SEARCH_SYNONYMS: Record<string, string[]> = {
   dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
   mecanico: ["Serviços Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
   mecanica: ["Serviços Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
-  comida: ["Alimentação", "Restaurante", "Lanche", "Marmita"],
-  restaurante: ["Alimentação"],
-  padaria: ["Alimentação"],
-  doce: ["Alimentação", "Confeitaria"],
+  comida: ["Restaurantes e Alimentação", "Alimentação", "Restaurante", "Lanche", "Marmita"],
+  restaurante: ["Restaurantes e Alimentação", "Alimentação"],
+  padaria: ["Restaurantes e Alimentação", "Alimentação"],
+  doce: ["Restaurantes e Alimentação", "Alimentação", "Confeitaria"],
   advogado: ["Advocacia & Consultoria", "Jurídico", "Lei"],
   tradutor: ["Advocacia & Consultoria", "Tradução", "Imigração"],
   traducao: ["Advocacia & Consultoria", "Tradução", "Imigração"],
@@ -108,8 +108,12 @@ function getCardImageAssets(source: string) {
 }
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  "Restaurantes e Alimentação": [
+    "restaurante", "lanchonete", "lanches", "padaria", "comida",
+    "gastronomia", "cafe", "almoco", "jantar", "marmita"
+  ],
   "Alimentação (Restaurantes, Padarias, Cafés)": [
-    "restaurante", "lanchonete", "lanches", "padaria", "comida", 
+    "restaurante", "lanchonete", "lanches", "padaria", "comida",
     "gastronomia", "cafe", "almoco", "jantar", "marmita"
   ],
   "Serviços Automotivos": [
@@ -164,8 +168,9 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
 };
 
 const CATEGORY_FILTER_ALIASES: Record<string, string[]> = {
-  "alimentacao": ["Alimentação", "Alimentacao"],
-  "alimentacao (restaurantes, padarias, cafes)": ["Alimentação", "Alimentacao"],
+  "alimentacao": ["Restaurantes e Alimentação", "Alimentação", "Alimentacao"],
+  "restaurantes e alimentacao": ["Restaurantes e Alimentação", "Alimentação", "Alimentacao"],
+  "alimentacao (restaurantes, padarias, cafes)": ["Restaurantes e Alimentação", "Alimentação", "Alimentacao"],
   "saude & beleza": ["Saúde & Beleza", "Saude e Beleza"],
   "saude e beleza": ["Saúde & Beleza", "Saude e Beleza"],
   "automotivo": ["Automotivo", "Serviços Automotivos", "Servicos Automotivos"],
@@ -192,6 +197,7 @@ const SEARCH_BACKEND = (import.meta.env.VITE_SEARCH_BACKEND ?? "client").toLower
 const CITY_LEVEL_RADIUS_MIN_KM = 100;
 
 const CATEGORY_SEO_TEXT: Record<string, string> = {
+  "Restaurantes e Alimentação": "restaurantes, padarias e cafés",
   "Alimentação (Restaurantes, Padarias, Cafés)": "restaurantes, padarias e cafés",
   "Serviços Automotivos": "oficinas e serviços automotivos",
   "Saúde & Beleza": "serviços de saúde e beleza",

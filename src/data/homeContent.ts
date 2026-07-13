@@ -113,7 +113,7 @@ const HOME_CONTENT_BY_LOCALE: Record<Locale, HomeContent> = {
       },
     },
     categories: [
-      { id: "food", name: "Alimentação" },
+      { id: "food", name: "Restaurantes e Alimentação" },
       { id: "health_beauty", name: "Saúde & Beleza" },
       { id: "auto", name: "Automotivo" },
       { id: "construction", name: "Construção" },

@@ -49,7 +49,7 @@ export interface Business {
 }
 
 export const BUSINESS_CATEGORIES = [
-  "Alimentação (Restaurantes, Padarias, Cafés)",
+  "Restaurantes e Alimentação",
   "Serviços Automotivos",
   "Saúde & Beleza",
   "Construção & Reformas",
@@ -318,7 +318,7 @@ export const sampleBusinesses: Business[] = [
     ownerName: "Maria Silva",
     name: "Brasil Tropical Bakery",
     slug: "brasil-tropical-bakery",
-    category: "Alimentação (Restaurantes, Padarias, Cafés)",
+    category: "Restaurantes e Alimentação",
     description: "Padaria e confeitaria brasileira autêntica no coração de Montreal. Aqui você encontra pão de queijo, coxinha, brigadeiro, e muito mais. Todos os produtos são feitos artesanalmente com ingredientes frescos e importados do Brasil sempre que possível.",
     heroImage: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1200&q=80",
     logoUrl: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=200&q=80",

@@ -127,6 +127,7 @@ const SEARCH_CONTENT_BY_LOCALE: Record<Locale, SearchContent> = {
       compareText: "Compare opções perto de você e fale direto com os negócios.",
     },
     categorySeoText: {
+      "Restaurantes e Alimentação": "restaurantes, padarias e cafés",
       "Alimentação (Restaurantes, Padarias, Cafés)": "restaurantes, padarias e cafés",
       "Serviços Automotivos": "oficinas e serviços automotivos",
       "Saúde & Beleza": "serviços de saúde e beleza",
@@ -212,6 +213,7 @@ const SEARCH_CONTENT_BY_LOCALE: Record<Locale, SearchContent> = {
       compareText: "Compare options near you and contact the businesses directly.",
     },
     categorySeoText: {
+      "Restaurantes e Alimentação": "restaurants, bakeries, and cafés",
       "Alimentação (Restaurantes, Padarias, Cafés)": "restaurants, bakeries, and cafés",
       "Serviços Automotivos": "automotive workshops and services",
       "Saúde & Beleza": "health and beauty services",

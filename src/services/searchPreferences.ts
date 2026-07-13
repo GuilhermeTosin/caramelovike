@@ -7,6 +7,7 @@ const DB_KEY = "category_synonyms";
 const FOLLOW_LINKS_BUSINESS_IDS_KEY = "follow_links_business_ids";
 
 export const DEFAULT_CATEGORY_SYNONYMS: CategorySynonymsMap = {
+  "Restaurantes e Alimentação": ["restaurante", "lanchonete", "lanches", "padaria", "comida", "gastronomia", "café", "almoço", "jantar", "marmita"],
   "Alimentação": ["restaurante", "lanchonete", "lanches", "padaria", "comida", "gastronomia", "café", "almoço", "jantar", "marmita"],
   "Automotivo": ["mecânico", "oficina", "carro", "conserto", "pneu", "óleo", "auto", "manutenção", "reparo"],
   "Saúde & Beleza": ["dentista", "médico", "clínica", "estética", "salão", "cabelo", "unha", "manicure", "pedicure", "terapia", "psicólogo"],

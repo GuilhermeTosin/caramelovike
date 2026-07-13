@@ -5,7 +5,7 @@ import { stripRichTextHtml } from "@/lib/richText";
 import { getFollowLinksBusinessIds } from "@/services/searchPreferences";
 
 export const BUSINESS_CATEGORY_OPTIONS = [
-  { id: "food", label: "Alimentação (Restaurantes, Padarias, Cafés)" },
+  { id: "food", label: "Restaurantes e Alimentação" },
   { id: "auto", label: "Serviços Automotivos" },
   { id: "health_beauty", label: "Saúde & Beleza" },
   { id: "construction", label: "Construção & Reformas" },
@@ -24,7 +24,7 @@ export const BUSINESS_CATEGORY_OPTIONS = [
 ] as const;
 
 const CATEGORY_LABEL_BY_ID: Record<string, string> = {
-  food: "Alimentação (Restaurantes, Padarias, Cafés)",
+  food: "Restaurantes e Alimentação",
   auto: "Serviços Automotivos",
   health_beauty: "Saúde & Beleza",
   construction: "Construção & Reformas",
@@ -47,7 +47,14 @@ export const BUSINESS_CATEGORIES = BUSINESS_CATEGORY_OPTIONS.map(
 ) as readonly string[];
 
 const CATEGORY_INPUT_ALIASES_BY_ID: Record<string, string[]> = {
-  food: ["alimentacao", "restaurantes", "padarias", "cafes"],
+  food: [
+    "alimentacao",
+    "restaurantes",
+    "restaurantes e alimentacao",
+    "alimentacao (restaurantes, padarias, cafes)",
+    "padarias",
+    "cafes",
+  ],
   auto: ["automotivo", "servicos automotivos"],
   health_beauty: ["saude & beleza", "saude e beleza"],
   construction: ["construcao", "construcao & reformas"],
