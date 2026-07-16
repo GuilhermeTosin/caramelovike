@@ -33,17 +33,7 @@ export function setCanonical(url: string) {
   canonical.setAttribute("href", url);
 }
 
-export function setHreflang(hreflang: string, href: string) {
-  if (typeof document === "undefined") return;
-  let link = document.querySelector(`link[rel="alternate"][hreflang="${hreflang}"]`) as HTMLLinkElement | null;
-  if (!link) {
-    link = document.createElement("link");
-    link.setAttribute("rel", "alternate");
-    link.setAttribute("hreflang", hreflang);
-    document.head.appendChild(link);
-  }
-  link.setAttribute("href", href);
-}
+
 
 export function setRobots(content: string) {
   upsertMetaTag("name", "robots", content);

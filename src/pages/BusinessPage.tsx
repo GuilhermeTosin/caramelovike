@@ -46,7 +46,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
-import { setSeoMeta, setCanonical, setHreflang, setJsonLd, setRobots } from "@/lib/seo";
+import { setSeoMeta, setCanonical, setJsonLd, setRobots } from "@/lib/seo";
+import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
+import { getLocaleFromPathname } from "@/i18n/routing";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
@@ -298,14 +300,10 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
       return;
     }
 
-    const categoryLabel = business.category.split("(")[0].trim();
-    const keywordSnippet = (business.keywords || []).filter(Boolean).slice(0, 3).join(", ");
-    const serviceSnippet = (business.services || []).filter(Boolean).slice(0, 3).join(", ");
-    const details = keywordSnippet || serviceSnippet;
-    const locationLabel = isOnlineOnly ? "atendimento online" : `em ${business.address.city}`;
+    const locale = getLocaleFromPathname(window.location.pathname);
     setSeoMeta(
-      `${business.name} ${locationLabel} | ${categoryLabel} | Caramelinho.com`,
-      `${business.name} ${locationLabel}. ${details ? `Especialidades: ${details}. ` : ""}Veja avaliações e contato para escolher com confiança.`
+      buildBusinessSeoTitle(business, locale),
+      buildBusinessSeoDescription(business, locale)
     );
   }, [business, isOnlineOnly]);
 
@@ -337,10 +335,8 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
   useEffect(() => {
     if (!business) return;
 
-    const canonicalUrl = `${window.location.origin}${location.pathname}`;
+    const canonicalUrl = `${window.location.origin}${buildBusinessUrl(business)}`;
     setCanonical(canonicalUrl);
-    setHreflang("pt-BR", canonicalUrl);
-    setHreflang("x-default", canonicalUrl);
     setRobots("index,follow,max-image-preview:large");
 
     const openingHoursSpecification = parseOpeningHoursToSchema(business.openingHours || []);

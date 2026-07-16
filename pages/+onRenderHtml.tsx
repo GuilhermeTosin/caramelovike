@@ -8,6 +8,7 @@ import { getLocaleFromPathname, getLocalizedUrl } from "@/i18n/routing";
 import type { Locale } from "@/i18n/types";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { getCountryName, getStateDisplayName } from "@/services/businesses";
+import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
 
 type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
@@ -18,13 +19,18 @@ function getPageUrlParts(urlOriginal?: string) {
   return {
     pathname: url.pathname,
     search: url.search,
-    hash: url.hash,
   };
 }
 
-function getCanonicalUrl(urlOriginal: string | undefined, locale: Locale) {
-  const { pathname, search, hash } = getPageUrlParts(urlOriginal);
-  return getLocalizedUrl("https://www.caramelinho.com", pathname, search, hash, locale);
+function getCanonicalUrl(urlOriginal: string | undefined, isBusinessPage: boolean) {
+  const { pathname, search } = getPageUrlParts(urlOriginal);
+  return getLocalizedUrl(
+    "https://www.caramelinho.com",
+    pathname,
+    isBusinessPage ? "" : search,
+    "",
+    "pt-BR",
+  );
 }
 
 function isIndexableSearchUrl(urlOriginal?: string) {
@@ -69,27 +75,11 @@ function buildPublicRuntimeEnvScript() {
 }
 
 function buildBusinessTitle(business: BusinessFrontend, locale: Locale) {
-  const categoryLabel = (business.category || (locale === "en" ? "Brazilian business" : "Negócio brasileiro")).split("(")[0].trim();
-  const locationLabel = business.address.city ? `${locale === "en" ? "in" : "em"} ${business.address.city}` : locale === "en" ? "near you" : "perto de você";
-  return `${business.name} ${locationLabel} | ${categoryLabel} | Caramelinho.com`;
+  return buildBusinessSeoTitle(business, locale);
 }
 
 function buildBusinessDescription(business: BusinessFrontend, locale: Locale) {
-  const categoryLabel = (business.category || (locale === "en" ? "Brazilian business" : "negócio brasileiro")).split("(")[0].trim().toLowerCase();
-  const place = business.address.city
-    ? `${business.address.city}${business.address.state ? `, ${business.address.state}` : ""}`
-    : locale === "en"
-      ? "your area"
-      : "sua região";
-  const services = (business.services || []).filter(Boolean).slice(0, 3).join(", ");
-  const details = services
-    ? locale === "en"
-      ? ` Specialties: ${services}.`
-      : ` Especialidades: ${services}.`
-    : "";
-  return locale === "en"
-    ? `${business.name} in ${place}. Find contact information, reviews, and details about this ${categoryLabel}.${details}`.trim()
-    : `${business.name} em ${place}. Encontre informações de contato, avaliações e detalhes sobre esse ${categoryLabel}.${details}`.trim();
+  return buildBusinessSeoDescription(business, locale);
 }
 
 function buildBusinessHeroImageAssets(imageUrl: string) {
@@ -393,9 +383,9 @@ export function onRenderHtml(pageContext: PageContext) {
   const pageHtml = renderToString(<Page pageContext={pageContext} />);
   const currentUrl = new URL(pageContext.urlOriginal || "/", "https://www.caramelinho.com");
   const locale = pageContext.locale || getLocaleFromPathname(currentUrl.pathname);
-  const canonicalUrl = getCanonicalUrl(pageContext.urlOriginal, locale);
   const business = pageContext.initialBusiness || null;
   const isBusinessPage = !!pageContext.isBusinessPage;
+  const canonicalUrl = getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
   const isErrorPage = !!pageContext.is404;
   const businessHasData = !!business;
   const staticMeta = isErrorPage
@@ -421,9 +411,6 @@ export function onRenderHtml(pageContext: PageContext) {
       ? businessHeroAssets?.optimizedImageUrl || business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg"
       : "https://www.caramelinho.com/og-image.jpg";
   const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, pageContext.is404);
-  const shouldEmitAlternates = !robotsContent.startsWith("noindex");
-  const alternatePtUrl = getLocalizedUrl("https://www.caramelinho.com", currentUrl.pathname, currentUrl.search, currentUrl.hash, "pt-BR");
-  const alternateEnUrl = getLocalizedUrl("https://www.caramelinho.com", currentUrl.pathname, currentUrl.search, currentUrl.hash, "en");
   const jsonLd = isBusinessPage && businessHasData
     ? [
         buildWebsiteJsonLd(locale),
@@ -432,13 +419,6 @@ export function onRenderHtml(pageContext: PageContext) {
       ]
     : [buildWebsiteJsonLd(locale)];
   const jsonLdHtml = jsonLd.map(jsonLdScript).join("\n");
-  const alternateLinksHtml = shouldEmitAlternates
-    ? [
-        `<link rel="alternate" hreflang="pt-BR" href="${alternatePtUrl}" />`,
-        `<link rel="alternate" hreflang="en" href="${alternateEnUrl}" />`,
-        `<link rel="alternate" hreflang="x-default" href="${alternatePtUrl}" />`,
-      ].join("\n")
-    : "";
 
   return escapeInject`<!doctype html>
 <html lang="${locale === "en" ? "en" : "pt-BR"}">
@@ -458,7 +438,6 @@ export function onRenderHtml(pageContext: PageContext) {
     <meta property="og:description" content="${pageDescription}" />
     <meta property="og:url" content="${canonicalUrl}" />
     <link rel="canonical" href="${canonicalUrl}" />
-    ${dangerouslySkipEscape(alternateLinksHtml)}
     <meta property="og:image" content="${pageImage}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />

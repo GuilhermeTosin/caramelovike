@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
+import { getLocalizedPathname } from "@/i18n/routing";
 import type { BusinessFrontend } from "@/types/database";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
@@ -39,7 +40,7 @@ function isIndexableSearch(search: string) {
   return ["categoria", "cidade", "local", "q"].some((key) => (params.get(key) || "").trim().length > 0);
 }
 
-function CanonicalManager() {
+function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean }) {
   const { pathname, search } = useLocation();
 
   useEffect(() => {
@@ -47,7 +48,9 @@ function CanonicalManager() {
     const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
     const isPrivatePreviewPath = pathname.startsWith("/preview/negocio/");
     const isSearchPage = pathname === "/buscar";
-    const canonicalPath = isSearchPage && !isIndexableSearch(search) ? pathname : `${pathname}${search}`;
+    const canonicalPathname = getLocalizedPathname(pathname, "pt-BR");
+    const canonicalSearch = isBusinessPage || (isSearchPage && !isIndexableSearch(search)) ? "" : search;
+    const canonicalPath = `${canonicalPathname}${canonicalSearch}`;
     const canonicalUrl = `${window.location.origin}${canonicalPath}`;
 
     setCanonical(canonicalUrl);
@@ -64,7 +67,7 @@ function CanonicalManager() {
     }
 
     setRobots("index,follow,max-image-preview:large");
-  }, [pathname, search]);
+  }, [isBusinessPage, pathname, search]);
 
   return null;
 }
@@ -100,12 +103,13 @@ export default function App({
   initialFeaturedBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
+  isBusinessPage = false,
 }: AppProps = {}) {
   return (
     <AuthProvider>
       <AppRouter router={router} location={location}>
         <ScrollToTop />
-        <CanonicalManager />
+        <CanonicalManager isBusinessPage={isBusinessPage} />
         <Routes>
           <Route
             path="/"
