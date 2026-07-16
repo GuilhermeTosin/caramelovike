@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import { buildBusinessUrl, getAllBusinesses, getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
+import { setSeoMeta, upsertMetaTag } from "@/lib/seo";
+import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
 
 const PAGE_SIZE = 100;
 
@@ -149,6 +151,7 @@ function Header() {
 
 export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirectoryPageProps) {
   const params = useParams();
+  const { pathname } = useLocation();
   const [directoryBusinesses, setDirectoryBusinesses] = useState<BusinessFrontend[]>(businesses);
   const [loadingBusinesses, setLoadingBusinesses] = useState(businesses.length === 0);
 
@@ -221,7 +224,20 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
   const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageBusinesses = currentList.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const title = getTitle(level, countryCode, stateCode, currentStateLabel, citySlug, cityNameBySlug);
+  const pageMeta = useMemo(
+    () => getDirectoryPageMeta(pathname, sortedBusinesses, "pt-BR"),
+    [pathname, sortedBusinesses],
+  );
+  const title = pageMeta?.heading || "Neg\u00f3cios brasileiros no exterior por pa\u00eds";
+
+  useEffect(() => {
+    if (!pageMeta) return;
+    setSeoMeta(pageMeta.title, pageMeta.description);
+    upsertMetaTag("property", "og:title", pageMeta.title);
+    upsertMetaTag("property", "og:description", pageMeta.description);
+    upsertMetaTag("name", "twitter:title", pageMeta.title);
+    upsertMetaTag("name", "twitter:description", pageMeta.description);
+  }, [pageMeta]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -377,20 +393,4 @@ function DirectoryGrid({
       </div>
     </section>
   );
-}
-
-function getTitle(
-  level: DirectoryLevel,
-  countryCode: string,
-  stateCode: string,
-  stateLabel: string,
-  citySlug: string,
-  cityNameBySlug: Map<string, string>
-) {
-  if (level === "countries") return "Negócios brasileiros por país";
-  if (level === "states") return `Negócios brasileiros em ${getCountryName(countryCode) || countryCode.toUpperCase()}`;
-  if (level === "cities") {
-    return `Negócios brasileiros em ${stateLabel || getStateDisplayName(countryCode, stateCode) || stateCode.toUpperCase()}`;
-  }
-  return `Negócios brasileiros em ${cityNameBySlug.get(citySlug) || citySlug}`;
 }

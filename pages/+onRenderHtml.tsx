@@ -7,8 +7,8 @@ import { getSiteContent } from "@/data/siteContent";
 import { getLocaleFromPathname, getLocalizedUrl } from "@/i18n/routing";
 import type { Locale } from "@/i18n/types";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
-import { getCountryName, getStateDisplayName } from "@/services/businesses";
 import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
+import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
 
 type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
@@ -113,11 +113,19 @@ function buildBusinessHeroImageAssets(imageUrl: string) {
   };
 }
 
+function titleCasePathSegment(value: string) {
+  return value
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function buildFallbackBusinessMeta(urlOriginal: string | undefined, locale: Locale) {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
   const parts = pathname.split("/").filter(Boolean);
   const citySlug = parts[2] || "";
-  const cityName = titleCaseFromSlug(citySlug);
+  const cityName = titleCasePathSegment(citySlug);
 
   if (parts.length === 4 && cityName) {
     return {
@@ -138,118 +146,6 @@ function buildFallbackBusinessMeta(urlOriginal: string | undefined, locale: Loca
       locale === "en"
         ? "Find contact information, reviews, and details about Brazilian businesses abroad."
         : "Encontre informações de contato, avaliações e detalhes sobre negócios brasileiros no exterior.",
-  };
-}
-
-function slugifyMetaPart(value: string) {
-  return value
-    .toString()
-    .toLowerCase()
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/[^\w-]+/g, "")
-    .replace(/--+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "");
-}
-
-function titleCaseFromSlug(value: string) {
-  return value
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function findDirectoryLabels(
-  businesses: BusinessFrontend[],
-  countryCode: string,
-  stateCode: string,
-  citySlug: string
-) {
-  const matchingCountry = businesses.find((business) => (business.address.countryCode || "").toLowerCase() === countryCode);
-  const matchingState = businesses.find(
-    (business) =>
-      (business.address.countryCode || "").toLowerCase() === countryCode &&
-      (business.address.stateCode || "").toLowerCase() === stateCode
-  );
-  const matchingCity = businesses.find(
-    (business) =>
-      (business.address.countryCode || "").toLowerCase() === countryCode &&
-      (business.address.stateCode || "").toLowerCase() === stateCode &&
-      slugifyMetaPart(business.address.city || "") === citySlug
-  );
-
-  return {
-    country: getCountryName(matchingCountry?.address.countryCode || matchingCountry?.address.country || countryCode) || countryCode.toUpperCase(),
-    state: getStateDisplayName(countryCode, stateCode, matchingState?.address.state),
-    city: matchingCity?.address.city || titleCaseFromSlug(citySlug),
-  };
-}
-
-function getDirectoryPageMeta(urlOriginal: string | undefined, businesses: BusinessFrontend[], locale: Locale) {
-  const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts[0] !== "negocios") return null;
-
-  const countryCode = (parts[1] || "").toLowerCase();
-  const stateCode = (parts[2] || "").toLowerCase();
-  const citySlug = slugifyMetaPart(parts[3] || "");
-  const pageNumber = parts[4] === "pagina" ? Math.max(1, Number(parts[5] || "1")) : 1;
-  const pageSuffix = pageNumber > 1 ? ` - ${locale === "en" ? "Page" : "Página"} ${pageNumber}` : "";
-
-  if (!countryCode) {
-    return {
-      title:
-        locale === "en"
-          ? `Brazilian businesses by country${pageSuffix} | Caramelinho.com`
-          : `Negócios brasileiros por país${pageSuffix} | Caramelinho.com`,
-      description:
-        locale === "en"
-          ? "Browse Brazilian businesses abroad by country, state, and city. Find companies, services, and products from the Brazilian community."
-          : "Explore o diretório de negócios brasileiros no exterior por país, estado e cidade. Encontre empresas, serviços e produtos da comunidade brasileira.",
-    };
-  }
-
-  const labels = findDirectoryLabels(businesses, countryCode, stateCode, citySlug);
-
-  if (!stateCode) {
-    return {
-      title:
-        locale === "en"
-          ? `Brazilian businesses in ${labels.country}${pageSuffix} | Caramelinho.com`
-          : `Negócios brasileiros no ${labels.country}${pageSuffix} | Caramelinho.com`,
-      description:
-        locale === "en"
-          ? `Find Brazilian businesses in ${labels.country}. Browse states, regions, and cities with companies and services from the Brazilian community.`
-          : `Encontre negócios brasileiros no ${labels.country}. Navegue por estados, regiões e cidades com empresas e serviços da comunidade brasileira.`,
-    };
-  }
-
-  if (!citySlug) {
-    return {
-      title:
-        locale === "en"
-          ? `Brazilian businesses in ${labels.state}, ${labels.country}${pageSuffix} | Caramelinho.com`
-          : `Negócios brasileiros em ${labels.state}, ${labels.country}${pageSuffix} | Caramelinho.com`,
-      description:
-        locale === "en"
-          ? `See cities with Brazilian businesses in ${labels.state}, ${labels.country}. Discover restaurants, services, professionals, and stores from the Brazilian community.`
-          : `Veja cidades com negócios brasileiros em ${labels.state}, ${labels.country}. Descubra restaurantes, serviços, profissionais e lojas da comunidade brasileira.`,
-    };
-  }
-
-  return {
-    title:
-      locale === "en"
-        ? `Brazilian businesses in ${labels.city}${pageSuffix} | Caramelinho.com`
-        : `Negócios brasileiros em ${labels.city}${pageSuffix} | Caramelinho.com`,
-    description:
-      locale === "en"
-        ? `Find Brazilian businesses in ${labels.city}, ${labels.state}. See companies, services, products, contacts, and Brazilian community pages in the region.`
-        : `Encontre negócios brasileiros em ${labels.city}, ${labels.state}. Veja empresas, serviços, produtos, contatos e páginas de negócios da comunidade brasileira na região.`,
   };
 }
 
@@ -433,7 +329,7 @@ export function onRenderHtml(pageContext: PageContext) {
     <meta name="description" content="${pageDescription}" />
     <meta property="og:site_name" content="Caramelinho.com" />
     <meta property="og:locale" content="${locale === "en" ? "en_US" : "pt_BR"}" />
-    <meta property="og:type" content="${isBusinessPage ? "business.business" : "website"}" />
+    <meta property="og:type" content="website" />
     <meta property="og:title" content="${pageTitle}" />
     <meta property="og:description" content="${pageDescription}" />
     <meta property="og:url" content="${canonicalUrl}" />
