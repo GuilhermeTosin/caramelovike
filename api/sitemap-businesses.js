@@ -73,7 +73,7 @@ function buildXml(baseUrl, rows) {
       const url = buildBusinessUrl(baseUrl, row);
       if (!url) return "";
 
-      const parsedDate = row.updated_at ? new Date(row.updated_at) : null;
+      const parsedDate = row.created_at ? new Date(row.created_at) : null;
       const lastmod =
         parsedDate && !Number.isNaN(parsedDate.getTime())
           ? parsedDate.toISOString()
@@ -92,7 +92,7 @@ ${body}
 
 async function fetchPage(config, offset) {
   const params = new URLSearchParams({
-    select: "slug,country_code,state_code,city,updated_at",
+    select: "slug,country_code,state_code,city,created_at",
     or: "(moderation_status.eq.approved,moderation_status.is.null)",
     slug: "not.is.null",
     order: "created_at.desc",

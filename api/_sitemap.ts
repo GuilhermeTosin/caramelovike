@@ -5,7 +5,7 @@ type SitemapBusinessRow = {
   country_code: string | null;
   state_code: string | null;
   city: string | null;
-  updated_at: string | null;
+  created_at: string | null;
 };
 
 type CachedSitemapData = {
@@ -75,7 +75,7 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
 function buildBusinessesUrl(offset: number): { url: string; headers: Record<string, string> } {
   const { url, key } = getSitemapSourceConfig();
   const params = new URLSearchParams();
-  params.set("select", "slug,country_code,state_code,city,updated_at");
+  params.set("select", "slug,country_code,state_code,city,created_at");
   params.set("or", "(moderation_status.eq.approved,moderation_status.is.null)");
   params.set("slug", "not.is.null");
   params.set("order", "created_at.desc");
@@ -182,7 +182,7 @@ export function buildBusinessSitemapXml(baseUrl: string, rows: SitemapBusinessRo
     .map((row) => {
       const loc = buildBusinessUrl(baseUrl, row);
       if (!loc) return "";
-      const lastmod = row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString();
+      const lastmod = row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString();
       return `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>weekly</changefreq></url>`;
     })
     .filter(Boolean)
