@@ -138,6 +138,11 @@ export function useAdminSearchSettings({ isAdmin }: UseAdminSearchSettingsOption
           Authorization: `Bearer ${accessToken}`,
         },
       });
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        toast.error(`Endpoint do sitemap indisponivel (HTTP ${response.status}). Publique esta versao nesse ambiente.`);
+        return;
+      }
       const rawText = await response.text();
       const payload = (() => {
         try {
@@ -151,7 +156,9 @@ export function useAdminSearchSettings({ isAdmin }: UseAdminSearchSettingsOption
         toast.error((payload?.error || "Não foi possível atualizar o sitemap.") + reason);
         return;
       }
-      toast.success("Sitemap atualizado.");
+      const urlCount = Number(payload?.urlCount);
+      const countLabel = Number.isFinite(urlCount) ? ` ${urlCount} URLs encontradas.` : "";
+      toast.success(`Sitemap atualizado.${countLabel}`);
     } catch {
       toast.error("Erro ao atualizar sitemap.");
     }

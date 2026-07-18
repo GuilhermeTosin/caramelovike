@@ -149,25 +149,51 @@ async function readFallback(baseUrl) {
   }
 }
 
+export async function getBusinessSitemapData(req) {
+  const baseUrl = getBaseUrl(req);
+  const config = getSupabaseConfig();
+
+  if (!config) {
+    return {
+      xml: await readFallback(baseUrl),
+      source: "fallback",
+      urlCount: null,
+      reason: "supabase-config-missing",
+    };
+  }
+
+  try {
+    const rows = await fetchBusinesses(config);
+    const urls = rows.filter((row) => buildBusinessUrl(baseUrl, row));
+    return {
+      xml: buildXml(baseUrl, rows),
+      source: "supabase",
+      urlCount: urls.length,
+      reason: null,
+    };
+  } catch (error) {
+    console.error("[sitemap-businesses]", error);
+    return {
+      xml: await readFallback(baseUrl),
+      source: "fallback",
+      urlCount: null,
+      reason: "supabase-fetch-failed",
+    };
+  }
+}
+
 export default async function handler(req, res) {
+  const data = await getBusinessSitemapData(req);
+
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
   res.setHeader(
     "Cache-Control",
     "public, max-age=0, s-maxage=0, must-revalidate"
   );
-
-  const baseUrl = getBaseUrl(req);
-  const config = getSupabaseConfig();
-
-  if (!config) {
-    return res.status(200).send(await readFallback(baseUrl));
+  res.setHeader("X-Sitemap-Source", data.source);
+  if (data.urlCount !== null) {
+    res.setHeader("X-Sitemap-Url-Count", String(data.urlCount));
   }
 
-  try {
-    const rows = await fetchBusinesses(config);
-    return res.status(200).send(buildXml(baseUrl, rows));
-  } catch (error) {
-    console.error("[sitemap-businesses]", error);
-    return res.status(200).send(await readFallback(baseUrl));
-  }
+  return res.status(200).send(data.xml);
 }
