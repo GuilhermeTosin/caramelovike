@@ -8,6 +8,7 @@ export default {
   passToClient: [
     "urlOriginal",
     "initialBusiness",
+    "initialSimilarBusinesses",
     "initialBusinesses",
     "initialFeaturedBusinesses",
     "initialAvailableLocations",

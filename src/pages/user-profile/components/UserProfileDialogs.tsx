@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import RichTextEditor from "@/components/RichTextEditor";
+import { getPrimaryActivityOptions, OTHER_PRIMARY_ACTIVITY_ID } from "@/lib/businessActivities";
 import type { AddressResult } from "@/components/AddressAutocomplete";
 import type { BusinessFrontend, BusinessEvent, Promotion } from "@/types/database";
 import type { BusinessHour } from "@/pages/user-profile/types";
@@ -27,6 +28,8 @@ type BusinessFormData = {
   name: string;
   shortSlug: string;
   category: string;
+  primaryActivity: string;
+  primaryActivityCustom: string;
   description: string;
   phone: string;
   email: string;
@@ -302,6 +305,20 @@ export default function UserProfileDialogs({
                 </Select>
               </div>
 
+              {editFormData.category ? (
+                <div className="sm:col-span-2 rounded-md border border-amber-200 bg-amber-50/60 p-4">
+                  <Label>{"Tipo principal de neg\u00f3cio"}</Label>
+                  <p className="mt-1 text-sm text-muted-foreground">{"Define a atividade que melhor representa seu neg\u00f3cio. Os demais servi\u00e7os podem ser informados na descri\u00e7\u00e3o e nas palavras-chave."}</p>
+                  <Select value={editFormData.primaryActivity} onValueChange={(value) => handleEditInputChange("primaryActivity", value)}>
+                    <SelectTrigger className="mt-2 w-full bg-background"><SelectValue placeholder="Selecione o tipo principal (opcional)" /></SelectTrigger>
+                    <SelectContent>{getPrimaryActivityOptions(editFormData.category).map((activity) => (<SelectItem key={activity.id} value={activity.id}>{activity.label}</SelectItem>))}</SelectContent>
+                  </Select>
+                  {editFormData.primaryActivity === OTHER_PRIMARY_ACTIVITY_ID ? (
+                    <Input value={editFormData.primaryActivityCustom} onChange={(event) => handleEditInputChange("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={"Ex: Assist\u00eancia t\u00e9cnica para instrumentos"} className="mt-2 bg-background" maxLength={80} />
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="sm:col-span-2">
                 <Label htmlFor="edit-description">Descrição *</Label>
                 <div className="mt-1 rounded-md border border-amber-300/70 bg-amber-50/70 px-3 py-2">
@@ -313,7 +330,7 @@ export default function UserProfileDialogs({
                 <RichTextEditor
                   id="edit-description"
                   value={editFormData.description}
-                  onChange={(event) => handleEditInputChange("description", event.target.value)}
+                  onChange={(value) => handleEditInputChange("description", value)}
                   placeholder="Descreva seu negocio..."
                   className="mt-1.5"
                 />

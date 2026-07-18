@@ -93,7 +93,7 @@ const SITE_CONTENT_BY_LOCALE: Record<Locale, SiteContent> = {
       notFoundTitle: "Página não encontrada | Caramelinho.com",
       notFoundDescription:
         "A página solicitada não foi encontrada. Use a busca ou volte para a inicial do Caramelinho.",
-      businessTitle: "Negócio brasileiro | Caramelinho.com",
+      businessTitle: "Negócio brasileiro",
       businessDescription:
         "Encontre informações de contato, avaliações e detalhes sobre negócios brasileiros no exterior.",
     },
@@ -145,7 +145,7 @@ const SITE_CONTENT_BY_LOCALE: Record<Locale, SiteContent> = {
       notFoundTitle: "Page not found | Caramelinho.com",
       notFoundDescription:
         "The requested page could not be found. Use search or go back to the Caramelinho home page.",
-      businessTitle: "Brazilian business | Caramelinho.com",
+      businessTitle: "Brazilian business",
       businessDescription:
         "Find contact information, reviews, and details about Brazilian businesses abroad.",
     },

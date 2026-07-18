@@ -5,6 +5,7 @@ import type { BusinessFrontend } from "@/types/database";
 type PageContext = {
   urlOriginal?: string;
   initialBusiness?: BusinessFrontend | null;
+  initialSimilarBusinesses?: BusinessFrontend[];
   initialBusinesses?: BusinessFrontend[];
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: Array<{
@@ -25,6 +26,7 @@ export function Page({ pageContext }: { pageContext?: PageContext }) {
       router={isServer ? "static" : "browser"}
       location={location}
       initialBusiness={pageContext?.initialBusiness || null}
+      initialSimilarBusinesses={pageContext?.initialSimilarBusinesses || []}
       initialBusinesses={pageContext?.initialBusinesses || []}
       initialFeaturedBusinesses={pageContext?.initialFeaturedBusinesses || []}
       initialAvailableLocations={pageContext?.initialAvailableLocations || []}

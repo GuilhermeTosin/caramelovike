@@ -18,6 +18,7 @@ import { getCommunityEventsByOwner, replaceBusinessLinkedEvents } from "@/servic
 import { generateImagePath, uploadImage } from "@/services/storage";
 import type { BusinessEvent, BusinessFrontend, Promotion } from "@/types/database";
 import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
+import { isPrimaryActivityValid, normalizePrimaryActivityCustom } from "@/lib/businessActivities";
 import type { BusinessHour } from "@/pages/user-profile/types";
 import {
   createDefaultBusinessHours,
@@ -32,6 +33,8 @@ type BusinessFormData = {
   name: string;
   shortSlug: string;
   category: string;
+  primaryActivity: string;
+  primaryActivityCustom: string;
   description: string;
   phone: string;
   email: string;
@@ -70,6 +73,8 @@ const DEFAULT_EDIT_FORM_DATA: BusinessFormData = {
   name: "",
   shortSlug: "",
   category: "",
+  primaryActivity: "",
+  primaryActivityCustom: "",
   description: "",
   phone: "",
   email: "",
@@ -155,6 +160,8 @@ export function useBusinessManagement({
       name: business.name,
       shortSlug: business.slug || "",
       category: business.categoryId,
+      primaryActivity: business.primaryActivity || "",
+      primaryActivityCustom: business.primaryActivityCustom || "",
       description: business.description,
       phone: business.phone || "",
       email: business.email || "",
@@ -201,6 +208,10 @@ export function useBusinessManagement({
   const normalizeShortSlugFinal = (value: string) => normalizeShortSlugTyping(value).replace(/-+$/, "");
 
   const handleEditInputChange = (field: string, value: string) => {
+    if (field === "category") {
+      setEditFormData((prev) => ({ ...prev, category: value, primaryActivity: "", primaryActivityCustom: "" }));
+      return;
+    }
     if (field === "shortSlug") {
       const normalized = normalizeShortSlugTyping(value);
       setEditFormData((prev) => ({ ...prev, shortSlug: normalized }));
@@ -336,6 +347,11 @@ export function useBusinessManagement({
       toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
       return;
     }
+    if (!isPrimaryActivityValid(editFormData.category, editFormData.primaryActivity, editFormData.primaryActivityCustom)) {
+      toast.error("Informe o tipo principal do neg\u00f3cio ou selecione uma op\u00e7\u00e3o v\u00e1lida.");
+      return;
+    }
+
     if (!editFormData.phone.trim() || !editFormData.email.trim()) {
       toast.error("Telefone e e-mail são obrigatórios.");
       return;
@@ -395,6 +411,8 @@ export function useBusinessManagement({
       name: editFormData.name,
       slug: desiredSlug,
       categoryId: editFormData.category,
+      primaryActivity: editFormData.primaryActivity,
+      primaryActivityCustom: normalizePrimaryActivityCustom(editFormData.primaryActivityCustom),
       description: sanitizeRichTextHtml(editFormData.description),
       street: editFormData.street,
       city: editFormData.city,

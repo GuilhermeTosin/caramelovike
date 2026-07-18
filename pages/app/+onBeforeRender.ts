@@ -9,6 +9,7 @@ import {
 } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
+import { getSimilarBusinesses } from "@/lib/businessSimilar";
 
 type AvailableLocation = {
   countryCode: string;
@@ -19,6 +20,7 @@ type AvailableLocation = {
 type PageContext = PageContextServer & {
   urlOriginal?: string;
   initialBusiness?: BusinessFrontend | null;
+  initialSimilarBusinesses?: BusinessFrontend[];
   initialBusinesses?: BusinessFrontend[];
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: AvailableLocation[];
@@ -164,9 +166,17 @@ export async function onBeforeRender(pageContext: PageContext) {
     throw render(404);
   }
 
+  let similarBusinesses: BusinessFrontend[] = [];
+  try {
+    similarBusinesses = getSimilarBusinesses(business, await getAllBusinesses());
+  } catch (error) {
+    console.error("[onBeforeRender] similar businesses lookup failed:", error);
+  }
+
   return {
     pageContext: {
       initialBusiness: business,
+      initialSimilarBusinesses: similarBusinesses,
       isBusinessPage: !!businessRoute,
     },
   };

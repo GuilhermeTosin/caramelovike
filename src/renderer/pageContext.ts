@@ -4,6 +4,7 @@ import type { BusinessFrontend } from "@/types/database";
 export type RendererPageContext = PageContextServer & {
   urlOriginal?: string;
   initialBusiness?: BusinessFrontend | null;
+  initialSimilarBusinesses?: BusinessFrontend[];
   initialBusinesses?: BusinessFrontend[];
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: Array<{

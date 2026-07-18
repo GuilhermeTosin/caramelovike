@@ -76,6 +76,7 @@ type AppProps = {
   router?: "browser" | "static";
   location?: string;
   initialBusiness?: BusinessFrontend | null;
+  initialSimilarBusinesses?: BusinessFrontend[];
   initialBusinesses?: BusinessFrontend[];
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: Array<{
@@ -99,6 +100,7 @@ export default function App({
   router = "browser",
   location,
   initialBusiness = null,
+  initialSimilarBusinesses = [],
   initialBusinesses = [],
   initialFeaturedBusinesses = [],
   initialAvailableLocations = [],
@@ -150,8 +152,8 @@ export default function App({
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
           <Route path="/preview/negocio/:businessId" element={<BusinessPageRoute previewMode />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
-          <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} />} />
-          <Route path="/:countryCode/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} />} />
+          <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialSimilarBusinesses={initialSimilarBusinesses} />} />
+          <Route path="/:countryCode/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppRouter>

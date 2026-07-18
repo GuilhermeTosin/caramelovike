@@ -53,10 +53,12 @@ import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
 import NotFound from "@/pages/NotFound";
+import { getSimilarBusinesses } from "@/lib/businessSimilar";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 
 type BusinessPageProps = {
   initialBusiness?: BusinessFrontend | null;
+  initialSimilarBusinesses?: BusinessFrontend[];
   previewMode?: boolean;
 };
 
@@ -115,15 +117,8 @@ function parseOpeningHoursToSchema(hours: string[]) {
     .filter(Boolean);
 }
 
-function normalizeLocationPart(value: string) {
-  return String(value || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
 
-export default function BusinessPage({ initialBusiness = null, previewMode = false }: BusinessPageProps = {}) {
+export default function BusinessPage({ initialBusiness = null, initialSimilarBusinesses, previewMode = false }: BusinessPageProps = {}) {
   const { countryCode, stateCode, city, businessName, businessId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -137,6 +132,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
     !previewMode &&
     buildBusinessUrl(initialBusiness) === currentPathname;
   const seededBusiness = routeState?.preloadedBusiness || (initialBusinessMatchesRoute ? initialBusiness : null);
+  const hasInitialSimilarBusinesses = !routeState?.preloadedBusiness && initialBusinessMatchesRoute && Array.isArray(initialSimilarBusinesses);
 
   const [business, setBusiness] = useState<BusinessFrontend | null>(seededBusiness);
   const [loading, setLoading] = useState(!seededBusiness);
@@ -153,7 +149,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
 
   const isOnlineOnly = business?.attendanceType === "online";
   const [requestingOwnership, setRequestingOwnership] = useState(false);
-  const [similarBusinesses, setSimilarBusinesses] = useState<BusinessFrontend[]>([]);
+  const [similarBusinesses, setSimilarBusinesses] = useState<BusinessFrontend[]>(hasInitialSimilarBusinesses ? initialSimilarBusinesses || [] : []);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<"fake" | "difamacao" | "golpe" | "conteudo_ofensivo" | "outro">("fake");
   const [reportDetails, setReportDetails] = useState("");
@@ -209,69 +205,9 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
     }
     setBusiness(biz);
     setLoading(false);
-    if (biz) {
+    if (biz && !hasInitialSimilarBusinesses) {
       const businesses = await getAllBusinesses();
-      const sourceCategoryId = biz.categoryId || getCategoryId(biz.category);
-      const sourceCountryCode = normalizeLocationPart(biz.address.countryCode);
-      const sourceStateCode = normalizeLocationPart(biz.address.stateCode || biz.address.state);
-      const sourceCity = normalizeLocationPart(biz.address.city);
-      const hasSourceCoords =
-        typeof biz.address.lat === "number" &&
-        typeof biz.address.lng === "number" &&
-        Number.isFinite(biz.address.lat) &&
-        Number.isFinite(biz.address.lng);
-
-      const basePool = businesses
-        .filter((item) => item.id !== biz.id)
-        .filter((item) => (item.categoryId || getCategoryId(item.category)) === sourceCategoryId)
-        .filter((item) => normalizeLocationPart(item.address.countryCode) === sourceCountryCode);
-
-      const sameCityMatches = basePool.filter((item) => {
-        const itemCity = normalizeLocationPart(item.address.city);
-        return !!sourceCity && !!itemCity && itemCity === sourceCity;
-      });
-
-      const fallbackRadiusMatches =
-        sameCityMatches.length > 0 || !hasSourceCoords
-          ? []
-          : basePool
-              .filter((item) => {
-                const hasItemCoords =
-                  typeof item.address.lat === "number" &&
-                  typeof item.address.lng === "number" &&
-                  Number.isFinite(item.address.lat) &&
-                  Number.isFinite(item.address.lng);
-                if (!hasItemCoords) return false;
-                const distanceKm = calculateDistance(
-                  biz.address.lat,
-                  biz.address.lng,
-                  item.address.lat,
-                  item.address.lng,
-                );
-                return distanceKm <= 50;
-              })
-              .sort((a, b) => {
-                const da = calculateDistance(biz.address.lat, biz.address.lng, a.address.lat, a.address.lng);
-                const db = calculateDistance(biz.address.lat, biz.address.lng, b.address.lat, b.address.lng);
-                return da - db;
-              });
-
-      const sameRegionMatches =
-        sameCityMatches.length > 0 || fallbackRadiusMatches.length > 0
-          ? []
-          : basePool.filter((item) => {
-              const itemStateCode = normalizeLocationPart(item.address.stateCode || item.address.state);
-              return !!sourceStateCode && !!itemStateCode && itemStateCode === sourceStateCode;
-            });
-
-      const prioritized =
-        sameCityMatches.length > 0
-          ? sameCityMatches
-          : fallbackRadiusMatches.length > 0
-            ? fallbackRadiusMatches
-            : sameRegionMatches;
-
-      setSimilarBusinesses(prioritized.slice(0, 3));
+      setSimilarBusinesses(getSimilarBusinesses(biz, businesses));
     }
   };
 
@@ -281,7 +217,7 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
     setLoading(!seededBusiness);
     setSelectedPhoto(null);
     setSelectedPhotoIndex(-1);
-    setSimilarBusinesses([]);
+    setSimilarBusinesses(hasInitialSimilarBusinesses ? initialSimilarBusinesses || [] : []);
     let active = true;
     Promise.resolve().then(() => {
       if (active) void loadBusiness();
@@ -289,12 +225,12 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
     return () => {
       active = false;
     };
-  }, [previewMode, businessId, countryCode, stateCode, city, businessName]);
+  }, [previewMode, businessId, countryCode, stateCode, city, businessName, initialSimilarBusinesses]);
 
   useEffect(() => {
     if (!business) {
       setSeoMeta(
-        "Negócio brasileiro | Caramelinho.com",
+        "Negócio brasileiro",
         "Encontre negócios perto de você."
       );
       return;
@@ -1464,7 +1400,11 @@ export default function BusinessPage({ initialBusiness = null, previewMode = fal
 
         {similarBusinesses.length > 0 && (
           <section className="mt-14">
-            <h2 className="text-2xl font-bold mb-6">Negócios similares na região</h2>
+            <h2 className="text-2xl font-bold mb-6">
+              {business?.address.city
+                ? `Negócios brasileiros similares na região de ${business.address.city}`
+                : "Negócios brasileiros similares"}
+            </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {similarBusinesses.map((item, index) => {
                 const prioritizeImage = index < 2;

@@ -12,6 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import RichTextEditor from "@/components/RichTextEditor";
 import AddressAutocomplete, { type AddressResult } from "@/components/AddressAutocomplete";
 import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
+import {
+  getPrimaryActivityOptions,
+  isPrimaryActivityValid,
+  normalizePrimaryActivityCustom,
+  OTHER_PRIMARY_ACTIVITY_ID,
+} from "@/lib/businessActivities";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import {
@@ -151,6 +157,8 @@ export default function BusinessWizardPage() {
     name: "",
     shortSlug: "",
     category: "",
+    primaryActivity: "",
+    primaryActivityCustom: "",
     description: "",
     keywords: "",
     services: "",
@@ -201,6 +209,10 @@ export default function BusinessWizardPage() {
               : UtensilsCrossed;
 
   const updateField = (field: string, value: string | boolean | number) => {
+    if (field === "category") {
+      setForm((prev) => ({ ...prev, category: String(value), primaryActivity: "", primaryActivityCustom: "" }));
+      return;
+    }
     setForm((prev) => ({ ...prev, [field]: value }));
     if (field === "name") {
       const v = String(value || "").trim();
@@ -345,6 +357,8 @@ export default function BusinessWizardPage() {
           name: biz.name || "",
           shortSlug: existingShortSlug,
           category: getCategoryId(biz.category),
+          primaryActivity: biz.primaryActivity || "",
+          primaryActivityCustom: biz.primaryActivityCustom || "",
           description: biz.description || "",
           keywords: (biz.keywords || []).join(", "),
           services: "",
@@ -393,6 +407,11 @@ export default function BusinessWizardPage() {
 
   const validateCurrentStep = async () => {
     if (step === 1) {
+      if (!isPrimaryActivityValid(form.category, form.primaryActivity, form.primaryActivityCustom)) {
+        toast.error("Informe o tipo principal do neg\u00f3cio ou selecione uma op\u00e7\u00e3o v\u00e1lida.");
+        return false;
+      }
+
       if (!form.name.trim() || !form.shortSlug.trim() || !form.category) {
         if (!form.name.trim()) setNameError("Nome do negócio é obrigatório.");
         toast.error("Preencha nome, link curto e categoria.");
@@ -551,6 +570,8 @@ export default function BusinessWizardPage() {
       name: form.name.trim(),
       slug: normalizeShortSlugFinal(form.shortSlug || form.name),
       categoryId: form.category,
+      primaryActivity: form.primaryActivity,
+      primaryActivityCustom: normalizePrimaryActivityCustom(form.primaryActivityCustom),
       description: sanitizeRichTextHtml(form.description),
       street: form.hasPhysicalAddress ? form.street.trim() : "",
       city: form.city.trim(),
@@ -763,6 +784,22 @@ export default function BusinessWizardPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {form.category ? (
+                <div className="md:col-span-2 rounded-md border border-amber-200 bg-amber-50/60 p-4">
+                  <Label>{"Tipo principal de neg\u00f3cio"}</Label>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {"Define a atividade que melhor representa seu neg\u00f3cio. Os demais servi\u00e7os podem ser informados na descri\u00e7\u00e3o e nas palavras-chave."}
+                  </p>
+                  <Select value={form.primaryActivity} onValueChange={(value) => updateField("primaryActivity", value)}>
+                    <SelectTrigger className="mt-2 w-full bg-background"><SelectValue placeholder="Selecione o tipo principal (opcional)" /></SelectTrigger>
+                    <SelectContent>{getPrimaryActivityOptions(form.category).map((activity) => (<SelectItem key={activity.id} value={activity.id}>{activity.label}</SelectItem>))}</SelectContent>
+                  </Select>
+                  {form.primaryActivity === OTHER_PRIMARY_ACTIVITY_ID ? (
+                    <Input value={form.primaryActivityCustom} onChange={(event) => updateField("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={"Ex: Assist\u00eancia t\u00e9cnica para instrumentos"} className="mt-2 bg-background" maxLength={80} />
+                  ) : null}
+                  <p className="mt-2 text-xs text-muted-foreground">{"Isso ajuda a construir um t\u00edtulo de p\u00e1gina mais fiel para buscas, sem substituir sua categoria."}</p>
+                </div>
+              ) : null}
             </div>
           )}
 

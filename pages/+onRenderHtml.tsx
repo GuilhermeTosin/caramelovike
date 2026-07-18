@@ -131,8 +131,8 @@ function buildFallbackBusinessMeta(urlOriginal: string | undefined, locale: Loca
     return {
       title:
         locale === "en"
-          ? `Brazilian business in ${cityName} | Caramelinho.com`
-          : `Negócio brasileiro em ${cityName} | Caramelinho.com`,
+          ? `Brazilian business in ${cityName}`
+          : `Negócio brasileiro em ${cityName}`,
       description:
         locale === "en"
           ? `Find contact information, reviews, and details about Brazilian businesses in ${cityName}.`
@@ -141,7 +141,7 @@ function buildFallbackBusinessMeta(urlOriginal: string | undefined, locale: Loca
   }
 
   return {
-    title: locale === "en" ? "Brazilian business | Caramelinho.com" : "Negócio brasileiro | Caramelinho.com",
+    title: locale === "en" ? "Brazilian business" : "Negócio brasileiro",
     description:
       locale === "en"
         ? "Find contact information, reviews, and details about Brazilian businesses abroad."

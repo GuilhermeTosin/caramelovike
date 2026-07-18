@@ -333,6 +333,8 @@ export function toFrontend(
     slug: b.slug,
     categoryId,
     category: getCategoryLabel(categoryId),
+    primaryActivity: b.primary_activity || "",
+    primaryActivityCustom: b.primary_activity_custom || "",
     description: b.description,
     heroImage: b.hero_image || "",
     logoUrl: b.logo_url || "",
@@ -1024,6 +1026,8 @@ export async function createBusiness(
     name: string;
     slug?: string;
     categoryId: string;
+    primaryActivity?: string;
+    primaryActivityCustom?: string;
     description: string;
     heroImage?: string;
     logoUrl?: string;
@@ -1076,6 +1080,8 @@ export async function createBusiness(
       name: data.name,
       slug: officialSlug,
       category_id: getCategoryId(data.categoryId),
+      primary_activity: data.primaryActivity || null,
+      primary_activity_custom: data.primaryActivityCustom || null,
       description: data.description,
       hero_image: data.heroImage || null,
       logo_url: data.logoUrl || null,

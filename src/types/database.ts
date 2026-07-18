@@ -128,6 +128,8 @@ export interface Business {
   slug: string;
   category_id: string;
   category?: string | null;
+  primary_activity?: string | null;
+  primary_activity_custom?: string | null;
   description: string;
   hero_image: string | null;
   logo_url: string | null;
@@ -203,6 +205,8 @@ export interface BusinessFrontend {
   slug: string;
   categoryId: string;
   category: string;
+  primaryActivity?: string;
+  primaryActivityCustom?: string;
   description: string;
   heroImage: string;
   logoUrl: string;
