@@ -1,6 +1,6 @@
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
-import { getPrimaryActivityLabel } from "@/lib/businessActivities";
+import { getPrimaryActivityLabel, getPrimaryActivitySeoLabel } from "@/lib/businessActivities";
 import { getStateDisplayName } from "@/services/businesses";
 
 type BusinessSeoLocale = "pt-BR" | "en";
@@ -26,12 +26,23 @@ function getCategoryFallback(business: BusinessSeoInput, locale: BusinessSeoLoca
   return locale === "en" ? "Brazilian business" : "Neg\u00f3cio brasileiro";
 }
 
+function getBusinessSeoDescriptorForTitle(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
+  const category = getCategoryFallback(business, locale);
+  const primaryActivity = getPrimaryActivitySeoLabel(
+    business.categoryId,
+    business.primaryActivity,
+    business.primaryActivityCustom,
+    locale,
+  );
+  return primaryActivity || category;
+}
+
 export function getBusinessSeoDescriptor(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
   const category = getCategoryFallback(business, locale);
   const primaryActivity = getPrimaryActivityLabel(
     business.categoryId,
     business.primaryActivity,
-    business.primaryActivityCustom
+    business.primaryActivityCustom,
   );
   return primaryActivity || category;
 }
@@ -61,7 +72,7 @@ function truncateText(value: string, maxLength: number): string {
 
 export function buildBusinessSeoTitle(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
   const name = cleanText(business.name) || (locale === "en" ? "Brazilian business" : "Neg\u00f3cio brasileiro");
-  const descriptor = truncateText(getBusinessSeoDescriptor(business, locale), 60);
+  const descriptor = truncateText(getBusinessSeoDescriptorForTitle(business, locale), 60);
   const location = getBusinessLocationPhrase(business, locale);
   return name + " | " + descriptor + " " + location;
 }

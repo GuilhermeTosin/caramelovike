@@ -13,6 +13,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import AddressAutocomplete, { type AddressResult } from "@/components/AddressAutocomplete";
 import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import {
+  getPrimaryActivityCustomPlaceholder,
   getPrimaryActivityOptions,
   isPrimaryActivityValid,
   normalizePrimaryActivityCustom,
@@ -795,7 +796,7 @@ export default function BusinessWizardPage() {
                     <SelectContent>{getPrimaryActivityOptions(form.category).map((activity) => (<SelectItem key={activity.id} value={activity.id}>{activity.label}</SelectItem>))}</SelectContent>
                   </Select>
                   {form.primaryActivity === OTHER_PRIMARY_ACTIVITY_ID ? (
-                    <Input value={form.primaryActivityCustom} onChange={(event) => updateField("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={"Ex: Assist\u00eancia t\u00e9cnica para instrumentos"} className="mt-2 bg-background" maxLength={80} />
+                    <Input value={form.primaryActivityCustom} onChange={(event) => updateField("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={getPrimaryActivityCustomPlaceholder(form.category)} className="mt-2 bg-background" maxLength={80} />
                   ) : null}
                   <p className="mt-2 text-xs text-muted-foreground">{"Isso ajuda a construir um t\u00edtulo de p\u00e1gina mais fiel para buscas, sem substituir sua categoria."}</p>
                 </div>

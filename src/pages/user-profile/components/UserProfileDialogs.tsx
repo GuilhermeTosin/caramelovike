@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import RichTextEditor from "@/components/RichTextEditor";
-import { getPrimaryActivityOptions, OTHER_PRIMARY_ACTIVITY_ID } from "@/lib/businessActivities";
+import { getPrimaryActivityCustomPlaceholder, getPrimaryActivityOptions, OTHER_PRIMARY_ACTIVITY_ID } from "@/lib/businessActivities";
 import type { AddressResult } from "@/components/AddressAutocomplete";
 import type { BusinessFrontend, BusinessEvent, Promotion } from "@/types/database";
 import type { BusinessHour } from "@/pages/user-profile/types";
@@ -314,7 +314,7 @@ export default function UserProfileDialogs({
                     <SelectContent>{getPrimaryActivityOptions(editFormData.category).map((activity) => (<SelectItem key={activity.id} value={activity.id}>{activity.label}</SelectItem>))}</SelectContent>
                   </Select>
                   {editFormData.primaryActivity === OTHER_PRIMARY_ACTIVITY_ID ? (
-                    <Input value={editFormData.primaryActivityCustom} onChange={(event) => handleEditInputChange("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={"Ex: Assist\u00eancia t\u00e9cnica para instrumentos"} className="mt-2 bg-background" maxLength={80} />
+                    <Input value={editFormData.primaryActivityCustom} onChange={(event) => handleEditInputChange("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={getPrimaryActivityCustomPlaceholder(editFormData.category)} className="mt-2 bg-background" maxLength={80} />
                   ) : null}
                 </div>
               ) : null}

@@ -1,8 +1,9 @@
-import { BadgeCheck, BookOpen, Calendar, Edit3, Eye, Lock, MapPin, Plus, Star, Store, TicketPercent, Trash2 } from "lucide-react";
+import { BadgeCheck, BookOpen, Calendar, Edit3, Eye, Lock, MapPin, Plus, Search, Star, Store, TicketPercent, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { TabsContent } from "@/components/ui/tabs";
 import { buildBusinessUrl, getCategoryId, getCountryName } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
@@ -12,10 +13,13 @@ type BusinessesTabProps = {
   loadingMyBusinesses: boolean;
   myBusinesses: BusinessFrontend[];
   paginatedMyBusinesses: BusinessFrontend[];
+  filteredMyBusinesses: BusinessFrontend[];
   myBusinessesTotalPages: number;
   safeMyBusinessesPage: number;
   getMyVerificationStatusByBusiness: (businessId: string) => string | null;
   getCategoryLabel: (category: string) => string;
+  myBusinessesSearch: string;
+  onSearchChange: (value: string) => void;
   onPreviousPage: () => void;
   onNextPage: () => void;
   onOpenMenuModal: (business: BusinessFrontend) => void;
@@ -30,10 +34,13 @@ export default function BusinessesTab({
   loadingMyBusinesses,
   myBusinesses,
   paginatedMyBusinesses,
+  filteredMyBusinesses,
   myBusinessesTotalPages,
   safeMyBusinessesPage,
   getMyVerificationStatusByBusiness,
   getCategoryLabel,
+  myBusinessesSearch,
+  onSearchChange,
   onPreviousPage,
   onNextPage,
   onOpenMenuModal,
@@ -45,16 +52,33 @@ export default function BusinessesTab({
 }: BusinessesTabProps) {
   return (
     <TabsContent value="negocios" className="mt-0">
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-foreground">Meus negócios</h2>
-        <Link to="/negocio/wizard">
-          <Button size="sm">
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Adicionar novo negócio
-          </Button>
-        </Link>
-      </div>
+      <div className="mb-8 rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Meus negócios</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Gerencie e encontre rapidamente seus negócios cadastrados.</p>
+          </div>
+          <Link to="/negocio/wizard" className="w-full sm:w-auto">
+            <Button size="sm" className="w-full sm:w-auto">
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Adicionar novo negócio
+            </Button>
+          </Link>
+        </div>
 
+        <div className="relative mt-5 w-full max-w-xl">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="my-businesses-search"
+            type="search"
+            value={myBusinessesSearch}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Buscar por nome, cidade ou país"
+            aria-label="Buscar por nome, cidade ou país"
+            className="h-10 pl-9"
+          />
+        </div>
+      </div>
       {loadingMyBusinesses ? (
         <Card className="border-border p-8 text-center">
           <Store className="mx-auto mb-3 h-12 w-12 animate-pulse text-muted-foreground/30" />
@@ -70,6 +94,11 @@ export default function BusinessesTab({
               Cadastrar negócio
             </Button>
           </Link>
+        </Card>
+      ) : filteredMyBusinesses.length === 0 ? (
+        <Card className="border-border p-8 text-center">
+          <Store className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+          <p className="text-muted-foreground">Nenhum negócio encontrado com esse filtro.</p>
         </Card>
       ) : (
         <div id="meus-negocios-lista" className="space-y-4">

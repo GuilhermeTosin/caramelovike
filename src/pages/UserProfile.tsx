@@ -76,6 +76,7 @@ export default function UserProfile() {
   const [myBusinessesPage, setMyBusinessesPage] = useState(1);
   const [allBusinessesPage, setAllBusinessesPage] = useState(1);
   const [allBusinessesSearch, setAllBusinessesSearch] = useState("");
+  const [myBusinessesSearch, setMyBusinessesSearch] = useState("");
   const [moderationPreviewBusiness, setModerationPreviewBusiness] = useState<BusinessFrontend | null>(null);
   const [verificationAdminView, setVerificationAdminView] = useState<VerificationAdminView>("pendentes");
 
@@ -393,6 +394,12 @@ export default function UserProfile() {
     setAllBusinessesPage(1);
   }, [allBusinessesSearch]);
 
+
+  const handleMyBusinessesSearchChange = (value: string) => {
+    setMyBusinessesSearch(value);
+    setMyBusinessesPage(1);
+  };
+
   const handleSaveProfile = async () => {
     if (!session) return;
     setIsUploading(true);
@@ -478,9 +485,23 @@ export default function UserProfile() {
   const MY_BUSINESSES_PER_PAGE = 5;
   const ALL_BUSINESSES_PER_PAGE = 5;
 
-  const myBusinessesTotalPages = Math.max(1, Math.ceil(myBusinesses.length / MY_BUSINESSES_PER_PAGE));
+  const myBusinessesQuery = (myBusinessesSearch || "").trim().toLowerCase();
+  const filteredMyBusinesses = myBusinesses.filter((biz) => {
+    if (!myBusinessesQuery) return true;
+    const name = (biz.name || "").toLowerCase();
+    const city = (biz.address.city || "").toLowerCase();
+    const country = (biz.address.country || "").toLowerCase();
+    const countryCode = (biz.address.countryCode || "").toLowerCase();
+    return (
+      name.includes(myBusinessesQuery) ||
+      city.includes(myBusinessesQuery) ||
+      country.includes(myBusinessesQuery) ||
+      countryCode.includes(myBusinessesQuery)
+    );
+  });
+  const myBusinessesTotalPages = Math.max(1, Math.ceil(filteredMyBusinesses.length / MY_BUSINESSES_PER_PAGE));
   const safeMyBusinessesPage = Math.min(myBusinessesPage, myBusinessesTotalPages);
-  const paginatedMyBusinesses = myBusinesses.slice(
+  const paginatedMyBusinesses = filteredMyBusinesses.slice(
     (safeMyBusinessesPage - 1) * MY_BUSINESSES_PER_PAGE,
     safeMyBusinessesPage * MY_BUSINESSES_PER_PAGE,
   );
@@ -655,10 +676,13 @@ export default function UserProfile() {
               loadingMyBusinesses={loadingMyBusinesses}
               myBusinesses={myBusinesses}
               paginatedMyBusinesses={paginatedMyBusinesses}
+              filteredMyBusinesses={filteredMyBusinesses}
               myBusinessesTotalPages={myBusinessesTotalPages}
               safeMyBusinessesPage={safeMyBusinessesPage}
               getMyVerificationStatusByBusiness={getMyVerificationStatusByBusiness}
               getCategoryLabel={getCategoryLabel}
+              myBusinessesSearch={myBusinessesSearch}
+              onSearchChange={handleMyBusinessesSearchChange}
               onPreviousPage={() => setMyBusinessesPage((prev) => Math.max(1, prev - 1))}
               onNextPage={() => setMyBusinessesPage((prev) => Math.min(myBusinessesTotalPages, prev + 1))}
               onOpenMenuModal={handleOpenMenuModal}
