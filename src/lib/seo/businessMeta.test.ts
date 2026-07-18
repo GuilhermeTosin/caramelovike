@@ -29,6 +29,20 @@ describe("business SEO metadata", () => {
     expect(getPrimaryActivityCustomPlaceholder("unknown")).toBe(getPrimaryActivityCustomPlaceholder("other"));
   });
 
+  it("uses the city for online businesses when a base city exists", () => {
+    const onlineBusiness = {
+      ...baseBusiness,
+      attendanceType: "online" as const,
+      address: {
+        ...baseBusiness.address,
+        city: "Montreal",
+        state: "Quebec",
+        stateCode: "QC",
+      },
+    };
+
+    expect(buildBusinessSeoTitle(onlineBusiness, "pt-BR")).toContain("em Montreal, Quebec");
+  });
   it("exposes exactly the curated food activities", () => {
     expect(getPrimaryActivityOptions("food").map((activity) => activity.id)).toEqual([
       "restaurant",

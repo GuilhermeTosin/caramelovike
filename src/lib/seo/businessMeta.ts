@@ -48,8 +48,8 @@ export function getBusinessSeoDescriptor(business: BusinessSeoInput, locale: Bus
 }
 
 function getBusinessLocationPhrase(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
-  if (business.attendanceType === "online") return "online";
   const city = cleanText(business.address?.city);
+  if (business.attendanceType === "online" && !city) return "online";
   const state = cleanText(
     getStateDisplayName(
       business.address?.countryCode,
