@@ -135,15 +135,20 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     buildBusinessUrl(initialBusiness) === currentPathname;
   const seededBusiness = routeState?.preloadedBusiness || (initialBusinessMatchesRoute ? initialBusiness : null);
   const hasServerSimilarBusinesses = !routeState?.preloadedBusiness && initialBusinessMatchesRoute && Array.isArray(initialSimilarBusinesses);
-  const hasPreloadedSimilarBusinesses = Array.isArray(routeState?.preloadedSimilarBusinesses);
+  const hasPreloadedSimilarBusinesses = (routeState?.preloadedSimilarBusinesses?.length ?? 0) > 0;
   const hasInitialBusinessPool = !!routeState?.preloadedBusiness && initialBusinesses.length > 0;
-  const hasInitialSimilarBusinesses = hasServerSimilarBusinesses || hasPreloadedSimilarBusinesses || hasInitialBusinessPool;
+  const currentBusinessIsInPool = !!seededBusiness && initialBusinesses.some((item) => item.id === seededBusiness.id);
+  const pooledSimilarBusinesses = hasInitialBusinessPool && currentBusinessIsInPool && seededBusiness
+    ? getSimilarBusinesses(seededBusiness, initialBusinesses)
+    : [];
+  const hasUsableBusinessPool = currentBusinessIsInPool && pooledSimilarBusinesses.length > 0;
+  const hasInitialSimilarBusinesses = hasServerSimilarBusinesses || hasPreloadedSimilarBusinesses || hasUsableBusinessPool;
   const seededSimilarBusinesses = hasServerSimilarBusinesses
     ? initialSimilarBusinesses || []
     : hasPreloadedSimilarBusinesses
       ? routeState?.preloadedSimilarBusinesses || []
-      : hasInitialBusinessPool && seededBusiness
-        ? getSimilarBusinesses(seededBusiness, initialBusinesses)
+      : hasUsableBusinessPool
+        ? pooledSimilarBusinesses
         : [];
 
   const [business, setBusiness] = useState<BusinessFrontend | null>(seededBusiness);
