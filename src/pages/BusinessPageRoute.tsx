@@ -6,6 +6,7 @@ import { getLoadedBusinessPageModule, preloadBusinessPageChunk } from "@/pages/B
 
 type BusinessPageProps = {
   initialBusiness?: BusinessFrontend | null;
+  initialBusinesses?: BusinessFrontend[];
   initialSimilarBusinesses?: BusinessFrontend[];
   previewMode?: boolean;
 };

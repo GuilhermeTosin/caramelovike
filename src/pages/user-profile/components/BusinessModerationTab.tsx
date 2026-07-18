@@ -25,7 +25,12 @@ export default function BusinessModerationTab({
     <TabsContent value="analise-negocios" className="mt-0">
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Análise de negócios</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-foreground">Análise de negócios</h2>
+            <Badge variant={pendingModerationBusinesses.length > 0 ? "default" : "secondary"}>
+              {moderationLoading ? "..." : pendingModerationBusinesses.length}
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             Revise novos cadastros antes de publicar no site.
           </p>

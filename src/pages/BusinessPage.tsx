@@ -58,12 +58,14 @@ import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 
 type BusinessPageProps = {
   initialBusiness?: BusinessFrontend | null;
+  initialBusinesses?: BusinessFrontend[];
   initialSimilarBusinesses?: BusinessFrontend[];
   previewMode?: boolean;
 };
 
 type BusinessPageLocationState = {
   preloadedBusiness?: BusinessFrontend | null;
+  preloadedSimilarBusinesses?: BusinessFrontend[];
 } | null;
 
 const WEEKDAY_SCHEMA_MAP: Record<string, string> = {
@@ -118,7 +120,7 @@ function parseOpeningHoursToSchema(hours: string[]) {
 }
 
 
-export default function BusinessPage({ initialBusiness = null, initialSimilarBusinesses, previewMode = false }: BusinessPageProps = {}) {
+export default function BusinessPage({ initialBusiness = null, initialBusinesses = [], initialSimilarBusinesses, previewMode = false }: BusinessPageProps = {}) {
   const { countryCode, stateCode, city, businessName, businessId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -132,7 +134,17 @@ export default function BusinessPage({ initialBusiness = null, initialSimilarBus
     !previewMode &&
     buildBusinessUrl(initialBusiness) === currentPathname;
   const seededBusiness = routeState?.preloadedBusiness || (initialBusinessMatchesRoute ? initialBusiness : null);
-  const hasInitialSimilarBusinesses = !routeState?.preloadedBusiness && initialBusinessMatchesRoute && Array.isArray(initialSimilarBusinesses);
+  const hasServerSimilarBusinesses = !routeState?.preloadedBusiness && initialBusinessMatchesRoute && Array.isArray(initialSimilarBusinesses);
+  const hasPreloadedSimilarBusinesses = Array.isArray(routeState?.preloadedSimilarBusinesses);
+  const hasInitialBusinessPool = !!routeState?.preloadedBusiness && initialBusinesses.length > 0;
+  const hasInitialSimilarBusinesses = hasServerSimilarBusinesses || hasPreloadedSimilarBusinesses || hasInitialBusinessPool;
+  const seededSimilarBusinesses = hasServerSimilarBusinesses
+    ? initialSimilarBusinesses || []
+    : hasPreloadedSimilarBusinesses
+      ? routeState?.preloadedSimilarBusinesses || []
+      : hasInitialBusinessPool && seededBusiness
+        ? getSimilarBusinesses(seededBusiness, initialBusinesses)
+        : [];
 
   const [business, setBusiness] = useState<BusinessFrontend | null>(seededBusiness);
   const [loading, setLoading] = useState(!seededBusiness);
@@ -149,7 +161,7 @@ export default function BusinessPage({ initialBusiness = null, initialSimilarBus
 
   const isOnlineOnly = business?.attendanceType === "online";
   const [requestingOwnership, setRequestingOwnership] = useState(false);
-  const [similarBusinesses, setSimilarBusinesses] = useState<BusinessFrontend[]>(hasInitialSimilarBusinesses ? initialSimilarBusinesses || [] : []);
+  const [similarBusinesses, setSimilarBusinesses] = useState<BusinessFrontend[]>(seededSimilarBusinesses);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<"fake" | "difamacao" | "golpe" | "conteudo_ofensivo" | "outro">("fake");
   const [reportDetails, setReportDetails] = useState("");
@@ -217,7 +229,7 @@ export default function BusinessPage({ initialBusiness = null, initialSimilarBus
     setLoading(!seededBusiness);
     setSelectedPhoto(null);
     setSelectedPhotoIndex(-1);
-    setSimilarBusinesses(hasInitialSimilarBusinesses ? initialSimilarBusinesses || [] : []);
+    setSimilarBusinesses(seededSimilarBusinesses);
     let active = true;
     Promise.resolve().then(() => {
       if (active) void loadBusiness();
@@ -225,7 +237,7 @@ export default function BusinessPage({ initialBusiness = null, initialSimilarBus
     return () => {
       active = false;
     };
-  }, [previewMode, businessId, countryCode, stateCode, city, businessName, initialSimilarBusinesses]);
+  }, [previewMode, businessId, countryCode, stateCode, city, businessName, initialBusinesses, initialSimilarBusinesses]);
 
   useEffect(() => {
     if (!business) {
@@ -1412,7 +1424,10 @@ export default function BusinessPage({ initialBusiness = null, initialSimilarBus
                 <Link
                   key={item.id}
                   to={buildBusinessUrl(item)}
-                  state={{ preloadedBusiness: item }}
+                  state={{
+                    preloadedBusiness: item,
+                    preloadedSimilarBusinesses: similarBusinesses.filter((candidate) => candidate.id !== item.id),
+                  }}
                   onMouseEnter={() => preloadBusinessPageAssets(item)}
                   onFocus={() => preloadBusinessPageAssets(item)}
                   onPointerDown={() => preloadBusinessPageAssets(item)}
