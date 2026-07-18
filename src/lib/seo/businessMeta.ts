@@ -1,56 +1,58 @@
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
+import { getPrimaryActivityLabel } from "@/lib/businessActivities";
+import { getStateDisplayName } from "@/services/businesses";
 
 type BusinessSeoLocale = "pt-BR" | "en";
 type BusinessSeoInput = Pick<
   BusinessFrontend,
-  "name" | "category" | "services" | "keywords" | "description" | "address" | "attendanceType"
+  | "name"
+  | "categoryId"
+  | "category"
+  | "primaryActivity"
+  | "primaryActivityCustom"
+  | "description"
+  | "address"
+  | "attendanceType"
 >;
 
 function cleanText(value: unknown): string {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function normalizeForComparison(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 function getCategoryFallback(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
   const category = cleanText(business.category).split("(")[0].trim();
   if (category) return category;
-  return locale === "en" ? "Brazilian business" : "Negócio brasileiro";
+  return locale === "en" ? "Brazilian business" : "Neg\u00f3cio brasileiro";
 }
 
 export function getBusinessSeoDescriptor(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
   const category = getCategoryFallback(business, locale);
-  const categoryKey = normalizeForComparison(category);
-  const genericTerms = new Set(["cachorro", "cachorros", "cao", "caes", "dog", "dogs", "pet", "pets"]);
-  const candidates = [...(business.services || []), ...(business.keywords || [])]
-    .map(cleanText)
-    .filter((value) => value.length > 1)
-    .filter((value) => normalizeForComparison(value) !== categoryKey)
-    .filter((value) => !genericTerms.has(normalizeForComparison(value)));
-
-  return candidates[0] || category;
+  const primaryActivity = getPrimaryActivityLabel(
+    business.categoryId,
+    business.primaryActivity,
+    business.primaryActivityCustom
+  );
+  return primaryActivity || category;
 }
 
 function getBusinessLocationPhrase(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
   if (business.attendanceType === "online") return "online";
-
   const city = cleanText(business.address?.city);
-  const place = city || (locale === "en" ? "your area" : "sua região");
+  const state = cleanText(
+    getStateDisplayName(
+      business.address?.countryCode,
+      business.address?.stateCode,
+      business.address?.state,
+    ),
+  );
+  const place = [city, state].filter(Boolean).join(", ") || (locale === "en" ? "your area" : "sua regi\u00e3o");
   return (locale === "en" ? "in " : "em ") + place;
 }
 
 function truncateText(value: string, maxLength: number): string {
   const text = cleanText(value);
   if (text.length <= maxLength) return text;
-
   const shortened = text.slice(0, maxLength - 3).trimEnd();
   const lastSpace = shortened.lastIndexOf(" ");
   const readable = lastSpace > maxLength * 0.7 ? shortened.slice(0, lastSpace) : shortened;
@@ -58,21 +60,20 @@ function truncateText(value: string, maxLength: number): string {
 }
 
 export function buildBusinessSeoTitle(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
-  const name = cleanText(business.name) || (locale === "en" ? "Brazilian business" : "Negócio brasileiro");
+  const name = cleanText(business.name) || (locale === "en" ? "Brazilian business" : "Neg\u00f3cio brasileiro");
   const descriptor = truncateText(getBusinessSeoDescriptor(business, locale), 60);
   const location = getBusinessLocationPhrase(business, locale);
-  return name + " | " + descriptor + " " + location + " - Caramelinho.com";
+  return name + " | " + descriptor + " " + location;
 }
 
 export function buildBusinessSeoDescription(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
-  const name = cleanText(business.name) || (locale === "en" ? "Brazilian business" : "Negócio brasileiro");
+  const name = cleanText(business.name) || (locale === "en" ? "Brazilian business" : "Neg\u00f3cio brasileiro");
   const descriptor = truncateText(getBusinessSeoDescriptor(business, locale), 60);
   const location = getBusinessLocationPhrase(business, locale);
   const lead = name + ": " + descriptor + " " + location + ".";
   const sourceDescription = stripRichTextHtml(business.description || "");
   const suffix = locale === "en"
     ? " See services, reviews, photos, and contact information."
-    : " Veja serviços, avaliações, fotos e formas de contato.";
-
+    : " Veja servi\u00e7os, avalia\u00e7\u00f5es, fotos e formas de contato.";
   return truncateText(lead + " " + sourceDescription + suffix, 170);
 }
