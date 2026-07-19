@@ -488,35 +488,28 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
 
   if (businessRows.length === 0) return [];
 
-  // Buscar nomes dos proprietarios
   const ownerIds = [...new Set(businessRows.map((b: Business) => b.owner_id))];
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, name")
-    .in("id", ownerIds);
+  const businessIds = businessRows.map((b) => b.id);
+  const [profilesResult, linkedEventsResult, followLinkIds, enrichedBusinessRows] = await Promise.all([
+    supabase.from("profiles").select("id, name").in("id", ownerIds),
+    supabase.from("events").select("*").in("business_id", businessIds).eq("status", "published"),
+    getFollowLinksBusinessIds(),
+    attachLocationDisplayNames(businessRows),
+  ]);
 
   const ownerNames = new Map(
-    (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
+    (profilesResult.data || []).map((p: { id: string; name: string }) => [p.id, p.name])
   );
 
-  const businessIds = businessRows.map((b) => b.id);
-  const { data: linkedEventsRows } = await supabase
-    .from("events")
-    .select("*")
-    .in("business_id", businessIds)
-    .eq("status", "published");
-
-  const linkedEventsByBusinessId = (linkedEventsRows || []).reduce((acc, evt: any) => {
-    const key = evt.business_id as string;
+  const linkedEventsByBusinessId = ((linkedEventsResult.data || []) as CommunityEvent[]).reduce((acc, evt) => {
+    const key = evt.business_id;
     const list = acc.get(key) || [];
-    list.push(evt as CommunityEvent);
+    list.push(evt);
     acc.set(key, list);
     return acc;
   }, new Map<string, CommunityEvent[]>());
 
-  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
-
-  const enrichedBusinessRows = await attachLocationDisplayNames(businessRows);
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(followLinkIds);
 
   return enrichedBusinessRows.map((b) =>
     toFrontend(
@@ -636,32 +629,27 @@ export async function getBusinessesByRadiusRpc(params: {
   if (mergedRows.length === 0) return { items: [], totalCount };
 
   const ownerIds = [...new Set(mergedRows.map((b: Business) => b.owner_id))];
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, name")
-    .in("id", ownerIds);
+  const businessIds = mergedRows.map((b) => b.id);
+  const [profilesResult, linkedEventsResult, followLinkIds, businessRows] = await Promise.all([
+    supabase.from("profiles").select("id, name").in("id", ownerIds),
+    supabase.from("events").select("*").in("business_id", businessIds).eq("status", "published"),
+    getFollowLinksBusinessIds(),
+    attachLocationDisplayNames(mergedRows),
+  ]);
 
   const ownerNames = new Map(
-    (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
+    (profilesResult.data || []).map((p: { id: string; name: string }) => [p.id, p.name])
   );
 
-  const businessRows = await attachLocationDisplayNames(mergedRows);
-  const businessIds = businessRows.map((b) => b.id);
-  const { data: linkedEventsRows } = await supabase
-    .from("events")
-    .select("*")
-    .in("business_id", businessIds)
-    .eq("status", "published");
-
-  const linkedEventsByBusinessId = (linkedEventsRows || []).reduce((acc, evt: any) => {
+  const linkedEventsByBusinessId = ((linkedEventsResult.data || []) as CommunityEvent[]).reduce((acc, evt) => {
     const key = evt.business_id as string;
     const list = acc.get(key) || [];
-    list.push(evt as CommunityEvent);
+    list.push(evt);
     acc.set(key, list);
     return acc;
   }, new Map<string, CommunityEvent[]>());
 
-  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(followLinkIds);
 
   const byId = new Map(
     businessRows.map((b) => [

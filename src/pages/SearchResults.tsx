@@ -557,8 +557,10 @@ export default function SearchResults({
   ]);
 
   useEffect(() => {
+    let active = true;
+
     const loadInitialData = async () => {
-      setInitialLoading(true);
+      if (allBusinesses.length === 0) setInitialLoading(true);
       try {
         const initialRadius = radiusFilter ? Number(radiusFilter) : null;
         const initialLat = parseCoordParam(originLatParam);
@@ -593,12 +595,13 @@ export default function SearchResults({
             })
           : getAllBusinesses();
 
-        const [businessesRes, locationsRes, suggestionsRes, eventsRes] = await Promise.allSettled([
-          businessesPromise,
+        const supplementalDataPromise = Promise.allSettled([
           getAvailableLocations(),
           getSearchSuggestions(),
           getPublishedCommunityEvents(),
         ]);
+        const [businessesRes] = await Promise.allSettled([businessesPromise]);
+        if (!active) return;
 
         if (businessesRes.status === "fulfilled") {
           if (canUseRpcRadius) {
@@ -620,30 +623,37 @@ export default function SearchResults({
           setRpcFallbackMode(false);
         }
 
-        if (locationsRes.status === "fulfilled") {
-          const locations = locationsRes.value;
-          setAvailableLocations(locations);
-          const cities = new Set<string>();
-          locations.forEach((l) => {
-            l.states.forEach((s: any) => {
-              s.cities.forEach((c: string) => cities.add(c));
-            });
-          });
-          setCitySuggestions(Array.from(cities));
-        }
-
-        if (suggestionsRes.status === "fulfilled") {
-          setSearchSuggestions(suggestionsRes.value);
-        }
-
-        if (eventsRes.status === "fulfilled") {
-          setCommunityEvents(eventsRes.value);
-        }
       } finally {
-        setInitialLoading(false);
+        if (active) setInitialLoading(false);
+      }
+
+      const [locationsRes, suggestionsRes, eventsRes] = await supplementalDataPromise;
+      if (!active) return;
+
+      if (locationsRes.status === "fulfilled") {
+        const locations = locationsRes.value;
+        setAvailableLocations(locations);
+        const cities = new Set<string>();
+        locations.forEach((l) => {
+          l.states.forEach((s: any) => {
+            s.cities.forEach((c: string) => cities.add(c));
+          });
+        });
+        setCitySuggestions(Array.from(cities));
+      }
+
+      if (suggestionsRes.status === "fulfilled") {
+        setSearchSuggestions(suggestionsRes.value);
+      }
+
+      if (eventsRes.status === "fulfilled") {
+        setCommunityEvents(eventsRes.value);
       }
     };
-    loadInitialData();
+    void loadInitialData();
+    return () => {
+      active = false;
+    };
   }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, originCountryParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter, currentPage, canUseRpcRadiusMode]);
 
   // Localização aproximada em segundo plano (sem pedir permissão de GPS na abertura).
