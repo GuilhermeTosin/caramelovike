@@ -61,6 +61,7 @@ export async function loadGoogleMapsApi(): Promise<typeof google.maps> {
     };
 
     const script = document.createElement("script");
+    // The product is pt-BR, so Places must return the same localized names for every user.
     script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,marker&language=pt-BR&loading=async&callback=${callbackName}`;
     script.async = true;
     script.defer = true;
@@ -153,7 +154,7 @@ export async function resolveCityPlaceId(lat: number, lng: number): Promise<stri
     const maps = await loadGoogleMapsApi();
     const geocoder = new maps.Geocoder();
     const results = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
-      geocoder.geocode({ location: { lat, lng } }, (items, status) => {
+      geocoder.geocode({ location: { lat, lng }, language: "pt-BR" }, (items, status) => {
         if (status === "OK" && items) {
           resolve(items);
         } else {
@@ -183,7 +184,7 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
     const maps = await loadGoogleMapsApi();
     const geocoder = new maps.Geocoder();
     const result = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
-      geocoder.geocode({ address: normalized }, (results, status) => {
+      geocoder.geocode({ address: normalized, language: "pt-BR" }, (results, status) => {
         if (status === "OK" && results) {
           resolve(results);
         } else {

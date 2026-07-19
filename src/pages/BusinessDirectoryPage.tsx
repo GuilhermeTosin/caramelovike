@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
-import { buildBusinessUrl, getAllBusinesses, getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
+import { buildBusinessUrl, getAllBusinesses, getCountryName, getStateDisplayName, resolveCanonicalLocationSlug, slugify } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 import { setSeoMeta, upsertMetaTag } from "@/lib/seo";
@@ -22,7 +22,7 @@ function normalizeCode(value?: string) {
 }
 
 function getCitySlug(business: BusinessFrontend) {
-  return business.address.citySlug || getCanonicalCitySlug(business.address.city, business.address.countryCode);
+  return getCanonicalCitySlug(business.address.city, business.address.countryCode) || business.address.citySlug;
 }
 function isCodeLikeStateLabel(value: string, stateCode: string) {
   const label = (value || "").trim();
@@ -154,6 +154,7 @@ function Header() {
 export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirectoryPageProps) {
   const params = useParams();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [directoryBusinesses, setDirectoryBusinesses] = useState<BusinessFrontend[]>(businesses);
   const [loadingBusinesses, setLoadingBusinesses] = useState(businesses.length === 0);
 
@@ -226,6 +227,20 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
   const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageBusinesses = currentList.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  useEffect(() => {
+    if (!countryCode || !stateCode || !citySlug) return;
+    let active = true;
+
+    void resolveCanonicalLocationSlug(countryCode, stateCode, citySlug).then((canonicalCitySlug) => {
+      if (!active || !canonicalCitySlug || canonicalCitySlug === citySlug) return;
+      navigate(buildPagePath(countryCode, stateCode, canonicalCitySlug, page), { replace: true });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [countryCode, stateCode, citySlug, page, navigate]);
+
   const pageMeta = useMemo(
     () => getDirectoryPageMeta(pathname, sortedBusinesses, "pt-BR"),
     [pathname, sortedBusinesses],

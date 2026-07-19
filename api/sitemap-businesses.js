@@ -1,3 +1,5 @@
+import { getBrazilianPortugueseCityName, slugifyCity } from "../shared/locationDisplay.js";
+
 const EMPTY_SITEMAP = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 </urlset>`;
@@ -53,11 +55,16 @@ function escapeXml(value) {
     .replace(/'/g, "&apos;");
 }
 
-function buildBusinessUrl(baseUrl, row) {
+function getCanonicalCitySlug(row) {
+  const city = getBrazilianPortugueseCityName(row.city, row.country_code) || row.city || row.city_slug;
+  return slugifyCity(city);
+}
+
+export function buildBusinessUrl(baseUrl, row) {
   const slug = normalizePart(row.slug);
   const country = normalizePart(row.country_code);
   const state = normalizePart(row.state_code);
-  const city = normalizePart(row.city);
+  const city = normalizePart(getCanonicalCitySlug(row));
 
   if (!slug) return null;
   if (country && state && city) {
@@ -92,7 +99,7 @@ ${body}
 
 async function fetchPage(config, offset) {
   const params = new URLSearchParams({
-    select: "slug,country_code,state_code,city,created_at",
+    select: "slug,country_code,state_code,city,city_slug,created_at",
     or: "(moderation_status.eq.approved,moderation_status.is.null)",
     slug: "not.is.null",
     order: "created_at.desc",

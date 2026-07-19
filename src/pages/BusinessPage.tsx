@@ -252,6 +252,14 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   }, [previewMode, businessId, countryCode, stateCode, city, businessName, initialBusinesses, initialSimilarBusinesses]);
 
   useEffect(() => {
+    if (!business || previewMode) return;
+    const canonicalPath = buildBusinessUrl(business);
+    if (location.pathname !== canonicalPath) {
+      navigate(`${canonicalPath}${location.search}`, { replace: true });
+    }
+  }, [business, previewMode, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
     if (!business) {
       setSeoMeta(
         "Negócio brasileiro",

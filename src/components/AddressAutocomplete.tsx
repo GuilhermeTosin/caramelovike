@@ -275,6 +275,7 @@ export default function AddressAutocomplete({
             {
               input: query,
               types: mode === "city" ? ["(cities)"] : ["geocode"],
+              language: "pt-BR",
             },
             (predictions, status) => {
               if (requestId !== requestSeqRef.current) return;
@@ -349,6 +350,7 @@ export default function AddressAutocomplete({
           {
             placeId: prediction.place,
             fields: ["formatted_address", "geometry", "address_components", "place_id", "name"],
+            language: "pt-BR",
           },
           (place, status) => {
             if (status === maps.places.PlacesServiceStatus.OK && place) {

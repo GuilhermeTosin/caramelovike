@@ -76,8 +76,10 @@ function findDirectoryLabels(
         stateCode,
       );
 
-      if (citySlug && (business.address.citySlug || getCanonicalCitySlug(business.address.city, countryCode)) === citySlug) {
-        city = getCityDisplayName(business.address.cityDisplayName || business.address.city, countryCode, locale) || city;
+      const businessCity = business.address.cityDisplayName || business.address.city;
+      const businessCitySlug = getCanonicalCitySlug(businessCity, countryCode) || business.address.citySlug;
+      if (citySlug && businessCitySlug === citySlug) {
+        city = getCityDisplayName(businessCity, countryCode, locale) || city;
       }
     }
   }

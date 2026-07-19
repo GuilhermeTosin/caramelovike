@@ -1070,7 +1070,7 @@ export async function resolveBusinessLocation(input: {
   const city = input.city.trim();
   const countryCode = input.countryCode.trim().toLowerCase();
   const stateCode = input.stateCode.trim().toLowerCase();
-  const citySlug = input.citySlug?.trim() || getCanonicalCitySlug(city, countryCode);
+  const citySlug = getCanonicalCitySlug(city, countryCode) || input.citySlug?.trim();
   if (!city || !countryCode || !citySlug) return null;
 
   const { data, error } = await supabase.rpc("upsert_business_location", {
@@ -1090,9 +1090,56 @@ export async function resolveBusinessLocation(input: {
 
   const location = Array.isArray(data) ? data[0] : data;
   const locationId = String((location as { id?: string }).id || "");
-  const resolvedSlug = String((location as { city_slug?: string }).city_slug || citySlug);
-  return { citySlug: resolvedSlug, locationId: locationId || undefined, databaseReady: true };
+  return { citySlug, locationId: locationId || undefined, databaseReady: true };
 }
+export async function resolveCanonicalLocationSlug(
+  countryCode: string,
+  stateCode: string,
+  citySlug: string,
+): Promise<string | null> {
+  const country = (countryCode || "").trim().toLowerCase();
+  const state = (stateCode || "").trim().toLowerCase();
+  const slug = slugify(citySlug || "");
+  if (!country || !slug) return null;
+
+  const canonicalFromSlug = getCanonicalCitySlug(citySlug, country);
+  if (canonicalFromSlug && canonicalFromSlug !== slug) return canonicalFromSlug;
+
+  const { data: canonicalLocation, error: canonicalError } = await supabase
+    .from("business_locations")
+    .select("city_slug, display_name_pt_br, official_name")
+    .eq("country_code", country)
+    .eq("state_code", state)
+    .eq("city_slug", slug)
+    .maybeSingle();
+
+  if (!canonicalError && canonicalLocation?.city_slug) {
+    return getCanonicalCitySlug(
+      canonicalLocation.display_name_pt_br || canonicalLocation.official_name,
+      country,
+    ) || String(canonicalLocation.city_slug);
+  }
+
+  const { data: alias, error: aliasError } = await supabase
+    .from("business_location_slug_aliases")
+    .select("location_id")
+    .eq("country_code", country)
+    .eq("state_code", state)
+    .eq("city_slug", slug)
+    .maybeSingle();
+
+  if (aliasError || !alias?.location_id) return null;
+
+  const { data: location, error: locationError } = await supabase
+    .from("business_locations")
+    .select("city_slug, display_name_pt_br, official_name")
+    .eq("id", alias.location_id)
+    .maybeSingle();
+
+  if (locationError || !location?.city_slug) return null;
+  return getCanonicalCitySlug(location.display_name_pt_br || location.official_name, country) || String(location.city_slug);
+}
+
 export async function createBusiness(
   ownerId: string,
   data: {
@@ -1390,7 +1437,7 @@ export async function getReviewsByUser(userId: string): Promise<(Review & { busi
     businessName: r.business?.name || "Negócio",
     businessSlug:
       r.business?.country_code && r.business?.state_code && r.business?.city
-        ? `/${r.business?.country_code}/${r.business?.state_code}/${r.business?.city_slug || getCanonicalCitySlug(r.business?.city, r.business?.country_code)}/${r.business?.slug}`
+        ? `/${r.business?.country_code}/${r.business?.state_code}/${getCanonicalCitySlug(r.business?.city, r.business?.country_code) || r.business?.city_slug}/${r.business?.slug}`
         : `/go/${r.business?.slug}`,
   })) as any[];
 }
@@ -1412,7 +1459,8 @@ export function slugify(text: string): string {
 export function buildBusinessUrl(biz: BusinessFrontend): string {
   const countryCode = (biz.address.countryCode || "").toLowerCase();
   const stateSlug = (biz.address.stateCode || "").toLowerCase();
-  const citySlug = biz.address.citySlug || getCanonicalCitySlug(biz.address.city, biz.address.countryCode);
+  // Stored slugs can be legacy English/local names. The city label is the canonical source.
+  const citySlug = getCanonicalCitySlug(biz.address.city, biz.address.countryCode) || biz.address.citySlug;
 
   // Regra única para todos os negócios:
   // prioriza URL completa /pais/estado/cidade/slug, com fallback para dados legados incompletos.

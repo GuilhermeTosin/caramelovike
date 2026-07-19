@@ -25,20 +25,20 @@ const baseBusiness = {
 };
 
 describe("business SEO metadata", () => {
-  it("keeps the persisted city slug when rendering an existing business URL", () => {
+  it("uses the Portuguese canonical city slug instead of a persisted legacy slug", () => {
     const existingBusiness = {
       ...baseBusiness,
       slug: "sabor-carioca",
       address: {
         ...baseBusiness.address,
-        city: "Londres",
+        city: "London",
         citySlug: "london",
         stateCode: "ENG",
         countryCode: "GB",
       },
     };
 
-    expect(buildBusinessUrl(existingBusiness)).toBe("/gb/eng/london/sabor-carioca");
+    expect(buildBusinessUrl(existingBusiness)).toBe("/gb/eng/londres/sabor-carioca");
   });
   it("uses category-specific placeholders for Other", () => {
     expect(getPrimaryActivityCustomPlaceholder("food")).toBe("Ex: Restaurante vegano");
@@ -65,9 +65,10 @@ describe("business SEO metadata", () => {
     expect(getCityDisplayName("Berlin", "de")).toBe("Berlim");
     expect(getCityDisplayName("M\u00FCnchen", "de")).toBe("Munique");
     expect(getCityDisplayName("F\u00FCrth", "de")).toBe("F\u00FCrth");
-    expect(getCanonicalCitySlug("London", "gb")).toBe("london");
-    expect(getCanonicalCitySlug("Londres", "gb")).toBe("london");
-    expect(getCanonicalCitySlug("Munique", "de")).toBe("munich");
+    expect(getCanonicalCitySlug("London", "gb")).toBe("londres");
+    expect(getCanonicalCitySlug("Londres", "gb")).toBe("londres");
+    expect(getCanonicalCitySlug("Munique", "de")).toBe("munique");
+    expect(getCanonicalCitySlug("Versalhes", "fr")).toBe("versalhes");
 
     const londonBusiness = {
       ...baseBusiness,

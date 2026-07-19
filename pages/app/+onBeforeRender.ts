@@ -1,11 +1,13 @@
 import type { PageContextServer } from "vike/types";
-import { render } from "vike/abort";
+import { redirect, render } from "vike/abort";
 import {
   getAllBusinesses,
   getAvailableLocations,
+  buildBusinessUrl,
   getBusinessByCountryAndSlug,
   getBusinessBySlug,
   getSearchSuggestions,
+  resolveCanonicalLocationSlug,
 } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
@@ -38,6 +40,20 @@ function parseBusinessPath(pathname: string) {
   if (parts.length === 2) {
     const [countryCode, businessName] = parts;
     return { kind: "country" as const, countryCode, businessName };
+  }
+  return null;
+}
+
+function parseDirectoryCityPath(pathname: string) {
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts[0] !== "negocios") return null;
+  if (parts.length === 4) {
+    const [, countryCode, stateCode, citySlug] = parts;
+    return { countryCode, stateCode, citySlug, page: null as number | null };
+  }
+  if (parts.length === 6 && parts[4] === "pagina" && /^\d+$/.test(parts[5])) {
+    const [, countryCode, stateCode, citySlug, , page] = parts;
+    return { countryCode, stateCode, citySlug, page: Number(page) };
   }
   return null;
 }
@@ -118,6 +134,18 @@ export async function onBeforeRender(pageContext: PageContext) {
   }
 
   if (pathname === "/buscar" || pathname === "/negocios" || pathname.startsWith("/negocios/")) {
+    const directoryRoute = parseDirectoryCityPath(pathname);
+    if (directoryRoute) {
+      const canonicalCitySlug = await resolveCanonicalLocationSlug(
+        directoryRoute.countryCode,
+        directoryRoute.stateCode,
+        directoryRoute.citySlug,
+      ).catch(() => null);
+      if (canonicalCitySlug && canonicalCitySlug !== directoryRoute.citySlug) {
+        const pageSegment = directoryRoute.page && directoryRoute.page > 1 ? `/pagina/${directoryRoute.page}` : "";
+        throw redirect(`/negocios/${directoryRoute.countryCode}/${directoryRoute.stateCode}/${canonicalCitySlug}${pageSegment}`, 301);
+      }
+    }
     return {
       pageContext: {
         ...(await getPublicDirectoryData(false)),
@@ -164,6 +192,14 @@ export async function onBeforeRender(pageContext: PageContext) {
       };
     }
     throw render(404);
+  }
+
+  if (businessRoute.kind === "full") {
+    const canonicalPath = buildBusinessUrl(business);
+    if (canonicalPath !== pathname) {
+      const search = new URL(pageContext.urlOriginal || "/", "http://localhost").search;
+      throw redirect(`${canonicalPath}${search}`, 301);
+    }
   }
 
   let similarBusinesses: BusinessFrontend[] = [];
