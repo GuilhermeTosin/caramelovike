@@ -624,9 +624,12 @@ export async function getBusinessesByRadiusRpc(params: {
   const onlineIdsOrdered = online
     .map((b) => b.id)
     .filter((id) => !orderedIds.includes(id));
-  const totalCount = physicalTotalCount + onlineIdsOrdered.length;
+  const fallbackTotalCount = physicalTotalCount + onlineIdsOrdered.length;
 
-  if (mergedRows.length === 0) return { items: [], totalCount };
+  if (mergedRows.length === 0) {
+    const allPhysicalHitsFetched = (hits || []).length < rpcLimit;
+    return { items: [], totalCount: allPhysicalHitsFetched ? onlineIdsOrdered.length : fallbackTotalCount };
+  }
 
   const ownerIds = [...new Set(mergedRows.map((b: Business) => b.owner_id))];
   const businessIds = mergedRows.map((b) => b.id);
@@ -666,7 +669,10 @@ export async function getBusinessesByRadiusRpc(params: {
   );
 
   const mergedOrderedIds = [...orderedIds, ...onlineIdsOrdered];
-  const pageIds = mergedOrderedIds.slice(requestedOffset, requestedOffset + requestedLimit);
+  const renderableIds = mergedOrderedIds.filter((id) => byId.has(id));
+  const allPhysicalHitsFetched = (hits || []).length < rpcLimit;
+  const totalCount = allPhysicalHitsFetched ? renderableIds.length : fallbackTotalCount;
+  const pageIds = renderableIds.slice(requestedOffset, requestedOffset + requestedLimit);
 
   return {
     items: pageIds.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[],
