@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { COUNTRIES, getCountryName } from "@/services/businesses";
-import { getMapsApiKey, isMapsApiAvailable, loadGoogleMapsApi } from "@/lib/google-maps";
+import { getMapsApiKey, isMapsApiAvailable, loadGoogleMapsApi, resolveCityPlaceId } from "@/lib/google-maps";
 
 export interface AddressResult {
   formattedAddress: string;
@@ -10,6 +10,7 @@ export interface AddressResult {
   lng: number;
   street: string;
   city: string;
+  cityPlaceId: string;
   state: string;
   stateCode: string;
   country: string;
@@ -195,6 +196,7 @@ function mapPlaceDetailsToAddress(details: any): AddressResult {
     lng,
     street: extractStreet(components),
     city: extractCity(components),
+    cityPlaceId: "",
     state,
     stateCode,
     country,
@@ -359,11 +361,15 @@ export default function AddressAutocomplete({
       });
 
       const parsed = mapPlaceDetailsToAddress(details);
+      const cityPlaceId = mode === "city"
+        ? prediction.place
+        : await resolveCityPlaceId(parsed.lat, parsed.lng);
       const cityLabel = [parsed.city, parsed.stateCode?.toUpperCase(), parsed.countryCode?.toUpperCase()]
         .filter(Boolean)
         .join(", ");
       const withFallbackAddress: AddressResult = {
         ...parsed,
+        cityPlaceId,
         formattedAddress:
           mode === "city"
             ? cityLabel || parsed.city || parsed.formattedAddress || label

@@ -30,6 +30,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
+import { getCityDisplayName } from "@/lib/locationDisplay";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
 
@@ -717,7 +718,7 @@ export default function Home({
                           <span className="truncate">{biz.name}</span>
                         </h3>
                         <p className="text-sm text-muted-foreground truncate">
-                          {`${biz.address.city}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
+                          {`${getCityDisplayName(biz.address.city, biz.address.countryCode || biz.address.country, locale)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
                         </p>
                       </div>
                     </div>

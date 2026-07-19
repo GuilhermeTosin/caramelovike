@@ -24,6 +24,7 @@ import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import {
   BUSINESS_CATEGORY_OPTIONS,
   createBusiness,
+  resolveBusinessLocation,
   getAvailableLocations,
   getCountryName,
   getStateDisplayName,
@@ -171,6 +172,7 @@ export default function BusinessWizardPage() {
     whatsapp: "",
     street: "",
     city: "",
+    cityPlaceId: "",
     state: "",
     stateCode: "",
     country: "",
@@ -371,6 +373,7 @@ export default function BusinessWizardPage() {
           whatsapp: biz.whatsapp || "",
           street: biz.address.street || "",
           city: biz.address.city || "",
+          cityPlaceId: "",
           state: biz.address.stateCode
             ? getStateDisplayName(biz.address.countryCode || biz.address.country, biz.address.stateCode, biz.address.state)
             : biz.address.state || "",
@@ -510,6 +513,7 @@ export default function BusinessWizardPage() {
       ...prev,
       street: place.formattedAddress || place.street || "",
       city: place.city || "",
+      cityPlaceId: place.cityPlaceId || "",
       state: getStateDisplayName(place.countryCode || "", place.stateCode || "", place.state || ""),
       stateCode: place.stateCode || "",
       country: getCountryName(place.countryCode || place.country) || place.country || "",
@@ -567,6 +571,20 @@ export default function BusinessWizardPage() {
       .map((k) => k.trim())
       .filter(Boolean);
 
+    const isUnchangedExistingLocation =
+      !!editingBusiness &&
+      form.city.trim().toLocaleLowerCase() === editingBusiness.address.city.trim().toLocaleLowerCase() &&
+      form.countryCode.trim().toLowerCase() === editingBusiness.address.countryCode.trim().toLowerCase() &&
+      form.stateCode.trim().toLowerCase() === editingBusiness.address.stateCode.trim().toLowerCase();
+
+    const locationResolution = await resolveBusinessLocation({
+      city: form.city.trim(),
+      countryCode: form.countryCode.trim(),
+      stateCode: form.stateCode.trim(),
+      cityPlaceId: form.cityPlaceId,
+      citySlug: isUnchangedExistingLocation ? editingBusiness?.address.citySlug : undefined,
+    });
+
     const payload = {
       name: form.name.trim(),
       slug: normalizeShortSlugFinal(form.shortSlug || form.name),
@@ -576,6 +594,7 @@ export default function BusinessWizardPage() {
       description: sanitizeRichTextHtml(form.description),
       street: form.hasPhysicalAddress ? form.street.trim() : "",
       city: form.city.trim(),
+      ...(locationResolution?.databaseReady ? { citySlug: locationResolution.citySlug, locationId: locationResolution.locationId } : {}),
       state: form.state.trim(),
       stateCode: form.stateCode.trim().toLowerCase(),
       country: form.country.trim() || getCountryName(form.countryCode.trim().toLowerCase()),

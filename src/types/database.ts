@@ -135,6 +135,8 @@ export interface Business {
   logo_url: string | null;
   street: string | null;
   city: string | null;
+  city_slug?: string | null;
+  location_id?: string | null;
   state: string | null;
   country: string | null;
   country_code: string | null;
@@ -213,6 +215,7 @@ export interface BusinessFrontend {
   address: {
     street: string;
     city: string;
+    citySlug?: string;
     state: string;
     country: string;
     countryCode: string;
@@ -263,6 +266,8 @@ export interface FeaturedPlacement {
   country_code: string | null;
   state_code: string | null;
   city: string | null;
+  city_slug?: string | null;
+  location_id?: string | null;
   category: string | null;
   starts_at: string;
   ends_at: string;

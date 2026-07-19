@@ -74,6 +74,7 @@ import {
   updateCommunityFindMessage,
 } from "@/services/communityFinds";
 import { createCommunityFindReport } from "@/services/communityFindReports";
+import { getCityDisplayName } from "@/lib/locationDisplay";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
   dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
@@ -2140,7 +2141,7 @@ export default function SearchResults({
                             <span className="truncate">{biz.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${biz.address.city}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
+                            {`${getCityDisplayName(biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
                           </p>
                         </div>
                       </div>

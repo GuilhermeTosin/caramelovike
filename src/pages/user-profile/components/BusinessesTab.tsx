@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { TabsContent } from "@/components/ui/tabs";
 import { buildBusinessUrl, getCategoryId, getCountryName } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
+import { getCityDisplayName } from "@/lib/locationDisplay";
 import type { BusinessFrontend } from "@/types/database";
 
 type BusinessesTabProps = {
@@ -166,7 +167,7 @@ export default function BusinessesTab({
                 <span className="flex min-w-0 items-center gap-1 leading-tight">
                   <MapPin className="h-3 w-3 shrink-0" />
                   <span className="truncate">
-                    {biz.address.city}, {getCountryName(biz.address.countryCode || biz.address.country)}
+                    {getCityDisplayName(biz.address.city, biz.address.countryCode || biz.address.country)}, {getCountryName(biz.address.countryCode || biz.address.country)}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1 whitespace-nowrap leading-tight">

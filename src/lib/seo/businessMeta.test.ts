@@ -1,4 +1,6 @@
 import { getPrimaryActivityCustomPlaceholder, getPrimaryActivityOptions } from "@/lib/businessActivities";
+import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
+import { buildBusinessUrl } from "@/services/businesses";
 import { describe, expect, it } from "vitest";
 import {
   buildBusinessSeoTitle,
@@ -23,6 +25,21 @@ const baseBusiness = {
 };
 
 describe("business SEO metadata", () => {
+  it("keeps the persisted city slug when rendering an existing business URL", () => {
+    const existingBusiness = {
+      ...baseBusiness,
+      slug: "sabor-carioca",
+      address: {
+        ...baseBusiness.address,
+        city: "Londres",
+        citySlug: "london",
+        stateCode: "ENG",
+        countryCode: "GB",
+      },
+    };
+
+    expect(buildBusinessUrl(existingBusiness)).toBe("/gb/eng/london/sabor-carioca");
+  });
   it("uses category-specific placeholders for Other", () => {
     expect(getPrimaryActivityCustomPlaceholder("food")).toBe("Ex: Restaurante vegano");
     expect(getPrimaryActivityCustomPlaceholder("artists")).toBe("Ex: Banda para eventos");
@@ -42,6 +59,27 @@ describe("business SEO metadata", () => {
     };
 
     expect(buildBusinessSeoTitle(onlineBusiness, "pt-BR")).toContain("em Montreal, Quebec");
+  });
+  it("uses Portuguese display names for known city exonyms without changing unknown cities", () => {
+    expect(getCityDisplayName("London", "gb")).toBe("Londres");
+    expect(getCityDisplayName("M\u00FCnchen", "de")).toBe("Munique");
+    expect(getCityDisplayName("F\u00FCrth", "de")).toBe("F\u00FCrth");
+    expect(getCanonicalCitySlug("London", "gb")).toBe("london");
+    expect(getCanonicalCitySlug("Londres", "gb")).toBe("london");
+    expect(getCanonicalCitySlug("Munique", "de")).toBe("munich");
+
+    const londonBusiness = {
+      ...baseBusiness,
+      address: {
+        ...baseBusiness.address,
+        city: "London",
+        state: "England",
+        stateCode: "ENG",
+        countryCode: "GB",
+      },
+    };
+
+    expect(buildBusinessSeoTitle(londonBusiness, "pt-BR")).toContain("em Londres, Inglaterra");
   });
   it("exposes exactly the curated food activities", () => {
     expect(getPrimaryActivityOptions("food").map((activity) => activity.id)).toEqual([

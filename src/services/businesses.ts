@@ -3,6 +3,7 @@ import type { Business, BusinessFrontend, Review } from "@/types/database";
 import type { CommunityEvent } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
 import { getFollowLinksBusinessIds } from "@/services/searchPreferences";
+import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 
 export const BUSINESS_CATEGORY_OPTIONS = [
   { id: "food", label: "Restaurantes e Alimentação" },
@@ -341,6 +342,7 @@ export function toFrontend(
     address: {
       street: b.street || "",
       city: b.city || "",
+      citySlug: b.city_slug || "",
       state: b.state || "",
       country: b.country || "",
       countryCode: b.country_code || "",
@@ -1020,6 +1022,45 @@ export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFro
   });
 }
 
+export type BusinessLocationResolution = {
+  citySlug: string;
+  locationId?: string;
+  databaseReady: boolean;
+};
+
+export async function resolveBusinessLocation(input: {
+  city: string;
+  countryCode: string;
+  stateCode: string;
+  cityPlaceId?: string;
+  citySlug?: string;
+}): Promise<BusinessLocationResolution | null> {
+  const city = input.city.trim();
+  const countryCode = input.countryCode.trim().toLowerCase();
+  const stateCode = input.stateCode.trim().toLowerCase();
+  const citySlug = input.citySlug?.trim() || getCanonicalCitySlug(city, countryCode);
+  if (!city || !countryCode || !citySlug) return null;
+
+  const { data, error } = await supabase.rpc("upsert_business_location", {
+    p_city_place_id: input.cityPlaceId?.trim() || null,
+    p_country_code: countryCode,
+    p_state_code: stateCode,
+    p_official_name: city,
+    p_display_name_pt_br: getCityDisplayName(city, countryCode),
+    p_city_slug: citySlug,
+  });
+
+  if (error || !data) {
+    // The business flow remains available until the schema migration is applied.
+    console.warn("[resolveBusinessLocation] location registry unavailable", error?.code || "no-data");
+    return { citySlug, databaseReady: false };
+  }
+
+  const location = Array.isArray(data) ? data[0] : data;
+  const locationId = String((location as { id?: string }).id || "");
+  const resolvedSlug = String((location as { city_slug?: string }).city_slug || citySlug);
+  return { citySlug: resolvedSlug, locationId: locationId || undefined, databaseReady: true };
+}
 export async function createBusiness(
   ownerId: string,
   data: {
@@ -1033,6 +1074,8 @@ export async function createBusiness(
     logoUrl?: string;
     street?: string;
     city?: string;
+    citySlug?: string;
+    locationId?: string;
     state?: string;
     country?: string;
     countryCode?: string;
@@ -1087,6 +1130,8 @@ export async function createBusiness(
       logo_url: data.logoUrl || null,
       street: data.street || null,
       city: data.city || null,
+      ...(data.citySlug ? { city_slug: data.citySlug } : {}),
+      ...(data.locationId ? { location_id: data.locationId } : {}),
       state: data.state || null,
       country: data.country || null,
       country_code: data.countryCode || null,
@@ -1294,7 +1339,7 @@ export async function getReviewsByUser(userId: string): Promise<(Review & { busi
     .from("reviews")
     .select(`
       *,
-      business:businesses(name, slug, country_code, state_code, city)
+      business:businesses(name, slug, country_code, state_code, city, city_slug)
     `)
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -1312,7 +1357,7 @@ export async function getReviewsByUser(userId: string): Promise<(Review & { busi
     businessName: r.business?.name || "Negócio",
     businessSlug:
       r.business?.country_code && r.business?.state_code && r.business?.city
-        ? `/${r.business?.country_code}/${r.business?.state_code}/${slugify(r.business?.city || "")}/${r.business?.slug}`
+        ? `/${r.business?.country_code}/${r.business?.state_code}/${r.business?.city_slug || getCanonicalCitySlug(r.business?.city, r.business?.country_code)}/${r.business?.slug}`
         : `/go/${r.business?.slug}`,
   })) as any[];
 }
@@ -1334,7 +1379,7 @@ export function slugify(text: string): string {
 export function buildBusinessUrl(biz: BusinessFrontend): string {
   const countryCode = (biz.address.countryCode || "").toLowerCase();
   const stateSlug = (biz.address.stateCode || "").toLowerCase();
-  const citySlug = slugify(biz.address.city || "");
+  const citySlug = biz.address.citySlug || getCanonicalCitySlug(biz.address.city, biz.address.countryCode);
 
   // Regra única para todos os negócios:
   // prioriza URL completa /pais/estado/cidade/slug, com fallback para dados legados incompletos.

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { TabsContent } from "@/components/ui/tabs";
 import { buildBusinessUrl, getCountryName } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
+import { getCityDisplayName } from "@/lib/locationDisplay";
 import type { BusinessFrontend } from "@/types/database";
 
 type AllBusinessesTabProps = {
@@ -82,7 +83,7 @@ export default function AllBusinessesTab({
                       <Badge variant="secondary">{getCategoryLabel(biz.category).split(" (")[0]}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {biz.address.city}, {getCountryName(biz.address.countryCode || biz.address.country)}
+                      {getCityDisplayName(biz.address.city, biz.address.countryCode || biz.address.country)}, {getCountryName(biz.address.countryCode || biz.address.country)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

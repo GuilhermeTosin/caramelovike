@@ -61,7 +61,7 @@ export async function loadGoogleMapsApi(): Promise<typeof google.maps> {
     };
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,marker&loading=async&callback=${callbackName}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,marker&language=pt-BR&loading=async&callback=${callbackName}`;
     script.async = true;
     script.defer = true;
     script.onerror = () => {
@@ -146,6 +146,30 @@ function canRunGeocodeRequest(): boolean {
   }
 }
 
+export async function resolveCityPlaceId(lat: number, lng: number): Promise<string> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
+
+  try {
+    const maps = await loadGoogleMapsApi();
+    const geocoder = new maps.Geocoder();
+    const results = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
+      geocoder.geocode({ location: { lat, lng } }, (items, status) => {
+        if (status === "OK" && items) {
+          resolve(items);
+        } else {
+          reject(new Error(`Reverse geocode failed: ${status}`));
+        }
+      });
+    });
+
+    const locality = results.find((result) =>
+      result.types.includes("locality") || result.types.includes("postal_town"),
+    );
+    return locality?.place_id || "";
+  } catch {
+    return "";
+  }
+}
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   const normalized = address.trim();
   if (!normalized) return null;

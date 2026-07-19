@@ -6,6 +6,7 @@ import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 import { setSeoMeta, upsertMetaTag } from "@/lib/seo";
 import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
+import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 
 const PAGE_SIZE = 100;
 
@@ -20,7 +21,7 @@ function normalizeCode(value?: string) {
 }
 
 function getCitySlug(business: BusinessFrontend) {
-  return slugify(business.address.city || "");
+  return business.address.citySlug || getCanonicalCitySlug(business.address.city, business.address.countryCode);
 }
 function isCodeLikeStateLabel(value: string, stateCode: string) {
   const label = (value || "").trim();
@@ -44,9 +45,9 @@ function preferStateLabel(current: string, candidate: string, stateCode: string)
 
 function getLocationLabel(business: BusinessFrontend) {
   const parts = [
-    business.address.city,
+    getCityDisplayName(business.address.city, business.address.countryCode || business.address.country),
     getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode, business.address.state),
-    business.address.country || business.address.countryCode,
+    getCountryName(business.address.countryCode || business.address.country),
   ].filter(Boolean);
   return parts.join(", ") || "Localização não informada";
 }
@@ -215,7 +216,7 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
     stateBusinesses.map((business) => getCitySlug(business)).filter(Boolean)
   );
   const cityNameBySlug = new Map(
-    stateBusinesses.map((business) => [getCitySlug(business), business.address.city || "Cidade"])
+    stateBusinesses.map((business) => [getCitySlug(business), getCityDisplayName(business.address.city, business.address.countryCode || business.address.country) || "Cidade"])
   );
 
   const currentStateLabel = stateCode ? stateNameByCode.get(stateCode) || getStateDisplayName(countryCode, stateCode) : "";

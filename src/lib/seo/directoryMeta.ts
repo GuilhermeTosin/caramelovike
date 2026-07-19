@@ -1,6 +1,7 @@
 import type { Locale } from "@/i18n/types";
 import { stripLocalePrefix } from "@/i18n/routing";
-import { getCountryName, getStateDisplayName } from "@/services/businesses";
+import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
+import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
 
 export type DirectoryPageMeta = {
@@ -22,18 +23,6 @@ const COUNTRY_PREPOSITIONS_PT_BR: Record<string, string> = {
 
 function normalizeCode(value?: string) {
   return (value || "").trim().toLowerCase();
-}
-
-function slugifyMetaPart(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/[^\w-]+/g, "")
-    .replace(/--+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 function titleCaseFromSlug(value: string) {
@@ -73,6 +62,7 @@ function findDirectoryLabels(
   countryCode: string,
   stateCode: string,
   citySlug: string,
+  locale: Locale,
 ) {
   let state = "";
   let city = "";
@@ -86,8 +76,8 @@ function findDirectoryLabels(
         stateCode,
       );
 
-      if (citySlug && slugifyMetaPart(business.address.city || "") === citySlug) {
-        city = business.address.city || city;
+      if (citySlug && (business.address.citySlug || getCanonicalCitySlug(business.address.city, countryCode)) === citySlug) {
+        city = getCityDisplayName(business.address.city, countryCode, locale) || city;
       }
     }
   }
@@ -127,7 +117,7 @@ export function getDirectoryPageMeta(
 
   const countryCode = normalizeCode(parts[1]);
   const stateCode = normalizeCode(parts[2]);
-  const citySlug = slugifyMetaPart(parts[3] || "");
+  const citySlug = slugify(parts[3] || "");
   const pageNumber = getPageNumber(parts);
   const pageSuffix = pageNumber > 1 ? ` - ${locale === "en" ? "Page" : "P\u00e1gina"} ${pageNumber}` : "";
 
@@ -143,7 +133,7 @@ export function getDirectoryPageMeta(
     };
   }
 
-  const labels = findDirectoryLabels(businesses, countryCode, stateCode, citySlug);
+  const labels = findDirectoryLabels(businesses, countryCode, stateCode, citySlug, locale);
   const countryLocation = getCountryLocation(countryCode, labels.country, locale);
 
   if (!stateCode) {

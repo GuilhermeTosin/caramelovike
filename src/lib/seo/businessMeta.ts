@@ -1,6 +1,7 @@
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
 import { getPrimaryActivityLabel, getPrimaryActivitySeoLabel } from "@/lib/businessActivities";
+import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getStateDisplayName } from "@/services/businesses";
 
 type BusinessSeoLocale = "pt-BR" | "en";
@@ -48,7 +49,11 @@ export function getBusinessSeoDescriptor(business: BusinessSeoInput, locale: Bus
 }
 
 function getBusinessLocationPhrase(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
-  const city = cleanText(business.address?.city);
+  const city = getCityDisplayName(
+    cleanText(business.address?.city),
+    business.address?.countryCode || business.address?.country,
+    locale,
+  );
   if (business.attendanceType === "online" && !city) return "online";
   const state = cleanText(
     getStateDisplayName(

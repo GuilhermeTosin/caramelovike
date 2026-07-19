@@ -54,6 +54,7 @@ import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
 import NotFound from "@/pages/NotFound";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
+import { getCityDisplayName } from "@/lib/locationDisplay";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 
 type BusinessPageProps = {
@@ -164,6 +165,12 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const [savingEditReview, setSavingEditReview] = useState(false);
   const [hasPendingOwnershipRequest, setHasPendingOwnershipRequest] = useState(false);
 
+  const pageLocale = getLocaleFromPathname(currentPathname);
+  const businessCityDisplayName = getCityDisplayName(
+    business?.address.city,
+    business?.address.countryCode || business?.address.country,
+    pageLocale,
+  );
   const isOnlineOnly = business?.attendanceType === "online";
   const [requestingOwnership, setRequestingOwnership] = useState(false);
   const [similarBusinesses, setSimilarBusinesses] = useState<BusinessFrontend[]>(seededSimilarBusinesses);
@@ -719,7 +726,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               <div className="flex flex-wrap items-center gap-4 text-sm sm:text-base text-white/90">
                 <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1 rounded-full border border-white/10">
                   <MapPin className="w-4 h-4 text-primary" />
-                  {`${business.address.city}${getCountryName(business.address.countryCode || business.address.country) ? `, ${getCountryName(business.address.countryCode || business.address.country)}` : ""}`}
+                  {`${businessCityDisplayName}${getCountryName(business.address.countryCode || business.address.country) ? `, ${getCountryName(business.address.countryCode || business.address.country)}` : ""}`}
                 </div>
                 {business.averageRating > 0 && (
                   <div className="flex items-center gap-1.5 bg-amber-500 px-3 py-1 rounded-full">
@@ -1235,7 +1242,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       <>
                         {business.address.street ? <p>{business.address.street}</p> : null}
                         <p className="text-muted-foreground">
-                          {business.address.city}
+                          {businessCityDisplayName}
                           {business.address.stateCode || business.address.state ? `, ${getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode || business.address.state, business.address.state)}` : ""}
                         </p>
                         <p className="text-muted-foreground">
@@ -1418,8 +1425,8 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
         {similarBusinesses.length > 0 && (
           <section className="mt-14">
             <h2 className="text-2xl font-bold mb-6">
-              {business?.address.city
-                ? `Negócios brasileiros similares na região de ${business.address.city}`
+              {businessCityDisplayName
+                ? `Negócios brasileiros similares na região de ${businessCityDisplayName}`
                 : "Negócios brasileiros similares"}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -1509,7 +1516,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                             <span className="truncate">{item.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${item.address.city}, ${getCountryName(item.address.countryCode || item.address.country)}`}
+                            {`${getCityDisplayName(item.address.city, item.address.countryCode || item.address.country, pageLocale)}, ${getCountryName(item.address.countryCode || item.address.country)}`}
                           </p>
                         </div>
                       </div>
