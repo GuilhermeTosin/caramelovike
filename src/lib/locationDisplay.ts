@@ -8,6 +8,7 @@ const PT_BR_CITY_EXONYMS: Record<string, Record<string, string>> = {
   cn: { beijing: "Pequim" },
   cz: { prague: "Praga", praha: "Praga" },
   de: {
+    berlin: "Berlim",
     cologne: "Col\u00f4nia",
     koln: "Col\u00f4nia",
     munich: "Munique",

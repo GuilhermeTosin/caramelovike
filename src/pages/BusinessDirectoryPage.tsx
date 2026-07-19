@@ -45,7 +45,7 @@ function preferStateLabel(current: string, candidate: string, stateCode: string)
 
 function getLocationLabel(business: BusinessFrontend) {
   const parts = [
-    getCityDisplayName(business.address.city, business.address.countryCode || business.address.country),
+    getCityDisplayName(business.address.cityDisplayName || business.address.city, business.address.countryCode || business.address.country),
     getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode, business.address.state),
     getCountryName(business.address.countryCode || business.address.country),
   ].filter(Boolean);
@@ -216,7 +216,7 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
     stateBusinesses.map((business) => getCitySlug(business)).filter(Boolean)
   );
   const cityNameBySlug = new Map(
-    stateBusinesses.map((business) => [getCitySlug(business), getCityDisplayName(business.address.city, business.address.countryCode || business.address.country) || "Cidade"])
+    stateBusinesses.map((business) => [getCitySlug(business), getCityDisplayName(business.address.cityDisplayName || business.address.city, business.address.countryCode || business.address.country) || "Cidade"])
   );
 
   const currentStateLabel = stateCode ? stateNameByCode.get(stateCode) || getStateDisplayName(countryCode, stateCode) : "";

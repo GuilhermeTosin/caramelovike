@@ -62,6 +62,7 @@ describe("business SEO metadata", () => {
   });
   it("uses Portuguese display names for known city exonyms without changing unknown cities", () => {
     expect(getCityDisplayName("London", "gb")).toBe("Londres");
+    expect(getCityDisplayName("Berlin", "de")).toBe("Berlim");
     expect(getCityDisplayName("M\u00FCnchen", "de")).toBe("Munique");
     expect(getCityDisplayName("F\u00FCrth", "de")).toBe("F\u00FCrth");
     expect(getCanonicalCitySlug("London", "gb")).toBe("london");

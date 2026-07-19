@@ -414,7 +414,7 @@ export default function Home({
   const activeSearchMode = homeText.searchModes[searchMode];
 
   const popularCities = useMemo(() => {
-    const cityCounts = new Map<string, { name: string; countryCode: string; count: number }>();
+    const cityCounts = new Map<string, { name: string; displayName: string; countryCode: string; count: number }>();
 
     allBusinesses.forEach((biz) => {
       const city = biz.address.city?.trim();
@@ -426,6 +426,7 @@ export default function Home({
 
       cityCounts.set(key, {
         name: current?.name || city,
+        displayName: current?.displayName || getCityDisplayName(biz.address.cityDisplayName || city, countryCode, locale),
         countryCode,
         count: (current?.count || 0) + 1,
       });
@@ -438,7 +439,7 @@ export default function Home({
         ...city,
         flag: countryCodeToFlag(city.countryCode),
       }));
-  }, [allBusinesses]);
+  }, [allBusinesses, locale]);
 
   return (
     <div className="min-h-screen">
@@ -718,7 +719,7 @@ export default function Home({
                           <span className="truncate">{biz.name}</span>
                         </h3>
                         <p className="text-sm text-muted-foreground truncate">
-                          {`${getCityDisplayName(biz.address.city, biz.address.countryCode || biz.address.country, locale)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
+                          {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country, locale)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
                         </p>
                       </div>
                     </div>
@@ -802,7 +803,7 @@ export default function Home({
                 }}
               />
               <span className="text-2xl hidden">{city.flag}</span>
-              <span className="font-medium text-sm">{city.name}</span>
+              <span className="font-medium text-sm">{city.displayName}</span>
               <span className="text-xs text-muted-foreground">{formatBusinessCount(city.count, locale)}</span>
             </Link>
           ))}

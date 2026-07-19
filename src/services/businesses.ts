@@ -314,6 +314,31 @@ export const COUNTRIES: Record<string, { name: string; states: Record<string, st
   },
 };
 
+async function attachLocationDisplayNames(rows: Business[]): Promise<Business[]> {
+  const locationIds = [...new Set(rows.map((row) => row.location_id).filter(Boolean))] as string[];
+  if (locationIds.length === 0) return rows;
+
+  const { data, error } = await supabase
+    .from("business_locations")
+    .select("id, display_name_pt_br")
+    .in("id", locationIds);
+
+  if (error || !data) return rows;
+
+  const namesById = new Map(
+    data
+      .filter((location: { id?: string; display_name_pt_br?: string | null }) => Boolean(location.display_name_pt_br))
+      .map((location: { id: string; display_name_pt_br: string }) => [location.id, location.display_name_pt_br]),
+  );
+
+  return rows.map((row) => ({
+    ...row,
+    location_display_name_pt_br: row.location_id
+      ? namesById.get(row.location_id) || row.location_display_name_pt_br || null
+      : row.location_display_name_pt_br || null,
+  }));
+}
+
 export function toFrontend(
   b: Business,
   ownerName?: string,
@@ -343,6 +368,7 @@ export function toFrontend(
       street: b.street || "",
       city: b.city || "",
       citySlug: b.city_slug || "",
+      cityDisplayName: b.location_display_name_pt_br || "",
       state: b.state || "",
       country: b.country || "",
       countryCode: b.country_code || "",
@@ -490,7 +516,9 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
 
-  return businessRows.map((b) =>
+  const enrichedBusinessRows = await attachLocationDisplayNames(businessRows);
+
+  return enrichedBusinessRows.map((b) =>
     toFrontend(
       {
         ...b,
@@ -617,7 +645,7 @@ export async function getBusinessesByRadiusRpc(params: {
     (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
   );
 
-  const businessRows = mergedRows;
+  const businessRows = await attachLocationDisplayNames(mergedRows);
   const businessIds = businessRows.map((b) => b.id);
   const { data: linkedEventsRows } = await supabase
     .from("events")
@@ -720,7 +748,8 @@ export async function getBusinessBySlug(
   biz.events = mergeBusinessEvents(biz.events, (linkedEventsRows || []) as CommunityEvent[]);
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
-  return toFrontend(biz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+  const [enrichedBiz] = await attachLocationDisplayNames([biz]);
+  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 export async function getBusinessByCountryAndSlug(
@@ -761,7 +790,8 @@ export async function getBusinessByCountryAndSlug(
   })) as Review[];
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
-  return toFrontend(biz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+  const [enrichedBiz] = await attachLocationDisplayNames([biz]);
+  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 export async function getBusinessById(
@@ -808,7 +838,8 @@ export async function getBusinessById(
   biz.events = mergeBusinessEvents(biz.events, (linkedEventsRows || []) as CommunityEvent[]);
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
-  return toFrontend(biz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+  const [enrichedBiz] = await attachLocationDisplayNames([biz]);
+  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 export async function getBusinessByShortSlug(slug: string): Promise<BusinessFrontend | null> {
@@ -855,7 +886,8 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
     .maybeSingle();
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
-  return toFrontend(biz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+  const [enrichedBiz] = await attachLocationDisplayNames([biz]);
+  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 export async function isBusinessSlugAvailable(
@@ -995,7 +1027,7 @@ export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFro
     }
   }
 
-  const businessRows = data as Business[];
+  const businessRows = await attachLocationDisplayNames(data as Business[]);
   const { data: linkedEventsRows } = businessIds.length > 0
     ? await supabase.from("events").select("*").in("business_id", businessIds)
     : { data: [] as any[] };
@@ -1251,7 +1283,8 @@ export async function getPendingBusinessesForAdmin(): Promise<BusinessFrontend[]
   );
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
-  return (data as Business[]).map((b) =>
+  const enrichedBusinessRows = await attachLocationDisplayNames(data as Business[]);
+  return enrichedBusinessRows.map((b) =>
     toFrontend(b, ownerNames.get(b.owner_id), {
       allowFollowExternalLinks: followLinksBusinessIds.has(b.id),
     })

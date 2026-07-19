@@ -50,7 +50,7 @@ export function getBusinessSeoDescriptor(business: BusinessSeoInput, locale: Bus
 
 function getBusinessLocationPhrase(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
   const city = getCityDisplayName(
-    cleanText(business.address?.city),
+    cleanText(business.address?.cityDisplayName || business.address?.city),
     business.address?.countryCode || business.address?.country,
     locale,
   );

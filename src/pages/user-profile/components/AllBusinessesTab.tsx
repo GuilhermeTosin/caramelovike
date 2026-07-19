@@ -83,7 +83,7 @@ export default function AllBusinessesTab({
                       <Badge variant="secondary">{getCategoryLabel(biz.category).split(" (")[0]}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {getCityDisplayName(biz.address.city, biz.address.countryCode || biz.address.country)}, {getCountryName(biz.address.countryCode || biz.address.country)}
+                      {getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, {getCountryName(biz.address.countryCode || biz.address.country)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

@@ -167,7 +167,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   const pageLocale = getLocaleFromPathname(currentPathname);
   const businessCityDisplayName = getCityDisplayName(
-    business?.address.city,
+    business?.address.cityDisplayName || business?.address.city,
     business?.address.countryCode || business?.address.country,
     pageLocale,
   );
@@ -1516,7 +1516,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                             <span className="truncate">{item.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${getCityDisplayName(item.address.city, item.address.countryCode || item.address.country, pageLocale)}, ${getCountryName(item.address.countryCode || item.address.country)}`}
+                            {`${getCityDisplayName(item.address.cityDisplayName || item.address.city, item.address.countryCode || item.address.country, pageLocale)}, ${getCountryName(item.address.countryCode || item.address.country)}`}
                           </p>
                         </div>
                       </div>

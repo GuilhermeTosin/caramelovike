@@ -137,6 +137,7 @@ export interface Business {
   city: string | null;
   city_slug?: string | null;
   location_id?: string | null;
+  location_display_name_pt_br?: string | null;
   state: string | null;
   country: string | null;
   country_code: string | null;
@@ -216,6 +217,7 @@ export interface BusinessFrontend {
     street: string;
     city: string;
     citySlug?: string;
+    cityDisplayName?: string;
     state: string;
     country: string;
     countryCode: string;

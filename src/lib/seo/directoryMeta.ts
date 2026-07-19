@@ -77,7 +77,7 @@ function findDirectoryLabels(
       );
 
       if (citySlug && (business.address.citySlug || getCanonicalCitySlug(business.address.city, countryCode)) === citySlug) {
-        city = getCityDisplayName(business.address.city, countryCode, locale) || city;
+        city = getCityDisplayName(business.address.cityDisplayName || business.address.city, countryCode, locale) || city;
       }
     }
   }

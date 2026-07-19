@@ -167,7 +167,7 @@ export default function BusinessesTab({
                 <span className="flex min-w-0 items-center gap-1 leading-tight">
                   <MapPin className="h-3 w-3 shrink-0" />
                   <span className="truncate">
-                    {getCityDisplayName(biz.address.city, biz.address.countryCode || biz.address.country)}, {getCountryName(biz.address.countryCode || biz.address.country)}
+                    {getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, {getCountryName(biz.address.countryCode || biz.address.country)}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1 whitespace-nowrap leading-tight">

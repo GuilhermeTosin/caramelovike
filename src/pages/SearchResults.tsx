@@ -2141,7 +2141,7 @@ export default function SearchResults({
                             <span className="truncate">{biz.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${getCityDisplayName(biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
+                            {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
                           </p>
                         </div>
                       </div>
