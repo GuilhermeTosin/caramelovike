@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileText, ImageIcon, MapPin, PawPrint, Sparkles, Upload, User, UtensilsCrossed, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -136,6 +136,7 @@ export default function BusinessWizardPage() {
   const isEditMode = !!editingBusinessId;
   const [step, setStep] = useState<WizardStep>(1);
   const [isSaving, setIsSaving] = useState(false);
+  const saveInProgressRef = useRef(false);
   const [loadingEditBusiness, setLoadingEditBusiness] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
   const [checkingSlug, setCheckingSlug] = useState(false);
@@ -563,62 +564,66 @@ export default function BusinessWizardPage() {
       return;
     }
 
-    const slugOk = await runSlugCheck();
-    if (!slugOk) return;
-
-    const keywords = form.keywords
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
-
-    const isUnchangedExistingLocation =
-      !!editingBusiness &&
-      form.city.trim().toLocaleLowerCase() === editingBusiness.address.city.trim().toLocaleLowerCase() &&
-      form.countryCode.trim().toLowerCase() === editingBusiness.address.countryCode.trim().toLowerCase() &&
-      form.stateCode.trim().toLowerCase() === editingBusiness.address.stateCode.trim().toLowerCase();
-
-    const locationResolution = await resolveBusinessLocation({
-      city: form.city.trim(),
-      countryCode: form.countryCode.trim(),
-      stateCode: form.stateCode.trim(),
-      cityPlaceId: form.cityPlaceId,
-      citySlug: isUnchangedExistingLocation ? editingBusiness?.address.citySlug : undefined,
-    });
-
-    const payload = {
-      name: form.name.trim(),
-      slug: normalizeShortSlugFinal(form.shortSlug || form.name),
-      categoryId: form.category,
-      primaryActivity: form.primaryActivity,
-      primaryActivityCustom: normalizePrimaryActivityCustom(form.primaryActivityCustom),
-      description: sanitizeRichTextHtml(form.description),
-      street: form.hasPhysicalAddress ? form.street.trim() : "",
-      city: form.city.trim(),
-      ...(locationResolution?.databaseReady ? { citySlug: locationResolution.citySlug, locationId: locationResolution.locationId } : {}),
-      state: form.state.trim(),
-      stateCode: form.stateCode.trim().toLowerCase(),
-      country: form.country.trim() || getCountryName(form.countryCode.trim().toLowerCase()),
-      countryCode: form.countryCode.trim().toLowerCase(),
-      attendanceType: form.hasPhysicalAddress ? "presencial" : "online",
-      postalCode: form.hasPhysicalAddress ? form.postalCode.trim() : "",
-      lat: form.lat || 0,
-      lng: form.lng || 0,
-      services: [],
-      keywords,
-      phone: form.phone.trim(),
-      email: form.email.trim(),
-      website: form.website.trim(),
-      instagram: buildInstagramUrl(form.instagram),
-      facebook: buildFacebookUrl(form.facebook),
-      whatsapp: form.whatsapp.trim(),
-      isVeganFriendly: getCategoryId(form.category) === "food" ? !!form.isVeganFriendly : false,
-      isVegetarianFriendly: getCategoryId(form.category) === "food" ? !!form.isVegetarianFriendly : false,
-      isGlutenFreeFriendly: getCategoryId(form.category) === "food" ? !!form.isGlutenFreeFriendly : false,
-      openingHours: serializeBusinessHours(businessHours),
-    };
-
+    // State updates are asynchronous, so this blocks repeated clicks before the button re-renders disabled.
+    if (saveInProgressRef.current) return;
+    saveInProgressRef.current = true;
     setIsSaving(true);
+
     try {
+      const slugOk = await runSlugCheck();
+      if (!slugOk) return;
+
+      const keywords = form.keywords
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean);
+
+      const isUnchangedExistingLocation =
+        !!editingBusiness &&
+        form.city.trim().toLocaleLowerCase() === editingBusiness.address.city.trim().toLocaleLowerCase() &&
+        form.countryCode.trim().toLowerCase() === editingBusiness.address.countryCode.trim().toLowerCase() &&
+        form.stateCode.trim().toLowerCase() === editingBusiness.address.stateCode.trim().toLowerCase();
+
+      const locationResolution = await resolveBusinessLocation({
+        city: form.city.trim(),
+        countryCode: form.countryCode.trim(),
+        stateCode: form.stateCode.trim(),
+        cityPlaceId: form.cityPlaceId,
+        citySlug: isUnchangedExistingLocation ? editingBusiness?.address.citySlug : undefined,
+      });
+
+      const payload = {
+        name: form.name.trim(),
+        slug: normalizeShortSlugFinal(form.shortSlug || form.name),
+        categoryId: form.category,
+        primaryActivity: form.primaryActivity,
+        primaryActivityCustom: normalizePrimaryActivityCustom(form.primaryActivityCustom),
+        description: sanitizeRichTextHtml(form.description),
+        street: form.hasPhysicalAddress ? form.street.trim() : "",
+        city: form.city.trim(),
+        ...(locationResolution?.databaseReady ? { citySlug: locationResolution.citySlug, locationId: locationResolution.locationId } : {}),
+        state: form.state.trim(),
+        stateCode: form.stateCode.trim().toLowerCase(),
+        country: form.country.trim() || getCountryName(form.countryCode.trim().toLowerCase()),
+        countryCode: form.countryCode.trim().toLowerCase(),
+        attendanceType: form.hasPhysicalAddress ? "presencial" : "online",
+        postalCode: form.hasPhysicalAddress ? form.postalCode.trim() : "",
+        lat: form.lat || 0,
+        lng: form.lng || 0,
+        services: [],
+        keywords,
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        website: form.website.trim(),
+        instagram: buildInstagramUrl(form.instagram),
+        facebook: buildFacebookUrl(form.facebook),
+        whatsapp: form.whatsapp.trim(),
+        isVeganFriendly: getCategoryId(form.category) === "food" ? !!form.isVeganFriendly : false,
+        isVegetarianFriendly: getCategoryId(form.category) === "food" ? !!form.isVegetarianFriendly : false,
+        isGlutenFreeFriendly: getCategoryId(form.category) === "food" ? !!form.isGlutenFreeFriendly : false,
+        openingHours: serializeBusinessHours(businessHours),
+      };
+
       let targetBusinessId = editingBusiness?.id || "";
       if (isEditMode) {
         if (!targetBusinessId) {
@@ -674,6 +679,7 @@ export default function BusinessWizardPage() {
       );
       navigate("/perfil?tab=negocios");
     } finally {
+      saveInProgressRef.current = false;
       setIsSaving(false);
     }
   };
