@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useRef } from "react";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, X, Navigation, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Share2, Copy } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, X, Navigation, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Share2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Pagination from "@/components/Pagination";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -310,6 +311,7 @@ export default function SearchResults({
   const [initialLoading, setInitialLoading] = useState(initialBusinesses.length === 0);
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
+  const [rpcFallbackMode, setRpcFallbackMode] = useState(false);
   const [showCommunityFindForm, setShowCommunityFindForm] = useState(false);
   const [communityFindDialogOpen, setCommunityFindDialogOpen] = useState(false);
   const [selectedCommunityFind, setSelectedCommunityFind] = useState<CommunityFindWithVote | null>(null);
@@ -556,11 +558,16 @@ export default function SearchResults({
 
   useEffect(() => {
     const loadInitialData = async () => {
+      setInitialLoading(true);
       try {
         const initialRadius = radiusFilter ? Number(radiusFilter) : null;
         const initialLat = parseCoordParam(originLatParam);
         const initialLng = parseCoordParam(originLngParam);
         const canUseRpcRadius = canUseRpcRadiusMode;
+        if (canUseRpcRadius) {
+          setRpcTotalCount(null);
+          setRpcFallbackMode(false);
+        }
         const rpcCityFilter =
           canUseRpcRadius
             ? undefined // com raio, cidade é origem; não deve restringir só à cidade
@@ -597,16 +604,20 @@ export default function SearchResults({
           if (canUseRpcRadius) {
             setAllBusinesses(businessesRes.value.items);
             setRpcTotalCount(businessesRes.value.totalCount);
+            setRpcFallbackMode(false);
           } else {
             setAllBusinesses(businessesRes.value);
             setRpcTotalCount(null);
+            setRpcFallbackMode(false);
           }
         } else if (canUseRpcRadius) {
           const fallbackBusinesses = await getAllBusinesses();
           setAllBusinesses(fallbackBusinesses);
           setRpcTotalCount(null);
+          setRpcFallbackMode(true);
         } else {
           setRpcTotalCount(null);
+          setRpcFallbackMode(false);
         }
 
         if (locationsRes.status === "fulfilled") {
@@ -1040,7 +1051,7 @@ export default function SearchResults({
     ? filteredCommunityFinds.length
     : isEventMode
     ? eventResults.length
-    : canUseRpcRadiusMode && rpcTotalCount !== null
+    : canUseRpcRadiusMode && !rpcFallbackMode && rpcTotalCount !== null
     ? rpcTotalCount
     : results.length;
   const totalPages = Math.max(1, Math.ceil(totalResults / RESULTS_PER_PAGE));
@@ -1049,8 +1060,13 @@ export default function SearchResults({
   const pageEnd = pageStart + RESULTS_PER_PAGE;
 
   const paginatedBusinesses = useMemo(
-    () => (canUseRpcRadiusMode ? results : results.slice(pageStart, pageEnd)),
-    [results, pageStart, pageEnd, canUseRpcRadiusMode]
+    () => {
+      if (canUseRpcRadiusMode && !rpcFallbackMode) {
+        return rpcTotalCount === null ? [] : results;
+      }
+      return results.slice(pageStart, pageEnd);
+    },
+    [results, pageStart, pageEnd, canUseRpcRadiusMode, rpcFallbackMode, rpcTotalCount]
   );
 
   const paginatedEvents = useMemo(
@@ -2188,51 +2204,12 @@ export default function SearchResults({
             </div>
             ))}
             {totalResults > RESULTS_PER_PAGE && (
-              <div className="mt-8 flex flex-nowrap items-center justify-center gap-2 sm:flex-wrap">
-                {safeCurrentPage <= 1 ? (
-                  <Button type="button" variant="outline" size="sm" disabled>
-                    <ChevronLeft className="w-4 h-4 mr-1" />
-                      <span className="hidden sm:inline">Anterior</span>
-                  </Button>
-                ) : (
-                  <Button asChild type="button" variant="outline" size="sm">
-                    <Link to={getPageHref(safeCurrentPage - 1)}>
-                      <ChevronLeft className="w-4 h-4 mr-1" />
-                      <span className="hidden sm:inline">Anterior</span>
-                    </Link>
-                  </Button>
-                )}
-                <span className="sm:hidden text-xs font-medium text-muted-foreground whitespace-nowrap">
-                  Página {safeCurrentPage} de {totalPages}
-                </span>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    asChild
-                    key={page}
-                    type="button"
-                    variant={page === safeCurrentPage ? "default" : "outline"}
-                    size="sm"
-                    className="min-w-9 hidden sm:inline-flex"
-                  >
-                    <Link to={getPageHref(page)} aria-current={page === safeCurrentPage ? "page" : undefined}>
-                      {page}
-                    </Link>
-                  </Button>
-                ))}
-                {safeCurrentPage >= totalPages ? (
-                  <Button type="button" variant="outline" size="sm" disabled>
-                      <span className="hidden sm:inline">Próxima</span>
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                ) : (
-                  <Button asChild type="button" variant="outline" size="sm">
-                    <Link to={getPageHref(safeCurrentPage + 1)}>
-                      <span className="hidden sm:inline">Próxima</span>
-                      <ChevronRight className="w-4 h-4 ml-1" />
-                    </Link>
-                  </Button>
-                )}
-              </div>
+              <Pagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                getPageHref={getPageHref}
+                className="mt-8"
+              />
             )}
             </>
             )}

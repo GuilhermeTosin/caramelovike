@@ -7,6 +7,7 @@ import type { BusinessFrontend } from "@/types/database";
 import { setSeoMeta, upsertMetaTag } from "@/lib/seo";
 import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
+import Pagination from "@/components/Pagination";
 
 const PAGE_SIZE = 100;
 
@@ -341,20 +342,12 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
             </div>
 
             {totalPages > 1 && (
-              <div className="flex flex-wrap gap-2 px-5 py-4 border-t border-border">
-                {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-                  <Link
-                    key={pageNumber}
-                    to={buildPagePath(countryCode, stateCode, citySlug, pageNumber)}
-                    className={`px-3 py-1.5 rounded-full text-sm border ${
-                      pageNumber === safePage
-                        ? "bg-primary text-white border-primary"
-                        : "text-foreground border-border hover:bg-muted"
-                    }`}
-                  >
-                    {pageNumber}
-                  </Link>
-                ))}
+              <div className="px-5 py-4 border-t border-border">
+                <Pagination
+                  currentPage={safePage}
+                  totalPages={totalPages}
+                  getPageHref={(pageNumber) => buildPagePath(countryCode, stateCode, citySlug, pageNumber)}
+                />
               </div>
             )}
           </section>

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import Pagination from "@/components/Pagination";
 import { TabsContent } from "@/components/ui/tabs";
 import { buildBusinessUrl, getCategoryId, getCountryName } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
@@ -21,8 +22,7 @@ type BusinessesTabProps = {
   getCategoryLabel: (category: string) => string;
   myBusinessesSearch: string;
   onSearchChange: (value: string) => void;
-  onPreviousPage: () => void;
-  onNextPage: () => void;
+  onPageChange: (page: number) => void;
   onOpenMenuModal: (business: BusinessFrontend) => void;
   onOpenServicesModal: (business: BusinessFrontend) => void;
   onOpenEventsModal: (business: BusinessFrontend) => void;
@@ -42,8 +42,7 @@ export default function BusinessesTab({
   getCategoryLabel,
   myBusinessesSearch,
   onSearchChange,
-  onPreviousPage,
-  onNextPage,
+  onPageChange,
   onOpenMenuModal,
   onOpenServicesModal,
   onOpenEventsModal,
@@ -265,19 +264,12 @@ export default function BusinessesTab({
           ))}
 
           {myBusinessesTotalPages > 1 ? (
-            <div className="flex items-center justify-between gap-3 pt-2">
-              <p className="text-sm text-muted-foreground">
-                Pagina {safeMyBusinessesPage} de {myBusinessesTotalPages}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" size="sm" disabled={safeMyBusinessesPage <= 1} onClick={onPreviousPage}>
-                  Anterior
-                </Button>
-                <Button type="button" variant="outline" size="sm" disabled={safeMyBusinessesPage >= myBusinessesTotalPages} onClick={onNextPage}>
-                  Proxima
-                </Button>
-              </div>
-            </div>
+            <Pagination
+              currentPage={safeMyBusinessesPage}
+              totalPages={myBusinessesTotalPages}
+              onPageChange={onPageChange}
+              className="pt-2"
+            />
           ) : null}
         </div>
       )}

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import Pagination from "@/components/Pagination";
 import { TabsContent } from "@/components/ui/tabs";
 import { buildBusinessUrl, getCountryName } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
@@ -18,8 +19,7 @@ type AllBusinessesTabProps = {
   allBusinessesTotalPages: number;
   getCategoryLabel: (category: string) => string;
   onSearchChange: (value: string) => void;
-  onPreviousPage: () => void;
-  onNextPage: () => void;
+  onPageChange: (page: number) => void;
   onDeleteBusiness: (business: BusinessFrontend) => void;
 };
 
@@ -31,8 +31,7 @@ export default function AllBusinessesTab({
   allBusinessesTotalPages,
   getCategoryLabel,
   onSearchChange,
-  onPreviousPage,
-  onNextPage,
+  onPageChange,
   onDeleteBusiness,
 }: AllBusinessesTabProps) {
   return (
@@ -108,19 +107,11 @@ export default function AllBusinessesTab({
             ))}
 
             {allBusinessesTotalPages > 1 ? (
-              <div className="flex items-center justify-between gap-3 pt-2">
-                <p className="text-sm text-muted-foreground">
-                  Página {safeAllBusinessesPage} de {allBusinessesTotalPages}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="outline" size="sm" disabled={safeAllBusinessesPage <= 1} onClick={onPreviousPage}>
-                    Anterior
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" disabled={safeAllBusinessesPage >= allBusinessesTotalPages} onClick={onNextPage}>
-                    Próxima
-                  </Button>
-                </div>
-              </div>
+              <Pagination
+                currentPage={safeAllBusinessesPage}
+                totalPages={allBusinessesTotalPages}
+                onPageChange={onPageChange}
+              />
             ) : null}
           </div>
         )}

@@ -683,8 +683,7 @@ export default function UserProfile() {
               getCategoryLabel={getCategoryLabel}
               myBusinessesSearch={myBusinessesSearch}
               onSearchChange={handleMyBusinessesSearchChange}
-              onPreviousPage={() => setMyBusinessesPage((prev) => Math.max(1, prev - 1))}
-              onNextPage={() => setMyBusinessesPage((prev) => Math.min(myBusinessesTotalPages, prev + 1))}
+              onPageChange={(page) => setMyBusinessesPage(page)}
               onOpenMenuModal={handleOpenMenuModal}
               onOpenServicesModal={handleOpenServicesModal}
               onOpenEventsModal={handleOpenEventsModal}
@@ -702,8 +701,7 @@ export default function UserProfile() {
                 allBusinessesTotalPages={allBusinessesTotalPages}
                 getCategoryLabel={getCategoryLabel}
                 onSearchChange={setAllBusinessesSearch}
-                onPreviousPage={() => setAllBusinessesPage((prev) => Math.max(1, prev - 1))}
-                onNextPage={() => setAllBusinessesPage((prev) => Math.min(allBusinessesTotalPages, prev + 1))}
+                onPageChange={(page) => setAllBusinessesPage(page)}
                 onDeleteBusiness={handleDeleteMyBusiness}
               />
             ) : null}
