@@ -134,6 +134,18 @@ export async function onBeforeRender(pageContext: PageContext) {
   }
 
   if (pathname === "/buscar" || pathname === "/negocios" || pathname.startsWith("/negocios/")) {
+    if (pathname === "/buscar" && pageContext.isClientSideNavigation) {
+      return {
+        pageContext: {
+          initialBusiness: null,
+          initialBusinesses: [],
+          initialAvailableLocations: [],
+          initialSearchSuggestions: [],
+          isBusinessPage: false,
+        },
+      };
+    }
+
     const directoryRoute = parseDirectoryCityPath(pathname);
     if (directoryRoute) {
       const canonicalCitySlug = await resolveCanonicalLocationSlug(

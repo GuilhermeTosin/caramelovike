@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useSearchParams, useNavigate, Link } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useRef } from "react";
 import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, X, Navigation, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Share2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -239,6 +239,10 @@ type SearchResultsProps = {
   initialSearchSuggestions?: string[];
 };
 
+type SearchResultsLocationState = {
+  preloadedBusinesses?: BusinessFrontend[];
+};
+
 function extractCities(
   locations: { states: { cities: string[] }[] }[]
 ): string[] {
@@ -257,6 +261,7 @@ export default function SearchResults({
   initialSearchSuggestions = [],
 }: SearchResultsProps = {}) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { session } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
@@ -285,10 +290,13 @@ export default function SearchResults({
   const hasLocationContext = !!(cityFilter.trim() || locationFilter.trim());
   const effectiveRadiusKm = radiusKm;
 
+  const navigationState = location.state as SearchResultsLocationState | null;
+  const preloadedBusinesses = navigationState?.preloadedBusinesses;
+  const initialBusinessPool = preloadedBusinesses?.length ? preloadedBusinesses : initialBusinesses;
   const [searchInput, setSearchInput] = useState(query);
   const [locationInput, setLocationInput] = useState(locationFilter);
   const [showMap, setShowMap] = useState(false);
-  const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinesses);
+  const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinessPool);
   const [availableLocations, setAvailableLocations] = useState<any[]>(initialAvailableLocations);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>(initialSearchSuggestions);
   const [citySuggestions, setCitySuggestions] = useState<string[]>(() => extractCities(initialAvailableLocations));
@@ -308,7 +316,7 @@ export default function SearchResults({
     () => resolveSearchQueryCategoryIds(query, categorySynonymsMap, SEARCH_SYNONYMS),
     [query, categorySynonymsMap]
   );
-  const [initialLoading, setInitialLoading] = useState(initialBusinesses.length === 0);
+  const [initialLoading, setInitialLoading] = useState(initialBusinessPool.length === 0);
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
   const [rpcFallbackMode, setRpcFallbackMode] = useState(false);
@@ -561,6 +569,11 @@ export default function SearchResults({
 
     const loadInitialData = async () => {
       if (allBusinesses.length === 0) setInitialLoading(true);
+      const supplementalDataPromise = Promise.allSettled([
+        getAvailableLocations(),
+        getSearchSuggestions(),
+        getPublishedCommunityEvents(),
+      ]);
       try {
         const initialRadius = radiusFilter ? Number(radiusFilter) : null;
         const initialLat = parseCoordParam(originLatParam);
@@ -595,11 +608,6 @@ export default function SearchResults({
             })
           : getAllBusinesses();
 
-        const supplementalDataPromise = Promise.allSettled([
-          getAvailableLocations(),
-          getSearchSuggestions(),
-          getPublishedCommunityEvents(),
-        ]);
         const [businessesRes] = await Promise.allSettled([businessesPromise]);
         if (!active) return;
 

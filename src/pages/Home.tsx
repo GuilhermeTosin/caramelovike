@@ -789,6 +789,12 @@ export default function Home({
             <Link
               key={`${city.countryCode}-${city.name}`}
               to={`/buscar?cidade=${encodeURIComponent(city.name)}`}
+              state={{
+                preloadedBusinesses: allBusinesses.filter((business) =>
+                  normalizeText(business.address.city || "") === normalizeText(city.name) &&
+                  (business.address.countryCode || "").toLowerCase() === city.countryCode.toLowerCase()
+                ),
+              }}
               className="w-[160px] sm:w-[170px] lg:w-[180px] min-h-[128px] flex flex-col items-center justify-center gap-2 p-5 rounded-xl bg-card border border-border card-hover"
             >
               <img
