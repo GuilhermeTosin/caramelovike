@@ -5,13 +5,28 @@ export const UTF8_JSON_HEADERS = {
   "Content-Type": UTF8_JSON_CONTENT_TYPE,
 } as const;
 
+type BufferedResponse = {
+  body: ArrayBuffer;
+  headers: [string, string][];
+  status: number;
+  statusText: string;
+};
+
+const inFlightMutationRequests = new Map<string, Promise<BufferedResponse>>();
+const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function hasBinaryBody(body: BodyInit | null | undefined): boolean {
+  return (
+    (typeof FormData !== "undefined" && body instanceof FormData) ||
+    (typeof Blob !== "undefined" && body instanceof Blob) ||
+    (typeof ArrayBuffer !== "undefined" && body instanceof ArrayBuffer)
+  );
+}
+
 export function withUtf8JsonHeaders(init: RequestInit = {}): RequestInit {
   const headers = new Headers(init.headers ?? {});
   const body = init.body;
-  const isBinaryBody =
-    typeof FormData !== "undefined" && body instanceof FormData ||
-    typeof Blob !== "undefined" && body instanceof Blob ||
-    typeof ArrayBuffer !== "undefined" && body instanceof ArrayBuffer;
+  const isBinaryBody = hasBinaryBody(init.body);
 
   if (!headers.has("Accept")) {
     headers.set("Accept", UTF8_JSON_CONTENT_TYPE);
@@ -32,7 +47,58 @@ export async function utf8Fetch(
   input: RequestInfo | URL,
   init: RequestInit = {}
 ): Promise<Response> {
-  return fetch(input, withUtf8JsonHeaders(init));
+  const request = new Request(input, withUtf8JsonHeaders(init));
+
+  if (!MUTATION_METHODS.has(request.method.toUpperCase())) {
+    return fetch(request);
+  }
+
+  const contentType = request.headers.get("Content-Type") || "";
+  const isTextualPayload =
+    !contentType ||
+    contentType.includes("application/json") ||
+    contentType.includes("application/x-www-form-urlencoded") ||
+    contentType.startsWith("text/");
+
+  // Uploads have binary bodies and must remain independent requests.
+  if (hasBinaryBody(init.body) || !isTextualPayload) {
+    return fetch(request);
+  }
+
+  const body = await request.clone().text();
+  const key = [
+    request.method.toUpperCase(),
+    request.url,
+    request.headers.get("Authorization") || "",
+    body,
+  ].join("\n");
+  const existing = inFlightMutationRequests.get(key);
+
+  if (existing) {
+    return existing.then(createResponseFromBuffer);
+  }
+
+  const pending = fetch(request)
+    .then(async (response) => ({
+      body: await response.arrayBuffer(),
+      headers: Array.from(response.headers.entries()),
+      status: response.status,
+      statusText: response.statusText,
+    }))
+    .finally(() => {
+      inFlightMutationRequests.delete(key);
+    });
+
+  inFlightMutationRequests.set(key, pending);
+  return pending.then(createResponseFromBuffer);
+}
+
+function createResponseFromBuffer(response: BufferedResponse): Response {
+  return new Response(response.body.slice(0), {
+    headers: response.headers,
+    status: response.status,
+    statusText: response.statusText,
+  });
 }
 
 export function jsonUtf8Response(body: unknown, init: ResponseInit = {}): Response {

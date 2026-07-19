@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { utf8Fetch } from "@/lib/http/utf8";
 import { supabase } from "@/lib/supabase";
 import {
   DEFAULT_CATEGORY_SYNONYMS,
@@ -131,7 +132,7 @@ export function useAdminSearchSettings({ isAdmin }: UseAdminSearchSettingsOption
         toast.error("Sessão expirada. Faça login novamente.");
         return;
       }
-      const response = await fetch("/api/sitemap-refresh", {
+      const response = await utf8Fetch("/api/sitemap-refresh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json; charset=utf-8",
