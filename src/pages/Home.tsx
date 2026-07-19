@@ -467,7 +467,7 @@ export default function Home({
               </div>
             </Link>
             
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-4" />
+            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
           </div>
         </div>
       </header>
