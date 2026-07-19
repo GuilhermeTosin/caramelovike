@@ -136,7 +136,9 @@ export default function BusinessWizardPage() {
   const isEditMode = !!editingBusinessId;
   const [step, setStep] = useState<WizardStep>(1);
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingStep, setIsChangingStep] = useState(false);
   const saveInProgressRef = useRef(false);
+  const stepTransitionInProgressRef = useRef(false);
   const [loadingEditBusiness, setLoadingEditBusiness] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
   const [checkingSlug, setCheckingSlug] = useState(false);
@@ -500,12 +502,23 @@ export default function BusinessWizardPage() {
   };
 
   const goNext = async () => {
-    const ok = await validateCurrentStep();
-    if (!ok) return;
-    if (step < TOTAL_STEPS) setStep((prev) => (prev + 1) as WizardStep);
+    if (isSaving || stepTransitionInProgressRef.current) return;
+
+    stepTransitionInProgressRef.current = true;
+    setIsChangingStep(true);
+
+    try {
+      const ok = await validateCurrentStep();
+      if (!ok) return;
+      if (step < TOTAL_STEPS) setStep((prev) => (prev + 1) as WizardStep);
+    } finally {
+      stepTransitionInProgressRef.current = false;
+      setIsChangingStep(false);
+    }
   };
 
   const goBack = () => {
+    if (isSaving || stepTransitionInProgressRef.current) return;
     if (step > 1) setStep((prev) => (prev - 1) as WizardStep);
   };
 
@@ -1259,14 +1272,14 @@ export default function BusinessWizardPage() {
           )}
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button variant="outline" onClick={goBack} disabled={step === 1 || isSaving} className="w-full sm:w-auto">
+            <Button variant="outline" onClick={goBack} disabled={step === 1 || isSaving || isChangingStep} className="w-full sm:w-auto">
               <ChevronLeft className="w-4 h-4 mr-1" />
               Voltar
             </Button>
 
             <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:justify-end">
             {step < TOTAL_STEPS ? (
-              <Button onClick={goNext} disabled={isSaving} className="order-1 w-full sm:w-auto">
+              <Button onClick={goNext} disabled={isSaving || isChangingStep} className="order-1 w-full sm:w-auto">
                 Próximo
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
