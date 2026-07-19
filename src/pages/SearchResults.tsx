@@ -1080,7 +1080,7 @@ export default function SearchResults({
   const paginatedBusinesses = useMemo(
     () => {
       if (canUseRpcRadiusMode && !rpcFallbackMode) {
-        return rpcTotalCount === null ? [] : results;
+        return rpcTotalCount === null ? results.slice(pageStart, pageEnd) : results;
       }
       return results.slice(pageStart, pageEnd);
     },
