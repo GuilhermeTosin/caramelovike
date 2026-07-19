@@ -580,7 +580,6 @@ export default function SearchResults({
         const initialLng = parseCoordParam(originLngParam);
         const canUseRpcRadius = canUseRpcRadiusMode;
         if (canUseRpcRadius) {
-          setRpcTotalCount(null);
           setRpcFallbackMode(false);
         }
         const rpcCityFilter =
