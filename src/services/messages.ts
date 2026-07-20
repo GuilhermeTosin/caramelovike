@@ -104,21 +104,22 @@ export async function getConversationsForUser(
 
   const convIds = participations.map((cp) => cp.conversation_id);
 
-  const { data: conversations } = await supabase
-    .from("conversations")
-    .select("*")
-    .in("id", convIds)
-    .order("last_message_at", { ascending: false })
-    .order("created_at", { ascending: false });
+  const [{ data: conversations }, { data: allParticipants }] = await Promise.all([
+    supabase
+      .from("conversations")
+      .select("*")
+      .in("id", convIds)
+      .order("last_message_at", { ascending: false })
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("conversation_participants")
+      .select("*")
+      .in("conversation_id", convIds),
+  ]);
 
   if (!conversations) return [];
 
   // Buscar participantes de todas as conversas
-  const { data: allParticipants } = await supabase
-    .from("conversation_participants")
-    .select("*")
-    .in("conversation_id", convIds);
-
   const participantsByConv = new Map<string, string[]>();
   (allParticipants || []).forEach((cp: ConversationParticipant) => {
     const list = participantsByConv.get(cp.conversation_id) || [];

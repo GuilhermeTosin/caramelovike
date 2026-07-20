@@ -10,6 +10,18 @@ export async function getProfileById(id: string): Promise<Profile | null> {
   return data;
 }
 
+export async function getProfilesByIds(ids: string[]): Promise<Profile[]> {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0) return [];
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", uniqueIds);
+
+  return (data || []) as Profile[];
+}
+
 export async function updateProfile(
   id: string,
   updates: Partial<Pick<Profile, "name" | "bio" | "phone" | "location" | "avatar">>

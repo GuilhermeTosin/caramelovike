@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getProfileById } from "@/services/profiles";
+import { getProfilesByIds } from "@/services/profiles";
 import {
   deleteConversation,
   getConversationPartner,
@@ -75,22 +75,22 @@ export function useInboxAndReviews({ sessionUserId, refreshUnread }: UseInboxAnd
     let cancelled = false;
 
     const loadPartners = async () => {
-      const entries = await Promise.all(
-        conversations.map(async (conv) => {
-          const partnerId = getConversationPartner(conv, sessionUserId);
-          if (!partnerId) {
-            return [conv.id, { name: conv.businessName || "Contato", avatar: "" }] as const;
-          }
-          const profile = await getProfileById(partnerId);
-          return [
-            conv.id,
-            {
-              name: profile?.name || conv.businessName || "Contato",
-              avatar: profile?.avatar || "",
-            },
-          ] as const;
-        })
-      );
+      const partnerIds = conversations
+        .map((conv) => getConversationPartner(conv, sessionUserId))
+        .filter((id): id is string => !!id);
+      const profiles = await getProfilesByIds(partnerIds);
+      const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
+      const entries = conversations.map((conv) => {
+        const partnerId = getConversationPartner(conv, sessionUserId);
+        const profile = partnerId ? profilesById.get(partnerId) : undefined;
+        return [
+          conv.id,
+          {
+            name: profile?.name || conv.businessName || "Contato",
+            avatar: profile?.avatar || "",
+          },
+        ] as const;
+      });
       if (cancelled) return;
       setConversationPartners(Object.fromEntries(entries));
     };
