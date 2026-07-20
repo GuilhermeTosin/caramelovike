@@ -1528,7 +1528,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                           </p>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{item.description}</p>
+                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(item.description)}</p>
                       {item.categoryId === "food" && (item.isVeganFriendly || item.isVegetarianFriendly || item.isGlutenFreeFriendly) ? (
                         <div className="flex flex-wrap gap-2 mt-3">
                           {item.isVeganFriendly ? (
