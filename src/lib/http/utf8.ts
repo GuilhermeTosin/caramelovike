@@ -94,7 +94,9 @@ export async function utf8Fetch(
 }
 
 function createResponseFromBuffer(response: BufferedResponse): Response {
-  return new Response(response.body.slice(0), {
+  const responseBody = response.status === 204 || response.status === 205 ? null : response.body.slice(0);
+
+  return new Response(responseBody, {
     headers: response.headers,
     status: response.status,
     statusText: response.statusText,

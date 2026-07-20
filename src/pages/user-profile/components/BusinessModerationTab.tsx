@@ -58,7 +58,7 @@ export default function BusinessModerationTab({
                       <Badge variant="outline">Em análise</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {business.address.city || "Cidade n?o informada"}
+                      {business.address.city || "Cidade não informada"}
                       {getCountryName(business.address.countryCode || business.address.country) ? `, ${getCountryName(business.address.countryCode || business.address.country)}` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">

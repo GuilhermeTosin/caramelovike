@@ -104,7 +104,7 @@ export default function VerificationAdminTab({
                   <div className="flex-1 min-w-0">
                     <h4 className="font-semibold">{business.name}</h4>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {business.address.city || "Cidade n?o informada"}
+                      {business.address.city || "Cidade não informada"}
                       {getCountryName(business.address.countryCode || business.address.country) ? `, ${getCountryName(business.address.countryCode || business.address.country)}` : ""}
                     </p>
                     {business.ownerVerifiedUntil ? (

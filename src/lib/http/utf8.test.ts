@@ -30,4 +30,17 @@ describe("utf8Fetch", () => {
     await expect((await first).json()).resolves.toEqual({ id: "business-1" });
     await expect((await second).json()).resolves.toEqual({ id: "business-1" });
   });
+
+  it("preserves no-content mutation responses", async () => {
+    const fetchSpy = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const response = await utf8Fetch("https://example.test/rest/v1/businesses?id=eq.business-1", {
+      method: "DELETE",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(204);
+    await expect(response.text()).resolves.toBe("");
+  });
 });

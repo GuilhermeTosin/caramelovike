@@ -1045,7 +1045,7 @@ export default function BusinessWizardPage() {
                 </p>
                 <p className="text-muted-foreground mt-1">
                   {!form.hasPhysicalAddress
-                    ? `${form.city?.trim() || "Cidade n?o preenchida"}${form.countryCode ? `, ${getCountryName(form.countryCode)}` : ""}`
+                    ? `${form.city?.trim() || "Cidade não preenchida"}${form.countryCode ? `, ${getCountryName(form.countryCode)}` : ""}`
                     : (
                       <>
                         {form.street?.trim() || "Endereço não preenchido"}<br />
