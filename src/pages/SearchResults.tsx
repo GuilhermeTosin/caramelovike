@@ -1728,7 +1728,17 @@ export default function SearchResults({
               <Navigation className="w-4 h-4 mr-1" />
               {locatingMe ? "Localizando..." : "Me localizar"}
             </Button>
-            <Button variant={showMap ? "default" : "outline"} size="sm" onClick={() => setShowMap(true)} className="h-9 flex-1 sm:flex-none">
+            <Button
+              variant={showMap ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowMap(true)}
+              aria-pressed={showMap}
+              className={`h-9 flex-1 sm:flex-none font-semibold ${
+                showMap
+                  ? "shadow-md"
+                  : "border-blue-300 bg-blue-50 text-blue-700 shadow-sm hover:border-blue-400 hover:bg-blue-100 hover:text-blue-800"
+              }`}
+            >
               <MapIcon className="w-4 h-4 mr-1" />
               Mapa
             </Button>
