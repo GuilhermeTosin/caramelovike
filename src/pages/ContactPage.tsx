@@ -21,8 +21,8 @@ export default function ContactPage() {
 
   useEffect(() => {
     setSeoMeta(
-      "Contato | Caramelinho",
-      "Fale com o time do Caramelinho para dúvidas, suporte e parcerias."
+      "Contato | Caramelinho.com",
+      "Fale com o Caramelinho para tirar dúvidas, obter suporte ou conversar sobre parcerias."
     );
   }, []);
 

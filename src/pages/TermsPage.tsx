@@ -7,7 +7,7 @@ import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 export default function TermsPage() {
   useEffect(() => {
     setSeoMeta(
-      "Termos e Condições | Caramelinho",
+      "Termos e Condições | Caramelinho.com",
       "Leia os termos e condições de uso da plataforma Caramelinho."
     );
   }, []);
@@ -38,7 +38,7 @@ export default function TermsPage() {
         <h1 className="text-3xl font-bold mt-4">Termos e Condições</h1>
         <div className="mt-6 rounded-xl border border-border bg-card p-6 sm:p-8">
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Bem-vindo(a) à Caramelinho.com.</strong> Este documento rege o uso do nosso site, aplicativo e serviços relacionados.
+            <strong className="text-foreground">Bem-vindo(a) à Caramelinho.com.</strong> Este documento rege o uso do nosso site e serviços relacionados.
             Ao acessar ou utilizar a Caramelinho, você concorda expressamente com estes Termos e Condições.
             Caso não concorde com qualquer parte deste documento, solicitamos que não utilize nossos serviços.
           </p>

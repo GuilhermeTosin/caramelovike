@@ -17,9 +17,9 @@ export default function AboutPage() {
   useEffect(() => {
     if (typeof document === "undefined") return;
 
-    const title = "Sobre Nós | Caramelinho";
+    const title = "Sobre Nós | Caramelinho.com";
     const description =
-      "Conheça a Caramelinho.com: conectamos brasileiros no exterior aos melhores negócios da comunidade, com busca local inteligente e foco em confiança.";
+      "Conheça o Caramelinho, a plataforma que conecta brasileiros no exterior a negócios e serviços da comunidade.";
     const canonicalUrl = "https://www.caramelinho.com/sobre";
     const imageUrl = "https://www.caramelinho.com/logo.png";
 
@@ -103,7 +103,7 @@ export default function AboutPage() {
           <h2 className="text-2xl font-semibold text-foreground pt-3">Nossa Missão</h2>
           <p>Nossa missão é simples e poderosa: conectar a comunidade brasileira no exterior aos produtos e serviços que amamos.</p>
           <p>
-            Através da nossa plataforma web e aplicativo móvel, utilizamos tecnologia de geolocalização inteligente para ajudar você a encontrar os negócios brasileiros mais próximos. Seja um salão de beleza que entende o seu cabelo, um mercado com nossos produtos típicos, ou profissionais de confiança que falam a nossa língua, nós colocamos tudo isso na palma da sua mão.
+            Através da nossa plataforma web, utilizamos tecnologia de geolocalização inteligente para ajudar você a encontrar os negócios brasileiros mais próximos. Seja um salão de beleza que entende o seu cabelo, um mercado com nossos produtos típicos, ou profissionais de confiança que falam a nossa língua, nós colocamos tudo isso na palma da sua mão.
           </p>
 
           <h2 className="text-2xl font-semibold text-foreground pt-3">Por que "Caramelinho"?</h2>

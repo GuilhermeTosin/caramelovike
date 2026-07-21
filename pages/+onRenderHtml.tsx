@@ -42,6 +42,7 @@ function isIndexableSearchUrl(urlOriginal?: string) {
 
 function getRobotsContent(urlOriginal?: string) {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
+
   const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
   if (privatePaths.has(pathname)) return "noindex,nofollow,noarchive";
   if (!isIndexableSearchUrl(urlOriginal)) return "noindex,follow,max-image-preview:large";
@@ -123,6 +124,7 @@ function titleCasePathSegment(value: string) {
 
 function buildFallbackBusinessMeta(urlOriginal: string | undefined, locale: Locale) {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
+
   const parts = pathname.split("/").filter(Boolean);
   const citySlug = parts[2] || "";
   const cityName = titleCasePathSegment(citySlug);
@@ -151,6 +153,40 @@ function buildFallbackBusinessMeta(urlOriginal: string | undefined, locale: Loca
 
 function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] = [], locale: Locale = "pt-BR") {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
+  const staticPageMeta = {
+    "/sobre": {
+      title: locale === "en" ? "About Us | Caramelinho.com" : "Sobre Nós | Caramelinho.com",
+      description:
+        locale === "en"
+          ? "Learn about Caramelinho, the platform that connects Brazilians abroad with businesses and services from the community."
+          : "Conheça o Caramelinho, a plataforma que conecta brasileiros no exterior a negócios e serviços da comunidade.",
+    },
+    "/contato": {
+      title: locale === "en" ? "Contact | Caramelinho.com" : "Contato | Caramelinho.com",
+      description:
+        locale === "en"
+          ? "Contact Caramelinho for questions, support, and partnership opportunities."
+          : "Fale com o Caramelinho para tirar dúvidas, obter suporte ou conversar sobre parcerias.",
+    },
+    "/privacidade": {
+      title: locale === "en" ? "Privacy Policy | Caramelinho.com" : "Política de Privacidade | Caramelinho.com",
+      description:
+        locale === "en"
+          ? "Learn how Caramelinho collects, uses, and protects your personal data."
+          : "Entenda como o Caramelinho coleta, utiliza e protege seus dados pessoais.",
+    },
+    "/termos": {
+      title: locale === "en" ? "Terms and Conditions | Caramelinho.com" : "Termos e Condições | Caramelinho.com",
+      description:
+        locale === "en"
+          ? "Read the terms and conditions for using the Caramelinho platform."
+          : "Leia os termos e condições de uso da plataforma Caramelinho.",
+    },
+  } as const;
+
+  if (pathname in staticPageMeta) {
+    return staticPageMeta[pathname as keyof typeof staticPageMeta];
+  }
   if (pathname === "/negocios" || pathname.startsWith("/negocios/")) {
     return getDirectoryPageMeta(urlOriginal, businesses, locale) || {
       title:

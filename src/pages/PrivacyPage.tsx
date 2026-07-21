@@ -7,8 +7,8 @@ import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 export default function PrivacyPage() {
   useEffect(() => {
     setSeoMeta(
-      "Política de Privacidade | Caramelinho",
-      "Entenda como o Caramelinho coleta, usa e protege dados pessoais."
+      "Política de Privacidade | Caramelinho.com",
+      "Entenda como o Caramelinho coleta, utiliza e protege seus dados pessoais."
     );
   }, []);
 
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
         <div className="mt-6 rounded-xl border border-border bg-card p-6 sm:p-8">
           <p className="text-muted-foreground leading-relaxed">
             A Caramelinho tem o compromisso de proteger a privacidade e a segurança dos dados de nossos usuários e anunciantes.
-            Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos suas informações ao acessar nosso site, aplicativo e serviços relacionados.
+            Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos suas informações ao acessar nosso site e serviços relacionados.
           </p>
           <p className="mt-3 text-muted-foreground leading-relaxed">
             Ao utilizar a Caramelinho, você concorda com as práticas descritas neste documento.

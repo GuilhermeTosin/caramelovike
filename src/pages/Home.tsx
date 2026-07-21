@@ -524,9 +524,6 @@ export default function Home({
                     );
                   })}
                 </div>
-                <p className="mt-2 text-center text-xs sm:text-sm leading-relaxed text-slate-600">
-                  {activeSearchMode.description}
-                </p>
               </div>
               <div className="relative z-30 w-full overflow-visible rounded-2xl sm:rounded-3xl bg-white shadow-xl focus-within:ring-2 ring-primary/20 transition-all p-2 sm:p-2 min-h-[112px] sm:min-h-[88px]">
                 <div className="flex flex-col sm:flex-row gap-0 sm:pr-[262px] pt-[5px]">
