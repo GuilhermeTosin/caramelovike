@@ -195,9 +195,9 @@ export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
   res.setHeader(
     "Cache-Control",
-    "public, max-age=0, s-maxage=0, must-revalidate"
+    "no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate"
   );
-  res.setHeader("X-Sitemap-Source", data.source);
+  res.setHeader("CDN-Cache-Control", "no-store");
   if (data.urlCount !== null) {
     res.setHeader("X-Sitemap-Url-Count", String(data.urlCount));
   }

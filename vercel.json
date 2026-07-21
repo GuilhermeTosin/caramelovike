@@ -33,7 +33,33 @@
     { "src": "/negocio/wizard", "dest": "/index.html" },
     { "src": "/preview/negocio/(.*)", "dest": "/index.html" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/sitemaps/businesses.xml", "dest": "/api/sitemap-businesses" },
+    {
+      "src": "/sitemap.xml",
+      "headers": {
+        "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate",
+        "CDN-Cache-Control": "no-store",
+        "Vercel-CDN-Cache-Control": "no-store"
+      },
+      "dest": "/api/sitemap-index"
+    },
+    {
+      "src": "/sitemaps/static.xml",
+      "headers": {
+        "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate",
+        "CDN-Cache-Control": "no-store",
+        "Vercel-CDN-Cache-Control": "no-store"
+      },
+      "dest": "/api/sitemap-static"
+    },
+    {
+      "src": "/sitemaps/businesses.xml",
+      "headers": {
+        "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate",
+        "CDN-Cache-Control": "no-store",
+        "Vercel-CDN-Cache-Control": "no-store"
+      },
+      "dest": "/api/sitemap-businesses"
+    },
 
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api/ssr" }
