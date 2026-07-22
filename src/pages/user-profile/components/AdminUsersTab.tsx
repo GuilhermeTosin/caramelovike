@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Building2, CalendarDays, Edit3, MapPin, RefreshCw, Search, Trash2, Users } from "lucide-react";
+import { ArrowRightLeft, Building2, CalendarDays, Edit3, MapPin, RefreshCw, Search, Trash2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,11 +23,13 @@ type AdminUsersTabProps = {
   totalPages: number;
   loading: boolean;
   error: string | null;
+  adminUserId?: string;
   onSearchChange: (value: string) => void;
   onPageChange: (page: number) => void;
   onRefresh: () => void;
   onSaveUser: (userId: string, updates: AdminUserProfileUpdates) => Promise<void>;
   onDeleteUser: (userId: string) => Promise<void>;
+  onTransferBusinessOwnership: (businessId: string) => Promise<void>;
 };
 
 function formatDate(value: string) {
@@ -51,19 +53,44 @@ export default function AdminUsersTab({
   totalPages,
   loading,
   error,
+  adminUserId,
   onSearchChange,
   onPageChange,
   onRefresh,
   onSaveUser,
   onDeleteUser,
+  onTransferBusinessOwnership,
 }: AdminUsersTabProps) {
   const [selectedUser, setSelectedUser] = useState<AdminUserRecord | null>(null);
   const [editingUser, setEditingUser] = useState<AdminUserRecord | null>(null);
   const [editForm, setEditForm] = useState<AdminUserProfileUpdates>({});
   const [saving, setSaving] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [transferringBusinessId, setTransferringBusinessId] = useState<string | null>(null);
 
 
+  const handleTransferBusiness = async (businessId: string, businessName: string) => {
+    if (!selectedUser || selectedUser.id === adminUserId) return;
+
+    const confirmed = window.confirm(
+      "Transferir " + businessName + " para a sua conta? O usuário atual perderá o acesso de proprietário.",
+    );
+    if (!confirmed) return;
+
+    setTransferringBusinessId(businessId);
+    try {
+      await onTransferBusinessOwnership(businessId);
+      setSelectedUser((current) =>
+        current
+          ? { ...current, businesses: current.businesses.filter((business) => business.id !== businessId) }
+          : current,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível transferir o negócio.");
+    } finally {
+      setTransferringBusinessId(null);
+    }
+  };
   const startEditing = (user: AdminUserRecord) => {
     setEditingUser(user);
     setEditForm({
@@ -259,6 +286,23 @@ export default function AdminUsersTab({
                             {[business.city, business.state, business.country].filter(Boolean).join(", ") || "Localização não informada"}
                           </p>
                           {business.moderation_status ? <Badge variant="secondary" className="mt-2">{business.moderation_status}</Badge> : null}
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void handleTransferBusiness(business.id, business.name)}
+                              disabled={selectedUser.id === adminUserId || Boolean(transferringBusinessId)}
+                              title={selectedUser.id === adminUserId ? "Este negócio já pertence a você." : "Transferir este negócio para você"}
+                            >
+                              <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+                              {transferringBusinessId === business.id
+                                ? "Transferindo..."
+                                : selectedUser.id === adminUserId
+                                  ? "Já é meu"
+                                  : "Transferir para mim"}
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>

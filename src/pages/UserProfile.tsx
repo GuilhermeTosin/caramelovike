@@ -8,6 +8,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { updateProfile } from "@/services/profiles";
+import { transferBusinessOwnershipByEmail } from "@/services/ownership";
 import { generateImagePath, uploadImage } from "@/services/storage";
 import {
   BUSINESS_CATEGORY_OPTIONS,
@@ -139,6 +140,24 @@ export default function UserProfile() {
     deleteUser: deleteAdminUser,
     refresh: refreshAdminUsers,
   } = useAdminUsers({ enabled: canManageUsers });
+
+  const handleTransferBusinessToAdmin = async (businessId: string) => {
+    if (!canManageUsers) {
+      throw new Error("Ação não autorizada.");
+    }
+
+    const result = await transferBusinessOwnershipByEmail(businessId, USER_MANAGEMENT_ADMIN_EMAIL);
+    if (!result.ok) {
+      throw new Error(result.error || "Não foi possível transferir o negócio.");
+    }
+
+    toast.success("Negócio transferido para sua conta.");
+    await Promise.allSettled([
+      refreshAdminUsers(),
+      refreshAllBusinesses(),
+      refreshOwnedBusinesses(session?.userId),
+    ]);
+  };
 
   const {
     myCommunityEvents,
@@ -734,11 +753,13 @@ export default function UserProfile() {
                 totalPages={adminUsersTotalPages}
                 loading={adminUsersLoading}
                 error={adminUsersError}
+                adminUserId={session?.userId}
                 onSearchChange={setAdminUsersSearch}
                 onPageChange={setAdminUsersPage}
                 onRefresh={refreshAdminUsers}
                 onSaveUser={saveAdminUser}
                 onDeleteUser={deleteAdminUser}
+                onTransferBusinessOwnership={handleTransferBusinessToAdmin}
               />
             ) : null}
 
