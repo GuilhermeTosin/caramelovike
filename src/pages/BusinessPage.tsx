@@ -50,7 +50,7 @@ import { setSeoMeta, setCanonical, setJsonLd, setRobots } from "@/lib/seo";
 import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
 import { getLocaleFromPathname } from "@/i18n/routing";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
-import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
+import { DEFAULT_BUSINESS_LOGO, getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
 import NotFound from "@/pages/NotFound";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
@@ -724,7 +724,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
         <div className="absolute bottom-0 left-0 right-0 z-30 p-6 sm:p-10">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-end gap-6">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-4 border-white bg-white shrink-0">
-              <img src={business.logoUrl || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&q=80"} alt="" className="w-full h-full object-cover" />
+              <img src={business.logoUrl || DEFAULT_BUSINESS_LOGO} alt="" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 text-white mb-2">
               <Badge className="mb-3 bg-white/20 text-white border-0 hover:bg-white/30 rounded-lg px-3 py-1">

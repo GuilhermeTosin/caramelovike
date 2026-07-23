@@ -9,6 +9,7 @@ import { TabsContent } from "@/components/ui/tabs";
 import { buildBusinessUrl, getCategoryId, getCountryName } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { getCityDisplayName } from "@/lib/locationDisplay";
+import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import type { BusinessFrontend } from "@/types/database";
 
 type BusinessesTabProps = {
@@ -107,7 +108,7 @@ export default function BusinessesTab({
               <div className="flex items-start gap-4">
                 <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
                   <img
-                    src={biz.logoUrl || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&q=60"}
+                    src={biz.logoUrl || DEFAULT_BUSINESS_LOGO}
                     alt={biz.name}
                     className="h-full w-full object-cover"
                   />
