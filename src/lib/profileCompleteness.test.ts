@@ -11,9 +11,16 @@ describe("business profile completeness", () => {
       getProfileScoreItems({ description }).find((item) => item.id === "description")?.earned;
 
     expect(scoreFor("Breve descricao")).toBe(4);
-    expect(scoreFor("a".repeat(40))).toBe(12);
-    expect(scoreFor("a".repeat(120))).toBe(20);
-    expect(scoreFor("a".repeat(250))).toBe(28);
+    expect(scoreFor("a".repeat(40))).toBe(15);
+    expect(scoreFor("a".repeat(120))).toBe(25);
+    expect(scoreFor("a".repeat(250))).toBe(35);
+  });
+
+  it("does not require services or item details for profile completeness", () => {
+    const ids = getProfileScoreItems({ services: [], serviceItems: [], menu: [] }).map((item) => item.id);
+
+    expect(ids).not.toContain("offer");
+    expect(ids).not.toContain("offer-details");
   });
 
   it("gives 30 points to complete contact information from step 3", () => {

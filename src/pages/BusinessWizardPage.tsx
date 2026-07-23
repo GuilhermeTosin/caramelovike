@@ -198,6 +198,8 @@ export default function BusinessWizardPage() {
   const [businessHoursTouched, setBusinessHoursTouched] = useState(false);
   const [existingLogoUrl, setExistingLogoUrl] = useState("");
   const [existingHeroUrl, setExistingHeroUrl] = useState("");
+  const [logoRemoved, setLogoRemoved] = useState(false);
+  const [heroRemoved, setHeroRemoved] = useState(false);
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
   const [galleryTouched, setGalleryTouched] = useState(false);
 
@@ -211,8 +213,8 @@ export default function BusinessWizardPage() {
     stateCode: form.stateCode,
     countryCode: form.countryCode,
     street: form.street,
-    logoUrl: logoFile ? "pending-logo" : existingLogoUrl,
-    heroImage: heroFile ? "pending-hero" : existingHeroUrl,
+    logoUrl: logoFile ? "pending-logo" : logoRemoved ? "" : existingLogoUrl,
+    heroImage: heroFile ? "pending-hero" : heroRemoved ? "" : existingHeroUrl,
     photos: [...existingPhotos, ...photoFiles.map((file) => file.name)],
     phone: form.phone,
     email: form.email,
@@ -224,7 +226,7 @@ export default function BusinessWizardPage() {
     keywords: form.keywords.split(",").map((item) => item.trim()).filter(Boolean),
     openingHours: businessHoursTouched ? serializeBusinessHours(businessHours) : [],
     attendanceType: form.city.trim() ? (form.hasPhysicalAddress ? "presencial" : "online") : undefined,
-  }), [form, logoFile, heroFile, existingLogoUrl, existingHeroUrl, existingPhotos, photoFiles, businessHours, businessHoursTouched]);
+  }), [form, logoFile, heroFile, existingLogoUrl, existingHeroUrl, logoRemoved, heroRemoved, existingPhotos, photoFiles, businessHours, businessHoursTouched]);
 
   const StepIcon =
     step === 1
@@ -426,6 +428,8 @@ export default function BusinessWizardPage() {
         setBusinessHoursTouched((biz.openingHours || []).length > 0);
         setExistingLogoUrl(biz.logoUrl || "");
         setExistingHeroUrl(biz.heroImage || "");
+        setLogoRemoved(false);
+        setHeroRemoved(false);
         setExistingPhotos(biz.photos || []);
         setGalleryTouched(false);
       } finally {
@@ -579,6 +583,29 @@ export default function BusinessWizardPage() {
     );
   };
 
+  const handleWizardImageChange = (event: React.ChangeEvent<HTMLInputElement>, type: "logo" | "hero") => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = "";
+    if (type === "logo") {
+      setLogoFile(file);
+      if (file) setLogoRemoved(false);
+    } else {
+      setHeroFile(file);
+      if (file) setHeroRemoved(false);
+    }
+  };
+
+  const removeWizardImage = (type: "logo" | "hero") => {
+    if (type === "logo") {
+      setLogoFile(null);
+      setExistingLogoUrl("");
+      setLogoRemoved(true);
+    } else {
+      setHeroFile(null);
+      setExistingHeroUrl("");
+      setHeroRemoved(true);
+    }
+  };
   const removeGalleryPhotoAt = (index: number) => {
     setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
   };
@@ -649,6 +676,8 @@ export default function BusinessWizardPage() {
         lat: form.lat || 0,
         lng: form.lng || 0,
         services: [],
+        ...(isEditMode && logoRemoved ? { logoUrl: "" } : {}),
+        ...(isEditMode && heroRemoved ? { heroImage: "" } : {}),
         keywords,
         phone: form.phone.trim(),
         email: form.email.trim(),
@@ -1136,8 +1165,8 @@ export default function BusinessWizardPage() {
                     Escolher imagem
                   </label>
                 </div>
-                <Input id="wizard-logo" type="file" accept="image/*" className="hidden" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} />
-                <p className="mt-1 text-xs text-muted-foreground">{logoFile ? logoFile.name : "Nenhum arquivo selecionado"}</p>
+                <Input id="wizard-logo" type="file" accept="image/*" className="hidden" onChange={(e) => handleWizardImageChange(e, "logo")} />
+                <p className="mt-1 text-xs text-muted-foreground">{logoFile ? logoFile.name : existingLogoUrl ? "Logo atual" : "Nenhum arquivo selecionado"}</p>
                 {logoFile ? (
                   <div className="mt-2">
                     <div className="relative w-20 h-20 rounded-md overflow-hidden border border-border">
@@ -1151,6 +1180,12 @@ export default function BusinessWizardPage() {
                     </div>
                   </div>
                 ) : null}
+                {logoFile || existingLogoUrl ? (
+                  <Button type="button" size="sm" variant="outline" className="mt-2 text-destructive" onClick={() => removeWizardImage("logo")}>
+                    <X className="mr-1.5 h-3.5 w-3.5" />
+                    Remover logo
+                  </Button>
+                ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
                   Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 512x512 px. Tamanho máximo: 5MB.
                 </p>
@@ -1162,8 +1197,8 @@ export default function BusinessWizardPage() {
                     Escolher imagem
                   </label>
                 </div>
-                <Input id="wizard-hero" type="file" accept="image/*" className="hidden" onChange={(e) => setHeroFile(e.target.files?.[0] || null)} />
-                <p className="mt-1 text-xs text-muted-foreground">{heroFile ? heroFile.name : "Nenhum arquivo selecionado"}</p>
+                <Input id="wizard-hero" type="file" accept="image/*" className="hidden" onChange={(e) => handleWizardImageChange(e, "hero")} />
+                <p className="mt-1 text-xs text-muted-foreground">{heroFile ? heroFile.name : existingHeroUrl ? "Capa atual" : "Nenhum arquivo selecionado"}</p>
                 {heroFile ? (
                   <div className="mt-2">
                     <div className="relative w-44 h-20 rounded-md overflow-hidden border border-border">
@@ -1176,6 +1211,12 @@ export default function BusinessWizardPage() {
                       <img src={existingHeroUrl} alt="Capa atual" className="w-full h-full object-cover" />
                     </div>
                   </div>
+                ) : null}
+                {heroFile || existingHeroUrl ? (
+                  <Button type="button" size="sm" variant="outline" className="mt-2 text-destructive" onClick={() => removeWizardImage("hero")}>
+                    <X className="mr-1.5 h-3.5 w-3.5" />
+                    Remover capa
+                  </Button>
                 ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
                   Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 1600x600 px. Tamanho máximo: 8MB.
