@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import RichTextEditor from "@/components/RichTextEditor";
+import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import { getPrimaryActivityCustomPlaceholder, getPrimaryActivityOptions, OTHER_PRIMARY_ACTIVITY_ID } from "@/lib/businessActivities";
 import type { AddressResult } from "@/components/AddressAutocomplete";
 import type { BusinessFrontend, BusinessEvent, Promotion } from "@/types/database";
@@ -72,8 +73,11 @@ type UserProfileDialogsProps = {
   shortSlugMessage: string;
   getCategoryId: (value: string) => string;
   editBusinessHours: BusinessHour[];
+  editBusinessHoursTouched: boolean;
   updateBusinessHour: (day: string, changes: Partial<BusinessHour>) => void;
   handleFileChange: (event: React.ChangeEvent<HTMLInputElement>, type: "logo" | "hero", isEdit: boolean) => void;
+  editLogoFile: File | null;
+  editHeroFile: File | null;
   existingPhotos: string[];
   editPhotoFiles: File[];
   handleRemoveExistingPhoto: (index: number) => void;
@@ -148,8 +152,11 @@ export default function UserProfileDialogs({
   shortSlugMessage,
   getCategoryId,
   editBusinessHours,
+  editBusinessHoursTouched,
   updateBusinessHour,
   handleFileChange,
+  editLogoFile,
+  editHeroFile,
   existingPhotos,
   editPhotoFiles,
   handleRemoveExistingPhoto,
@@ -211,6 +218,30 @@ export default function UserProfileDialogs({
   handleConfirmDeleteMyBusiness,
 }: UserProfileDialogsProps) {
   const businessCouponDatePickerRef = useRef<HTMLInputElement>(null);
+  const editProfileCompletionData = {
+    name: editFormData.name,
+    category: editFormData.category,
+    primaryActivity: editFormData.primaryActivity || editFormData.primaryActivityCustom,
+    description: editFormData.description,
+    city: editFormData.city,
+    stateCode: editFormData.stateCode,
+    countryCode: editFormData.countryCode,
+    street: editFormData.street,
+    logoUrl: editLogoFile?.name || editingBusiness?.logoUrl || "",
+    heroImage: editHeroFile?.name || editingBusiness?.heroImage || "",
+    photos: [...(editingBusiness?.photos || []), ...editPhotoFiles.map((file) => file.name)],
+    phone: editFormData.phone,
+    email: editFormData.email,
+    website: editFormData.website,
+    whatsapp: editFormData.whatsapp,
+    instagram: editFormData.instagram,
+    facebook: editFormData.facebook,
+    services: editFormData.services.split("\n").map((item) => item.trim()).filter(Boolean),
+    menu: editFormData.menu,
+    keywords: editFormData.keywords.split(",").map((item) => item.trim()).filter(Boolean),
+    openingHours: editBusinessHoursTouched ? editBusinessHours.map((hour) => `${hour.day}: ${hour.enabled ? `${hour.open}-${hour.close}` : "Fechado"}`) : [],
+    attendanceType: editingBusiness?.attendanceType,
+  };
   return (
     <>
       <Dialog
@@ -241,6 +272,9 @@ export default function UserProfileDialogs({
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <ProfileCompletionCard data={editProfileCompletionData} compact />
+              </div>
               <div className="sm:col-span-2 border-b border-border pb-2">
                 <h3 className="text-base font-semibold">Dados principais</h3>
               </div>
@@ -406,7 +440,7 @@ export default function UserProfileDialogs({
               </div>
 
               <div>
-                <Label htmlFor="edit-phone">Telefone</Label>
+                <Label htmlFor="edit-phone">Telefone (opcional)</Label>
                 <Input
                   id="edit-phone"
                   value={editFormData.phone}
@@ -415,7 +449,7 @@ export default function UserProfileDialogs({
                 />
               </div>
               <div>
-                <Label htmlFor="edit-email">Email</Label>
+                <Label htmlFor="edit-email">Email (opcional)</Label>
                 <Input
                   id="edit-email"
                   value={editFormData.email}

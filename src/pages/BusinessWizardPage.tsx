@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import RichTextEditor from "@/components/RichTextEditor";
+import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import AddressAutocomplete, { type AddressResult } from "@/components/AddressAutocomplete";
 import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import {
@@ -194,12 +195,36 @@ export default function BusinessWizardPage() {
   const [heroFile, setHeroFile] = useState<File | null>(null);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [businessHours, setBusinessHours] = useState<BusinessHour[]>(createDefaultBusinessHours());
+  const [businessHoursTouched, setBusinessHoursTouched] = useState(false);
   const [existingLogoUrl, setExistingLogoUrl] = useState("");
   const [existingHeroUrl, setExistingHeroUrl] = useState("");
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
   const [galleryTouched, setGalleryTouched] = useState(false);
 
   const progress = useMemo(() => Math.round((step / TOTAL_STEPS) * 100), [step]);
+  const profileCompletionData = useMemo(() => ({
+    name: form.name,
+    category: form.category,
+    primaryActivity: form.primaryActivity || form.primaryActivityCustom,
+    description: form.description,
+    city: form.city,
+    stateCode: form.stateCode,
+    countryCode: form.countryCode,
+    street: form.street,
+    logoUrl: logoFile ? "pending-logo" : existingLogoUrl,
+    heroImage: heroFile ? "pending-hero" : existingHeroUrl,
+    photos: [...existingPhotos, ...photoFiles.map((file) => file.name)],
+    phone: form.phone,
+    email: form.email,
+    website: form.website,
+    whatsapp: form.whatsapp,
+    instagram: form.instagram,
+    facebook: form.facebook,
+    services: form.services.split("\n").map((item) => item.trim()).filter(Boolean),
+    keywords: form.keywords.split(",").map((item) => item.trim()).filter(Boolean),
+    openingHours: businessHoursTouched ? serializeBusinessHours(businessHours) : [],
+    attendanceType: form.city.trim() ? (form.hasPhysicalAddress ? "presencial" : "online") : undefined,
+  }), [form, logoFile, heroFile, existingLogoUrl, existingHeroUrl, existingPhotos, photoFiles, businessHours, businessHoursTouched]);
 
   const StepIcon =
     step === 1
@@ -398,6 +423,7 @@ export default function BusinessWizardPage() {
             : false
         );
         setBusinessHours(parseBusinessHours(biz.openingHours || []));
+        setBusinessHoursTouched((biz.openingHours || []).length > 0);
         setExistingLogoUrl(biz.logoUrl || "");
         setExistingHeroUrl(biz.heroImage || "");
         setExistingPhotos(biz.photos || []);
@@ -435,17 +461,15 @@ export default function BusinessWizardPage() {
       return true;
     }
     if (step === 3) {
-      if (!form.phone.trim() || !form.email.trim()) {
-        toast.error("Telefone e email são obrigatórios.");
-        return false;
-      }
+      const phoneProvided = form.phone.trim().length > 0;
+      const emailProvided = form.email.trim().length > 0;
       const phoneDigits = (form.phone.match(/\d/g) || []).length;
-      if (phoneDigits < 8) {
+      if (phoneProvided && phoneDigits < 8) {
         setContactErrors((prev) => ({ ...prev, phone: "Telefone inválido." }));
         toast.error("Informe um telefone válido.");
         return false;
       }
-      if (!isValidEmail(form.email)) {
+      if (emailProvided && !isValidEmail(form.email)) {
         setContactErrors((prev) => ({ ...prev, email: "Email inválido." }));
         toast.error("Informe um email válido.");
         return false;
@@ -542,6 +566,7 @@ export default function BusinessWizardPage() {
     day: string,
     changes: Partial<Pick<BusinessHour, "enabled" | "open" | "close">>
   ) => {
+    setBusinessHoursTouched(true);
     setBusinessHours((prev) =>
       prev.map((hour) => {
         if (hour.day !== day) return hour;
@@ -781,6 +806,10 @@ export default function BusinessWizardPage() {
             <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${progress}%` }} />
           </div>
 
+          <div className="mb-6">
+            <ProfileCompletionCard data={profileCompletionData} compact={step !== 6} />
+          </div>
+
           {step === 1 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
@@ -897,7 +926,7 @@ export default function BusinessWizardPage() {
           {step === 3 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Telefone *</Label>
+                <Label>Telefone (opcional)</Label>
                 <Input
                   type="tel"
                   inputMode="tel"
@@ -909,7 +938,7 @@ export default function BusinessWizardPage() {
                 {contactErrors.phone ? <p className="mt-1 text-xs text-red-600">{contactErrors.phone}</p> : null}
               </div>
               <div>
-                <Label>Email *</Label>
+                <Label>Email (opcional)</Label>
                 <Input
                   type="email"
                   inputMode="email"

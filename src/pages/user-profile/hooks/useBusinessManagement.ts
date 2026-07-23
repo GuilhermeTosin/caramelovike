@@ -145,6 +145,7 @@ export function useBusinessManagement({
   const [eventFlyerFiles, setEventFlyerFiles] = useState<Record<number, File>>({});
   const eventDatePickerRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const [editBusinessHours, setEditBusinessHours] = useState<BusinessHour[]>(createDefaultBusinessHours());
+  const [editBusinessHoursTouched, setEditBusinessHoursTouched] = useState(false);
   const [shortSlugStatus, setShortSlugStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">(
     "idle"
   );
@@ -153,6 +154,7 @@ export function useBusinessManagement({
   const closeBusinessEditor = () => {
     setCreatingBusiness(false);
     setEditingBusiness(null);
+    setEditBusinessHoursTouched(false);
   };
 
   const handleStartEditBusiness = (business: BusinessFrontend) => {
@@ -191,6 +193,7 @@ export function useBusinessManagement({
       keywords: (business.keywords || []).join(", "),
     });
     setEditBusinessHours(parseBusinessHours(business.openingHours || []));
+    setEditBusinessHoursTouched((business.openingHours || []).length > 0);
     setEditingBusiness(business);
     setExistingPhotos(business.photos || []);
   };
@@ -321,6 +324,7 @@ export function useBusinessManagement({
   };
 
   const updateBusinessHour = (day: string, changes: Partial<BusinessHour>) => {
+    setEditBusinessHoursTouched(true);
     setEditBusinessHours((prev) => prev.map((entry) => (entry.day === day ? { ...entry, ...changes } : entry)));
   };
 
@@ -352,10 +356,7 @@ export function useBusinessManagement({
       return;
     }
 
-    if (!editFormData.phone.trim() || !editFormData.email.trim()) {
-      toast.error("Telefone e e-mail são obrigatórios.");
-      return;
-    }
+
     if (!editFormData.street || !editFormData.city || !editFormData.stateCode) {
       toast.error("O endereço completo (Rua, Cidade e Estado) é obrigatório.");
       return;
@@ -847,6 +848,7 @@ export function useBusinessManagement({
     eventFlyerFiles,
     eventDatePickerRefs,
     editBusinessHours,
+    editBusinessHoursTouched,
     shortSlugStatus,
     shortSlugMessage,
     setCreatingBusiness,

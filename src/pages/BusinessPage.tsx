@@ -1260,18 +1260,32 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       </>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <a href={`tel:${business.phone}`} onClick={() => handleExternalClick("phone")} className="text-sm text-primary hover:underline">
-                      {business.phone}
-                    </a>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <a href={`mailto:${business.email}`} onClick={() => handleExternalClick("email")} className="text-sm text-primary hover:underline truncate">
-                      {business.email}
-                    </a>
-                  </div>
+                  {business.phone ? (
+                    <div className="flex items-center gap-3">
+                      <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <a href={`tel:${business.phone}`} onClick={() => handleExternalClick("phone")} className="text-sm text-primary hover:underline">
+                        {business.phone}
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <Phone className="w-4 h-4 flex-shrink-0" />
+                      <span>Telefone não informado.</span>
+                    </div>
+                  )}
+                  {business.email ? (
+                    <div className="flex items-center gap-3">
+                      <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <a href={`mailto:${business.email}`} onClick={() => handleExternalClick("email")} className="text-sm text-primary hover:underline truncate">
+                        {business.email}
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <Mail className="w-4 h-4 flex-shrink-0" />
+                      <span>E-mail não informado.</span>
+                    </div>
+                  )}
                   {business.website && (
                     <div className="flex items-center gap-3">
                       <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />

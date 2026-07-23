@@ -321,11 +321,14 @@ export default function UserProfile() {
     deleteTarget,
     couponForm,
     editFormData,
+    editLogoFile,
+    editHeroFile,
     existingPhotos,
     editPhotoFiles,
     eventFlyerFiles,
     eventDatePickerRefs,
     editBusinessHours,
+    editBusinessHoursTouched,
     shortSlugStatus,
     shortSlugMessage,
     setCouponBusiness,
@@ -968,8 +971,11 @@ export default function UserProfile() {
         shortSlugMessage={shortSlugMessage}
         getCategoryId={getCategoryId}
         editBusinessHours={editBusinessHours}
+        editBusinessHoursTouched={editBusinessHoursTouched}
         updateBusinessHour={updateBusinessHour}
         handleFileChange={handleFileChange}
+        editLogoFile={editLogoFile}
+        editHeroFile={editHeroFile}
         existingPhotos={existingPhotos}
         editPhotoFiles={editPhotoFiles}
         handleRemoveExistingPhoto={handleRemoveExistingPhoto}
