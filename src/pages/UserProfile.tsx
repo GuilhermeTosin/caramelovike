@@ -628,7 +628,7 @@ export default function UserProfile() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between sm:h-24">
             <Link to="/" className="group flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center sm:h-20 sm:w-20">
+              <div className="flex h-14 w-14 items-center justify-center sm:h-[5.5rem] sm:w-[5.5rem]">
                 <img src="/logo.webp" alt="Caramelinho logo" className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="min-w-0 leading-tight">

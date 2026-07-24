@@ -58,7 +58,7 @@ export default function EventPage() {
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-24 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
+            <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
               <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
             </div>
             <div className="leading-tight min-w-0">
