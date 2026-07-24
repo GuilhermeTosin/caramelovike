@@ -1,4 +1,6 @@
 import { calculateDistance } from "@/lib/utils/geo";
+import { getPrimaryActivityLabel } from "@/lib/businessActivities";
+import { buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
 import { getCategoryId } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
@@ -459,13 +461,30 @@ function matchesCategoryFilter(
 
 function getBusinessSearchBlob(b: BusinessFrontend): string {
   const menuText = (b.menu || []).map((item) => `${item?.name || ""} ${item?.description || ""}`).join(" ");
+  const serviceItemsText = (b.serviceItems || [])
+    .map((item) => `${item?.name || ""} ${item?.description || ""}`)
+    .join(" ");
+  const primaryActivityLabel = getPrimaryActivityLabel(
+    b.categoryId,
+    b.primaryActivity,
+    b.primaryActivityCustom,
+  );
+  const seoTitle = buildBusinessSeoTitle(b, "pt-BR");
+
   return normalizeText(
     [
       b.name || "",
+      seoTitle,
       stripRichTextHtml(b.description || ""),
       b.category || "",
+      b.primaryActivity || "",
+      primaryActivityLabel,
+      b.primaryActivityCustom || "",
       b.address?.city || "",
+      b.address?.state || "",
+      b.address?.country || "",
       ...(b.services || []),
+      serviceItemsText,
       ...(b.keywords || []),
       b.isVeganFriendly ? "vegano vegan" : "",
       b.isVegetarianFriendly ? "vegetariano vegetarian" : "",
