@@ -1,6 +1,5 @@
 import { BrowserRouter, Route, Routes, StaticRouter, useLocation } from "react-router-dom";
-import { useEffect, type ReactNode } from "react";
-import { Analytics } from "@vercel/analytics/react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
@@ -24,6 +23,25 @@ import TermsPage from "@/pages/TermsPage";
 import NotFound from "@/pages/NotFound";
 import BusinessPageRoute from "@/pages/BusinessPageRoute";
 
+const VercelAnalytics = lazy(async () => {
+  const module = await import("@vercel/analytics/react");
+  return { default: module.Analytics };
+});
+
+function DeferredAnalytics() {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setEnabled(true), 2500);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return enabled ? (
+    <Suspense fallback={null}>
+      <VercelAnalytics />
+    </Suspense>
+  ) : null;
+}
 function ScrollToTop() {
   const { pathname, search } = useLocation();
 
@@ -158,7 +176,7 @@ export default function App({
         </Routes>
       </AppRouter>
       <Toaster richColors position="top-center" />
-      <Analytics />
+      <DeferredAnalytics />
     </AuthProvider>
   );
 }

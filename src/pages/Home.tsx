@@ -199,6 +199,7 @@ export default function Home({
 
   useEffect(() => {
     let cancelled = false;
+    const hasServerBusinesses = initialBusinesses.length > 0;
 
     const refreshPublicData = async () => {
       const [businessesRes, locationsRes, suggestionsRes] = await Promise.allSettled([
@@ -224,9 +225,9 @@ export default function Home({
       return businessesRes.status === "fulfilled" ? businessesRes.value : null;
     };
 
-    const loadData = async () => {
+    const loadData = async (refreshDirectory: boolean) => {
       const [freshBusinesses, approxGeo] = await Promise.all([
-        refreshPublicData(),
+        refreshDirectory ? refreshPublicData() : Promise.resolve(initialBusinesses),
         getApproxGeoByIp({
           timeoutMs: 3000,
           maxAgeMs: 24 * 60 * 60 * 1000,
@@ -247,7 +248,6 @@ export default function Home({
 
       if (coords) {
         setUserCoords(coords);
-        // Ordenar por distancia
         regionalBusinesses = [...businesses].sort((a, b) => {
           const distA = calculateDistance(coords.lat, coords.lng, a.address.lat, a.address.lng);
           const distB = calculateDistance(coords.lat, coords.lng, b.address.lat, b.address.lng);
@@ -273,13 +273,23 @@ export default function Home({
       setFeaturedBusinesses(regionalFeatured);
     };
 
-    void loadData();
+    // SSR already supplies the directory data. Delay only geolocation and personalization
+    // so the first paint is not competing with three client-side Supabase requests.
+    const initialLoadTimer = hasServerBusinesses
+      ? window.setTimeout(() => void loadData(false), 1500)
+      : null;
+
+    if (!hasServerBusinesses) {
+      void loadData(true);
+    }
+
     const refreshTimer = window.setInterval(() => {
       void refreshPublicData();
     }, HOME_PUBLIC_DATA_REFRESH_MS);
 
     return () => {
       cancelled = true;
+      if (initialLoadTimer !== null) window.clearTimeout(initialLoadTimer);
       window.clearInterval(refreshTimer);
     };
   }, [initialBusinesses, initialFeaturedBusinesses]);
