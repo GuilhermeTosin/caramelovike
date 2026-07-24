@@ -32,6 +32,12 @@ function getSupabaseConfig() {
   return url && key ? { url, key } : null;
 }
 
+function getApiKeyHeaders(key) {
+  const headers = { apikey: key };
+  if (!key.startsWith("sb_")) headers.Authorization = "Bearer " + key;
+  return headers;
+}
+
 function normalizePart(value) {
   return encodeURIComponent(
     String(value || "")
@@ -114,8 +120,7 @@ async function fetchPage(config, offset) {
       `${config.url}/rest/v1/businesses?${params.toString()}`,
       {
         headers: {
-          apikey: config.key,
-          Authorization: `Bearer ${config.key}`,
+          ...getApiKeyHeaders(config.key),
           Accept: "application/json",
         },
         signal: controller.signal,

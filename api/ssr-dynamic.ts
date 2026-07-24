@@ -56,7 +56,13 @@ function getSupabaseUrl() {
 }
 
 function getServiceRoleKey() {
-  return env("SUPABASE_SERVICE_ROLE_KEY") || env("SUPABASE_SECRET_KEY");
+  return env("SUPABASE_SECRET_KEY") || env("SUPABASE_SERVICE_ROLE_KEY");
+}
+
+function getApiKeyHeaders(key: string): Record<string, string> {
+  const headers: Record<string, string> = { apikey: key };
+  if (!key.startsWith("sb_")) headers.Authorization = "Bearer " + key;
+  return headers;
 }
 
 function htmlEscape(input: string) {
@@ -158,8 +164,7 @@ function parseOpeningHoursToSchema(hours: string[] | null | undefined) {
 async function fetchJson<T>(url: string, key: string): Promise<T> {
   const response = await fetch(url, {
     headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
+      ...getApiKeyHeaders(key),
       Accept: "application/json; charset=utf-8",
     },
   });

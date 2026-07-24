@@ -81,11 +81,17 @@ type OwnerClaimRequestRow = {
 function getConfig(): SupabaseConfig | null {
   const url = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim();
   const serviceRoleKey = String(
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "",
+    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   ).trim();
 
   if (!url || !serviceRoleKey) return null;
   return { url, serviceRoleKey };
+}
+
+function getServerApiHeaders(key: string): Record<string, string> {
+  const headers: Record<string, string> = { apikey: key };
+  if (!key.startsWith("sb_")) headers.Authorization = "Bearer " + key;
+  return headers;
 }
 
 function getBearerToken(req: VercelRequest): string {
@@ -117,8 +123,7 @@ async function fetchJson<T>(
   const response = await fetch(config.url + path, {
     ...init,
     headers: {
-      apikey: config.serviceRoleKey,
-      Authorization: "Bearer " + config.serviceRoleKey,
+      ...getServerApiHeaders(config.serviceRoleKey),
       Accept: "application/json; charset=utf-8",
       ...(init.headers || {}),
     },
@@ -496,8 +501,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         {
           method: "DELETE",
           headers: {
-            apikey: admin.config.serviceRoleKey,
-            Authorization: "Bearer " + admin.config.serviceRoleKey,
+            ...getServerApiHeaders(admin.config.serviceRoleKey),
           },
         },
       );
