@@ -949,6 +949,13 @@ export default function SearchResults({
   }, [query, categoryFilter, cityFilter]);
 
   const results = useMemo(() => {
+    // The radius RPC already applies every business filter before pagination.
+    // Filtering this six-item page again makes the displayed count diverge from
+    // the RPC total and produces sparse or empty later pages.
+    if (canUseRpcRadiusMode && !rpcFallbackMode && rpcTotalCount !== null) {
+      return allBusinesses;
+    }
+
     return filterBusinesses({
       allBusinesses,
       query,
@@ -989,6 +996,9 @@ export default function SearchResults({
     distanceOrigin,
     eventsFilter,
     categorySynonymsMap,
+    canUseRpcRadiusMode,
+    rpcFallbackMode,
+    rpcTotalCount,
   ]);
 
   const mapCenter =
