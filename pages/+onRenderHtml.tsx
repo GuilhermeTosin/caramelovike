@@ -75,6 +75,23 @@ function buildPublicRuntimeEnvScript() {
   return `<script>window.__CARAMELO_PUBLIC_ENV__=${payload};</script>`;
 }
 
+function buildSupabaseResourceHints() {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
+
+  if (!supabaseUrl) {
+    return "";
+  }
+
+  try {
+    const origin = new URL(supabaseUrl).origin;
+    return [
+      `<link rel="preconnect" href="${origin}" crossorigin />`,
+      `<link rel="dns-prefetch" href="${origin}" />`,
+    ].join("\n");
+  } catch {
+    return "";
+  }
+}
 function buildBusinessTitle(business: BusinessFrontend, locale: Locale) {
   return buildBusinessSeoTitle(business, locale);
 }
@@ -357,7 +374,7 @@ export function onRenderHtml(pageContext: PageContext) {
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/png" href="/favicon-96.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="${robotsContent}" />
     <meta name="googlebot" content="${robotsContent}" />
@@ -378,14 +395,9 @@ export function onRenderHtml(pageContext: PageContext) {
     <meta name="twitter:title" content="${pageTitle}" />
     <meta name="twitter:description" content="${pageDescription}" />
     <meta name="twitter:image" content="${pageImage}" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    ${dangerouslySkipEscape(buildSupabaseResourceHints())}
     ${dangerouslySkipEscape(buildPublicRuntimeEnvScript())}
     ${businessHeroAssets ? dangerouslySkipEscape(businessHeroAssets.preloadHtml) : ""}
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
     ${dangerouslySkipEscape(jsonLdHtml)}
   </head>
   <body>

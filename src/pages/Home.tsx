@@ -450,7 +450,9 @@ export default function Home({
             <Link to="/" className="flex items-center gap-3 group">
               <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
                 <img
-                  src="/logo.webp"
+                  src="/logo-112.webp"
+                  srcSet="/logo-64.webp 64w, /logo-112.webp 112w, /logo-176.webp 176w, /logo-224.webp 224w"
+                  sizes="(min-width: 640px) 88px, 56px"
                   alt="Caramelinho logo"
                   width={112}
                   height={112}
@@ -818,7 +820,9 @@ export default function Home({
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="flex items-center justify-center mx-auto mb-6">
             <img
-              src="/brazil-map-pin.webp"
+              src="/brazil-map-pin-112.webp"
+              srcSet="/brazil-map-pin-112.webp 112w, /brazil-map-pin-168.webp 168w, /brazil-map-pin-224.webp 224w"
+              sizes="(min-width: 640px) 112px, 96px"
               alt={locale === "en" ? "Location icon with Brazil flag" : "Ícone de localização com bandeira do Brasil"}
               width={112}
               height={112}
