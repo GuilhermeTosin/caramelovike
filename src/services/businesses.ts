@@ -1,7 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { Business, BusinessFrontend, Review } from "@/types/database";
 import type { CommunityEvent } from "@/types/database";
-import { stripRichTextHtml } from "@/lib/richText";
 import { getFollowLinksBusinessIds } from "@/services/searchPreferences";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 
@@ -534,12 +533,9 @@ export async function getBusinessesByRadiusRpc(params: {
   stateCode?: string;
   query?: string;
   city?: string;
-  includeOnline?: boolean;
-  onlineCountryCode?: string;
 }): Promise<{ items: BusinessFrontend[]; totalCount: number }> {
   const requestedLimit = Math.max(1, params.limit ?? 300);
   const requestedOffset = Math.max(0, params.offset ?? 0);
-  const rpcLimit = requestedOffset + requestedLimit;
 
   const { data: hits, error: rpcError } = await supabase.rpc("search_businesses_radius", {
     p_origin_lat: params.originLat,
@@ -547,8 +543,8 @@ export async function getBusinessesByRadiusRpc(params: {
     p_radius_km: params.radiusKm,
     // Para combinar corretamente com online e evitar duplicação entre páginas,
     // buscamos a janela acumulada até a página atual e paginamos no merge final.
-    p_limit: rpcLimit,
-    p_offset: 0,
+    p_limit: requestedLimit,
+    p_offset: requestedOffset,
     p_category_id: params.categoryId || null,
     p_country_code: params.countryCode || null,
     p_state_code: params.stateCode || null,
@@ -565,82 +561,25 @@ export async function getBusinessesByRadiusRpc(params: {
     .filter((id: any) => typeof id === "string" && id.length > 0);
   const physicalTotalCount = Number((hits && hits[0]?.total_count) ?? 0);
 
-  const includeOnline = params.includeOnline !== false;
-  const queryText = (params.query || "").trim();
-  const queryNormalized = queryText.toLowerCase();
-  const hasQuery = queryNormalized.length > 0;
+  if (orderedIds.length === 0) {
+    return { items: [], totalCount: physicalTotalCount };
+  }
 
-  const onlineWhere = supabase
+  const { data: physicalRows } = await supabase
     .from("businesses")
     .select("*")
     .or("moderation_status.eq.approved,moderation_status.is.null")
-    .eq("attendance_type", "online");
-
-  if (params.categoryId) onlineWhere.eq("category_id", params.categoryId);
-  if (params.onlineCountryCode) {
-    onlineWhere.eq("country_code", params.onlineCountryCode.toLowerCase());
-  } else if (params.countryCode) {
-    onlineWhere.eq("country_code", params.countryCode.toLowerCase());
-  }
-  if (params.stateCode) onlineWhere.eq("state_code", params.stateCode.toLowerCase());
-
-  const [{ data: physicalRows }, { data: onlineRows }] = await Promise.all([
-    orderedIds.length
-      ? supabase
-          .from("businesses")
-          .select("*")
-          .or("moderation_status.eq.approved,moderation_status.is.null")
-          .in("id", orderedIds)
-      : Promise.resolve({ data: [] as any[] }),
-    includeOnline ? onlineWhere : Promise.resolve({ data: [] as any[] }),
-  ]);
-
-  const textIncludes = (value: unknown, term: string) => {
-    if (!term) return true;
-    if (typeof value === "string") return stripRichTextHtml(value).toLowerCase().includes(term);
-    if (Array.isArray(value)) return value.some((v) => textIncludes(v, term));
-    if (value && typeof value === "object") return JSON.stringify(value).toLowerCase().includes(term);
-    return false;
-  };
-
-  const filteredOnlineRows = (onlineRows || []).filter((b: any) => {
-    if (!hasQuery) return true;
-    return (
-      textIncludes(b.name, queryNormalized) ||
-      textIncludes(b.description, queryNormalized) ||
-      textIncludes(b.category_id, queryNormalized) ||
-      textIncludes(b.primary_activity, queryNormalized) ||
-      textIncludes(b.primary_activity_custom, queryNormalized) ||
-      textIncludes(b.keywords, queryNormalized) ||
-      textIncludes(b.services, queryNormalized) ||
-      textIncludes(b.menu, queryNormalized)
-    );
-  });
+    .in("id", orderedIds);
 
   const physical = (physicalRows || []) as Business[];
-  const online = filteredOnlineRows as Business[];
-  const mergedRowsMap = new Map<string, Business>();
-  physical.forEach((b) => mergedRowsMap.set(b.id, b));
-  online.forEach((b) => mergedRowsMap.set(b.id, b));
-  const mergedRows = Array.from(mergedRowsMap.values());
 
-  const onlineIdsOrdered = online
-    .map((b) => b.id)
-    .filter((id) => !orderedIds.includes(id));
-  const fallbackTotalCount = physicalTotalCount + onlineIdsOrdered.length;
-
-  if (mergedRows.length === 0) {
-    const allPhysicalHitsFetched = (hits || []).length < rpcLimit;
-    return { items: [], totalCount: allPhysicalHitsFetched ? onlineIdsOrdered.length : fallbackTotalCount };
-  }
-
-  const ownerIds = [...new Set(mergedRows.map((b: Business) => b.owner_id))];
-  const businessIds = mergedRows.map((b) => b.id);
+  const ownerIds = [...new Set(physical.map((b: Business) => b.owner_id))];
+  const businessIds = physical.map((b) => b.id);
   const [profilesResult, linkedEventsResult, followLinkIds, businessRows] = await Promise.all([
     supabase.from("profiles").select("id, name").in("id", ownerIds),
     supabase.from("events").select("*").in("business_id", businessIds).eq("status", "published"),
     getFollowLinksBusinessIds(),
-    attachLocationDisplayNames(mergedRows),
+    attachLocationDisplayNames(physical),
   ]);
 
   const ownerNames = new Map(
@@ -671,15 +610,11 @@ export async function getBusinessesByRadiusRpc(params: {
     ])
   );
 
-  const mergedOrderedIds = [...orderedIds, ...onlineIdsOrdered];
-  const renderableIds = mergedOrderedIds.filter((id) => byId.has(id));
-  const allPhysicalHitsFetched = (hits || []).length < rpcLimit;
-  const totalCount = allPhysicalHitsFetched ? renderableIds.length : fallbackTotalCount;
-  const pageIds = renderableIds.slice(requestedOffset, requestedOffset + requestedLimit);
+  const pageIds = orderedIds.filter((id) => byId.has(id));
 
   return {
     items: pageIds.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[],
-    totalCount,
+    totalCount: physicalTotalCount,
   };
 }
 
