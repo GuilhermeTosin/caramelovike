@@ -10,6 +10,7 @@ const MAX_PAGE_SIZE = 50;
 type SupabaseConfig = {
   url: string;
   serviceRoleKey: string;
+  authAdminKey: string;
 };
 
 type AuthUser = {
@@ -81,12 +82,13 @@ type OwnerClaimRequestRow = {
 
 function getConfig(): SupabaseConfig | null {
   const url = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim();
-  const serviceRoleKey = String(
-    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-  ).trim();
+  const secretKey = String(process.env.SUPABASE_SECRET_KEY || "").trim();
+  const legacyServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const serviceRoleKey = secretKey || legacyServiceRoleKey;
+  const authAdminKey = legacyServiceRoleKey || secretKey;
 
-  if (!url || !serviceRoleKey) return null;
-  return { url, serviceRoleKey };
+  if (!url || !serviceRoleKey || !authAdminKey) return null;
+  return { url, serviceRoleKey, authAdminKey };
 }
 
 function getServerApiHeaders(key: string, includeOpaqueBearer = false): Record<string, string> {
@@ -104,7 +106,7 @@ function getServerKeyType(key: string): string {
 }
 
 function createAdminSupabaseClient(config: SupabaseConfig) {
-  return createClient(config.url, config.serviceRoleKey, {
+  return createClient(config.url, config.authAdminKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -219,7 +221,14 @@ async function listAuthUsers(config: SupabaseConfig): Promise<AuthUser[]> {
       page,
       perPage: AUTH_PAGE_SIZE,
     });
-    if (error) throw new Error("Supabase Auth Admin: " + error.message);
+    if (error) {
+      throw new Error(
+        "Supabase Auth Admin (auth-key=" +
+          getServerKeyType(config.authAdminKey) +
+          "): " +
+          error.message,
+      );
+    }
 
     const pageUsers = data.users as AuthUser[];
     users.push(...pageUsers);
