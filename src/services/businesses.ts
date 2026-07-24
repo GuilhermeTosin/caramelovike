@@ -608,6 +608,9 @@ export async function getBusinessesByRadiusRpc(params: {
     return (
       textIncludes(b.name, queryNormalized) ||
       textIncludes(b.description, queryNormalized) ||
+      textIncludes(b.category_id, queryNormalized) ||
+      textIncludes(b.primary_activity, queryNormalized) ||
+      textIncludes(b.primary_activity_custom, queryNormalized) ||
       textIncludes(b.keywords, queryNormalized) ||
       textIncludes(b.services, queryNormalized) ||
       textIncludes(b.menu, queryNormalized)

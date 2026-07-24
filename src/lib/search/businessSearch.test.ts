@@ -316,4 +316,21 @@ describe("businessSearch", () => {
     expect(results.map((b) => b.id)).toEqual(["rich", "plain"]);
   });
 
+  it("encontra o negocio pela subcategoria usada no titulo SEO", () => {
+    const churrascaria = createBusiness({
+      id: "churrascaria",
+      name: "Sabor do Brasil",
+      categoryId: "food",
+      category: "Restaurantes e Alimentacao",
+      primaryActivity: "churrascaria",
+    });
+
+    const results = runSearch({
+      allBusinesses: [churrascaria],
+      query: "churrascaria",
+    });
+
+    expect(results.map((b) => b.id)).toEqual(["churrascaria"]);
+  });
+
 });
