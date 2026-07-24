@@ -90,11 +90,11 @@ const buildFacebookUrl = (value: string): string => {
 function createDefaultBusinessHours(): BusinessHour[] {
   return [
     { day: "Segunda", enabled: true, open: "09:00", close: "18:00" },
-    { day: "Terca", enabled: true, open: "09:00", close: "18:00" },
+    { day: "Ter\u00e7a", enabled: true, open: "09:00", close: "18:00" },
     { day: "Quarta", enabled: true, open: "09:00", close: "18:00" },
     { day: "Quinta", enabled: true, open: "09:00", close: "18:00" },
     { day: "Sexta", enabled: true, open: "09:00", close: "18:00" },
-    { day: "Sabado", enabled: true, open: "10:00", close: "14:00" },
+    { day: "S\u00e1bado", enabled: true, open: "10:00", close: "14:00" },
     { day: "Domingo", enabled: false, open: "10:00", close: "14:00" },
   ];
 }
@@ -105,14 +105,16 @@ function serializeBusinessHours(hours: BusinessHour[]) {
   );
 }
 
+const normalizeBusinessDayKey = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 function parseBusinessHours(lines: string[] = []): BusinessHour[] {
   const defaults = createDefaultBusinessHours();
-  const map = new Map(defaults.map((h) => [h.day.toLowerCase(), { ...h }]));
+  const map = new Map(defaults.map((h) => [normalizeBusinessDayKey(h.day), { ...h }]));
   for (const raw of lines || []) {
     const text = String(raw || "").trim();
     const [rawDay, rawValue] = text.split(":");
     if (!rawDay || !rawValue) continue;
-    const dayKey = rawDay.trim().toLowerCase();
+    const dayKey = normalizeBusinessDayKey(rawDay.trim());
     const existing = map.get(dayKey);
     if (!existing) continue;
     const value = rawValue.trim().toLowerCase();
@@ -1194,16 +1196,28 @@ export default function BusinessWizardPage() {
                       </div>
                     ))}
                   </div>
-                ) : businessHoursTouched ? (
-                  <div className="mt-3 space-y-1 rounded-md border border-border bg-background p-3">
-                    {serializeBusinessHours(businessHours).map((line) => (
-                      <p key={line} className="text-sm text-muted-foreground">{line}</p>
-                    ))}
-                  </div>
                 ) : (
-                  <p className="mt-3 rounded-md border border-dashed border-border bg-background p-3 text-sm text-muted-foreground">
-                    {"Nenhum hor\u00e1rio foi informado. Clique em Adicionar hor\u00e1rio para preencher e ganhar pontos no perfil."}
-                  </p>
+                  <>
+                    <div className="mt-3 space-y-2 rounded-md border border-border bg-background p-3">
+                      {businessHours.map((hour) => (
+                        <div key={hour.day} className="flex items-center justify-between gap-3 text-sm">
+                          <span className="font-medium">{hour.day}</span>
+                          <span className={businessHoursTouched ? "text-muted-foreground" : "text-amber-700"}>
+                            {businessHoursTouched
+                              ? hour.enabled
+                                ? `${hour.open} - ${hour.close}`
+                                : "Fechado"
+                              : "N\u00e3o informado"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {!businessHoursTouched ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {"Clique em Adicionar hor\u00e1rio para preencher os dias e ganhar pontos no perfil."}
+                      </p>
+                    ) : null}
+                  </>
                 )}
               </div>
             </div>
