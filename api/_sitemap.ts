@@ -46,8 +46,8 @@ export function getBaseUrl(req: VercelRequest): string {
 function getSitemapSourceConfig() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
   const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     process.env.VITE_SUPABASE_ANON_KEY ||
     "";
@@ -57,6 +57,12 @@ function getSitemapSourceConfig() {
   }
 
   return { url, key };
+}
+
+function getApiKeyHeaders(key: string): Record<string, string> {
+  const headers: Record<string, string> = { apikey: key };
+  if (!key.startsWith("sb_")) headers.Authorization = "Bearer " + key;
+  return headers;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
@@ -85,8 +91,7 @@ function buildBusinessesUrl(offset: number): { url: string; headers: Record<stri
   return {
     url: `${url}/rest/v1/businesses?${params.toString()}`,
     headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
+      ...getApiKeyHeaders(key),
       Accept: "application/json; charset=utf-8",
     },
   };
@@ -196,7 +201,7 @@ export function buildBusinessSitemapXml(baseUrl: string, rows: SitemapBusinessRo
 
 export async function assertIsAdmin(accessToken: string): Promise<boolean> {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "";
+  const serviceRoleKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
   if (!url || !serviceRoleKey || !accessToken) return false;
 
@@ -214,8 +219,7 @@ export async function assertIsAdmin(accessToken: string): Promise<boolean> {
 
     const roleResponse = await fetch(`${url}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(userId)}&limit=1`, {
       headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
+        ...getApiKeyHeaders(serviceRoleKey),
         Accept: "application/json; charset=utf-8",
       },
     });

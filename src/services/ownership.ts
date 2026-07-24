@@ -1,3 +1,4 @@
+import { utf8Fetch } from "@/lib/http/utf8";
 import { supabase } from "@/lib/supabase";
 import type { BusinessFrontend, OwnerClaimRequest } from "@/types/database";
 
@@ -63,12 +64,35 @@ export async function transferBusinessOwnershipByEmail(
   businessId: string,
   newOwnerEmail: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await supabase.rpc("transfer_business_ownership_by_email", {
-    p_business_id: businessId,
-    p_new_owner_email: newOwnerEmail,
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return { ok: false, error: "Sess\u00e3o expirada. Fa\u00e7a login novamente." };
+  }
+
+  const response = await utf8Fetch("/api/admin-users", {
+    method: "PATCH",
+    headers: {
+      Authorization: "Bearer " + session.access_token,
+      "Content-Type": "application/json; charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "transfer_business_ownership",
+      businessId,
+      newOwnerEmail,
+    }),
   });
 
-  if (error) return { ok: false, error: error.message };
+  const payload = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: payload.error || "N\u00e3o foi poss\u00edvel transferir o neg\u00f3cio.",
+    };
+  }
+
   return { ok: true };
 }
 

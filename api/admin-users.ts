@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { createClient } from "@supabase/supabase-js";
 
 const ADMIN_EMAIL = "contact@guilhermetosin.com";
 const AUTH_PAGE_SIZE = 1000;
@@ -9,6 +10,7 @@ const MAX_PAGE_SIZE = 50;
 type SupabaseConfig = {
   url: string;
   serviceRoleKey: string;
+  authAdminKey: string;
 };
 
 type AuthUser = {
@@ -74,14 +76,43 @@ type ProfileRow = {
   created_at: string;
 };
 
+type OwnerClaimRequestRow = {
+  id: string;
+};
+
 function getConfig(): SupabaseConfig | null {
   const url = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim();
-  const serviceRoleKey = String(
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "",
-  ).trim();
+  const secretKey = String(process.env.SUPABASE_SECRET_KEY || "").trim();
+  const legacyServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const serviceRoleKey = secretKey || legacyServiceRoleKey;
+  const authAdminKey = legacyServiceRoleKey || secretKey;
 
-  if (!url || !serviceRoleKey) return null;
-  return { url, serviceRoleKey };
+  if (!url || !serviceRoleKey || !authAdminKey) return null;
+  return { url, serviceRoleKey, authAdminKey };
+}
+
+function getServerApiHeaders(key: string, includeOpaqueBearer = false): Record<string, string> {
+  const headers: Record<string, string> = { apikey: key };
+  if (!key.startsWith("sb_") || includeOpaqueBearer) {
+    headers.Authorization = "Bearer " + key;
+  }
+  return headers;
+}
+
+function getServerKeyType(key: string): string {
+  if (key.startsWith("sb_secret_")) return "secret";
+  if (key.startsWith("sb_")) return "opaque";
+  return "jwt";
+}
+
+function createAdminSupabaseClient(config: SupabaseConfig) {
+  return createClient(config.url, config.authAdminKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
 }
 
 function getBearerToken(req: VercelRequest): string {
@@ -110,19 +141,41 @@ async function fetchJson<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const response = await fetch(config.url + path, {
-    ...init,
-    headers: {
-      apikey: config.serviceRoleKey,
-      Authorization: "Bearer " + config.serviceRoleKey,
-      Accept: "application/json; charset=utf-8",
-      ...(init.headers || {}),
-    },
-  });
+  const request = (includeOpaqueBearer: boolean) =>
+    fetch(config.url + path, {
+      ...init,
+      headers: {
+        ...getServerApiHeaders(config.serviceRoleKey, includeOpaqueBearer),
+        Accept: "application/json; charset=utf-8",
+        ...(init.headers || {}),
+      },
+    });
+
+  let response = await request(false);
+  let message = response.ok ? "" : await response.text();
+
+  if (
+    !response.ok &&
+    config.serviceRoleKey.startsWith("sb_") &&
+    (response.status === 401 || response.status === 403) &&
+    /bad_jwt|invalid JWT|unrecognized JWT kid/i.test(message)
+  ) {
+    response = await request(true);
+    message = response.ok ? "" : await response.text();
+  }
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error("Supabase " + response.status + ": " + message.slice(0, 240));
+    const endpoint = path.split("?")[0];
+    throw new Error(
+      "Supabase " +
+        response.status +
+        " em " +
+        endpoint +
+        " (server-key=" +
+        getServerKeyType(config.serviceRoleKey) +
+        "): " +
+        message.slice(0, 240),
+    );
   }
 
   return (await response.json()) as T;
@@ -161,13 +214,23 @@ async function requireAdmin(req: VercelRequest): Promise<{ config: SupabaseConfi
 
 async function listAuthUsers(config: SupabaseConfig): Promise<AuthUser[]> {
   const users: AuthUser[] = [];
+  const adminClient = createAdminSupabaseClient(config);
 
   for (let page = 1; page <= MAX_AUTH_PAGES; page += 1) {
-    const result = await fetchJson<{ users?: AuthUser[] }>(
-      config,
-      "/auth/v1/admin/users?page=" + page + "&per_page=" + AUTH_PAGE_SIZE,
-    );
-    const pageUsers = result.users || [];
+    const { data, error } = await adminClient.auth.admin.listUsers({
+      page,
+      perPage: AUTH_PAGE_SIZE,
+    });
+    if (error) {
+      throw new Error(
+        "Supabase Auth Admin (auth-key=" +
+          getServerKeyType(config.authAdminKey) +
+          "): " +
+          error.message,
+      );
+    }
+
+    const pageUsers = data.users as AuthUser[];
     users.push(...pageUsers);
     if (pageUsers.length < AUTH_PAGE_SIZE) break;
   }
@@ -300,6 +363,123 @@ async function updateProfile(config: SupabaseConfig, userId: string, body: Recor
   );
 }
 
+async function transferBusinessOwnership(
+  config: SupabaseConfig,
+  adminUserId: string,
+  businessId: string,
+  newOwnerEmail: string,
+) {
+  const normalizedEmail = newOwnerEmail.trim().toLowerCase();
+  const authUsers = await listAuthUsers(config);
+  const newOwner = authUsers.find(
+    (user) => String(user.email || "").trim().toLowerCase() === normalizedEmail,
+  );
+
+  if (!newOwner) throw new Error("Nenhum usu\u00e1rio encontrado com este e-mail.");
+
+  const businesses = await fetchJson<UserRelationBusiness[]>(
+    config,
+    "/rest/v1/businesses?select=id,owner_id,name&id=eq." +
+      encodeURIComponent(businessId) +
+      "&limit=1",
+  );
+  if (!businesses[0]) throw new Error("Neg\u00f3cio n\u00e3o encontrado.");
+
+  const updated = await fetchJson<UserRelationBusiness[]>(
+    config,
+    "/rest/v1/businesses?id=eq." + encodeURIComponent(businessId),
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({ owner_id: newOwner.id }),
+    },
+  );
+
+  const reviewedAt = new Date().toISOString();
+  const syncTasks: Promise<unknown>[] = [
+    fetchJson<OwnerClaimRequestRow[]>(
+      config,
+      "/rest/v1/owner_claim_requests?business_id=eq." +
+        encodeURIComponent(businessId) +
+        "&requested_by=eq." +
+        encodeURIComponent(newOwner.id) +
+        "&status=eq.pending",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          status: "approved",
+          reviewed_by: adminUserId,
+          reviewed_at: reviewedAt,
+        }),
+      },
+    ),
+    fetchJson<OwnerClaimRequestRow[]>(
+      config,
+      "/rest/v1/owner_claim_requests?business_id=eq." +
+        encodeURIComponent(businessId) +
+        "&requested_by=neq." +
+        encodeURIComponent(newOwner.id) +
+        "&status=eq.pending",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          status: "rejected",
+          reviewed_by: adminUserId,
+          reviewed_at: reviewedAt,
+        }),
+      },
+    ),
+  ];
+
+  syncTasks.push(
+    (async () => {
+      const conversations = await fetchJson<Array<{ id: string }>>(
+        config,
+        "/rest/v1/conversations?select=id&business_id=eq." + encodeURIComponent(businessId),
+      );
+      if (conversations.length === 0) return;
+
+      await fetchJson<Array<{ conversation_id: string; user_id: string }>>(
+        config,
+        "/rest/v1/conversation_participants?on_conflict=conversation_id,user_id",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "resolution=ignore-duplicates,return=representation",
+          },
+          body: JSON.stringify(
+            conversations.map((conversation) => ({
+              conversation_id: conversation.id,
+              user_id: newOwner.id,
+            })),
+          ),
+        },
+      );
+    })(),
+  );
+
+  const syncResults = await Promise.allSettled(syncTasks);
+  for (const result of syncResults) {
+    if (result.status === "rejected") {
+      console.error("[admin-users] ownership metadata sync failed:", result.reason);
+    }
+  }
+
+  return updated[0] || null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate");
   res.setHeader("CDN-Cache-Control", "no-store");
@@ -337,6 +517,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === "PATCH") {
       const body = parseBody(req);
+
+      if (body.action === "transfer_business_ownership") {
+        const businessId = String(body.businessId || "").trim();
+        const newOwnerEmail = String(body.newOwnerEmail || "").trim();
+        if (!businessId || !newOwnerEmail) {
+          return jsonError(
+            res,
+            400,
+            "Neg\u00f3cio e novo propriet\u00e1rio s\u00e3o obrigat\u00f3rios.",
+          );
+        }
+
+        const business = await transferBusinessOwnership(
+          admin.config,
+          admin.user.id,
+          businessId,
+          newOwnerEmail,
+        );
+        return res.status(200).json({ ok: true, business });
+      }
+
       const userId = String(body.userId || "").trim();
       if (!userId) return jsonError(res, 400, "Usuário inválido.");
 
@@ -349,21 +550,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!userId) return jsonError(res, 400, "Usuário inválido.");
       if (userId === admin.user.id) return jsonError(res, 400, "A conta administradora não pode ser excluída.");
 
-      const response = await fetch(
-        admin.config.url + "/auth/v1/admin/users/" + encodeURIComponent(userId),
-        {
-          method: "DELETE",
-          headers: {
-            apikey: admin.config.serviceRoleKey,
-            Authorization: "Bearer " + admin.config.serviceRoleKey,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const message = await response.text();
-        return jsonError(res, response.status, message || "Não foi possível excluir o usuário.");
-      }
+      const adminClient = createAdminSupabaseClient(admin.config);
+      const { error } = await adminClient.auth.admin.deleteUser(userId);
+      if (error) return jsonError(res, error.status || 500, error.message);
 
       return res.status(200).json({ ok: true });
     }
