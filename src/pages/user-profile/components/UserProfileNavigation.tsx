@@ -1,5 +1,4 @@
-import { Calendar, Flag, LogOut, MapPin, Megaphone, MessageCircle, Search, ShieldCheck, Star, Store, User, BadgeCheck, ClipboardCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Calendar, Flag, LogOut, MapPin, Megaphone, MessageCircle, Search, ShieldCheck, Star, Store, User, BadgeCheck, ClipboardCheck, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +8,7 @@ import type { CommunityFind } from "@/types/database";
 type UserProfileNavigationProps = {
   activeTab: string;
   isAdmin: boolean;
+  canManageUsers: boolean;
   unreadMessages: number;
   myCommunityFinds: CommunityFind[];
   onTabChange: (value: string) => void;
@@ -18,6 +18,7 @@ type UserProfileNavigationProps = {
 export default function UserProfileNavigation({
   activeTab,
   isAdmin,
+  canManageUsers,
   unreadMessages,
   myCommunityFinds,
   onTabChange,
@@ -53,6 +54,7 @@ export default function UserProfileNavigation({
               {isAdmin && <SelectItem value="verificacoes">Verificações</SelectItem>}
               {isAdmin && <SelectItem value="analise-negocios">Análise de negócios</SelectItem>}
               {isAdmin && <SelectItem value="todos-negocios">Todos os negócios</SelectItem>}
+              {canManageUsers && <SelectItem value="usuarios">Usuários</SelectItem>}
               {isAdmin && <SelectItem value="ownership">Ownership</SelectItem>}
               {isAdmin && <SelectItem value="denuncias">Denúncias</SelectItem>}
               {isAdmin && <SelectItem value="destaques">Destaques</SelectItem>}
@@ -106,6 +108,12 @@ export default function UserProfileNavigation({
                 <TabsTrigger value="todos-negocios" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                   <Store className="w-4 h-4" />
                   Todos os negócios
+                </TabsTrigger>
+              )}
+              {canManageUsers && (
+                <TabsTrigger value="usuarios" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                  <Users className="w-4 h-4" />
+                  Usuários
                 </TabsTrigger>
               )}
               {isAdmin && (

@@ -1,4 +1,4 @@
-import { BadgeCheck, BookOpen, Calendar, Edit3, Eye, Lock, MapPin, Plus, Search, Star, Store, TicketPercent, Trash2 } from "lucide-react";
+import { BadgeCheck, BookOpen, Calendar, Crown, Edit3, Eye, Lock, MapPin, Plus, Search, Star, Store, TicketPercent, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import Pagination from "@/components/Pagination";
 import { TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { buildBusinessUrl, getCategoryId, getCountryName } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { getCityDisplayName } from "@/lib/locationDisplay";
+import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
+import { getBusinessProfileCompletionData, getBusinessProfileScore } from "@/lib/profileCompleteness";
 import type { BusinessFrontend } from "@/types/database";
 
 type BusinessesTabProps = {
@@ -31,6 +34,72 @@ type BusinessesTabProps = {
   onDeleteMyBusiness: (business: BusinessFrontend) => void;
 };
 
+function BusinessProfileScoreBadge({ business }: { business: BusinessFrontend }) {
+  const profileScore = getBusinessProfileScore(getBusinessProfileCompletionData(business));
+
+  if (profileScore === 100) {
+    return (
+      <Badge className="inline-flex items-center gap-1 border-amber-300 bg-amber-100 text-amber-900" title="Perfil completo">
+        <Crown className="h-3.5 w-3.5 fill-amber-500 text-amber-600" />
+        100% completo
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="outline" className="border-amber-300/70 text-amber-800" title="Completude do perfil">
+      Perfil {profileScore}% completo
+    </Badge>
+  );
+}
+
+function hasNamedItems(items: Array<{ name?: string }> | undefined): boolean {
+  return !!items?.some((item) => String(item.name || "").trim());
+}
+
+function BusinessContentButton({
+  business,
+  onOpenMenu,
+  onOpenServices,
+}: {
+  business: BusinessFrontend;
+  onOpenMenu: (business: BusinessFrontend) => void;
+  onOpenServices: (business: BusinessFrontend) => void;
+}) {
+  const isFoodBusiness = getCategoryId(business.category) === "food";
+  const hasContent = isFoodBusiness
+    ? hasNamedItems(business.menu) || Boolean(business.menuPdfUrl?.trim())
+    : hasNamedItems(business.serviceItems) || business.services.some((service) => service.trim());
+  const label = isFoodBusiness ? "Card\u00e1pio" : "Servi\u00e7os";
+  const explanation = isFoodBusiness
+    ? "Adicione pratos, produtos, pre\u00e7os e, se quiser, envie tamb\u00e9m um PDF do seu card\u00e1pio. Essas informa\u00e7\u00f5es aparecer\u00e3o na p\u00e1gina p\u00fablica do neg\u00f3cio para que os clientes conhe\u00e7am suas op\u00e7\u00f5es antes de entrar em contato, decidam com mais seguran\u00e7a e encontrem rapidamente o que procuram. Um card\u00e1pio completo tamb\u00e9m deixa seu perfil mais profissional."
+    : "Adicione os servi\u00e7os que voc\u00ea oferece e, quando poss\u00edvel, inclua detalhes, pre\u00e7os e condi\u00e7\u00f5es. Essa se\u00e7\u00e3o aparecer\u00e1 na p\u00e1gina p\u00fablica do neg\u00f3cio e ajuda os clientes a entender rapidamente se voc\u00ea atende \u00e0s necessidades deles, comparar op\u00e7\u00f5es e entrar em contato com mais confian\u00e7a. Manter os servi\u00e7os atualizados deixa seu perfil mais completo e profissional.";
+  const onClick = () => (isFoodBusiness ? onOpenMenu(business) : onOpenServices(business));
+  const button = (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={onClick}
+      className={hasContent ? "w-full sm:w-auto" : "w-full animate-pulse border-amber-400 bg-amber-50 text-amber-900 ring-2 ring-amber-300/70 hover:bg-amber-100 sm:w-auto"}
+    >
+      <BookOpen className="mr-1.5 h-3.5 w-3.5" />
+      {label}
+    </Button>
+  );
+
+  if (hasContent) return button;
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="top" className="max-w-sm whitespace-normal text-sm leading-relaxed sm:max-w-md">
+          {explanation}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 export default function BusinessesTab({
   loadingMyBusinesses,
   myBusinesses,
@@ -107,7 +176,7 @@ export default function BusinessesTab({
               <div className="flex items-start gap-4">
                 <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
                   <img
-                    src={biz.logoUrl || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&q=60"}
+                    src={biz.logoUrl || DEFAULT_BUSINESS_LOGO}
                     alt={biz.name}
                     className="h-full w-full object-cover"
                   />
@@ -124,6 +193,7 @@ export default function BusinessesTab({
                     >
                       {biz.name}
                     </Link>
+                    <BusinessProfileScoreBadge business={biz} />
                     {biz.moderationStatus === "pending" ? (
                       <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">
                         Em analise
@@ -137,7 +207,7 @@ export default function BusinessesTab({
                     {(() => {
                       const status = getMyVerificationStatusByBusiness(biz.id);
                       if (!status) return null;
-                      if (status === "pending") return <Badge variant="outline">Verificacao pendente</Badge>;
+                      if (status === "pending") return <Badge variant="outline">{"Verifica\u00e7\u00e3o pendente"}</Badge>;
                       if (status === "approved" && biz.ownerVerified) {
                         return (
                           <Badge className="inline-flex items-center gap-1.5 bg-emerald-600 text-white">
@@ -147,11 +217,11 @@ export default function BusinessesTab({
                         );
                       }
                       if (status === "approved" && !biz.ownerVerified) {
-                        return <Badge variant="outline">Verificacao expirada</Badge>;
+                        return <Badge variant="outline">{"Verifica\u00e7\u00e3o expirada"}</Badge>;
                       }
                       return (
                         <Badge variant="outline" className="border-destructive/30 text-destructive">
-                          Verificacao rejeitada
+                          {"Verifica\u00e7\u00e3o rejeitada"}
                         </Badge>
                       );
                     })()}
@@ -186,18 +256,11 @@ export default function BusinessesTab({
                     </Button>
                   </Link>
 
-                  {getCategoryId(biz.category) === "food" ? (
-                    <Button size="sm" variant="outline" onClick={() => onOpenMenuModal(biz)} className="w-full sm:w-auto">
-                      <BookOpen className="mr-1.5 h-3.5 w-3.5" />
-                      Cardápio
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => onOpenServicesModal(biz)} className="w-full sm:w-auto">
-                      <BookOpen className="mr-1.5 h-3.5 w-3.5" />
-                      Serviços
-                    </Button>
-                  )}
-
+                  <BusinessContentButton
+                    business={biz}
+                    onOpenMenu={onOpenMenuModal}
+                    onOpenServices={onOpenServicesModal}
+                  />
                   <Button size="sm" variant="outline" onClick={() => onOpenEventsModal(biz)} className="w-full sm:w-auto">
                     <Calendar className="mr-1.5 h-3.5 w-3.5" />
                     Eventos
@@ -205,7 +268,7 @@ export default function BusinessesTab({
 
                   <Button size="sm" variant="outline" onClick={() => onOpenCouponModal(biz)} className="w-full sm:w-auto">
                     <TicketPercent className="mr-1.5 h-3.5 w-3.5" />
-                    Promocoes
+                    {"Promo\u00e7\u00f5es"}
                   </Button>
 
                   {!biz.ownerVerified ? (
@@ -218,11 +281,11 @@ export default function BusinessesTab({
                       title={
                         getMyVerificationStatusByBusiness(biz.id) === "pending"
                           ? "Já existe uma solicitação pendente"
-                          : "Solicitar verificacao"
+                          : "Solicitar verifica\u00e7\u00e3o"
                       }
                     >
                       <BadgeCheck className="mr-1.5 h-3.5 w-3.5" />
-                      Solicitar verificacao
+                      {"Solicitar verifica\u00e7\u00e3o"}
                     </Button>
                   ) : null}
 

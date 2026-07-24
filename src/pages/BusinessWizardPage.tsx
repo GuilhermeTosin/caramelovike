@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import RichTextEditor from "@/components/RichTextEditor";
+import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import AddressAutocomplete, { type AddressResult } from "@/components/AddressAutocomplete";
 import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import {
@@ -89,11 +90,11 @@ const buildFacebookUrl = (value: string): string => {
 function createDefaultBusinessHours(): BusinessHour[] {
   return [
     { day: "Segunda", enabled: true, open: "09:00", close: "18:00" },
-    { day: "Terca", enabled: true, open: "09:00", close: "18:00" },
+    { day: "Ter\u00e7a", enabled: true, open: "09:00", close: "18:00" },
     { day: "Quarta", enabled: true, open: "09:00", close: "18:00" },
     { day: "Quinta", enabled: true, open: "09:00", close: "18:00" },
     { day: "Sexta", enabled: true, open: "09:00", close: "18:00" },
-    { day: "Sabado", enabled: true, open: "10:00", close: "14:00" },
+    { day: "S\u00e1bado", enabled: true, open: "10:00", close: "14:00" },
     { day: "Domingo", enabled: false, open: "10:00", close: "14:00" },
   ];
 }
@@ -104,14 +105,17 @@ function serializeBusinessHours(hours: BusinessHour[]) {
   );
 }
 
+const normalizeBusinessDayKey = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 function parseBusinessHours(lines: string[] = []): BusinessHour[] {
   const defaults = createDefaultBusinessHours();
-  const map = new Map(defaults.map((h) => [h.day.toLowerCase(), { ...h }]));
+  const map = new Map(defaults.map((h) => [normalizeBusinessDayKey(h.day), { ...h }]));
   for (const raw of lines || []) {
     const text = String(raw || "").trim();
     const [rawDay, rawValue] = text.split(":");
     if (!rawDay || !rawValue) continue;
-    const dayKey = rawDay.trim().toLowerCase();
+    const dayKey = normalizeBusinessDayKey(rawDay.trim());
     const existing = map.get(dayKey);
     if (!existing) continue;
     const value = rawValue.trim().toLowerCase();
@@ -125,7 +129,7 @@ function parseBusinessHours(lines: string[] = []): BusinessHour[] {
     existing.open = m[1];
     existing.close = m[2];
   }
-  return defaults.map((d) => map.get(d.day.toLowerCase()) || d);
+  return defaults.map((d) => map.get(normalizeBusinessDayKey(d.day)) || d);
 }
 
 export default function BusinessWizardPage() {
@@ -194,12 +198,40 @@ export default function BusinessWizardPage() {
   const [heroFile, setHeroFile] = useState<File | null>(null);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [businessHours, setBusinessHours] = useState<BusinessHour[]>(createDefaultBusinessHours());
+  const [businessHoursTouched, setBusinessHoursTouched] = useState(false);
+  const [businessHoursEditorOpen, setBusinessHoursEditorOpen] = useState(false);
+  const businessHoursEditSnapshotRef = useRef<{ hours: BusinessHour[]; touched: boolean } | null>(null);
   const [existingLogoUrl, setExistingLogoUrl] = useState("");
   const [existingHeroUrl, setExistingHeroUrl] = useState("");
+  const [logoRemoved, setLogoRemoved] = useState(false);
+  const [heroRemoved, setHeroRemoved] = useState(false);
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
   const [galleryTouched, setGalleryTouched] = useState(false);
 
   const progress = useMemo(() => Math.round((step / TOTAL_STEPS) * 100), [step]);
+  const profileCompletionData = useMemo(() => ({
+    name: form.name,
+    category: form.category,
+    primaryActivity: form.primaryActivity || form.primaryActivityCustom,
+    description: form.description,
+    city: form.city,
+    stateCode: form.stateCode,
+    countryCode: form.countryCode,
+    street: form.street,
+    logoUrl: logoFile ? "pending-logo" : logoRemoved ? "" : existingLogoUrl,
+    heroImage: heroFile ? "pending-hero" : heroRemoved ? "" : existingHeroUrl,
+    photos: [...existingPhotos, ...photoFiles.map((file) => file.name)],
+    phone: form.phone,
+    email: form.email,
+    website: form.website,
+    whatsapp: form.whatsapp,
+    instagram: form.instagram,
+    facebook: form.facebook,
+    services: form.services.split("\n").map((item) => item.trim()).filter(Boolean),
+    keywords: form.keywords.split(",").map((item) => item.trim()).filter(Boolean),
+    openingHours: businessHoursTouched ? serializeBusinessHours(businessHours) : [],
+    attendanceType: form.city.trim() ? (form.hasPhysicalAddress ? "presencial" : "online") : undefined,
+  }), [form, logoFile, heroFile, existingLogoUrl, existingHeroUrl, logoRemoved, heroRemoved, existingPhotos, photoFiles, businessHours, businessHoursTouched]);
 
   const StepIcon =
     step === 1
@@ -398,8 +430,13 @@ export default function BusinessWizardPage() {
             : false
         );
         setBusinessHours(parseBusinessHours(biz.openingHours || []));
+        setBusinessHoursTouched((biz.openingHours || []).some((line) => String(line || "").trim().length > 0));
+        setBusinessHoursEditorOpen(false);
+        businessHoursEditSnapshotRef.current = null;
         setExistingLogoUrl(biz.logoUrl || "");
         setExistingHeroUrl(biz.heroImage || "");
+        setLogoRemoved(false);
+        setHeroRemoved(false);
         setExistingPhotos(biz.photos || []);
         setGalleryTouched(false);
       } finally {
@@ -435,17 +472,15 @@ export default function BusinessWizardPage() {
       return true;
     }
     if (step === 3) {
-      if (!form.phone.trim() || !form.email.trim()) {
-        toast.error("Telefone e email são obrigatórios.");
-        return false;
-      }
+      const phoneProvided = form.phone.trim().length > 0;
+      const emailProvided = form.email.trim().length > 0;
       const phoneDigits = (form.phone.match(/\d/g) || []).length;
-      if (phoneDigits < 8) {
+      if (phoneProvided && phoneDigits < 8) {
         setContactErrors((prev) => ({ ...prev, phone: "Telefone inválido." }));
         toast.error("Informe um telefone válido.");
         return false;
       }
-      if (!isValidEmail(form.email)) {
+      if (emailProvided && !isValidEmail(form.email)) {
         setContactErrors((prev) => ({ ...prev, email: "Email inválido." }));
         toast.error("Informe um email válido.");
         return false;
@@ -538,10 +573,30 @@ export default function BusinessWizardPage() {
     }));
   };
 
+  const activateBusinessHoursEditor = () => {
+    businessHoursEditSnapshotRef.current = {
+      hours: businessHours.map((hour) => ({ ...hour })),
+      touched: businessHoursTouched,
+    };
+    setBusinessHoursEditorOpen(true);
+    setBusinessHoursTouched(true);
+  };
+
+  const cancelBusinessHoursEditing = () => {
+    const snapshot = businessHoursEditSnapshotRef.current;
+    if (snapshot) {
+      setBusinessHours(snapshot.hours);
+      setBusinessHoursTouched(snapshot.touched);
+    }
+    businessHoursEditSnapshotRef.current = null;
+    setBusinessHoursEditorOpen(false);
+  };
   const updateWizardBusinessHour = (
     day: string,
     changes: Partial<Pick<BusinessHour, "enabled" | "open" | "close">>
   ) => {
+    setBusinessHoursEditorOpen(true);
+    setBusinessHoursTouched(true);
     setBusinessHours((prev) =>
       prev.map((hour) => {
         if (hour.day !== day) return hour;
@@ -554,6 +609,29 @@ export default function BusinessWizardPage() {
     );
   };
 
+  const handleWizardImageChange = (event: React.ChangeEvent<HTMLInputElement>, type: "logo" | "hero") => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = "";
+    if (type === "logo") {
+      setLogoFile(file);
+      if (file) setLogoRemoved(false);
+    } else {
+      setHeroFile(file);
+      if (file) setHeroRemoved(false);
+    }
+  };
+
+  const removeWizardImage = (type: "logo" | "hero") => {
+    if (type === "logo") {
+      setLogoFile(null);
+      setExistingLogoUrl("");
+      setLogoRemoved(true);
+    } else {
+      setHeroFile(null);
+      setExistingHeroUrl("");
+      setHeroRemoved(true);
+    }
+  };
   const removeGalleryPhotoAt = (index: number) => {
     setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
   };
@@ -624,6 +702,8 @@ export default function BusinessWizardPage() {
         lat: form.lat || 0,
         lng: form.lng || 0,
         services: [],
+        ...(isEditMode && logoRemoved ? { logoUrl: "" } : {}),
+        ...(isEditMode && heroRemoved ? { heroImage: "" } : {}),
         keywords,
         phone: form.phone.trim(),
         email: form.email.trim(),
@@ -634,7 +714,7 @@ export default function BusinessWizardPage() {
         isVeganFriendly: getCategoryId(form.category) === "food" ? !!form.isVeganFriendly : false,
         isVegetarianFriendly: getCategoryId(form.category) === "food" ? !!form.isVegetarianFriendly : false,
         isGlutenFreeFriendly: getCategoryId(form.category) === "food" ? !!form.isGlutenFreeFriendly : false,
-        openingHours: serializeBusinessHours(businessHours),
+        openingHours: businessHoursTouched ? serializeBusinessHours(businessHours) : [],
       };
 
       let targetBusinessId = editingBusiness?.id || "";
@@ -703,7 +783,7 @@ export default function BusinessWizardPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-24">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
+            <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
               <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
             </div>
             <div className="leading-tight min-w-0">
@@ -779,6 +859,10 @@ export default function BusinessWizardPage() {
 
           <div className="h-2 rounded-full bg-secondary overflow-hidden mb-6">
             <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+
+          <div className="mb-6">
+            <ProfileCompletionCard data={profileCompletionData} compact={step !== 6} />
           </div>
 
           {step === 1 && (
@@ -897,7 +981,7 @@ export default function BusinessWizardPage() {
           {step === 3 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Telefone *</Label>
+                <Label>Telefone (opcional)</Label>
                 <Input
                   type="tel"
                   inputMode="tel"
@@ -909,7 +993,7 @@ export default function BusinessWizardPage() {
                 {contactErrors.phone ? <p className="mt-1 text-xs text-red-600">{contactErrors.phone}</p> : null}
               </div>
               <div>
-                <Label>Email *</Label>
+                <Label>Email (opcional)</Label>
                 <Input
                   type="email"
                   inputMode="email"
@@ -1066,38 +1150,79 @@ export default function BusinessWizardPage() {
           {step === 4 && (
             <div className="grid grid-cols-1 gap-4">
               <div className="rounded-lg border border-border bg-secondary/10 p-4">
-                <Label>Horários de funcionamento</Label>
-                <div className="mt-3 space-y-2">
-                  {businessHours.map((hour) => (
-                    <div key={hour.day} className="grid grid-cols-[110px_90px_1fr_1fr] gap-2 items-center">
-                      <span className="text-sm font-medium">{hour.day}</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={hour.enabled ? "default" : "outline"}
-                        onClick={() => updateWizardBusinessHour(hour.day, { enabled: !hour.enabled })}
-                      >
-                        {hour.enabled ? "Aberto" : "Fechado"}
-                      </Button>
-                      <Input
-                        type="time"
-                        value={hour.open}
-                        disabled={!hour.enabled}
-                        onChange={(e) => updateWizardBusinessHour(hour.day, { open: e.target.value })}
-                      />
-                      <Input
-                        type="time"
-                        value={hour.close}
-                        disabled={!hour.enabled}
-                        onChange={(e) => updateWizardBusinessHour(hour.day, { close: e.target.value })}
-                      />
-                    </div>
-                  ))}
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Label>{"Hor\u00e1rios de funcionamento"}</Label>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {businessHoursTouched
+                        ? "Esses hor\u00e1rios aparecer\u00e3o na p\u00e1gina p\u00fablica do neg\u00f3cio."
+                        : "Hor\u00e1rios ainda n\u00e3o informados."}
+                    </p>
+                  </div>
+                  {businessHoursEditorOpen ? (
+                    <Button type="button" variant="ghost" onClick={cancelBusinessHoursEditing}>
+                      Cancelar
+                    </Button>
+                  ) : (
+                    <Button type="button" variant="outline" onClick={activateBusinessHoursEditor}>
+                      {businessHoursTouched ? "Editar hor\u00e1rios" : "Adicionar hor\u00e1rio"}
+                    </Button>
+                  )}
                 </div>
+                {businessHoursEditorOpen ? (
+                  <div className="mt-3 space-y-2">
+                    {businessHours.map((hour) => (
+                      <div key={hour.day} className="grid grid-cols-1 sm:grid-cols-[110px_90px_1fr_1fr] gap-2 items-center">
+                        <span className="text-sm font-medium">{hour.day}</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={hour.enabled ? "default" : "outline"}
+                          onClick={() => updateWizardBusinessHour(hour.day, { enabled: !hour.enabled })}
+                        >
+                          {hour.enabled ? "Aberto" : "Fechado"}
+                        </Button>
+                        <Input
+                          type="time"
+                          value={hour.open}
+                          disabled={!hour.enabled}
+                          onChange={(e) => updateWizardBusinessHour(hour.day, { open: e.target.value })}
+                        />
+                        <Input
+                          type="time"
+                          value={hour.close}
+                          disabled={!hour.enabled}
+                          onChange={(e) => updateWizardBusinessHour(hour.day, { close: e.target.value })}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-3 space-y-2 rounded-md border border-border bg-background p-3">
+                      {businessHours.map((hour) => (
+                        <div key={hour.day} className="flex items-center justify-between gap-3 text-sm">
+                          <span className="font-medium">{hour.day}</span>
+                          <span className={businessHoursTouched ? "text-muted-foreground" : "text-amber-700"}>
+                            {businessHoursTouched
+                              ? hour.enabled
+                                ? `${hour.open} - ${hour.close}`
+                                : "Fechado"
+                              : "N\u00e3o informado"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {!businessHoursTouched ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {"Clique em Adicionar hor\u00e1rio para preencher os dias e ganhar pontos no perfil."}
+                      </p>
+                    ) : null}
+                  </>
+                )}
               </div>
             </div>
           )}
-
           {step === 5 && (
             <div className="grid grid-cols-1 gap-4">
               <div>
@@ -1107,8 +1232,8 @@ export default function BusinessWizardPage() {
                     Escolher imagem
                   </label>
                 </div>
-                <Input id="wizard-logo" type="file" accept="image/*" className="hidden" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} />
-                <p className="mt-1 text-xs text-muted-foreground">{logoFile ? logoFile.name : "Nenhum arquivo selecionado"}</p>
+                <Input id="wizard-logo" type="file" accept="image/*" className="hidden" onChange={(e) => handleWizardImageChange(e, "logo")} />
+                <p className="mt-1 text-xs text-muted-foreground">{logoFile ? logoFile.name : existingLogoUrl ? "Logo atual" : "Nenhum arquivo selecionado"}</p>
                 {logoFile ? (
                   <div className="mt-2">
                     <div className="relative w-20 h-20 rounded-md overflow-hidden border border-border">
@@ -1122,6 +1247,12 @@ export default function BusinessWizardPage() {
                     </div>
                   </div>
                 ) : null}
+                {logoFile || existingLogoUrl ? (
+                  <Button type="button" size="sm" variant="outline" className="mt-2 text-destructive" onClick={() => removeWizardImage("logo")}>
+                    <X className="mr-1.5 h-3.5 w-3.5" />
+                    Remover logo
+                  </Button>
+                ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
                   Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 512x512 px. Tamanho máximo: 5MB.
                 </p>
@@ -1133,8 +1264,8 @@ export default function BusinessWizardPage() {
                     Escolher imagem
                   </label>
                 </div>
-                <Input id="wizard-hero" type="file" accept="image/*" className="hidden" onChange={(e) => setHeroFile(e.target.files?.[0] || null)} />
-                <p className="mt-1 text-xs text-muted-foreground">{heroFile ? heroFile.name : "Nenhum arquivo selecionado"}</p>
+                <Input id="wizard-hero" type="file" accept="image/*" className="hidden" onChange={(e) => handleWizardImageChange(e, "hero")} />
+                <p className="mt-1 text-xs text-muted-foreground">{heroFile ? heroFile.name : existingHeroUrl ? "Capa atual" : "Nenhum arquivo selecionado"}</p>
                 {heroFile ? (
                   <div className="mt-2">
                     <div className="relative w-44 h-20 rounded-md overflow-hidden border border-border">
@@ -1147,6 +1278,12 @@ export default function BusinessWizardPage() {
                       <img src={existingHeroUrl} alt="Capa atual" className="w-full h-full object-cover" />
                     </div>
                   </div>
+                ) : null}
+                {heroFile || existingHeroUrl ? (
+                  <Button type="button" size="sm" variant="outline" className="mt-2 text-destructive" onClick={() => removeWizardImage("hero")}>
+                    <X className="mr-1.5 h-3.5 w-3.5" />
+                    Remover capa
+                  </Button>
                 ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
                   Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 1600x600 px. Tamanho máximo: 8MB.

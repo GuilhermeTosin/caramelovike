@@ -50,7 +50,7 @@ import { setSeoMeta, setCanonical, setJsonLd, setRobots } from "@/lib/seo";
 import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
 import { getLocaleFromPathname } from "@/i18n/routing";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
-import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
+import { DEFAULT_BUSINESS_LOGO, getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
 import NotFound from "@/pages/NotFound";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
@@ -686,7 +686,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
+              <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
                 <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight min-w-0">
@@ -724,7 +724,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
         <div className="absolute bottom-0 left-0 right-0 z-30 p-6 sm:p-10">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-end gap-6">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-4 border-white bg-white shrink-0">
-              <img src={business.logoUrl || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&q=80"} alt="" className="w-full h-full object-cover" />
+              <img src={business.logoUrl || DEFAULT_BUSINESS_LOGO} alt="" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 text-white mb-2">
               <Badge className="mb-3 bg-white/20 text-white border-0 hover:bg-white/30 rounded-lg px-3 py-1">
@@ -751,7 +751,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 min-w-0">
             <Tabs key={initialTab} defaultValue={initialTab} className="w-full">
               <div className="relative">
                 <div className="-mx-2 px-2 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide">
@@ -796,7 +796,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                 <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
               </div>
 
-              <TabsContent value="about" className="mt-6">
+              <TabsContent value="about" className="mt-6 min-w-0">
                 <h2 className="text-xl font-bold text-foreground mb-3">Sobre {business.name}</h2>
                 {business.categoryId === "food" && (business.isVeganFriendly || business.isVegetarianFriendly || business.isGlutenFreeFriendly) ? (
                   <div className="flex flex-wrap gap-2 mb-3">
@@ -820,7 +820,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                     ) : null}
                   </div>
                 ) : null}
-                <div className="text-muted-foreground leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ol]:list-decimal [&_ul,&_ol]:pl-5 [&_li]:mb-1" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(business.description) }} />
+                <div className="min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-muted-foreground leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ol]:list-decimal [&_ul,&_ol]:pl-5 [&_li]:mb-1" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(business.description) }} />
               </TabsContent>
 
               {getCategoryId(business.category) !== "food" && hasServiceItems && (
@@ -1260,18 +1260,32 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       </>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <a href={`tel:${business.phone}`} onClick={() => handleExternalClick("phone")} className="text-sm text-primary hover:underline">
-                      {business.phone}
-                    </a>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <a href={`mailto:${business.email}`} onClick={() => handleExternalClick("email")} className="text-sm text-primary hover:underline truncate">
-                      {business.email}
-                    </a>
-                  </div>
+                  {business.phone ? (
+                    <div className="flex items-center gap-3">
+                      <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <a href={`tel:${business.phone}`} onClick={() => handleExternalClick("phone")} className="text-sm text-primary hover:underline">
+                        {business.phone}
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <Phone className="w-4 h-4 flex-shrink-0" />
+                      <span>Telefone não informado.</span>
+                    </div>
+                  )}
+                  {business.email ? (
+                    <div className="flex items-center gap-3">
+                      <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <a href={`mailto:${business.email}`} onClick={() => handleExternalClick("email")} className="text-sm text-primary hover:underline truncate">
+                        {business.email}
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <Mail className="w-4 h-4 flex-shrink-0" />
+                      <span>E-mail não informado.</span>
+                    </div>
+                  )}
                   {business.website && (
                     <div className="flex items-center gap-3">
                       <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />

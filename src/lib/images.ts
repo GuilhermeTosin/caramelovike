@@ -4,6 +4,8 @@ type SupabaseImageOptions = {
   format: "origin" | "webp" | undefined;
 };
 
+export const DEFAULT_BUSINESS_LOGO = "/cachorro-caramelo.webp";
+
 function isSupabaseStoragePublicUrl(url: string): boolean {
   return /\/storage\/v1\/object\/public\//.test(url);
 }

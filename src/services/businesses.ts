@@ -1179,9 +1179,7 @@ export async function createBusiness(
     events?: { title: string; description: string; date: string; location: string; isFree: boolean; price: string; flyerUrl?: string; ticketUrl?: string }[];
   }
 ): Promise<BusinessFrontend | null> {
-  if (!data.phone?.trim() || !data.email?.trim()) {
-    return null;
-  }
+
   const officialSlug = await generateUniqueOfficialBusinessSlug(data.name);
   if (!officialSlug) return null;
 

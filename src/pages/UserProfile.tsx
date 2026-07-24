@@ -8,6 +8,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { updateProfile } from "@/services/profiles";
+import { transferBusinessOwnershipByEmail } from "@/services/ownership";
 import { generateImagePath, uploadImage } from "@/services/storage";
 import {
   BUSINESS_CATEGORY_OPTIONS,
@@ -31,6 +32,7 @@ import DeleteReviewDialog from "@/pages/user-profile/components/DeleteReviewDial
 import UserProfileNavigation from "@/pages/user-profile/components/UserProfileNavigation";
 import BusinessesTab from "@/pages/user-profile/components/BusinessesTab";
 import AllBusinessesTab from "@/pages/user-profile/components/AllBusinessesTab";
+import AdminUsersTab from "@/pages/user-profile/components/AdminUsersTab";
 import EventsTab from "@/pages/user-profile/components/EventsTab";
 import CommunityFindsTab from "@/pages/user-profile/components/CommunityFindsTab";
 import EditCommunityFindDialog from "@/pages/user-profile/components/EditCommunityFindDialog";
@@ -41,6 +43,7 @@ import ReportsAdminTab from "@/pages/user-profile/components/ReportsAdminTab";
 import FeaturedPlacementsTab from "@/pages/user-profile/components/FeaturedPlacementsTab";
 import UserProfileDialogs from "@/pages/user-profile/components/UserProfileDialogs";
 import { useAdminSearchSettings } from "@/pages/user-profile/hooks/useAdminSearchSettings";
+import { useAdminUsers, USER_MANAGEMENT_ADMIN_EMAIL } from "@/pages/user-profile/hooks/useAdminUsers";
 import { useCommunityContent } from "@/pages/user-profile/hooks/useCommunityContent";
 import { useVerificationAdmin } from "@/pages/user-profile/hooks/useVerificationAdmin";
 import { useOwnershipAdmin } from "@/pages/user-profile/hooks/useOwnershipAdmin";
@@ -53,6 +56,7 @@ export default function UserProfile() {
   const navigate = useNavigate();
   const { session, user, isLoading, logout, refreshUnread, unreadMessages, refreshSession } = useAuth();
   const isAdmin = session?.role === "admin" || user?.role === "admin";
+  const canManageUsers = isAdmin && String(user?.email || session?.email || "").trim().toLowerCase() === USER_MANAGEMENT_ADMIN_EMAIL;
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
 
@@ -121,6 +125,39 @@ export default function UserProfile() {
     handleEnableBusinessFollowLinks,
     handleDisableBusinessFollowLinks,
   } = useAdminSearchSettings({ isAdmin });
+
+  const {
+    users: adminUsers,
+    search: adminUsersSearch,
+    page: adminUsersPage,
+    total: adminUsersTotal,
+    totalPages: adminUsersTotalPages,
+    loading: adminUsersLoading,
+    error: adminUsersError,
+    setSearch: setAdminUsersSearch,
+    setPage: setAdminUsersPage,
+    saveUser: saveAdminUser,
+    deleteUser: deleteAdminUser,
+    refresh: refreshAdminUsers,
+  } = useAdminUsers({ enabled: canManageUsers });
+
+  const handleTransferBusinessToAdmin = async (businessId: string) => {
+    if (!canManageUsers) {
+      throw new Error("Ação não autorizada.");
+    }
+
+    const result = await transferBusinessOwnershipByEmail(businessId, USER_MANAGEMENT_ADMIN_EMAIL);
+    if (!result.ok) {
+      throw new Error(result.error || "Não foi possível transferir o negócio.");
+    }
+
+    toast.success("Negócio transferido para sua conta.");
+    await Promise.allSettled([
+      refreshAdminUsers(),
+      refreshAllBusinesses(),
+      refreshOwnedBusinesses(session?.userId),
+    ]);
+  };
 
   const {
     myCommunityEvents,
@@ -284,11 +321,14 @@ export default function UserProfile() {
     deleteTarget,
     couponForm,
     editFormData,
+    editLogoFile,
+    editHeroFile,
     existingPhotos,
     editPhotoFiles,
     eventFlyerFiles,
     eventDatePickerRefs,
     editBusinessHours,
+    editBusinessHoursTouched,
     shortSlugStatus,
     shortSlugMessage,
     setCouponBusiness,
@@ -588,7 +628,7 @@ export default function UserProfile() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between sm:h-24">
             <Link to="/" className="group flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center sm:h-20 sm:w-20">
+              <div className="flex h-14 w-14 items-center justify-center sm:h-[5.5rem] sm:w-[5.5rem]">
                 <img src="/logo.webp" alt="Caramelinho logo" className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="min-w-0 leading-tight">
@@ -630,6 +670,7 @@ export default function UserProfile() {
           <UserProfileNavigation
             activeTab={activeTab}
             isAdmin={isAdmin}
+            canManageUsers={canManageUsers}
             unreadMessages={unreadMessages}
             myCommunityFinds={myCommunityFinds}
             onTabChange={setActiveTab}
@@ -703,6 +744,25 @@ export default function UserProfile() {
                 onSearchChange={setAllBusinessesSearch}
                 onPageChange={(page) => setAllBusinessesPage(page)}
                 onDeleteBusiness={handleDeleteMyBusiness}
+              />
+            ) : null}
+
+            {canManageUsers ? (
+              <AdminUsersTab
+                users={adminUsers}
+                search={adminUsersSearch}
+                page={adminUsersPage}
+                total={adminUsersTotal}
+                totalPages={adminUsersTotalPages}
+                loading={adminUsersLoading}
+                error={adminUsersError}
+                adminUserId={session?.userId}
+                onSearchChange={setAdminUsersSearch}
+                onPageChange={setAdminUsersPage}
+                onRefresh={refreshAdminUsers}
+                onSaveUser={saveAdminUser}
+                onDeleteUser={deleteAdminUser}
+                onTransferBusinessOwnership={handleTransferBusinessToAdmin}
               />
             ) : null}
 
@@ -911,8 +971,11 @@ export default function UserProfile() {
         shortSlugMessage={shortSlugMessage}
         getCategoryId={getCategoryId}
         editBusinessHours={editBusinessHours}
+        editBusinessHoursTouched={editBusinessHoursTouched}
         updateBusinessHour={updateBusinessHour}
         handleFileChange={handleFileChange}
+        editLogoFile={editLogoFile}
+        editHeroFile={editHeroFile}
         existingPhotos={existingPhotos}
         editPhotoFiles={editPhotoFiles}
         handleRemoveExistingPhoto={handleRemoveExistingPhoto}
