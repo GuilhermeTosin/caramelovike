@@ -74,6 +74,10 @@ type ProfileRow = {
   created_at: string;
 };
 
+type OwnerClaimRequestRow = {
+  id: string;
+};
+
 function getConfig(): SupabaseConfig | null {
   const url = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim();
   const serviceRoleKey = String(
@@ -300,6 +304,123 @@ async function updateProfile(config: SupabaseConfig, userId: string, body: Recor
   );
 }
 
+async function transferBusinessOwnership(
+  config: SupabaseConfig,
+  adminUserId: string,
+  businessId: string,
+  newOwnerEmail: string,
+) {
+  const normalizedEmail = newOwnerEmail.trim().toLowerCase();
+  const authUsers = await listAuthUsers(config);
+  const newOwner = authUsers.find(
+    (user) => String(user.email || "").trim().toLowerCase() === normalizedEmail,
+  );
+
+  if (!newOwner) throw new Error("Nenhum usu\u00e1rio encontrado com este e-mail.");
+
+  const businesses = await fetchJson<UserRelationBusiness[]>(
+    config,
+    "/rest/v1/businesses?select=id,owner_id,name&id=eq." +
+      encodeURIComponent(businessId) +
+      "&limit=1",
+  );
+  if (!businesses[0]) throw new Error("Neg\u00f3cio n\u00e3o encontrado.");
+
+  const updated = await fetchJson<UserRelationBusiness[]>(
+    config,
+    "/rest/v1/businesses?id=eq." + encodeURIComponent(businessId),
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({ owner_id: newOwner.id }),
+    },
+  );
+
+  const reviewedAt = new Date().toISOString();
+  const syncTasks: Promise<unknown>[] = [
+    fetchJson<OwnerClaimRequestRow[]>(
+      config,
+      "/rest/v1/owner_claim_requests?business_id=eq." +
+        encodeURIComponent(businessId) +
+        "&requested_by=eq." +
+        encodeURIComponent(newOwner.id) +
+        "&status=eq.pending",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          status: "approved",
+          reviewed_by: adminUserId,
+          reviewed_at: reviewedAt,
+        }),
+      },
+    ),
+    fetchJson<OwnerClaimRequestRow[]>(
+      config,
+      "/rest/v1/owner_claim_requests?business_id=eq." +
+        encodeURIComponent(businessId) +
+        "&requested_by=neq." +
+        encodeURIComponent(newOwner.id) +
+        "&status=eq.pending",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          status: "rejected",
+          reviewed_by: adminUserId,
+          reviewed_at: reviewedAt,
+        }),
+      },
+    ),
+  ];
+
+  syncTasks.push(
+    (async () => {
+      const conversations = await fetchJson<Array<{ id: string }>>(
+        config,
+        "/rest/v1/conversations?select=id&business_id=eq." + encodeURIComponent(businessId),
+      );
+      if (conversations.length === 0) return;
+
+      await fetchJson<Array<{ conversation_id: string; user_id: string }>>(
+        config,
+        "/rest/v1/conversation_participants?on_conflict=conversation_id,user_id",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "resolution=ignore-duplicates,return=representation",
+          },
+          body: JSON.stringify(
+            conversations.map((conversation) => ({
+              conversation_id: conversation.id,
+              user_id: newOwner.id,
+            })),
+          ),
+        },
+      );
+    })(),
+  );
+
+  const syncResults = await Promise.allSettled(syncTasks);
+  for (const result of syncResults) {
+    if (result.status === "rejected") {
+      console.error("[admin-users] ownership metadata sync failed:", result.reason);
+    }
+  }
+
+  return updated[0] || null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate");
   res.setHeader("CDN-Cache-Control", "no-store");
@@ -337,6 +458,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === "PATCH") {
       const body = parseBody(req);
+
+      if (body.action === "transfer_business_ownership") {
+        const businessId = String(body.businessId || "").trim();
+        const newOwnerEmail = String(body.newOwnerEmail || "").trim();
+        if (!businessId || !newOwnerEmail) {
+          return jsonError(
+            res,
+            400,
+            "Neg\u00f3cio e novo propriet\u00e1rio s\u00e3o obrigat\u00f3rios.",
+          );
+        }
+
+        const business = await transferBusinessOwnership(
+          admin.config,
+          admin.user.id,
+          businessId,
+          newOwnerEmail,
+        );
+        return res.status(200).json({ ok: true, business });
+      }
+
       const userId = String(body.userId || "").trim();
       if (!userId) return jsonError(res, 400, "Usuário inválido.");
 
