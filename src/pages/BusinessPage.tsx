@@ -41,7 +41,7 @@ import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwne
 import { trackBusinessClick } from "@/services/analytics";
 import { createBusinessReport } from "@/services/reports";
 import type { BusinessFrontend } from "@/types/database";
-import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
+import { getRichTextBlockClassName, sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import { useAuth } from "@/contexts/AuthContext";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import { Store } from "lucide-react";
@@ -820,7 +820,13 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                     ) : null}
                   </div>
                 ) : null}
-                <div className="min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-muted-foreground leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ol]:list-decimal [&_ul,&_ol]:pl-5 [&_li]:mb-1" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(business.description) }} />
+                <div
+                  className={
+                    "min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-muted-foreground leading-relaxed " +
+                    getRichTextBlockClassName()
+                  }
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(business.description) }}
+                />
               </TabsContent>
 
               {getCategoryId(business.category) !== "food" && hasServiceItems && (

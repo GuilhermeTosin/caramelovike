@@ -143,6 +143,7 @@ export default function BusinessWizardPage() {
   const [isChangingStep, setIsChangingStep] = useState(false);
   const saveInProgressRef = useRef(false);
   const stepTransitionInProgressRef = useRef(false);
+  const loadedEditBusinessKeyRef = useRef<string | null>(null);
   const [loadingEditBusiness, setLoadingEditBusiness] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
   const [checkingSlug, setCheckingSlug] = useState(false);
@@ -374,6 +375,9 @@ export default function BusinessWizardPage() {
 
   useEffect(() => {
     if (!session || !isEditMode) return;
+    const editBusinessKey = `${session.userId}:${editingBusinessId}`;
+    if (loadedEditBusinessKeyRef.current === editBusinessKey) return;
+
     let active = true;
     
     Promise.resolve().then(async () => {
@@ -439,6 +443,7 @@ export default function BusinessWizardPage() {
         setHeroRemoved(false);
         setExistingPhotos(biz.photos || []);
         setGalleryTouched(false);
+        loadedEditBusinessKeyRef.current = editBusinessKey;
       } finally {
         if (active) setLoadingEditBusiness(false);
       }
@@ -447,7 +452,7 @@ export default function BusinessWizardPage() {
     return () => {
       active = false;
     };
-  }, [session, isEditMode, editingBusinessId, navigate]);
+  }, [session?.userId, isEditMode, editingBusinessId, navigate]);
 
   const validateCurrentStep = async () => {
     if (step === 1) {
