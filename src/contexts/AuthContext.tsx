@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
-import { supabase } from "@/lib/supabase";
+import { getValidatedSession, supabase } from "@/lib/supabase";
 import { getProfileById, updateProfile } from "@/services/profiles";
 import { getUnreadCount } from "@/services/messages";
 import type { UserFrontend, AuthSessionFrontend } from "@/types/database";
@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshSession = useCallback(async () => {
     setIsLoading(true);
-    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    const supaSession = await getValidatedSession();
     const s = buildSession(supaSession);
     setSession(s);
     if (s && supaSession) {
@@ -106,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const bootstrapSession = async () => {
       try {
-        const { data: { session: supaSession } } = await supabase.auth.getSession();
+        const supaSession = await getValidatedSession();
         if (!active) return;
         const s = buildSession(supaSession);
         setSession(s);
