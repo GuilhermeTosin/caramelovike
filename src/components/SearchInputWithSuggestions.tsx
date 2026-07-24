@@ -411,6 +411,8 @@ export default function SearchInputWithSuggestions({
       ) : value ? (
         <button
           type="button"
+          aria-label={icon === "location" ? "Limpar localiza\u00e7\u00e3o" : "Limpar busca"}
+          title={icon === "location" ? "Limpar localiza\u00e7\u00e3o" : "Limpar busca"}
           onClick={() => {
             onChange("");
             setIsOpen(false);

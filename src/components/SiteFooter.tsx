@@ -22,7 +22,7 @@ export default function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold text-white mb-3">Navegação</h4>
+            <h2 className="text-sm font-semibold text-white mb-3">Navegação</h2>
             <div className="space-y-2 text-sm">
               <Link to="/buscar" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <MapPin className="w-4 h-4" />
@@ -44,7 +44,7 @@ export default function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold text-white mb-3">Institucional</h4>
+            <h2 className="text-sm font-semibold text-white mb-3">Institucional</h2>
             <div className="space-y-2 text-sm">
               <Link to="/sobre" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Info className="w-4 h-4" />
@@ -66,7 +66,7 @@ export default function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold text-white mb-3">Siga-nos</h4>
+            <h2 className="text-sm font-semibold text-white mb-3">Siga-nos</h2>
             <div className="space-y-2 text-sm">
               <a href="https://www.facebook.com/people/Caramelinhocom/61591992668311/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors" aria-label="Facebook">
                 <Facebook className="w-4 h-4" />
