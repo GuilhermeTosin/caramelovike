@@ -196,6 +196,7 @@ export default function BusinessWizardPage() {
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [businessHours, setBusinessHours] = useState<BusinessHour[]>(createDefaultBusinessHours());
   const [businessHoursTouched, setBusinessHoursTouched] = useState(false);
+  const [businessHoursEditorOpen, setBusinessHoursEditorOpen] = useState(false);
   const [existingLogoUrl, setExistingLogoUrl] = useState("");
   const [existingHeroUrl, setExistingHeroUrl] = useState("");
   const [logoRemoved, setLogoRemoved] = useState(false);
@@ -425,7 +426,8 @@ export default function BusinessWizardPage() {
             : false
         );
         setBusinessHours(parseBusinessHours(biz.openingHours || []));
-        setBusinessHoursTouched((biz.openingHours || []).length > 0);
+        setBusinessHoursTouched((biz.openingHours || []).some((line) => String(line || "").trim().length > 0));
+        setBusinessHoursEditorOpen(false);
         setExistingLogoUrl(biz.logoUrl || "");
         setExistingHeroUrl(biz.heroImage || "");
         setLogoRemoved(false);
@@ -566,10 +568,16 @@ export default function BusinessWizardPage() {
     }));
   };
 
+  const activateBusinessHoursEditor = () => {
+    setBusinessHoursEditorOpen(true);
+    setBusinessHoursTouched(true);
+  };
+
   const updateWizardBusinessHour = (
     day: string,
     changes: Partial<Pick<BusinessHour, "enabled" | "open" | "close">>
   ) => {
+    setBusinessHoursEditorOpen(true);
     setBusinessHoursTouched(true);
     setBusinessHours((prev) =>
       prev.map((hour) => {
@@ -688,7 +696,7 @@ export default function BusinessWizardPage() {
         isVeganFriendly: getCategoryId(form.category) === "food" ? !!form.isVeganFriendly : false,
         isVegetarianFriendly: getCategoryId(form.category) === "food" ? !!form.isVegetarianFriendly : false,
         isGlutenFreeFriendly: getCategoryId(form.category) === "food" ? !!form.isGlutenFreeFriendly : false,
-        openingHours: serializeBusinessHours(businessHours),
+        openingHours: businessHoursTouched ? serializeBusinessHours(businessHours) : [],
       };
 
       let targetBusinessId = editingBusiness?.id || "";
@@ -1124,38 +1132,63 @@ export default function BusinessWizardPage() {
           {step === 4 && (
             <div className="grid grid-cols-1 gap-4">
               <div className="rounded-lg border border-border bg-secondary/10 p-4">
-                <Label>Horários de funcionamento</Label>
-                <div className="mt-3 space-y-2">
-                  {businessHours.map((hour) => (
-                    <div key={hour.day} className="grid grid-cols-[110px_90px_1fr_1fr] gap-2 items-center">
-                      <span className="text-sm font-medium">{hour.day}</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={hour.enabled ? "default" : "outline"}
-                        onClick={() => updateWizardBusinessHour(hour.day, { enabled: !hour.enabled })}
-                      >
-                        {hour.enabled ? "Aberto" : "Fechado"}
-                      </Button>
-                      <Input
-                        type="time"
-                        value={hour.open}
-                        disabled={!hour.enabled}
-                        onChange={(e) => updateWizardBusinessHour(hour.day, { open: e.target.value })}
-                      />
-                      <Input
-                        type="time"
-                        value={hour.close}
-                        disabled={!hour.enabled}
-                        onChange={(e) => updateWizardBusinessHour(hour.day, { close: e.target.value })}
-                      />
-                    </div>
-                  ))}
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Label>{"Hor\u00e1rios de funcionamento"}</Label>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {businessHoursTouched
+                        ? "Esses hor\u00e1rios aparecer\u00e3o na p\u00e1gina p\u00fablica do neg\u00f3cio."
+                        : "Hor\u00e1rios ainda n\u00e3o informados."}
+                    </p>
+                  </div>
+                  {!businessHoursEditorOpen ? (
+                    <Button type="button" variant="outline" onClick={activateBusinessHoursEditor}>
+                      {businessHoursTouched ? "Editar hor\u00e1rios" : "Adicionar hor\u00e1rio"}
+                    </Button>
+                  ) : null}
                 </div>
+                {businessHoursEditorOpen ? (
+                  <div className="mt-3 space-y-2">
+                    {businessHours.map((hour) => (
+                      <div key={hour.day} className="grid grid-cols-1 sm:grid-cols-[110px_90px_1fr_1fr] gap-2 items-center">
+                        <span className="text-sm font-medium">{hour.day}</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={hour.enabled ? "default" : "outline"}
+                          onClick={() => updateWizardBusinessHour(hour.day, { enabled: !hour.enabled })}
+                        >
+                          {hour.enabled ? "Aberto" : "Fechado"}
+                        </Button>
+                        <Input
+                          type="time"
+                          value={hour.open}
+                          disabled={!hour.enabled}
+                          onChange={(e) => updateWizardBusinessHour(hour.day, { open: e.target.value })}
+                        />
+                        <Input
+                          type="time"
+                          value={hour.close}
+                          disabled={!hour.enabled}
+                          onChange={(e) => updateWizardBusinessHour(hour.day, { close: e.target.value })}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : businessHoursTouched ? (
+                  <div className="mt-3 space-y-1 rounded-md border border-border bg-background p-3">
+                    {serializeBusinessHours(businessHours).map((line) => (
+                      <p key={line} className="text-sm text-muted-foreground">{line}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 rounded-md border border-dashed border-border bg-background p-3 text-sm text-muted-foreground">
+                    {"Nenhum hor\u00e1rio foi informado. Clique em Adicionar hor\u00e1rio para preencher e ganhar pontos no perfil."}
+                  </p>
+                )}
               </div>
             </div>
           )}
-
           {step === 5 && (
             <div className="grid grid-cols-1 gap-4">
               <div>
