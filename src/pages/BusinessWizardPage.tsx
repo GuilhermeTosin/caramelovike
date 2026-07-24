@@ -197,6 +197,7 @@ export default function BusinessWizardPage() {
   const [businessHours, setBusinessHours] = useState<BusinessHour[]>(createDefaultBusinessHours());
   const [businessHoursTouched, setBusinessHoursTouched] = useState(false);
   const [businessHoursEditorOpen, setBusinessHoursEditorOpen] = useState(false);
+  const businessHoursEditSnapshotRef = useRef<{ hours: BusinessHour[]; touched: boolean } | null>(null);
   const [existingLogoUrl, setExistingLogoUrl] = useState("");
   const [existingHeroUrl, setExistingHeroUrl] = useState("");
   const [logoRemoved, setLogoRemoved] = useState(false);
@@ -428,6 +429,7 @@ export default function BusinessWizardPage() {
         setBusinessHours(parseBusinessHours(biz.openingHours || []));
         setBusinessHoursTouched((biz.openingHours || []).some((line) => String(line || "").trim().length > 0));
         setBusinessHoursEditorOpen(false);
+        businessHoursEditSnapshotRef.current = null;
         setExistingLogoUrl(biz.logoUrl || "");
         setExistingHeroUrl(biz.heroImage || "");
         setLogoRemoved(false);
@@ -569,10 +571,23 @@ export default function BusinessWizardPage() {
   };
 
   const activateBusinessHoursEditor = () => {
+    businessHoursEditSnapshotRef.current = {
+      hours: businessHours.map((hour) => ({ ...hour })),
+      touched: businessHoursTouched,
+    };
     setBusinessHoursEditorOpen(true);
     setBusinessHoursTouched(true);
   };
 
+  const cancelBusinessHoursEditing = () => {
+    const snapshot = businessHoursEditSnapshotRef.current;
+    if (snapshot) {
+      setBusinessHours(snapshot.hours);
+      setBusinessHoursTouched(snapshot.touched);
+    }
+    businessHoursEditSnapshotRef.current = null;
+    setBusinessHoursEditorOpen(false);
+  };
   const updateWizardBusinessHour = (
     day: string,
     changes: Partial<Pick<BusinessHour, "enabled" | "open" | "close">>
@@ -1141,11 +1156,15 @@ export default function BusinessWizardPage() {
                         : "Hor\u00e1rios ainda n\u00e3o informados."}
                     </p>
                   </div>
-                  {!businessHoursEditorOpen ? (
+                  {businessHoursEditorOpen ? (
+                    <Button type="button" variant="ghost" onClick={cancelBusinessHoursEditing}>
+                      Cancelar
+                    </Button>
+                  ) : (
                     <Button type="button" variant="outline" onClick={activateBusinessHoursEditor}>
                       {businessHoursTouched ? "Editar hor\u00e1rios" : "Adicionar hor\u00e1rio"}
                     </Button>
-                  ) : null}
+                  )}
                 </div>
                 {businessHoursEditorOpen ? (
                   <div className="mt-3 space-y-2">

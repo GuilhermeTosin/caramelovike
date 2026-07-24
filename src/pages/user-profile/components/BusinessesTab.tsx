@@ -72,8 +72,8 @@ function BusinessContentButton({
     : hasNamedItems(business.serviceItems) || business.services.some((service) => service.trim());
   const label = isFoodBusiness ? "Card\u00e1pio" : "Servi\u00e7os";
   const explanation = isFoodBusiness
-    ? "Adicione seu card\u00e1pio ou envie um PDF. Essa informa\u00e7\u00e3o ficar\u00e1 dispon\u00edvel na p\u00e1gina do neg\u00f3cio para os clientes."
-    : "Adicione seus servi\u00e7os. Essa informa\u00e7\u00e3o ficar\u00e1 dispon\u00edvel na p\u00e1gina do neg\u00f3cio para os clientes.";
+    ? "Adicione pratos, produtos, pre\u00e7os e, se quiser, envie tamb\u00e9m um PDF do seu card\u00e1pio. Essas informa\u00e7\u00f5es aparecer\u00e3o na p\u00e1gina p\u00fablica do neg\u00f3cio para que os clientes conhe\u00e7am suas op\u00e7\u00f5es antes de entrar em contato, decidam com mais seguran\u00e7a e encontrem rapidamente o que procuram. Um card\u00e1pio completo tamb\u00e9m deixa seu perfil mais profissional."
+    : "Adicione os servi\u00e7os que voc\u00ea oferece e, quando poss\u00edvel, inclua detalhes, pre\u00e7os e condi\u00e7\u00f5es. Essa se\u00e7\u00e3o aparecer\u00e1 na p\u00e1gina p\u00fablica do neg\u00f3cio e ajuda os clientes a entender rapidamente se voc\u00ea atende \u00e0s necessidades deles, comparar op\u00e7\u00f5es e entrar em contato com mais confian\u00e7a. Manter os servi\u00e7os atualizados deixa seu perfil mais completo e profissional.";
   const onClick = () => (isFoodBusiness ? onOpenMenu(business) : onOpenServices(business));
   const button = (
     <Button
@@ -93,7 +93,7 @@ function BusinessContentButton({
     <TooltipProvider delayDuration={150}>
       <Tooltip>
         <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs text-sm leading-relaxed">
+        <TooltipContent side="top" className="max-w-sm whitespace-normal text-sm leading-relaxed sm:max-w-md">
           {explanation}
         </TooltipContent>
       </Tooltip>
