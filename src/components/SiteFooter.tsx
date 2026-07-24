@@ -9,7 +9,17 @@ export default function SiteFooter() {
           <div className="md:col-span-2">
             <div className="group flex items-center gap-2">
               <div className="w-12 h-12 flex items-center justify-center">
-                <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
+                <img
+                  src="/logo-64.webp"
+                  srcSet="/logo-64.webp 64w, /logo-112.webp 112w"
+                  sizes="48px"
+                  alt="Caramelinho logo"
+                  width={64}
+                  height={64}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110"
+                />
               </div>
               <div className="leading-tight">
                 <div className="font-extrabold text-base tracking-tight caramelo-text-gradient">Caramelinho</div>
