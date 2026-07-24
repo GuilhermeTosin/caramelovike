@@ -88,10 +88,18 @@ function getConfig(): SupabaseConfig | null {
   return { url, serviceRoleKey };
 }
 
-function getServerApiHeaders(key: string): Record<string, string> {
+function getServerApiHeaders(key: string, includeOpaqueBearer = false): Record<string, string> {
   const headers: Record<string, string> = { apikey: key };
-  if (!key.startsWith("sb_")) headers.Authorization = "Bearer " + key;
+  if (!key.startsWith("sb_") || includeOpaqueBearer) {
+    headers.Authorization = "Bearer " + key;
+  }
   return headers;
+}
+
+function getServerKeyType(key: string): string {
+  if (key.startsWith("sb_secret_")) return "secret";
+  if (key.startsWith("sb_")) return "opaque";
+  return "jwt";
 }
 
 function getBearerToken(req: VercelRequest): string {
@@ -120,18 +128,41 @@ async function fetchJson<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const response = await fetch(config.url + path, {
-    ...init,
-    headers: {
-      ...getServerApiHeaders(config.serviceRoleKey),
-      Accept: "application/json; charset=utf-8",
-      ...(init.headers || {}),
-    },
-  });
+  const request = (includeOpaqueBearer: boolean) =>
+    fetch(config.url + path, {
+      ...init,
+      headers: {
+        ...getServerApiHeaders(config.serviceRoleKey, includeOpaqueBearer),
+        Accept: "application/json; charset=utf-8",
+        ...(init.headers || {}),
+      },
+    });
+
+  let response = await request(false);
+  let message = response.ok ? "" : await response.text();
+
+  if (
+    !response.ok &&
+    config.serviceRoleKey.startsWith("sb_") &&
+    (response.status === 401 || response.status === 403) &&
+    /bad_jwt|invalid JWT|unrecognized JWT kid/i.test(message)
+  ) {
+    response = await request(true);
+    message = response.ok ? "" : await response.text();
+  }
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error("Supabase " + response.status + ": " + message.slice(0, 240));
+    const endpoint = path.split("?")[0];
+    throw new Error(
+      "Supabase " +
+        response.status +
+        " em " +
+        endpoint +
+        " (server-key=" +
+        getServerKeyType(config.serviceRoleKey) +
+        "): " +
+        message.slice(0, 240),
+    );
   }
 
   return (await response.json()) as T;
