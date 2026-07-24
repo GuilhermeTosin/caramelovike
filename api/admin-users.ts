@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { createClient } from "@supabase/supabase-js";
 
 const ADMIN_EMAIL = "contact@guilhermetosin.com";
 const AUTH_PAGE_SIZE = 1000;
@@ -102,6 +103,16 @@ function getServerKeyType(key: string): string {
   return "jwt";
 }
 
+function createAdminSupabaseClient(config: SupabaseConfig) {
+  return createClient(config.url, config.serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
 function getBearerToken(req: VercelRequest): string {
   const value = String(req.headers.authorization || "");
   return value.replace(/^Bearer\s+/i, "").trim();
@@ -201,13 +212,16 @@ async function requireAdmin(req: VercelRequest): Promise<{ config: SupabaseConfi
 
 async function listAuthUsers(config: SupabaseConfig): Promise<AuthUser[]> {
   const users: AuthUser[] = [];
+  const adminClient = createAdminSupabaseClient(config);
 
   for (let page = 1; page <= MAX_AUTH_PAGES; page += 1) {
-    const result = await fetchJson<{ users?: AuthUser[] }>(
-      config,
-      "/auth/v1/admin/users?page=" + page + "&per_page=" + AUTH_PAGE_SIZE,
-    );
-    const pageUsers = result.users || [];
+    const { data, error } = await adminClient.auth.admin.listUsers({
+      page,
+      perPage: AUTH_PAGE_SIZE,
+    });
+    if (error) throw new Error("Supabase Auth Admin: " + error.message);
+
+    const pageUsers = data.users as AuthUser[];
     users.push(...pageUsers);
     if (pageUsers.length < AUTH_PAGE_SIZE) break;
   }
@@ -527,20 +541,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!userId) return jsonError(res, 400, "Usuário inválido.");
       if (userId === admin.user.id) return jsonError(res, 400, "A conta administradora não pode ser excluída.");
 
-      const response = await fetch(
-        admin.config.url + "/auth/v1/admin/users/" + encodeURIComponent(userId),
-        {
-          method: "DELETE",
-          headers: {
-            ...getServerApiHeaders(admin.config.serviceRoleKey),
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const message = await response.text();
-        return jsonError(res, response.status, message || "Não foi possível excluir o usuário.");
-      }
+      const adminClient = createAdminSupabaseClient(admin.config);
+      const { error } = await adminClient.auth.admin.deleteUser(userId);
+      if (error) return jsonError(res, error.status || 500, error.message);
 
       return res.status(200).json({ ok: true });
     }
