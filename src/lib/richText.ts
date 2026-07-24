@@ -46,16 +46,19 @@ export function richTextHasContent(value: string): boolean {
   return stripRichTextHtml(value).length > 0;
 }
 
+export const RICH_TEXT_BLOCK_CLASS_NAME = [
+  "[&_p]:mb-3",
+  "[&_p:last-child]:mb-0",
+  "[&_ul]:my-3",
+  "[&_ol]:my-3",
+  "[&_ul]:list-disc",
+  "[&_ol]:list-decimal",
+  "[&_ul]:pl-5",
+  "[&_ol]:pl-5",
+  "[&_li]:mb-1",
+].join(" ");
+
 export function getRichTextBlockClassName() {
-  return [
-    "[&_p]:mb-3",
-    "[&_p:last-child]:mb-0",
-    "[&_ul]:my-3",
-    "[&_ol]:my-3",
-    "[&_ul]:list-disc",
-    "[&_ol]:list-decimal",
-    "[&_ul,&_ol]:pl-5",
-    "[&_li]:mb-1",
-  ].join(" ");
+  return RICH_TEXT_BLOCK_CLASS_NAME;
 }
 

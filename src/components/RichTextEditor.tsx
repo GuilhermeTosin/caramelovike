@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Bold, Eraser, Italic, List, ListOrdered, Underline } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { sanitizeRichTextHtml } from "@/lib/richText";
+import { getRichTextBlockClassName, sanitizeRichTextHtml } from "@/lib/richText";
 
 type RichTextEditorProps = {
   id: string;
@@ -96,6 +96,7 @@ export default function RichTextEditor({
           onBlur={handleInput}
           className={cn(
             "rich-text-editor w-full rounded-md px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            getRichTextBlockClassName(),
             minHeightClassName,
             disabled ? "cursor-not-allowed bg-muted/40 text-muted-foreground" : "cursor-text"
           )}
