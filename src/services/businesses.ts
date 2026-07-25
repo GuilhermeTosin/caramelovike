@@ -556,9 +556,13 @@ export async function getBusinessesByRadiusRpc(params: {
     throw new Error(`[search_businesses_radius] ${rpcError.message}`);
   }
 
-  const orderedIds: string[] = (hits || [])
-    .map((r: any) => r?.business_id)
-    .filter((id: any) => typeof id === "string" && id.length > 0);
+  const orderedIds = Array.from(
+    new Set(
+      (hits || [])
+        .map((r: any) => r?.business_id)
+        .filter((id: any) => typeof id === "string" && id.length > 0)
+    )
+  );
   const physicalTotalCount = Number((hits && hits[0]?.total_count) ?? 0);
 
   if (orderedIds.length === 0) {
