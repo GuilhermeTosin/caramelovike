@@ -55,6 +55,7 @@ import NotFound from "@/pages/NotFound";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
+import { formatDatePtBr } from "@/lib/dates";
 
 type BusinessPageProps = {
   initialBusiness?: BusinessFrontend | null;
@@ -924,7 +925,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                             </span>
                           ) : null}
                           <span className="text-sm text-muted-foreground">
-                            Válido até: {new Date(`${promotion.expiresAt}T00:00:00`).toLocaleDateString("pt-BR")}
+                            Válido até: {formatDatePtBr(promotion.expiresAt)}
                           </span>
                         </div>
                       </Card>
@@ -962,7 +963,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                             <div className="mt-3 flex flex-wrap gap-3 text-sm">
                               <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100 text-amber-900 px-2.5 py-1">
                                 <CalendarDays className="w-4 h-4" />
-                                {new Date(`${event.date}T00:00:00`).toLocaleDateString("pt-BR")}
+                                {formatDatePtBr(event.date)}
                               </span>
                               <a
                                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
@@ -1093,7 +1094,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                             <div>
                               <span className="font-medium text-sm">{review.user_name}</span>
                               <span className="text-xs text-muted-foreground ml-2">
-                                {new Date(review.created_at || (review as any).createdAt).toLocaleDateString("pt-BR")}
+                                {formatDatePtBr(review.created_at || (review as any).createdAt)}
                               </span>
                             </div>
                           </div>
