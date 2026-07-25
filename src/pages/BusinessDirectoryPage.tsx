@@ -182,7 +182,7 @@ function Header() {
             </div>
           </Link>
           <Link to="/buscar" className="text-sm font-semibold text-primary hover:text-primary/80">
-            Buscar neg\u00f3cios
+            {"Buscar neg\u00f3cios"}
           </Link>
         </div>
       </div>
@@ -317,7 +317,7 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
         <div className="max-w-4xl">
           <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Voltar para in\u00edcio
+            {"Voltar para in\u00edcio"}
           </Link>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mt-4">{title}</h1>
           <p className="mt-3 text-muted-foreground leading-relaxed">
@@ -327,8 +327,8 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
           </p>
         </div>
 
-        <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Navega\u00e7\u00e3o do diret\u00f3rio">
-          <Link className="text-primary hover:underline" to="/negocios">Neg\u00f3cios</Link>
+        <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label={"Navega\u00e7\u00e3o do diret\u00f3rio"}>
+          <Link className="text-primary hover:underline" to="/negocios">{"Neg\u00f3cios"}</Link>
           {countryCode && (
             <>
               <span className="text-muted-foreground">/</span>
@@ -363,25 +363,25 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
 
         {loadingBusinesses && directoryBusinesses.length === 0 ? (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
-            <p className="text-sm text-muted-foreground">Carregando pa\u00edses com neg\u00f3cios publicados...</p>
+            <p className="text-sm text-muted-foreground">{"Carregando pa\u00edses com neg\u00f3cios publicados..."}</p>
           </section>
         ) : null}
 
         {categoryNotFound && !loadingBusinesses && (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
-            <h2 className="text-xl font-bold">P\u00e1gina n\u00e3o encontrada</h2>
+            <h2 className="text-xl font-bold">{"P\u00e1gina n\u00e3o encontrada"}</h2>
             <p className="mt-2 text-muted-foreground">
-              Esta categoria ainda n\u00e3o tem neg\u00f3cios suficientes publicados nesta cidade.
+              {"Esta categoria ainda n\u00e3o tem neg\u00f3cios suficientes publicados nesta cidade."}
             </p>
             <Link className="mt-4 inline-block text-primary hover:underline" to={buildCityPagePath(countryCode, stateCode, citySlug, 1)}>
-              Ver todos os neg\u00f3cios da cidade
+              {"Ver todos os neg\u00f3cios da cidade"}
             </Link>
           </section>
         )}
 
         {level === "countries" && !loadingBusinesses && (
           <DirectoryGrid
-            title="Pa\u00edses"
+            title={"Pa\u00edses"}
             items={Array.from(countryCounts.entries()).map(([code, count]) => ({
               label: getCountryName(code) || code.toUpperCase(),
               href: "/negocios/" + code,
@@ -392,7 +392,7 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
 
         {level === "states" && !loadingBusinesses && (
           <DirectoryGrid
-            title="Estados e regi\u00f5es"
+            title={"Estados e regi\u00f5es"}
             items={Array.from(stateCounts.entries()).map(([code, count]) => ({
               label: stateNameByCode.get(code) || getStateDisplayName(countryCode, code) || code.toUpperCase(),
               href: "/negocios/" + countryCode + "/" + code,

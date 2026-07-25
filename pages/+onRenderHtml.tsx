@@ -141,14 +141,14 @@ function buildFallbackBusinessMeta(urlOriginal: string | undefined) {
 
   if (parts.length === 4 && cityName) {
     return {
-      title: "NegÃ³cio brasileiro em " + cityName,
-      description: "Encontre informaÃ§Ãµes de contato, avaliaÃ§Ãµes e detalhes sobre negÃ³cios brasileiros em " + cityName + ".",
+      title: "Neg\u00f3cio brasileiro em " + cityName,
+      description: "Encontre informa\u00e7\u00f5es de contato, avalia\u00e7\u00f5es e detalhes sobre neg\u00f3cios brasileiros em " + cityName + ".",
     };
   }
 
   return {
-    title: "NegÃ³cio brasileiro",
-    description: "Encontre informaÃ§Ãµes de contato, avaliaÃ§Ãµes e detalhes sobre negÃ³cios brasileiros no exterior.",
+    title: "Neg\u00f3cio brasileiro",
+    description: "Encontre informa\u00e7\u00f5es de contato, avalia\u00e7\u00f5es e detalhes sobre neg\u00f3cios brasileiros no exterior.",
   };
 }
 
@@ -156,20 +156,20 @@ function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] 
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
   const staticPageMeta = {
     "/sobre": {
-      title: "Sobre NÃ³s | Caramelinho.com",
-      description: "ConheÃ§a o Caramelinho, a plataforma que conecta brasileiros no exterior a negÃ³cios e serviÃ§os da comunidade.",
+      title: "Sobre N\u00f3s | Caramelinho.com",
+      description: "Conhe\u00e7a o Caramelinho, a plataforma que conecta brasileiros no exterior a neg\u00f3cios e servi\u00e7os da comunidade.",
     },
     "/contato": {
       title: "Contato | Caramelinho.com",
-      description: "Fale com o Caramelinho para tirar dÃºvidas, obter suporte ou conversar sobre parcerias.",
+      description: "Fale com o Caramelinho para tirar d\u00favidas, obter suporte ou conversar sobre parcerias.",
     },
     "/privacidade": {
-      title: "PolÃ­tica de Privacidade | Caramelinho.com",
+      title: "Pol\u00edtica de Privacidade | Caramelinho.com",
       description: "Entenda como o Caramelinho coleta, utiliza e protege seus dados pessoais.",
     },
     "/termos": {
-      title: "Termos e CondiÃ§Ãµes | Caramelinho.com",
-      description: "Leia os termos e condiÃ§Ãµes de uso da plataforma Caramelinho.",
+      title: "Termos e Condi\u00e7\u00f5es | Caramelinho.com",
+      description: "Leia os termos e condi\u00e7\u00f5es de uso da plataforma Caramelinho.",
     },
   } as const;
 
@@ -177,15 +177,15 @@ function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] 
 
   if (pathname === "/negocios" || pathname.startsWith("/negocios/")) {
     return getDirectoryPageMeta(urlOriginal, businesses) || {
-      title: "NegÃ³cios brasileiros por paÃ­s | Caramelinho.com",
-      description: "Explore o diretÃ³rio de negÃ³cios brasileiros no exterior por paÃ­s, estado e cidade.",
+      title: "Neg\u00f3cios brasileiros por pa\u00eds | Caramelinho.com",
+      description: "Explore o diret\u00f3rio de neg\u00f3cios brasileiros no exterior por pa\u00eds, estado e cidade.",
     };
   }
 
   if (pathname === "/buscar") {
     return {
-      title: "Buscar negÃ³cios brasileiros | Caramelinho.com",
-      description: "Busque negÃ³cios, serviÃ§os, produtos e eventos brasileiros perto de vocÃª no exterior.",
+      title: "Buscar neg\u00f3cios brasileiros | Caramelinho.com",
+      description: "Busque neg\u00f3cios, servi\u00e7os, produtos e eventos brasileiros perto de voc\u00ea no exterior.",
     };
   }
 
@@ -249,7 +249,7 @@ function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, p
 function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl: string) {
   const address = business.address || {};
   const items = [
-    { name: "InÃ­cio", item: "https://www.caramelinho.com/" },
+    { name: "In\u00edcio", item: "https://www.caramelinho.com/" },
     { name: "Busca", item: "https://www.caramelinho.com/buscar" },
   ];
 
