@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { buildBusinessUrl } from "@/services/businesses";
 import type { BusinessFrontend, CommunityFindWithVote } from "@/types/database";
-import { MapPin, Loader2, AlertCircle } from "lucide-react";
+import { MapPin, Loader2, AlertCircle, Building2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface MapViewProps {
@@ -12,6 +12,15 @@ interface MapViewProps {
   zoom?: number;
 }
 
+type MapPoint = { lat: number; lng: number };
+
+type ApproximateBusinessGroup = {
+  key: string;
+  city: string;
+  position: MapPoint;
+  businesses: BusinessFrontend[];
+};
+
 export default function MapView({ businesses, communityFinds = [], center, zoom = 11 }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -19,26 +28,48 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
   const navigate = useNavigate();
   const { maps, loading, error, available } = useGoogleMaps();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedApproximateGroupKey, setSelectedApproximateGroupKey] = useState<string | null>(null);
 
-  // Calcular centro automático baseado nos negócios
-  const autoCenter = useCallback((): { lat: number; lng: number } => {
+  const exactBusinesses = useMemo(
+    () => businesses.filter((business) => hasExactMapLocation(business)),
+    [businesses],
+  );
+
+  const approximateBusinessGroups = useMemo(
+    () => groupApproximateBusinesses(businesses),
+    [businesses],
+  );
+
+  const mapPoints = useMemo<MapPoint[]>(
+    () => [
+      ...exactBusinesses.map((business) => ({ lat: business.address.lat, lng: business.address.lng })),
+      ...approximateBusinessGroups.map((group) => group.position),
+      ...communityFinds
+        .filter((find) => hasValidCoordinates(find.lat, find.lng))
+        .map((find) => ({ lat: find.lat, lng: find.lng })),
+    ],
+    [approximateBusinessGroups, communityFinds, exactBusinesses],
+  );
+
+  const autoCenter = useMemo<MapPoint>(() => {
     if (center) return center;
-    const points: Array<{ lat: number; lng: number }> = [
-      ...businesses.map((b) => ({ lat: b.address.lat, lng: b.address.lng })),
-      ...communityFinds.map((f) => ({ lat: f.lat, lng: f.lng })),
-    ];
-    if (points.length === 0) return { lat: 45.5017, lng: -73.5673 }; // Montreal
-    const avgLat = points.reduce((s, p) => s + p.lat, 0) / points.length;
-    const avgLng = points.reduce((s, p) => s + p.lng, 0) / points.length;
-    return { lat: avgLat, lng: avgLng };
-  }, [businesses, communityFinds, center]);
+    if (mapPoints.length === 0) return { lat: 45.5017, lng: -73.5673 };
+    return {
+      lat: mapPoints.reduce((sum, point) => sum + point.lat, 0) / mapPoints.length,
+      lng: mapPoints.reduce((sum, point) => sum + point.lng, 0) / mapPoints.length,
+    };
+  }, [center, mapPoints]);
+
+  const selectedApproximateGroup = useMemo(
+    () => approximateBusinessGroups.find((group) => group.key === selectedApproximateGroupKey) || null,
+    [approximateBusinessGroups, selectedApproximateGroupKey],
+  );
 
   useEffect(() => {
     if (!maps || !mapRef.current || mapInstanceRef.current) return;
 
-    const loc = autoCenter();
     mapInstanceRef.current = new maps.Map(mapRef.current, {
-      center: loc,
+      center: autoCenter,
       zoom,
       mapId: "caramelinho_map",
       streetViewControl: false,
@@ -52,22 +83,20 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
     };
   }, [autoCenter, maps, zoom]);
 
-  // Atualizar markers quando businesses mudar
   useEffect(() => {
     if (!maps || !mapInstanceRef.current) return;
 
-    // Limpar markers antigos
+    const map = mapInstanceRef.current;
     markersRef.current.forEach(clearMarker);
     markersRef.current = [];
 
+
     if (!maps.marker?.AdvancedMarkerElement) {
-      // Fallback para markers tradicionais se AdvancedMarkerElement não existir
-      businesses.forEach((biz) => {
-        if (!biz.address.lat || !biz.address.lng) return;
+      exactBusinesses.forEach((business) => {
         const marker = new maps.Marker({
-          position: { lat: biz.address.lat, lng: biz.address.lng },
-          map: mapInstanceRef.current!,
-          title: biz.name,
+          position: { lat: business.address.lat, lng: business.address.lng },
+          map,
+          title: business.name,
           animation: google.maps.Animation.DROP,
           icon: {
             url: svgToDataUrl(getBrazilFlagPinSvg(false)),
@@ -75,17 +104,31 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
             anchor: new google.maps.Point(22, 52),
           },
         });
-        marker.addListener("click", () => {
-          navigate(buildMarkerUrl(biz));
+        marker.addListener("click", () => navigate(buildMarkerUrl(business)));
+        markersRef.current.push(marker);
+      });
+
+      approximateBusinessGroups.forEach((group) => {
+        const marker = new maps.Marker({
+          position: group.position,
+          map,
+          title: getApproximateGroupTitle(group),
+          icon: {
+            url: svgToDataUrl(getApproximateGroupPinSvg(group.businesses.length)),
+            scaledSize: new google.maps.Size(48, 54),
+            anchor: new google.maps.Point(24, 52),
+          },
         });
+        marker.addListener("click", () => setSelectedApproximateGroupKey(group.key));
         markersRef.current.push(marker);
       });
 
       communityFinds.forEach((find) => {
+        if (!hasValidCoordinates(find.lat, find.lng)) return;
         const marker = new maps.Marker({
           position: { lat: find.lat, lng: find.lng },
-          map: mapInstanceRef.current!,
-          title: `${find.product_name} · ${find.location_name}`,
+          map,
+          title: `${find.product_name} - ${find.location_name}`,
           icon: {
             url: svgToDataUrl(getCommunityFindPinSvg()),
             scaledSize: new google.maps.Size(34, 42),
@@ -95,89 +138,63 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
         markersRef.current.push(marker);
       });
 
-      const points: Array<{ lat: number; lng: number }> = [
-        ...businesses.map((biz) => ({ lat: biz.address.lat, lng: biz.address.lng })),
-        ...communityFinds.map((find) => ({ lat: find.lat, lng: find.lng })),
-      ];
-
-      if (points.length > 0) {
-        if (points.length === 1) {
-          mapInstanceRef.current.setCenter(points[0]);
-          mapInstanceRef.current.setZoom(14);
-        } else {
-          const bounds = new maps.LatLngBounds();
-          points.forEach((point) => {
-            bounds.extend(point);
-          });
-          mapInstanceRef.current.fitBounds(bounds, 50);
-        }
-      }
-      return;
+      fitMapToPoints(map, maps, mapPoints);
+      return undefined;
     }
 
-    // Usar AdvancedMarkerElement com pins estilizados com a bandeira do Brasil
-    businesses.forEach((biz) => {
-      if (!biz.address.lat || !biz.address.lng) return;
-
+    exactBusinesses.forEach((business) => {
       const pinElement = document.createElement("div");
       pinElement.className = "cursor-pointer transition-transform hover:scale-110";
-      
-      const isSelected = selectedId === biz.id;
-      
+      const isSelected = selectedId === business.id;
       pinElement.innerHTML = `
         <div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.3));">
           ${getBrazilFlagPinSvg(isSelected)}
-          <!-- Nome do negócio -->
           <div style="
-            margin-top: -4px;
-            background: white;
-            color: #1f2937;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 11px;
-            font-weight: 600;
-            white-space: nowrap;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-            border: 1px solid rgba(0,0,0,0.08);
-            max-width: 120px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            position: relative;
-            z-index: 1;
+            margin-top:-4px;background:white;color:#1f2937;padding:2px 8px;border-radius:10px;
+            font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.15);
+            border:1px solid rgba(0,0,0,0.08);max-width:120px;overflow:hidden;text-overflow:ellipsis;
+            position:relative;z-index:1;
           ">
-            ${escapeHtml(biz.name.length > 18 ? biz.name.slice(0, 16) + '...' : biz.name)}
+            ${escapeHtml(business.name.length > 18 ? business.name.slice(0, 16) + "..." : business.name)}
           </div>
         </div>
       `;
 
       const marker = new maps.marker.AdvancedMarkerElement({
-        position: { lat: biz.address.lat, lng: biz.address.lng },
-        map: mapInstanceRef.current!,
+        position: { lat: business.address.lat, lng: business.address.lng },
+        map,
         content: pinElement,
-        title: biz.name,
+        title: business.name,
       });
 
       const handleMarkerClick = () => {
-        setSelectedId(biz.id);
-        navigate(buildMarkerUrl(biz));
+        setSelectedId(business.id);
+        navigate(buildMarkerUrl(business));
       };
+      addMarkerClickListeners(marker, pinElement, handleMarkerClick);
+      markersRef.current.push(marker);
+    });
 
-      if (typeof marker.addEventListener === "function") {
-        marker.addEventListener("gmp-click", handleMarkerClick);
-      }
-      if (typeof (marker as any).addListener === "function") {
-        (marker as any).addListener("click", handleMarkerClick);
-      }
-      pinElement.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        handleMarkerClick();
+    approximateBusinessGroups.forEach((group) => {
+      const pinElement = document.createElement("button");
+      pinElement.type = "button";
+      pinElement.className = "cursor-pointer rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2";
+      pinElement.setAttribute("aria-label", getApproximateGroupTitle(group));
+      pinElement.innerHTML = getApproximateGroupPinSvg(group.businesses.length);
+
+      const marker = new maps.marker.AdvancedMarkerElement({
+        position: group.position,
+        map,
+        content: pinElement,
+        title: getApproximateGroupTitle(group),
       });
-
+      addMarkerClickListeners(marker, pinElement, () => setSelectedApproximateGroupKey(group.key));
       markersRef.current.push(marker);
     });
 
     communityFinds.forEach((find) => {
+      if (!hasValidCoordinates(find.lat, find.lng)) return;
+
       const pinElement = document.createElement("div");
       pinElement.className = "cursor-default";
       pinElement.innerHTML = `
@@ -195,40 +212,25 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
 
       const marker = new maps.marker.AdvancedMarkerElement({
         position: { lat: find.lat, lng: find.lng },
-        map: mapInstanceRef.current!,
+        map,
         content: pinElement,
-        title: `${find.product_name} · ${find.location_name}`,
+        title: `${find.product_name} - ${find.location_name}`,
       });
       markersRef.current.push(marker);
     });
 
-    // Ajustar zoom para mostrar todos ou focar em um
-    const points: Array<{ lat: number; lng: number }> = [
-      ...businesses.map((biz) => ({ lat: biz.address.lat, lng: biz.address.lng })),
-      ...communityFinds.map((find) => ({ lat: find.lat, lng: find.lng })),
-    ];
-    if (points.length > 0) {
-      if (points.length === 1) {
-        mapInstanceRef.current.setCenter(points[0]);
-        mapInstanceRef.current.setZoom(14);
-      } else {
-        const bounds = new maps.LatLngBounds();
-        points.forEach((point) => {
-          bounds.extend(point);
-        });
-        mapInstanceRef.current.fitBounds(bounds, 50);
-      }
-    }
-  }, [maps, businesses, communityFinds, selectedId, navigate]);
+    fitMapToPoints(map, maps, mapPoints);
+    return undefined;
+  }, [approximateBusinessGroups, communityFinds, exactBusinesses, mapPoints, maps, navigate, selectedId]);
 
   if (!available) {
     return (
       <div className="w-full h-full min-h-[400px] rounded-xl border-2 border-dashed border-muted-foreground/30 flex items-center justify-center p-8">
         <div className="text-center">
           <MapPin className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-muted-foreground font-medium">Mapa indisponível</p>
+          <p className="text-muted-foreground font-medium">{"Mapa indispon\u00edvel"}</p>
           <p className="text-sm text-muted-foreground/60 mt-1">
-            Configure a chave da API Google Maps nas variáveis de ambiente para ativar o mapa.
+            {"Configure a chave da API Google Maps nas vari\u00e1veis de ambiente para ativar o mapa."}
           </p>
         </div>
       </div>
@@ -240,7 +242,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       <div className="w-full h-full min-h-[400px] rounded-xl bg-secondary/30 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Carregando mapa…</p>
+          <p className="text-sm text-muted-foreground">{"Carregando mapa\u2026"}</p>
         </div>
       </div>
     );
@@ -258,11 +260,138 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
     );
   }
 
-  return <div ref={mapRef} className="w-full h-full min-h-[400px] rounded-xl overflow-hidden" />;
+  return (
+    <div className="relative w-full h-full min-h-[400px] rounded-xl overflow-hidden">
+      <div ref={mapRef} className="w-full h-full min-h-[400px]" />
+      {selectedApproximateGroup && (
+        <aside
+          className="absolute inset-x-3 top-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-amber-200 bg-background/95 p-4 shadow-xl backdrop-blur sm:left-3 sm:right-auto sm:w-80"
+          aria-label={`Neg\u00f3cios sem endere\u00e7o f\u00edsico em ${selectedApproximateGroup.city}`}
+        >
+          <div className="flex items-start gap-3">
+            <div className="rounded-full bg-amber-100 p-2 text-amber-800">
+              <Building2 className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">
+                {selectedApproximateGroup.businesses.length}{" "}
+                {selectedApproximateGroup.businesses.length === 1 ? "neg\u00f3cio atende" : "neg\u00f3cios atendem"}{" "}
+                em {selectedApproximateGroup.city}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {"Localiza\u00e7\u00e3o aproximada: estes neg\u00f3cios informaram a cidade de atendimento, mas n\u00e3o um endere\u00e7o f\u00edsico."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedApproximateGroupKey(null)}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              aria-label={"Fechar lista de neg\u00f3cios"}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="mt-3 space-y-2 border-t border-border pt-3">
+            {selectedApproximateGroup.businesses.map((business) => (
+              <button
+                key={business.id}
+                type="button"
+                onClick={() => {
+                  setSelectedApproximateGroupKey(null);
+                  navigate(buildMarkerUrl(business));
+                }}
+                className="block w-full rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-amber-300 hover:bg-amber-50"
+              >
+                <span className="block truncate text-sm font-semibold text-foreground">{business.name}</span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">{business.category}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
+      )}
+    </div>
+  );
 }
 
-function buildMarkerUrl(biz: BusinessFrontend): string {
-  return buildBusinessUrl(biz);
+function hasValidCoordinates(lat: number, lng: number): boolean {
+  return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+}
+
+function hasExactMapLocation(business: BusinessFrontend): boolean {
+  return (
+    business.attendanceType !== "online" &&
+    Boolean(business.address.street?.trim()) &&
+    hasValidCoordinates(business.address.lat, business.address.lng)
+  );
+}
+
+function groupApproximateBusinesses(businesses: BusinessFrontend[]): ApproximateBusinessGroup[] {
+  const groups = new Map<string, ApproximateBusinessGroup>();
+
+  businesses.forEach((business) => {
+    if (hasExactMapLocation(business) || !hasValidCoordinates(business.address.lat, business.address.lng)) return;
+
+    const city = business.address.cityDisplayName || business.address.city || "Cidade informada";
+    const key = [business.address.countryCode, business.address.stateCode, city]
+      .map((value) => value.trim().toLowerCase())
+      .join("|");
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.businesses.push(business);
+      return;
+    }
+
+    groups.set(key, {
+      key,
+      city,
+      position: { lat: business.address.lat, lng: business.address.lng },
+      businesses: [business],
+    });
+  });
+
+  return [...groups.values()];
+}
+
+function fitMapToPoints(map: google.maps.Map, maps: typeof google.maps, points: MapPoint[]) {
+  if (points.length === 0) return;
+  if (points.length === 1) {
+    map.setCenter(points[0]);
+    map.setZoom(12);
+    return;
+  }
+
+  const bounds = new maps.LatLngBounds();
+  points.forEach((point) => bounds.extend(point));
+  map.fitBounds(bounds, 50);
+}
+
+function getApproximateGroupTitle(group: ApproximateBusinessGroup): string {
+  const count = group.businesses.length;
+  return `${count} ${count === 1 ? "neg\u00f3cio atende" : "neg\u00f3cios atendem"} em ${group.city} sem endere\u00e7o f\u00edsico`;
+}
+
+function addMarkerClickListeners(
+  marker: google.maps.marker.AdvancedMarkerElement,
+  element: HTMLElement,
+  onClick: () => void,
+) {
+  if (typeof marker.addEventListener === "function") {
+    marker.addEventListener("gmp-click", onClick);
+  }
+  const legacyMarker = marker as unknown as { addListener?: (event: string, handler: () => void) => void };
+  if (typeof legacyMarker.addListener === "function") {
+    legacyMarker.addListener("click", onClick);
+  }
+  element.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  });
+}
+
+function buildMarkerUrl(business: BusinessFrontend): string {
+  return buildBusinessUrl(business);
 }
 
 type GoogleMapMarker = google.maps.marker.AdvancedMarkerElement | google.maps.Marker;
@@ -293,6 +422,19 @@ function getBrazilFlagPinSvg(isSelected: boolean): string {
       <circle cx="18.8" cy="21.5" r="0.75" fill="#ffffff"/>
       <circle cx="23" cy="23.4" r="0.7" fill="#ffffff"/>
       <circle cx="26.1" cy="21.3" r="0.65" fill="#ffffff"/>
+    </svg>
+  `;
+}
+
+function getApproximateGroupPinSvg(count: number): string {
+  const label = count > 99 ? "99+" : String(count);
+  return `
+    <svg width="48" height="54" viewBox="0 0 48 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <path d="M24 2C13.2 2 4.5 10.6 4.5 21.2c0 13.6 16.4 28.8 18.3 30.6.7.6 1.7.6 2.4 0 1.9-1.8 18.3-17 18.3-30.6C43.5 10.6 34.8 2 24 2Z" fill="#d97706" stroke="#ffffff" stroke-width="2.5"/>
+      <circle cx="24" cy="20.5" r="13.5" fill="#fff7ed"/>
+      <path d="M17.5 25.5v-7.3c0-.9.7-1.6 1.6-1.6h9.8c.9 0 1.6.7 1.6 1.6v7.3M16 25.5h16M20 16.6v-2.1h8v2.1" fill="none" stroke="#9a3412" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="14" y="29" width="20" height="14" rx="7" fill="#7c2d12" stroke="#ffffff" stroke-width="2"/>
+      <text x="24" y="39.3" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="11" font-weight="700">${label}</text>
     </svg>
   `;
 }
