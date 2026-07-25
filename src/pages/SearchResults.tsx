@@ -317,7 +317,6 @@ export default function SearchResults({
     () => resolveSearchQueryCategoryIds(query, categorySynonymsMap, SEARCH_SYNONYMS),
     [query, categorySynonymsMap]
   );
-  const [initialLoading, setInitialLoading] = useState(initialBusinessPool.length === 0);
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
   const [rpcFallbackMode, setRpcFallbackMode] = useState(false);
@@ -568,6 +567,53 @@ export default function SearchResults({
     queryCategoryIds,
   ]);
 
+  const requestPage = canUseRpcRadiusMode ? currentPage : 1;
+  const resultsRequestKey = useMemo(
+    () =>
+      JSON.stringify({
+        radiusFilter,
+        originLatParam,
+        originLngParam,
+        originLocalParam,
+        originSourceParam,
+        originCountryParam,
+        categoryFilter,
+        categoryFilterId,
+        countryFilter,
+        stateFilter,
+        query,
+        cityFilter,
+        locationFilter,
+        isEventMode,
+        isCommunityFindsMode,
+        canUseRpcRadiusMode,
+        requestPage,
+      }),
+    [
+      radiusFilter,
+      originLatParam,
+      originLngParam,
+      originLocalParam,
+      originSourceParam,
+      originCountryParam,
+      categoryFilter,
+      categoryFilterId,
+      countryFilter,
+      stateFilter,
+      query,
+      cityFilter,
+      locationFilter,
+      isEventMode,
+      isCommunityFindsMode,
+      canUseRpcRadiusMode,
+      requestPage,
+    ]
+  );
+  const [loadedResultsRequestKey, setLoadedResultsRequestKey] = useState<string | null>(() =>
+    initialBusinessPool.length > 0 ? resultsRequestKey : null
+  );
+  const isResultsLoading = loadedResultsRequestKey !== resultsRequestKey;
+
   const fullRadiusMapQuery = useMemo(() => {
     if (!canUseRpcRadiusMode || rpcFallbackMode) return null;
 
@@ -624,7 +670,6 @@ export default function SearchResults({
     let active = true;
 
     const loadInitialData = async () => {
-      if (allBusinesses.length === 0) setInitialLoading(true);
       const supplementalDataPromise = Promise.allSettled([
         getAvailableLocations(),
         getSearchSuggestions(),
@@ -643,7 +688,7 @@ export default function SearchResults({
             ? undefined // com raio, cidade é origem; não deve restringir só à cidade
             : ((cityFilter || locationFilter) || undefined);
 
-        const pageForRpc = Math.max(1, currentPage);
+        const pageForRpc = requestPage;
         const offset = (pageForRpc - 1) * RESULTS_PER_PAGE;
 
         const businessesPromise = canUseRpcRadius
@@ -675,17 +720,25 @@ export default function SearchResults({
             setRpcFallbackMode(false);
           }
         } else if (canUseRpcRadius) {
-          const fallbackBusinesses = await getAllBusinesses();
-          setAllBusinesses(fallbackBusinesses);
-          setRpcTotalCount(null);
-          setRpcFallbackMode(true);
+          try {
+            const fallbackBusinesses = await getAllBusinesses();
+            if (!active) return;
+            setAllBusinesses(fallbackBusinesses);
+            setRpcTotalCount(null);
+            setRpcFallbackMode(true);
+          } catch {
+            if (!active) return;
+            setAllBusinesses([]);
+            setRpcTotalCount(null);
+            setRpcFallbackMode(true);
+          }
         } else {
+          setAllBusinesses([]);
           setRpcTotalCount(null);
           setRpcFallbackMode(false);
         }
-
       } finally {
-        if (active) setInitialLoading(false);
+        if (active) setLoadedResultsRequestKey(resultsRequestKey);
       }
 
       const [locationsRes, suggestionsRes, eventsRes] = await supplementalDataPromise;
@@ -715,7 +768,7 @@ export default function SearchResults({
     return () => {
       active = false;
     };
-  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, originCountryParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter, currentPage, canUseRpcRadiusMode]);
+  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, originCountryParam, categoryFilter, categoryFilterId, countryFilter, stateFilter, query, cityFilter, locationFilter, requestPage, canUseRpcRadiusMode, resultsRequestKey]);
 
   // Localização aproximada em segundo plano (sem pedir permissão de GPS na abertura).
   useEffect(() => {
@@ -1163,14 +1216,14 @@ export default function SearchResults({
   );
 
   useEffect(() => {
-    if (initialLoading) return;
+    if (isResultsLoading) return;
     if (canUseRpcRadiusMode && rpcTotalCount === null) return;
     if (safeCurrentPage === effectivePage) return;
     const params = new URLSearchParams(searchParams);
     if (safeCurrentPage <= 1) params.delete("pagina");
     else params.set("pagina", String(safeCurrentPage));
     setSearchParams(params, { replace: true });
-  }, [safeCurrentPage, effectivePage, searchParams, setSearchParams, initialLoading, canUseRpcRadiusMode, rpcTotalCount]);
+  }, [safeCurrentPage, effectivePage, searchParams, setSearchParams, isResultsLoading, canUseRpcRadiusMode, rpcTotalCount]);
 
   useEffect(() => {
     if (safeCurrentPage <= 1) return;
@@ -1817,7 +1870,7 @@ export default function SearchResults({
         </div>
 
         <p className="text-sm text-muted-foreground mb-6">
-          {initialLoading || isResolvingDistanceOrigin
+          {isResultsLoading || isResolvingDistanceOrigin
             ? "Carregando resultados..."
             : isCommunityFindsMode
             ? `${filteredCommunityFinds.length} achadinho${filteredCommunityFinds.length !== 1 ? "s" : ""} encontrado${filteredCommunityFinds.length !== 1 ? "s" : ""}`
@@ -1839,7 +1892,7 @@ export default function SearchResults({
           </aside>
 
           <div ref={resultsTopRef}>
-            {!initialLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? filteredCommunityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
+            {!isResultsLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? filteredCommunityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0" />
@@ -1861,7 +1914,7 @@ export default function SearchResults({
                   </div>
                 </div>
               </div>
-            ) : initialLoading || isResolvingDistanceOrigin ? (
+            ) : isResultsLoading || isResolvingDistanceOrigin ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0 animate-pulse" />

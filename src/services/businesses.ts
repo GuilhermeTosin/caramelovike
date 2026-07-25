@@ -478,6 +478,7 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
       .select("*")
       .or("moderation_status.eq.approved,moderation_status.is.null")
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to);
 
     const pageRows = (data || []) as Business[];
