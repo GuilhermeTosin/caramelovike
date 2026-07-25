@@ -65,6 +65,13 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
     [approximateBusinessGroups, selectedApproximateGroupKey],
   );
 
+  const mappableBusinessCount = useMemo(
+    () => exactBusinesses.length + approximateBusinessGroups.reduce((sum, group) => sum + group.businesses.length, 0),
+    [approximateBusinessGroups, exactBusinesses],
+  );
+  const businessPointCount = exactBusinesses.length + approximateBusinessGroups.length;
+  const unmappableBusinessCount = Math.max(0, businesses.length - mappableBusinessCount);
+
   useEffect(() => {
     if (!maps || !mapRef.current || mapInstanceRef.current) return;
 
@@ -263,6 +270,18 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
   return (
     <div className="relative w-full h-full min-h-[400px] rounded-xl overflow-hidden">
       <div ref={mapRef} className="w-full h-full min-h-[400px]" />
+      {businesses.length > 0 && (
+        <div className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-border bg-background/95 px-3 py-2 shadow-md backdrop-blur">
+          <p className="text-xs font-semibold text-foreground">
+            {mappableBusinessCount} {mappableBusinessCount === 1 ? "negócio representado" : "negócios representados"} em {businessPointCount} {businessPointCount === 1 ? "ponto" : "pontos"}
+          </p>
+          {unmappableBusinessCount > 0 && (
+            <p className="mt-0.5 text-[11px] text-amber-800">
+              {unmappableBusinessCount} {unmappableBusinessCount === 1 ? "negócio não pôde ser posicionado" : "negócios não puderam ser posicionados"} por falta de localização.
+            </p>
+          )}
+        </div>
+      )}
       {selectedApproximateGroup && (
         <aside
           className="absolute inset-x-3 top-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-amber-200 bg-background/95 p-4 shadow-xl backdrop-blur sm:left-3 sm:right-auto sm:w-80"
@@ -432,7 +451,13 @@ function getApproximateGroupPinSvg(count: number): string {
     <svg width="48" height="54" viewBox="0 0 48 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
       <path d="M24 2C13.2 2 4.5 10.6 4.5 21.2c0 13.6 16.4 28.8 18.3 30.6.7.6 1.7.6 2.4 0 1.9-1.8 18.3-17 18.3-30.6C43.5 10.6 34.8 2 24 2Z" fill="#d97706" stroke="#ffffff" stroke-width="2.5"/>
       <circle cx="24" cy="20.5" r="13.5" fill="#fff7ed"/>
-      <path d="M17.5 25.5v-7.3c0-.9.7-1.6 1.6-1.6h9.8c.9 0 1.6.7 1.6 1.6v7.3M16 25.5h16M20 16.6v-2.1h8v2.1" fill="none" stroke="#9a3412" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M18.5 18.5 24 21.5l5.5-3" fill="none" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="18" cy="17" r="3" fill="#d97706" stroke="#9a3412" stroke-width="1"/>
+      <circle cx="24" cy="14.5" r="3" fill="#d97706" stroke="#9a3412" stroke-width="1"/>
+      <circle cx="30" cy="17" r="3" fill="#d97706" stroke="#9a3412" stroke-width="1"/>
+      <circle cx="18" cy="17" r="1" fill="#fff7ed"/>
+      <circle cx="24" cy="14.5" r="1" fill="#fff7ed"/>
+      <circle cx="30" cy="17" r="1" fill="#fff7ed"/>
       <rect x="14" y="29" width="20" height="14" rx="7" fill="#7c2d12" stroke="#ffffff" stroke-width="2"/>
       <text x="24" y="39.3" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="11" font-weight="700">${label}</text>
     </svg>
