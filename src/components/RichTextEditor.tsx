@@ -58,7 +58,7 @@ export default function RichTextEditor({
   const handleInput = () => {
     const el = editorRef.current;
     if (!el || disabled) return;
-    onChange(el.innerHTML);
+    onChange(sanitizeRichTextHtml(el.innerHTML));
   };
 
   return (

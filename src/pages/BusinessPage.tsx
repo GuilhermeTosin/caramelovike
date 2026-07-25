@@ -817,7 +817,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                 ) : null}
                 <div
                   className={
-                    "min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-muted-foreground leading-relaxed " +
+                    "min-w-0 max-w-full break-words whitespace-pre-wrap [overflow-wrap:anywhere] text-muted-foreground leading-relaxed " +
                     getRichTextBlockClassName()
                   }
                   dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(business.description) }}

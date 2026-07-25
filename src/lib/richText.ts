@@ -2,11 +2,23 @@ const ALLOWED_TAGS = ["b", "strong", "i", "em", "u", "br", "p", "ul", "ol", "li"
 
 function normalizeHtml(value: string): string {
   return String(value || "")
+    .replace(/\r\n?/g, "\n")
     .replace(/<\s*div\b[^>]*>/gi, "<p>")
     .replace(/<\s*\/\s*div\s*>/gi, "</p>")
     .replace(/<\s*span\b[^>]*>/gi, "")
     .replace(/<\s*\/\s*span\s*>/gi, "")
     .replace(/&nbsp;/gi, " ");
+}
+
+function preserveTextLineBreaks(html: string): string {
+  return html.replace(/(^|>)([^<]*)(?=<|$)/g, (_match, prefix: string, text: string) => {
+    // Ignore whitespace between HTML blocks; paragraph and list tags already define that spacing.
+    if (!text.includes("\n") || !text.trim()) {
+      return `${prefix}${text}`;
+    }
+
+    return `${prefix}${text.replace(/\n/g, "<br>")}`;
+  });
 }
 
 export function sanitizeRichTextHtml(value: string): string {
@@ -25,7 +37,9 @@ export function sanitizeRichTextHtml(value: string): string {
     return tag === "br" ? "<br>" : `<${tag}>`;
   });
 
-  return html.trim();
+  html = html.replace(/>\s*\n\s*</g, "><");
+
+  return preserveTextLineBreaks(html).trim();
 }
 
 export function stripRichTextHtml(value: string): string {
@@ -61,4 +75,3 @@ export const RICH_TEXT_BLOCK_CLASS_NAME = [
 export function getRichTextBlockClassName() {
   return RICH_TEXT_BLOCK_CLASS_NAME;
 }
-
