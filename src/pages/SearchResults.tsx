@@ -197,7 +197,6 @@ const RESULTS_PER_PAGE = 6;
 const STRICT_SEARCH_MODE = (import.meta.env.VITE_STRICT_SEARCH_MODE ?? "1") !== "0";
 const STRICT_SEARCH_MIN_SCORE = Number(import.meta.env.VITE_STRICT_SEARCH_MIN_SCORE ?? "3");
 const SEARCH_BACKEND = (import.meta.env.VITE_SEARCH_BACKEND ?? "client").toLowerCase();
-const CITY_LEVEL_RADIUS_MIN_KM = 100;
 
 const CATEGORY_SEO_TEXT: Record<string, string> = {
   "Restaurantes e Alimentação": "restaurantes, padarias e cafés",
@@ -294,6 +293,7 @@ export default function SearchResults({
   const navigationState = location.state as SearchResultsLocationState | null;
   const preloadedBusinesses = navigationState?.preloadedBusinesses;
   const initialBusinessPool = preloadedBusinesses?.length ? preloadedBusinesses : initialBusinesses;
+  const hasSeededBusinessPool = initialBusinessPool.length > 0;
   const [searchInput, setSearchInput] = useState(query);
   const [locationInput, setLocationInput] = useState(locationFilter);
   const [showMap, setShowMap] = useState(false);
@@ -537,23 +537,17 @@ export default function SearchResults({
     const initialLng = parseCoordParam(originLngParam);
     const cityContext = (cityFilter || locationFilter || "").trim();
     const normalizedCityContext = normalizeText(cityContext);
-    const normalizedOriginLocal = normalizeText(originLocalParam || "");
     const hasCityContext = !!normalizedCityContext;
-    const hasCityAlignedOrigin =
-      hasCityContext &&
-      originSourceParam === "city" &&
-      normalizedOriginLocal === normalizedCityContext;
-    const requiresCityLevelFallback = hasCityContext && !!initialRadius && initialRadius >= CITY_LEVEL_RADIUS_MIN_KM;
     return (
       SEARCH_BACKEND === "rpc" &&
+      !hasSeededBusinessPool &&
       !isEventMode &&
+      !hasCityContext &&
       initialLat !== null &&
       initialLng !== null &&
       !!initialRadius &&
       initialRadius > 0 &&
-      queryCategoryIds.length === 0 &&
-      !requiresCityLevelFallback &&
-      (!hasCityContext || hasCityAlignedOrigin)
+      queryCategoryIds.length === 0
     );
   }, [
     radiusFilter,
@@ -565,6 +559,7 @@ export default function SearchResults({
     originSourceParam,
     isEventMode,
     queryCategoryIds,
+    hasSeededBusinessPool,
   ]);
 
   const requestPage = canUseRpcRadiusMode ? currentPage : 1;
@@ -610,7 +605,7 @@ export default function SearchResults({
     ]
   );
   const [loadedResultsRequestKey, setLoadedResultsRequestKey] = useState<string | null>(() =>
-    initialBusinessPool.length > 0 ? resultsRequestKey : null
+    hasSeededBusinessPool ? resultsRequestKey : null
   );
   const isResultsLoading = loadedResultsRequestKey !== resultsRequestKey;
 
@@ -794,14 +789,13 @@ export default function SearchResults({
     const hasSearchContext = !!(
       query.trim() ||
       categoryFilter ||
-      cityFilter.trim() ||
-      locationFilter.trim() ||
       countryFilter ||
       stateFilter ||
       originLatParam ||
       originLngParam
     );
-    if (radiusFilter || !hasSearchContext) return;
+    const hasExplicitCity = !!(cityFilter.trim() || locationFilter.trim());
+    if (radiusFilter || hasExplicitCity || !hasSearchContext) return;
 
     const params = new URLSearchParams(searchParams);
     params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
