@@ -351,8 +351,9 @@ export function useBusinessManagement({
       toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
       return;
     }
-    if (!isPrimaryActivityValid(editFormData.category, editFormData.primaryActivity, editFormData.primaryActivityCustom)) {
-      toast.error("Informe o tipo principal do neg\u00f3cio ou selecione uma op\u00e7\u00e3o v\u00e1lida.");
+    const primaryActivityMissing = isCreateMode && !editFormData.primaryActivity.trim();
+    if (primaryActivityMissing || !isPrimaryActivityValid(editFormData.category, editFormData.primaryActivity, editFormData.primaryActivityCustom)) {
+      toast.error("Selecione o tipo principal do neg\u00f3cio. Se n\u00e3o encontrar uma op\u00e7\u00e3o, escolha Outro tipo e descreva.");
       return;
     }
 

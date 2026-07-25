@@ -1,4 +1,5 @@
 import { getBrazilianPortugueseCityName, slugifyCity } from "../shared/locationDisplay.js";
+import { DIRECTORY_CATEGORIES, DIRECTORY_CATEGORY_MINIMUM_BUSINESSES } from "../shared/directoryCategories.js";
 
 const EMPTY_SITEMAP = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -80,8 +81,24 @@ export function buildBusinessUrl(baseUrl, row) {
   return `${baseUrl}/go/${slug}`;
 }
 
+function buildDirectoryCategoryUrls(baseUrl, rows) {
+  const counts = new Map();
+  for (const row of rows) {
+    const country = normalizePart(row.country_code);
+    const state = normalizePart(row.state_code);
+    const city = normalizePart(getCanonicalCitySlug(row));
+    const category = DIRECTORY_CATEGORIES.find((item) => item.categoryId === row.primary_activity);
+    if (!country || !state || !city || !category) continue;
+    const key = country + "/" + state + "/" + city + "/" + category.slug;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .filter(([, count]) => count >= DIRECTORY_CATEGORY_MINIMUM_BUSINESSES)
+    .map(([path]) => baseUrl + "/negocios/" + path);
+}
+
 function buildXml(baseUrl, rows) {
-  const body = rows
+  const businessBody = rows
     .map((row) => {
       const url = buildBusinessUrl(baseUrl, row);
       if (!url) return "";
@@ -96,6 +113,8 @@ function buildXml(baseUrl, rows) {
     })
     .filter(Boolean)
     .join("\n");
+  const categoryBody = buildDirectoryCategoryUrls(baseUrl, rows).map((loc) => "<url><loc>" + escapeXml(loc) + "</loc><changefreq>weekly</changefreq></url>").join("\n");
+  const body = [businessBody, categoryBody].filter(Boolean).join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -105,7 +124,7 @@ ${body}
 
 async function fetchPage(config, offset) {
   const params = new URLSearchParams({
-    select: "slug,country_code,state_code,city,city_slug,created_at",
+    select: "slug,country_code,state_code,city,city_slug,created_at,primary_activity",
     or: "(moderation_status.eq.approved,moderation_status.is.null)",
     slug: "not.is.null",
     order: "created_at.desc",

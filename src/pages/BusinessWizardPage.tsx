@@ -456,14 +456,14 @@ export default function BusinessWizardPage() {
 
   const validateCurrentStep = async () => {
     if (step === 1) {
-      if (!isPrimaryActivityValid(form.category, form.primaryActivity, form.primaryActivityCustom)) {
-        toast.error("Informe o tipo principal do neg\u00f3cio ou selecione uma op\u00e7\u00e3o v\u00e1lida.");
-        return false;
-      }
-
       if (!form.name.trim() || !form.shortSlug.trim() || !form.category) {
         if (!form.name.trim()) setNameError("Nome do negócio é obrigatório.");
         toast.error("Preencha nome, link curto e categoria.");
+        return false;
+      }
+      const primaryActivityMissing = !isEditMode && !form.primaryActivity.trim();
+      if (primaryActivityMissing || !isPrimaryActivityValid(form.category, form.primaryActivity, form.primaryActivityCustom)) {
+        toast.error("Selecione o tipo principal do neg\u00f3cio. Se n\u00e3o encontrar uma op\u00e7\u00e3o, escolha Outro tipo e descreva.");
         return false;
       }
       setNameError("");
@@ -914,18 +914,18 @@ export default function BusinessWizardPage() {
               </div>
               {form.category ? (
                 <div className="md:col-span-2 rounded-md border border-amber-200 bg-amber-50/60 p-4">
-                  <Label>{"Tipo principal de neg\u00f3cio"}</Label>
+                  <Label>{"Tipo principal de neg\u00f3cio" + (!isEditMode ? " *" : "")}</Label>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {"Define a atividade que melhor representa seu neg\u00f3cio. Os demais servi\u00e7os podem ser informados na descri\u00e7\u00e3o e nas palavras-chave."}
                   </p>
                   <Select value={form.primaryActivity} onValueChange={(value) => updateField("primaryActivity", value)}>
-                    <SelectTrigger className="mt-2 w-full bg-background"><SelectValue placeholder="Selecione o tipo principal (opcional)" /></SelectTrigger>
+                    <SelectTrigger className="mt-2 w-full bg-background"><SelectValue placeholder={isEditMode ? "Selecione o tipo principal (opcional)" : "Selecione o tipo principal"} /></SelectTrigger>
                     <SelectContent>{getPrimaryActivityOptions(form.category).map((activity) => (<SelectItem key={activity.id} value={activity.id}>{activity.label}</SelectItem>))}</SelectContent>
                   </Select>
                   {form.primaryActivity === OTHER_PRIMARY_ACTIVITY_ID ? (
                     <Input value={form.primaryActivityCustom} onChange={(event) => updateField("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={getPrimaryActivityCustomPlaceholder(form.category)} className="mt-2 bg-background" maxLength={80} />
                   ) : null}
-                  <p className="mt-2 text-xs text-muted-foreground">{"Isso ajuda a construir um t\u00edtulo de p\u00e1gina mais fiel para buscas, sem substituir sua categoria."}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{isEditMode ? "Isso ajuda a construir um t\u00edtulo de p\u00e1gina mais fiel para buscas, sem substituir sua categoria." : "Obrigat\u00f3rio para novos neg\u00f3cios. Se n\u00e3o encontrar uma op\u00e7\u00e3o adequada, escolha Outro tipo e descreva a atividade."}</p>
                 </div>
               ) : null}
             </div>

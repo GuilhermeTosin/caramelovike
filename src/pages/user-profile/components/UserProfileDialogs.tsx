@@ -341,15 +341,16 @@ export default function UserProfileDialogs({
 
               {editFormData.category ? (
                 <div className="sm:col-span-2 rounded-md border border-amber-200 bg-amber-50/60 p-4">
-                  <Label>{"Tipo principal de neg\u00f3cio"}</Label>
+                  <Label>{"Tipo principal de neg\u00f3cio" + (creatingBusiness ? " *" : "")}</Label>
                   <p className="mt-1 text-sm text-muted-foreground">{"Define a atividade que melhor representa seu neg\u00f3cio. Os demais servi\u00e7os podem ser informados na descri\u00e7\u00e3o e nas palavras-chave."}</p>
                   <Select value={editFormData.primaryActivity} onValueChange={(value) => handleEditInputChange("primaryActivity", value)}>
-                    <SelectTrigger className="mt-2 w-full bg-background"><SelectValue placeholder="Selecione o tipo principal (opcional)" /></SelectTrigger>
+                    <SelectTrigger className="mt-2 w-full bg-background"><SelectValue placeholder={creatingBusiness ? "Selecione o tipo principal" : "Selecione o tipo principal (opcional)"} /></SelectTrigger>
                     <SelectContent>{getPrimaryActivityOptions(editFormData.category).map((activity) => (<SelectItem key={activity.id} value={activity.id}>{activity.label}</SelectItem>))}</SelectContent>
                   </Select>
                   {editFormData.primaryActivity === OTHER_PRIMARY_ACTIVITY_ID ? (
                     <Input value={editFormData.primaryActivityCustom} onChange={(event) => handleEditInputChange("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={getPrimaryActivityCustomPlaceholder(editFormData.category)} className="mt-2 bg-background" maxLength={80} />
                   ) : null}
+                  <p className="mt-2 text-xs text-muted-foreground">{creatingBusiness ? "Obrigat\u00f3rio para novos neg\u00f3cios. Se n\u00e3o encontrar uma op\u00e7\u00e3o adequada, escolha Outro tipo e descreva a atividade." : "Isso ajuda a construir um t\u00edtulo de p\u00e1gina mais fiel para buscas, sem substituir sua categoria."}</p>
                 </div>
               ) : null}
 

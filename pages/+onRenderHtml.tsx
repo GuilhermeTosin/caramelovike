@@ -7,6 +7,9 @@ import { getSiteContent } from "@/data/siteContent";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
 import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
+import { getDirectoryCategoryBySlug } from "@/lib/directoryCategories";
+import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
+import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 
 type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
@@ -271,11 +274,32 @@ function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl:
   };
 }
 
+function buildDirectoryBreadcrumbJsonLd(urlOriginal: string | undefined, businesses: BusinessFrontend[], canonicalUrl: string) {
+  const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
+  const parts = pathname.split("/").filter(Boolean);
+  const countryCode = (parts[1] || "").toLowerCase();
+  const stateCode = (parts[2] || "").toLowerCase();
+  const citySlug = slugify(parts[3] || "");
+  const category = getDirectoryCategoryBySlug(parts[4]);
+  const cityBusiness = businesses.find((business) => {
+    const businessCity = getCanonicalCitySlug(business.address.city, business.address.countryCode) || slugify(business.address.citySlug || "");
+    return businessCity === citySlug && (business.address.countryCode || "").toLowerCase() === countryCode && (business.address.stateCode || "").toLowerCase() === stateCode;
+  });
+  const cityName = cityBusiness ? getCityDisplayName(cityBusiness.address.city, countryCode) : citySlug.split("-").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+  const items = [{ name: "Neg\u00f3cios", item: "https://www.caramelinho.com/negocios" }];
+  if (countryCode) items.push({ name: getCountryName(countryCode) || countryCode.toUpperCase(), item: "https://www.caramelinho.com/negocios/" + countryCode });
+  if (stateCode) items.push({ name: getStateDisplayName(countryCode, stateCode, cityBusiness?.address.state) || stateCode.toUpperCase(), item: "https://www.caramelinho.com/negocios/" + countryCode + "/" + stateCode });
+  if (citySlug) items.push({ name: cityName || citySlug, item: "https://www.caramelinho.com/negocios/" + countryCode + "/" + stateCode + "/" + citySlug });
+  if (category) items.push({ name: category.label, item: canonicalUrl });
+  return { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: item.item })) };
+}
+
 export function onRenderHtml(pageContext: PageContext) {
   const { Page } = pageContext;
   const pageHtml = renderToString(<Page pageContext={pageContext} />);
   const business = pageContext.initialBusiness || null;
   const isBusinessPage = !!pageContext.isBusinessPage;
+  const isDirectoryPage = pageContext.urlOriginal ? new URL(pageContext.urlOriginal, "https://www.caramelinho.com").pathname === "/negocios" || new URL(pageContext.urlOriginal, "https://www.caramelinho.com").pathname.startsWith("/negocios/") : false;
   const canonicalUrl = getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
   const isErrorPage = !!pageContext.is404;
   const businessHasData = !!business;
@@ -308,7 +332,9 @@ export function onRenderHtml(pageContext: PageContext) {
         buildBusinessJsonLd(business, canonicalUrl, pageImage),
         buildBusinessBreadcrumbJsonLd(business, canonicalUrl),
       ]
-    : [buildWebsiteJsonLd()];
+    : isDirectoryPage
+      ? [buildWebsiteJsonLd(), buildDirectoryBreadcrumbJsonLd(pageContext.urlOriginal, pageContext.initialBusinesses || [], canonicalUrl)]
+      : [buildWebsiteJsonLd()];
   const jsonLdHtml = jsonLd.map(jsonLdScript).join("\n");
 
   return escapeInject`<!doctype html>

@@ -154,6 +154,8 @@ export default function App({
           <Route path="/negocios" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
           <Route path="/negocios/:countryCode" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
           <Route path="/negocios/:countryCode/:stateCode" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
+          <Route path="/negocios/:countryCode/:stateCode/:citySlug/:categorySlug/pagina/:page" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
+          <Route path="/negocios/:countryCode/:stateCode/:citySlug/:categorySlug" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
           <Route path="/negocios/:countryCode/:stateCode/:citySlug" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
           <Route path="/negocios/:countryCode/:stateCode/:citySlug/pagina/:page" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
           <Route path="/cadastro" element={<Register />} />

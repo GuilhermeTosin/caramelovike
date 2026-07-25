@@ -39,4 +39,17 @@ describe("getDirectoryPageMeta", () => {
     expect(meta?.title).toBe("Neg\u00f3cios brasileiros em Chambly, Quebec, Canad\u00e1 - P\u00e1gina 2 | Caramelinho.com");
     expect(meta?.description).toContain("P\u00e1gina 2 do diret\u00f3rio.");
   });
+
+  it("creates metadata for an eligible category page", () => {
+    const categoryBusinesses = Array.from({ length: 3 }, (_, index) => ({
+      ...businesses[0],
+      id: String(index),
+      primaryActivity: "bakery",
+    })) as BusinessFrontend[];
+    const meta = getDirectoryPageMeta("/negocios/ca/qc/chambly/padarias-brasileiras", categoryBusinesses);
+    expect(meta?.heading).toBe("Padarias brasileiras em Chambly, Quebec, Canad\u00e1");
+    expect(meta?.title).toBe("Padarias brasileiras em Chambly, Quebec, Canad\u00e1 | Caramelinho.com");
+    expect(meta?.description).toContain("3 padarias brasileiras");
+  });
+
 });

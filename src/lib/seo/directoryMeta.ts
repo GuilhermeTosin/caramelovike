@@ -1,4 +1,9 @@
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
+import {
+  DIRECTORY_CATEGORY_MINIMUM_BUSINESSES,
+  getDirectoryCategoryBusinesses,
+  getDirectoryCategoryBySlug,
+} from "@/lib/directoryCategories";
 import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
 
@@ -81,13 +86,22 @@ function getCountryLocation(countryCode: string, countryName: string) {
 }
 
 function getPageNumber(parts: string[]) {
-  if (parts[4] !== "pagina") return 1;
-  const parsedPage = Number(parts[5]);
+  const pageMarkerIndex = parts.indexOf("pagina");
+  if (pageMarkerIndex < 0) return 1;
+  const parsedPage = Number(parts[pageMarkerIndex + 1]);
   return Number.isFinite(parsedPage) && parsedPage > 1 ? Math.floor(parsedPage) : 1;
 }
 
 function addPageToDescription(description: string, pageNumber: number) {
   return pageNumber <= 1 ? description : description + " P\u00e1gina " + pageNumber + " do diret\u00f3rio.";
+}
+
+function getCityLocation(labels: { city: string; state: string; country: string }) {
+  const city = labels.city.trim();
+  const state = labels.state.trim();
+  const country = labels.country.trim();
+  const sameCityAndState = city && state && slugify(city) === slugify(state);
+  return [city, sameCityAndState ? "" : state, country].filter(Boolean).join(", ");
 }
 
 export function getDirectoryPageMeta(urlOriginal: string | undefined, businesses: BusinessFrontend[] = []): DirectoryPageMeta | null {
@@ -98,6 +112,8 @@ export function getDirectoryPageMeta(urlOriginal: string | undefined, businesses
   const countryCode = normalizeCode(parts[1]);
   const stateCode = normalizeCode(parts[2]);
   const citySlug = slugify(parts[3] || "");
+  const categorySlug = parts[4] && parts[4] !== "pagina" ? slugify(parts[4]) : "";
+  const category = getDirectoryCategoryBySlug(categorySlug);
   const pageNumber = getPageNumber(parts);
   const pageSuffix = pageNumber > 1 ? " - P\u00e1gina " + pageNumber : "";
 
@@ -122,7 +138,19 @@ export function getDirectoryPageMeta(urlOriginal: string | undefined, businesses
     return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
   }
 
-  const heading = "Neg\u00f3cios brasileiros em " + labels.city + ", " + labels.state + ", " + labels.country;
-  const description = "Encontre neg\u00f3cios brasileiros em " + labels.city + ", " + labels.state + ", " + labels.country + ". Veja empresas, profissionais, restaurantes, lojas, servi\u00e7os, contatos e avalia\u00e7\u00f5es.";
+  const cityLocation = getCityLocation(labels);
+  if (category) {
+    const categoryBusinesses = getDirectoryCategoryBusinesses(businesses, countryCode, stateCode, citySlug, category);
+    const categoryName = category.label.toLocaleLowerCase("pt-BR");
+    const countText = categoryBusinesses.length >= DIRECTORY_CATEGORY_MINIMUM_BUSINESSES
+      ? categoryBusinesses.length + " " + categoryName
+      : categoryName;
+    const heading = category.label + " em " + cityLocation;
+    const description = "Encontre " + countText + " em " + cityLocation + ". Consulte endere\u00e7os, hor\u00e1rios, contatos e avalia\u00e7\u00f5es de neg\u00f3cios brasileiros.";
+    return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
+  }
+
+  const heading = "Neg\u00f3cios brasileiros em " + cityLocation;
+  const description = "Encontre neg\u00f3cios brasileiros em " + cityLocation + ". Veja empresas, profissionais, restaurantes, lojas, servi\u00e7os, contatos e avalia\u00e7\u00f5es.";
   return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
 }

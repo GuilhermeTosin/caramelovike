@@ -1082,7 +1082,7 @@ export async function createBusiness(
     name: string;
     slug?: string;
     categoryId: string;
-    primaryActivity?: string;
+    primaryActivity: string;
     primaryActivityCustom?: string;
     description: string;
     heroImage?: string;
@@ -1121,6 +1121,8 @@ export async function createBusiness(
     events?: { title: string; description: string; date: string; location: string; isFree: boolean; price: string; flyerUrl?: string; ticketUrl?: string }[];
   }
 ): Promise<BusinessFrontend | null> {
+
+  if (!data.primaryActivity.trim()) return null;
 
   const officialSlug = await generateUniqueOfficialBusinessSlug(data.name);
   if (!officialSlug) return null;

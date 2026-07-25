@@ -12,6 +12,7 @@ import {
 import { getFeaturedBusinessesForRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
+import { getDirectoryCategoryBySlug, getDirectoryCategoryBusinesses, DIRECTORY_CATEGORY_MINIMUM_BUSINESSES } from "@/lib/directoryCategories";
 
 type AvailableLocation = {
   countryCode: string;
@@ -54,6 +55,20 @@ function parseDirectoryCityPath(pathname: string) {
   if (parts.length === 6 && parts[4] === "pagina" && /^\d+$/.test(parts[5])) {
     const [, countryCode, stateCode, citySlug, , page] = parts;
     return { countryCode, stateCode, citySlug, page: Number(page) };
+  }
+  return null;
+}
+
+function parseDirectoryCategoryPath(pathname: string) {
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts[0] !== "negocios") return null;
+  if (parts.length === 5) {
+    const [, countryCode, stateCode, citySlug, categorySlug] = parts;
+    return { countryCode, stateCode, citySlug, categorySlug, page: null as number | null };
+  }
+  if (parts.length === 7 && parts[5] === "pagina" && /^\d+$/.test(parts[6])) {
+    const [, countryCode, stateCode, citySlug, categorySlug, , page] = parts;
+    return { countryCode, stateCode, citySlug, categorySlug, page: Number(page) };
   }
   return null;
 }
@@ -146,21 +161,41 @@ export async function onBeforeRender(pageContext: PageContext) {
       };
     }
 
+    const directoryCategoryRoute = parseDirectoryCategoryPath(pathname);
     const directoryRoute = parseDirectoryCityPath(pathname);
-    if (directoryRoute) {
+    const locationRoute = directoryCategoryRoute || directoryRoute;
+    if (locationRoute) {
       const canonicalCitySlug = await resolveCanonicalLocationSlug(
-        directoryRoute.countryCode,
-        directoryRoute.stateCode,
-        directoryRoute.citySlug,
+        locationRoute.countryCode,
+        locationRoute.stateCode,
+        locationRoute.citySlug,
       ).catch(() => null);
-      if (canonicalCitySlug && canonicalCitySlug !== directoryRoute.citySlug) {
-        const pageSegment = directoryRoute.page && directoryRoute.page > 1 ? `/pagina/${directoryRoute.page}` : "";
-        throw redirect(`/negocios/${directoryRoute.countryCode}/${directoryRoute.stateCode}/${canonicalCitySlug}${pageSegment}`, 301);
+      if (canonicalCitySlug && canonicalCitySlug !== locationRoute.citySlug) {
+        const pageSegment = locationRoute.page && locationRoute.page > 1 ? "/pagina/" + locationRoute.page : "";
+        const categorySegment = directoryCategoryRoute ? "/" + directoryCategoryRoute.categorySlug : "";
+        throw redirect("/negocios/" + locationRoute.countryCode + "/" + locationRoute.stateCode + "/" + canonicalCitySlug + categorySegment + pageSegment, 301);
+      }
+    }
+
+    const publicDirectoryData = await getPublicDirectoryData(false);
+    if (directoryCategoryRoute) {
+      const category = getDirectoryCategoryBySlug(directoryCategoryRoute.categorySlug);
+      const categoryBusinesses = category
+        ? getDirectoryCategoryBusinesses(
+            publicDirectoryData.initialBusinesses || [],
+            directoryCategoryRoute.countryCode,
+            directoryCategoryRoute.stateCode,
+            directoryCategoryRoute.citySlug,
+            category,
+          )
+        : [];
+      if (!category || categoryBusinesses.length < DIRECTORY_CATEGORY_MINIMUM_BUSINESSES) {
+        throw render(404);
       }
     }
     return {
       pageContext: {
-        ...(await getPublicDirectoryData(false)),
+        ...publicDirectoryData,
         initialBusiness: null,
         isBusinessPage: false,
       },
