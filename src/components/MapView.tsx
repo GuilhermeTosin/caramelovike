@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { buildBusinessUrl } from "@/services/businesses";
 import type { BusinessFrontend, CommunityFindWithVote } from "@/types/database";
-import { MapPin, Loader2, AlertCircle, Building2, X } from "lucide-react";
+import { MapPin, Loader2, AlertCircle, AtSign, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface MapViewProps {
@@ -289,7 +289,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
         >
           <div className="flex items-start gap-3">
             <div className="rounded-full bg-amber-100 p-2 text-amber-800">
-              <Building2 className="h-4 w-4" aria-hidden="true" />
+              <AtSign className="h-4 w-4" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">
@@ -451,13 +451,7 @@ function getApproximateGroupPinSvg(count: number): string {
     <svg width="48" height="54" viewBox="0 0 48 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
       <path d="M24 2C13.2 2 4.5 10.6 4.5 21.2c0 13.6 16.4 28.8 18.3 30.6.7.6 1.7.6 2.4 0 1.9-1.8 18.3-17 18.3-30.6C43.5 10.6 34.8 2 24 2Z" fill="#d97706" stroke="#ffffff" stroke-width="2.5"/>
       <circle cx="24" cy="20.5" r="13.5" fill="#fff7ed"/>
-      <path d="M18.5 18.5 24 21.5l5.5-3" fill="none" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="18" cy="17" r="3" fill="#d97706" stroke="#9a3412" stroke-width="1"/>
-      <circle cx="24" cy="14.5" r="3" fill="#d97706" stroke="#9a3412" stroke-width="1"/>
-      <circle cx="30" cy="17" r="3" fill="#d97706" stroke="#9a3412" stroke-width="1"/>
-      <circle cx="18" cy="17" r="1" fill="#fff7ed"/>
-      <circle cx="24" cy="14.5" r="1" fill="#fff7ed"/>
-      <circle cx="30" cy="17" r="1" fill="#fff7ed"/>
+      <text x="24" y="26" text-anchor="middle" fill="#9a3412" font-family="Arial, sans-serif" font-size="19" font-weight="700">@</text>
       <rect x="14" y="29" width="20" height="14" rx="7" fill="#7c2d12" stroke="#ffffff" stroke-width="2"/>
       <text x="24" y="39.3" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="11" font-weight="700">${label}</text>
     </svg>
