@@ -644,7 +644,7 @@ export default function Home({
               className="flex flex-col items-center gap-3 p-6 rounded-xl bg-card border border-border card-hover"
             >
               <cat.icon className="w-7 h-7 text-primary" />
-              <span className="font-medium text-sm">{cat.name}</span>
+              <span className="font-medium text-sm text-center">{cat.name}</span>
               <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count, locale)}</span>
             </Link>
           ))}
