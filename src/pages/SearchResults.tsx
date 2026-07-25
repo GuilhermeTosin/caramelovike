@@ -47,7 +47,7 @@ import {
   getSearchSuggestions,
 } from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
-import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
+import { DEFAULT_CATEGORY_SYNONYMS, getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import type { CommunityEvent } from "@/types/database";
 import type { CommunityFindWithVote } from "@/types/database";
 import type { CommunityFindMessage } from "@/types/database";
@@ -311,7 +311,7 @@ export default function SearchResults({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>([]);
   const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
-    getCategorySynonymsConfig()
+    DEFAULT_CATEGORY_SYNONYMS
   );
   const queryCategoryIds = useMemo(
     () => resolveSearchQueryCategoryIds(query, categorySynonymsMap, SEARCH_SYNONYMS),
