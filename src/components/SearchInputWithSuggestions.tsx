@@ -327,7 +327,7 @@ export default function SearchInputWithSuggestions({
           >
             <MapPin className="w-4 h-4 text-primary" />
             <span className="text-foreground font-semibold text-xs lg:text-[11px] whitespace-nowrap">
-              Usar minha localização
+              {"Usar minha localiza\u00e7\u00e3o"}
             </span>
           </button>
         </li>
@@ -376,12 +376,17 @@ export default function SearchInputWithSuggestions({
         }}
         onChange={(e) => {
           onChange(e.target.value);
-          if (!canUseGooglePlaces) {
-            if (portalSuggestions) {
+          if (canUseGooglePlaces) {
+            if (portalSuggestions && !e.target.value.trim()) {
               syncPortalPosition();
             }
-            setIsOpen(showLocateAction || e.target.value.length >= 2);
+            setIsOpen(showLocateAction && !e.target.value.trim());
+            return;
           }
+          if (portalSuggestions) {
+            syncPortalPosition();
+          }
+          setIsOpen(showLocateAction || e.target.value.length >= 2);
         }}
         onBlur={() => {
           if (canUseGooglePlaces && inputRef.current) {
@@ -392,7 +397,15 @@ export default function SearchInputWithSuggestions({
           }
         }}
         onFocus={() => {
-          if (canUseGooglePlaces) return;
+          if (canUseGooglePlaces) {
+            if (showLocateAction && !value.trim()) {
+              if (portalSuggestions) {
+                syncPortalPosition();
+              }
+              setIsOpen(true);
+            }
+            return;
+          }
           if (showLocateAction || (value.length >= 2 && filteredSuggestions.length > 0)) {
             if (portalSuggestions) {
               syncPortalPosition();
