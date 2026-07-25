@@ -86,6 +86,7 @@ export default function UserProfile() {
 
   const mobileContentRef = useRef<HTMLDivElement>(null);
   const communityEventDatePickerRef = useRef<HTMLInputElement>(null);
+  const loadedMyBusinessesOwnerIdRef = useRef<string | null>(null);
 
   const refreshOwnedBusinesses = async (ownerId = session?.userId) => {
     if (!ownerId) return;
@@ -139,7 +140,7 @@ export default function UserProfile() {
     saveUser: saveAdminUser,
     deleteUser: deleteAdminUser,
     refresh: refreshAdminUsers,
-  } = useAdminUsers({ enabled: canManageUsers });
+  } = useAdminUsers({ enabled: canManageUsers && activeTab === "usuarios" });
 
   const handleTransferBusinessToAdmin = async (businessId: string) => {
     if (!canManageUsers) {
@@ -415,16 +416,26 @@ export default function UserProfile() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (!session) {
+    const sessionUserId = session?.userId;
+    if (!sessionUserId) {
+      loadedMyBusinessesOwnerIdRef.current = null;
       navigate("/entrar?redirect=/perfil");
       return;
     }
 
+    if (loadedMyBusinessesOwnerIdRef.current === sessionUserId) return;
+    loadedMyBusinessesOwnerIdRef.current = sessionUserId;
+
     setLoadingMyBusinesses(true);
-    void refreshOwnedBusinesses(session.userId).finally(() => {
-      setLoadingMyBusinesses(false);
-    });
-  }, [session, user, navigate, isLoading]);
+    void refreshOwnedBusinesses(sessionUserId)
+      .catch(() => {
+        // Allow a later authenticated render to retry after a transient error.
+        loadedMyBusinessesOwnerIdRef.current = null;
+      })
+      .finally(() => {
+        setLoadingMyBusinesses(false);
+      });
+  }, [session?.userId, navigate, isLoading]);
 
   useEffect(() => {
     setMyBusinessesPage(1);
@@ -569,7 +580,7 @@ export default function UserProfile() {
 
   const centeredShellClassName = "min-h-screen flex items-center justify-center bg-background";
 
-  if (isServerRender || isLoading) {
+  if (isServerRender || (isLoading && !user)) {
     return (
       <div className={centeredShellClassName}>
         <div className="text-center">

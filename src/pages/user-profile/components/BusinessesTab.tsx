@@ -148,7 +148,7 @@ export default function BusinessesTab({
           />
         </div>
       </div>
-      {loadingMyBusinesses ? (
+      {loadingMyBusinesses && myBusinesses.length === 0 ? (
         <Card className="border-border p-8 text-center">
           <Store className="mx-auto mb-3 h-12 w-12 animate-pulse text-muted-foreground/30" />
           <p className="mb-1 text-muted-foreground">Carregando seus negócios...</p>

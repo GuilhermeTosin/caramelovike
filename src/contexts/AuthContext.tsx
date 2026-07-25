@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   // Ref para evitar m?ltiplas chamadas simult?neas de carregamento de perfil
   const loadingUserIdRef = useRef<string | null>(null);
+  const loadedUserIdRef = useRef<string | null>(null);
 
   const buildSession = useCallback(
     (supaSession: Session | null): AuthSessionFrontend | null => {
@@ -39,9 +40,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loadUserAndUnread = useCallback(async (userId: string, email: string) => {
-    // Se j? estiver carregando ESTE Usuário, ignora mas garante que o loading termine
+    // Let the in-flight request finish for the same user.
     if (loadingUserIdRef.current === userId) {
-      setIsLoading(false);
       return;
     }
     loadingUserIdRef.current = userId;
@@ -71,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           createdAt: profile.created_at,
         });
         setSession((current) => current && current.userId === userId ? { ...current, name: profile.name || current.name, role } : current);
+        loadedUserIdRef.current = userId;
       }
       
       getUnreadCount(userId).then(setUnreadMessages).catch(console.error);
@@ -83,11 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshSession = useCallback(async () => {
-    setIsLoading(true);
     const supaSession = await getValidatedSession();
     const s = buildSession(supaSession);
     setSession(s);
     if (s && supaSession) {
+      if (loadedUserIdRef.current !== s.userId) setIsLoading(true);
       await loadUserAndUnread(s.userId, supaSession.user.email || "");
     } else {
       setIsLoading(false);
@@ -134,15 +135,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, supaSession) => {
         const s = buildSession(supaSession);
-        setSession(s);
 
-        if (s && supaSession) {
-          setIsLoading(true);
-          loadUserAndUnread(s.userId, supaSession.user.email || "");
-        } else {
+        // Supabase may emit TOKEN_REFRESHED and SIGNED_IN when the browser
+        // regains focus. A known user should remain visible in either case.
+        if (event === "TOKEN_REFRESHED") {
+          if (!s) {
+            setSession(null);
+            loadedUserIdRef.current = null;
+            setUser(null);
+            setUnreadMessages(0);
+          } else {
+            setSession((current) => current?.userId === s.userId ? { ...current, email: s.email } : s);
+            getUnreadCount(s.userId).then(setUnreadMessages).catch(console.error);
+          }
+          return;
+        }
+
+        if (!s || !supaSession) {
+          loadedUserIdRef.current = null;
+          setSession(null);
           setUser(null);
           setUnreadMessages(0);
           setIsLoading(false);
+          return;
+        }
+
+        setSession((current) => current?.userId === s.userId ? { ...current, email: s.email } : s);
+
+        const shouldRefreshProfile = loadedUserIdRef.current !== s.userId || event === "USER_UPDATED";
+        if (shouldRefreshProfile) {
+          if (loadedUserIdRef.current !== s.userId) setIsLoading(true);
+          void loadUserAndUnread(s.userId, supaSession.user.email || "");
+        } else {
+          getUnreadCount(s.userId).then(setUnreadMessages).catch(console.error);
         }
       }
     );
@@ -159,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setSession(null);
+    loadedUserIdRef.current = null;
     setUser(null);
     setUnreadMessages(0);
   }, []);
