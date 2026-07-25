@@ -329,13 +329,17 @@ export default function Home({
           locationText,
           resolved.countryCode || approxCountryCode || DEFAULT_GEO_FALLBACK.countryCode
         ));
-      if (coords) {
-        params.set("origem_lat", String(coords.lat));
-        params.set("origem_lng", String(coords.lng));
-        params.set("origem_local", locationText);
-        params.set("origem_source", "city");
-        if (resolved.countryCode) params.set("origem_pais", resolved.countryCode);
+      if (!coords) {
+        params.delete("cidade");
+        params.delete("local");
+        params.delete("raio");
+        return false;
       }
+      params.set("origem_lat", String(coords.lat));
+      params.set("origem_lng", String(coords.lng));
+      params.set("origem_local", locationText);
+      params.set("origem_source", "city");
+      if (resolved.countryCode) params.set("origem_pais", resolved.countryCode);
       return true;
     }
 
@@ -373,6 +377,12 @@ export default function Home({
     if (modeParam) params.set(modeParam, "1");
     if (hasQuery) params.set("q", searchQuery.trim());
     const hasLocationContext = await appendLocationContext(params, locationQuery);
+    if (locationQuery.trim() && !hasLocationContext) {
+      setLocationNoticeMessage("N\u00e3o foi poss\u00edvel localizar essa cidade. Escolha uma sugest\u00e3o do Google ou tente informar tamb\u00e9m o pa\u00eds.");
+      setLocationNoticeOpen(true);
+      setIsSubmittingSearch(false);
+      return;
+    }
     if (searchMode === "businesses" && !hasQuery && !hasLocationContext) {
       setLocationNoticeMessage(homeText.searchRequiresQueryOrLocationMessage);
       setLocationNoticeOpen(true);
@@ -561,6 +571,7 @@ export default function Home({
                     isLoading={isResolvingLocationInput}
                     placeholder={homeText.locationPlaceholder}
                     icon="location"
+                    useGooglePlaces
                     portalSuggestions={true}
                     inputClassName="h-12 sm:h-16 text-base sm:text-xl placeholder:text-[11px] sm:placeholder:text-sm"
                   />

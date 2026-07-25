@@ -1166,11 +1166,11 @@ export default function SearchResults({
         if (cityCountryCode) params.set("origem_pais", cityCountryCode);
         else params.delete("origem_pais");
       } else {
-        params.delete("origem_lat");
-        params.delete("origem_lng");
-        params.delete("origem_local");
-        params.delete("origem_source");
-        params.delete("origem_pais");
+        showLocationNotice(
+          "Localiza\u00e7\u00e3o n\u00e3o encontrada",
+          "N\u00e3o foi poss\u00edvel localizar essa cidade. Escolha uma sugest\u00e3o do Google ou tente informar tamb\u00e9m o pa\u00eds."
+        );
+        return;
       }
     } else {
       params.delete("local");
@@ -1643,6 +1643,7 @@ export default function SearchResults({
               isLoading={locatingMe}
               placeholder="Em qual cidade?"
               icon="location"
+              useGooglePlaces
               onSubmit={(selectedValue, meta) => {
                 (async () => {
                   const nextValue = selectedValue ?? locationInput;

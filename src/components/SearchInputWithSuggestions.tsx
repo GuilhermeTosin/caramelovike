@@ -72,7 +72,7 @@ export default function SearchInputWithSuggestions({
   onUseCurrentLocation,
   isLoading = false,
 }: SearchInputWithSuggestionsProps) {
-  const legacyPlacesAutocompleteEnabled = false;
+  const legacyPlacesAutocompleteEnabled = true;
   const suggestionsDisabled = disableLocalSuggestions;
   const [isOpen, setIsOpen] = useState(false);
   const [portalStyle, setPortalStyle] = useState<CSSProperties | null>(null);
@@ -193,7 +193,7 @@ export default function SearchInputWithSuggestions({
 
         const ac = new google.maps.places.Autocomplete(inputRef.current, {
           fields: ["formatted_address", "name", "address_components", "geometry", "place_id"],
-          types: ["geocode"],
+          types: ["(cities)"],
         });
 
         if (locationBias) {
@@ -207,8 +207,8 @@ export default function SearchInputWithSuggestions({
 
         ac.addListener("place_changed", () => {
           const place = ac.getPlace();
-          const selected = place.formatted_address || inputRef.current?.value || "";
           const extractedCity = extractCityFromPlace(place);
+          const selected = extractedCity || place.formatted_address || inputRef.current?.value || "";
           const components = place.address_components || [];
           const stateCode = components.find((c) => c.types.includes("administrative_area_level_1"))?.short_name || "";
           const countryCode = components.find((c) => c.types.includes("country"))?.short_name || "";
