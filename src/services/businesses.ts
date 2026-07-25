@@ -622,6 +622,41 @@ export async function getBusinessesByRadiusRpc(params: {
   };
 }
 
+export async function getAllBusinessesByRadiusRpc(params: {
+  originLat: number;
+  originLng: number;
+  radiusKm: number;
+  categoryId?: string;
+  countryCode?: string;
+  stateCode?: string;
+  query?: string;
+  city?: string;
+}): Promise<BusinessFrontend[]> {
+  const batchSize = 500;
+  const collected: BusinessFrontend[] = [];
+  const seenIds = new Set<string>();
+  let offset = 0;
+
+  while (true) {
+    const page = await getBusinessesByRadiusRpc({
+      ...params,
+      limit: batchSize,
+      offset,
+    });
+
+    page.items.forEach((business) => {
+      if (seenIds.has(business.id)) return;
+      seenIds.add(business.id);
+      collected.push(business);
+    });
+
+    offset += batchSize;
+    if (page.items.length < batchSize || offset >= page.totalCount) break;
+  }
+
+  return collected;
+}
+
 export async function getBusinessBySlug(
   countryCode: string,
   stateCode: string,

@@ -38,6 +38,7 @@ import {
   BUSINESS_CATEGORY_OPTIONS,
   buildBusinessUrl,
   getAllBusinesses,
+  getAllBusinessesByRadiusRpc,
   getAvailableLocations,
   getCategoryId,
   getCategoryLabel,
@@ -320,6 +321,9 @@ export default function SearchResults({
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
   const [rpcFallbackMode, setRpcFallbackMode] = useState(false);
+  const [mapBusinesses, setMapBusinesses] = useState<BusinessFrontend[] | null>(null);
+  const [mapBusinessesLoading, setMapBusinessesLoading] = useState(false);
+  const [mapBusinessesError, setMapBusinessesError] = useState<string | null>(null);
   const [showCommunityFindForm, setShowCommunityFindForm] = useState(false);
   const [communityFindDialogOpen, setCommunityFindDialogOpen] = useState(false);
   const [selectedCommunityFind, setSelectedCommunityFind] = useState<CommunityFindWithVote | null>(null);
@@ -563,6 +567,58 @@ export default function SearchResults({
     isEventMode,
     queryCategoryIds,
   ]);
+
+  const fullRadiusMapQuery = useMemo(() => {
+    if (!canUseRpcRadiusMode || rpcFallbackMode) return null;
+
+    const originLat = parseCoordParam(originLatParam);
+    const originLng = parseCoordParam(originLngParam);
+    const radiusKm = radiusFilter ? Number(radiusFilter) : null;
+    if (originLat === null || originLng === null || !radiusKm || radiusKm <= 0) return null;
+
+    return {
+      originLat,
+      originLng,
+      radiusKm,
+      categoryId: categoryFilterId || undefined,
+      countryCode: countryFilter || undefined,
+      stateCode: stateFilter || undefined,
+      query: query || undefined,
+    };
+  }, [
+    canUseRpcRadiusMode,
+    rpcFallbackMode,
+    originLatParam,
+    originLngParam,
+    radiusFilter,
+    categoryFilterId,
+    countryFilter,
+    stateFilter,
+    query,
+  ]);
+
+  useEffect(() => {
+    if (!showMap || !fullRadiusMapQuery) return;
+
+    let active = true;
+    void (async () => {
+      setMapBusinessesLoading(true);
+      setMapBusinesses(null);
+      setMapBusinessesError(null);
+      try {
+        const businesses = await getAllBusinessesByRadiusRpc(fullRadiusMapQuery);
+        if (active) setMapBusinesses(businesses);
+      } catch {
+        if (active) setMapBusinessesError("N\u00e3o foi poss\u00edvel carregar todos os neg\u00f3cios no mapa.");
+      } finally {
+        if (active) setMapBusinessesLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [showMap, fullRadiusMapQuery]);
 
   useEffect(() => {
     let active = true;
@@ -1001,12 +1057,14 @@ export default function SearchResults({
     rpcTotalCount,
   ]);
 
+  const businessesForMap = fullRadiusMapQuery ? mapBusinesses || [] : results;
+
   const mapCenter =
     distanceOrigin ||
     userCoords ||
     approximateMapCoords ||
-    (results.length > 0 && results[0].address?.lat && results[0].address?.lng
-      ? { lat: results[0].address.lat, lng: results[0].address.lng }
+    (businessesForMap.length > 0 && businessesForMap[0].address?.lat && businessesForMap[0].address?.lng
+      ? { lat: businessesForMap[0].address.lat, lng: businessesForMap[0].address.lng }
       : { lat: 45.5, lng: -73.6 });
 
   const eventResults = useMemo(() => {
@@ -1817,11 +1875,21 @@ export default function SearchResults({
             <>
             {showMap && (
               <div className="mb-8 rounded-xl overflow-hidden border border-border h-[400px]">
-                <MapView
-                  businesses={isCommunityFindsMode ? [] : results}
-                  communityFinds={(isCommunityFindsMode ? filteredCommunityFinds : communityFinds) as CommunityFindWithVote[]}
-                  center={mapCenter}
-                />
+                {fullRadiusMapQuery && mapBusinessesLoading ? (
+                  <div className="flex h-full items-center justify-center bg-secondary/30 p-6 text-center">
+                    <p className="text-sm text-muted-foreground">{"Carregando todos os neg\u00f3cios encontrados no mapa..."}</p>
+                  </div>
+                ) : fullRadiusMapQuery && mapBusinessesError ? (
+                  <div className="flex h-full items-center justify-center bg-destructive/5 p-6 text-center">
+                    <p className="text-sm text-destructive">{mapBusinessesError}</p>
+                  </div>
+                ) : (
+                  <MapView
+                    businesses={isCommunityFindsMode ? [] : businessesForMap}
+                    communityFinds={(isCommunityFindsMode ? filteredCommunityFinds : communityFinds) as CommunityFindWithVote[]}
+                    center={mapCenter}
+                  />
+                )}
               </div>
             )}
 
