@@ -3,7 +3,6 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
-import { getLocalizedPathname } from "@/i18n/routing";
 import type { BusinessFrontend } from "@/types/database";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
@@ -66,7 +65,7 @@ function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean
     const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
     const isPrivatePreviewPath = pathname.startsWith("/preview/negocio/");
     const isSearchPage = pathname === "/buscar";
-    const canonicalPathname = getLocalizedPathname(pathname, "pt-BR");
+    const canonicalPathname = pathname;
     const canonicalSearch = isBusinessPage || (isSearchPage && !isIndexableSearch(search)) ? "" : search;
     const canonicalPath = `${canonicalPathname}${canonicalSearch}`;
     const canonicalUrl = `${window.location.origin}${canonicalPath}`;

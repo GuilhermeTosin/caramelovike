@@ -4,7 +4,7 @@ import { getPrimaryActivityLabel, getPrimaryActivitySeoLabel } from "@/lib/busin
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getStateDisplayName } from "@/services/businesses";
 
-type BusinessSeoLocale = "pt-BR" | "en";
+type BusinessSeoLocale = "pt-BR";
 type BusinessSeoInput = Pick<
   BusinessFrontend,
   | "name"
@@ -21,40 +21,34 @@ function cleanText(value: unknown): string {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function getCategoryFallback(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
+function getCategoryFallback(business: BusinessSeoInput): string {
   const category = cleanText(business.category).split("(")[0].trim();
-  if (category) return category;
-  return locale === "en" ? "Brazilian business" : "Neg\u00f3cio brasileiro";
+  return category || "Neg\u00f3cio brasileiro";
 }
 
-function getBusinessSeoDescriptorForTitle(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
-  const category = getCategoryFallback(business, locale);
-  const primaryActivity = getPrimaryActivitySeoLabel(
+function getBusinessSeoDescriptorForTitle(business: BusinessSeoInput): string {
+  return getPrimaryActivitySeoLabel(
     business.categoryId,
     business.primaryActivity,
     business.primaryActivityCustom,
-    locale,
-  );
-  return primaryActivity || category;
+  ) || getCategoryFallback(business);
 }
 
-export function getBusinessSeoDescriptor(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
-  const category = getCategoryFallback(business, locale);
-  const primaryActivity = getPrimaryActivityLabel(
+export function getBusinessSeoDescriptor(business: BusinessSeoInput): string {
+  return getPrimaryActivityLabel(
     business.categoryId,
     business.primaryActivity,
     business.primaryActivityCustom,
-  );
-  return primaryActivity || category;
+  ) || getCategoryFallback(business);
 }
 
-function getBusinessLocationPhrase(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
+function getBusinessLocationPhrase(business: BusinessSeoInput): string {
   const city = getCityDisplayName(
     cleanText(business.address?.cityDisplayName || business.address?.city),
     business.address?.countryCode || business.address?.country,
-    locale,
   );
   if (business.attendanceType === "online" && !city) return "online";
+
   const state = cleanText(
     getStateDisplayName(
       business.address?.countryCode,
@@ -62,8 +56,8 @@ function getBusinessLocationPhrase(business: BusinessSeoInput, locale: BusinessS
       business.address?.state,
     ),
   );
-  const place = [city, state].filter(Boolean).join(", ") || (locale === "en" ? "your area" : "sua regi\u00e3o");
-  return (locale === "en" ? "in " : "em ") + place;
+  const place = [city, state].filter(Boolean).join(", ") || "sua regi\u00e3o";
+  return "em " + place;
 }
 
 function truncateText(value: string, maxLength: number): string {
@@ -75,21 +69,18 @@ function truncateText(value: string, maxLength: number): string {
   return readable + "...";
 }
 
-export function buildBusinessSeoTitle(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
-  const name = cleanText(business.name) || (locale === "en" ? "Brazilian business" : "Neg\u00f3cio brasileiro");
-  const descriptor = truncateText(getBusinessSeoDescriptorForTitle(business, locale), 60);
-  const location = getBusinessLocationPhrase(business, locale);
+export function buildBusinessSeoTitle(business: BusinessSeoInput, _locale: BusinessSeoLocale = "pt-BR"): string {
+  const name = cleanText(business.name) || "Neg\u00f3cio brasileiro";
+  const descriptor = truncateText(getBusinessSeoDescriptorForTitle(business), 60);
+  const location = getBusinessLocationPhrase(business);
   return name + " | " + descriptor + " " + location;
 }
 
-export function buildBusinessSeoDescription(business: BusinessSeoInput, locale: BusinessSeoLocale): string {
-  const name = cleanText(business.name) || (locale === "en" ? "Brazilian business" : "Neg\u00f3cio brasileiro");
-  const descriptor = truncateText(getBusinessSeoDescriptor(business, locale), 60);
-  const location = getBusinessLocationPhrase(business, locale);
+export function buildBusinessSeoDescription(business: BusinessSeoInput, _locale: BusinessSeoLocale = "pt-BR"): string {
+  const name = cleanText(business.name) || "Neg\u00f3cio brasileiro";
+  const descriptor = truncateText(getBusinessSeoDescriptor(business), 60);
+  const location = getBusinessLocationPhrase(business);
   const lead = name + ": " + descriptor + " " + location + ".";
   const sourceDescription = stripRichTextHtml(business.description || "");
-  const suffix = locale === "en"
-    ? " See services, reviews, photos, and contact information."
-    : " Veja servi\u00e7os, avalia\u00e7\u00f5es, fotos e formas de contato.";
-  return truncateText(lead + " " + sourceDescription + suffix, 170);
+  return truncateText(lead + " " + sourceDescription + " Veja servi\u00e7os, avalia\u00e7\u00f5es, fotos e formas de contato.", 170);
 }

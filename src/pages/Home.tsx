@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff, CalendarDays, BadgePercent, PartyPopper } from "lucide-react";
+import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff, CalendarDays, BadgePercent, PartyPopper, Plane } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,6 @@ import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
-import { useLocale } from "@/i18n/context";
 import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import {
   geocodeLocationWithCountryFallback,
@@ -70,6 +69,7 @@ const HOME_CATEGORY_ICONS: Record<string, typeof Utensils> = {
   accounting_finance: Landmark,
   retail: ShoppingBag,
   transport_moving: Truck,
+  tourism: Plane,
   real_estate: Building2,
   artists: Music,
   pets: PawPrint,
@@ -122,10 +122,9 @@ export default function Home({
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
 }: HomeProps = {}) {
-  const locale = useLocale();
-  const siteText = getSiteContent(locale);
-  const homeText = getHomeContent(locale);
-  const mascotPhrases = getMascotPhrases(locale);
+  const siteText = getSiteContent();
+  const homeText = getHomeContent();
+  const mascotPhrases = getMascotPhrases();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
@@ -436,7 +435,7 @@ export default function Home({
 
       cityCounts.set(key, {
         name: current?.name || city,
-        displayName: current?.displayName || getCityDisplayName(biz.address.cityDisplayName || city, countryCode, locale),
+        displayName: current?.displayName || getCityDisplayName(biz.address.cityDisplayName || city, countryCode),
         countryCode,
         count: (current?.count || 0) + 1,
       });
@@ -449,7 +448,7 @@ export default function Home({
         ...city,
         flag: countryCodeToFlag(city.countryCode),
       }));
-  }, [allBusinesses, locale]);
+  }, [allBusinesses]);
 
   return (
     <div className="min-h-screen">
@@ -645,7 +644,7 @@ export default function Home({
             >
               <cat.icon className="w-7 h-7 text-primary" />
               <span className="font-medium text-sm text-center">{cat.name}</span>
-              <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count, locale)}</span>
+              <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count)}</span>
             </Link>
           ))}
         </div>
@@ -728,7 +727,7 @@ export default function Home({
                           <span className="truncate">{biz.name}</span>
                         </h3>
                         <p className="text-sm text-muted-foreground truncate">
-                          {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country, locale)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
+                          {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
                         </p>
                       </div>
                     </div>
@@ -808,7 +807,7 @@ export default function Home({
             >
               <img
                 src={`https://flagcdn.com/w40/${city.countryCode.toLowerCase()}.png`}
-                alt={locale === "en" ? `Flag of ${city.countryCode.toUpperCase()}` : `Bandeira de ${city.countryCode.toUpperCase()}`}
+                alt={`Bandeira de ${city.countryCode.toUpperCase()}`}
                 className="h-5 w-7 object-cover"
                 loading="lazy"
                 onError={(e) => {
@@ -819,7 +818,7 @@ export default function Home({
               />
               <span className="text-2xl hidden">{city.flag}</span>
               <span className="font-medium text-sm">{city.displayName}</span>
-              <span className="text-xs text-muted-foreground">{formatBusinessCount(city.count, locale)}</span>
+              <span className="text-xs text-muted-foreground">{formatBusinessCount(city.count)}</span>
             </Link>
           ))}
         </div>
@@ -833,7 +832,7 @@ export default function Home({
               src="/brazil-map-pin-112.webp"
               srcSet="/brazil-map-pin-112.webp 112w, /brazil-map-pin-168.webp 168w, /brazil-map-pin-224.webp 224w"
               sizes="(min-width: 640px) 112px, 96px"
-              alt={locale === "en" ? "Location icon with Brazil flag" : "Ícone de localização com bandeira do Brasil"}
+              alt="Ícone de localização com bandeira do Brasil"
               width={112}
               height={112}
               loading="lazy"
@@ -877,11 +876,7 @@ function normalizeText(value?: string | null): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function formatBusinessCount(count: number, locale: string): string {
-  if (locale === "en") {
-    return `${count} ${count === 1 ? "business" : "businesses"}`;
-  }
-
-  return `${count} ${count === 1 ? "negócio" : "negócios"}`;
+function formatBusinessCount(count: number): string {
+  return String(count) + " " + (count === 1 ? "neg\u00f3cio" : "neg\u00f3cios");
 }
 

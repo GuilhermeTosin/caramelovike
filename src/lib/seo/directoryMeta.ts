@@ -1,5 +1,3 @@
-import type { Locale } from "@/i18n/types";
-import { stripLocalePrefix } from "@/i18n/routing";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
@@ -57,30 +55,17 @@ function preferStateLabel(current: string, candidate: string, stateCode: string)
   return candidateLabel.length > currentLabel.length && !candidateIsCode ? candidateLabel : currentLabel;
 }
 
-function findDirectoryLabels(
-  businesses: BusinessFrontend[],
-  countryCode: string,
-  stateCode: string,
-  citySlug: string,
-  locale: Locale,
-) {
+function findDirectoryLabels(businesses: BusinessFrontend[], countryCode: string, stateCode: string, citySlug: string) {
   let state = "";
   let city = "";
 
   for (const business of businesses) {
     if (normalizeCode(business.address.countryCode) !== countryCode) continue;
     if (stateCode && normalizeCode(business.address.stateCode) === stateCode) {
-      state = preferStateLabel(
-        state,
-        getStateDisplayName(countryCode, stateCode, business.address.state),
-        stateCode,
-      );
-
+      state = preferStateLabel(state, getStateDisplayName(countryCode, stateCode, business.address.state), stateCode);
       const businessCity = business.address.cityDisplayName || business.address.city;
       const businessCitySlug = getCanonicalCitySlug(businessCity, countryCode) || business.address.citySlug;
-      if (citySlug && businessCitySlug === citySlug) {
-        city = getCityDisplayName(businessCity, countryCode, locale) || city;
-      }
+      if (citySlug && businessCitySlug === citySlug) city = getCityDisplayName(businessCity, countryCode) || city;
     }
   }
 
@@ -91,10 +76,8 @@ function findDirectoryLabels(
   };
 }
 
-function getCountryLocation(countryCode: string, countryName: string, locale: Locale) {
-  if (locale === "en") return `in ${countryName}`;
-  const preposition = COUNTRY_PREPOSITIONS_PT_BR[countryCode] || "em";
-  return `${preposition} ${countryName}`;
+function getCountryLocation(countryCode: string, countryName: string) {
+  return (COUNTRY_PREPOSITIONS_PT_BR[countryCode] || "em") + " " + countryName;
 }
 
 function getPageNumber(parts: string[]) {
@@ -103,17 +86,12 @@ function getPageNumber(parts: string[]) {
   return Number.isFinite(parsedPage) && parsedPage > 1 ? Math.floor(parsedPage) : 1;
 }
 
-function addPageToDescription(description: string, pageNumber: number, locale: Locale) {
-  if (pageNumber <= 1) return description;
-  return `${description} ${locale === "en" ? `Directory page ${pageNumber}.` : `P\u00e1gina ${pageNumber} do diret\u00f3rio.`}`;
+function addPageToDescription(description: string, pageNumber: number) {
+  return pageNumber <= 1 ? description : description + " P\u00e1gina " + pageNumber + " do diret\u00f3rio.";
 }
 
-export function getDirectoryPageMeta(
-  urlOriginal: string | undefined,
-  businesses: BusinessFrontend[] = [],
-  locale: Locale = "pt-BR",
-): DirectoryPageMeta | null {
-  const pathname = stripLocalePrefix(new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname);
+export function getDirectoryPageMeta(urlOriginal: string | undefined, businesses: BusinessFrontend[] = []): DirectoryPageMeta | null {
+  const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
   const parts = pathname.split("/").filter(Boolean);
   if (parts[0] !== "negocios") return null;
 
@@ -121,60 +99,30 @@ export function getDirectoryPageMeta(
   const stateCode = normalizeCode(parts[2]);
   const citySlug = slugify(parts[3] || "");
   const pageNumber = getPageNumber(parts);
-  const pageSuffix = pageNumber > 1 ? ` - ${locale === "en" ? "Page" : "P\u00e1gina"} ${pageNumber}` : "";
+  const pageSuffix = pageNumber > 1 ? " - P\u00e1gina " + pageNumber : "";
 
   if (!countryCode) {
-    const heading = locale === "en" ? "Brazilian businesses abroad by country" : "Neg\u00f3cios brasileiros no exterior por pa\u00eds";
-    const description = locale === "en"
-      ? "Find Brazilian businesses abroad by country, state, and city. Discover companies, professionals, restaurants, stores, and services from the Brazilian community."
-      : "Encontre neg\u00f3cios brasileiros no exterior por pa\u00eds, estado e cidade. Descubra empresas, profissionais, restaurantes, lojas e servi\u00e7os da comunidade brasileira.";
-    return {
-      heading,
-      title: `${heading}${pageSuffix} | Caramelinho.com`,
-      description: addPageToDescription(description, pageNumber, locale),
-    };
+    const heading = "Neg\u00f3cios brasileiros no exterior por pa\u00eds";
+    const description = "Encontre neg\u00f3cios brasileiros no exterior por pa\u00eds, estado e cidade. Descubra empresas, profissionais, restaurantes, lojas e servi\u00e7os da comunidade brasileira.";
+    return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
   }
 
-  const labels = findDirectoryLabels(businesses, countryCode, stateCode, citySlug, locale);
-  const countryLocation = getCountryLocation(countryCode, labels.country, locale);
+  const labels = findDirectoryLabels(businesses, countryCode, stateCode, citySlug);
+  const countryLocation = getCountryLocation(countryCode, labels.country);
 
   if (!stateCode) {
-    const heading = locale === "en"
-      ? `Brazilian businesses ${countryLocation}`
-      : `Neg\u00f3cios brasileiros ${countryLocation}`;
-    const description = locale === "en"
-      ? `Find Brazilian businesses ${countryLocation}. Browse states and cities and discover companies, professionals, restaurants, stores, and services.`
-      : `Encontre neg\u00f3cios brasileiros ${countryLocation}. Navegue por estados e cidades e descubra empresas, profissionais, restaurantes, lojas e servi\u00e7os brasileiros.`;
-    return {
-      heading,
-      title: `${heading}${pageSuffix} | Caramelinho.com`,
-      description: addPageToDescription(description, pageNumber, locale),
-    };
+    const heading = "Neg\u00f3cios brasileiros " + countryLocation;
+    const description = "Encontre neg\u00f3cios brasileiros " + countryLocation + ". Navegue por estados e cidades e descubra empresas, profissionais, restaurantes, lojas e servi\u00e7os brasileiros.";
+    return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
   }
 
   if (!citySlug) {
-    const heading = locale === "en"
-      ? `Brazilian businesses in ${labels.state}, ${labels.country}`
-      : `Neg\u00f3cios brasileiros em ${labels.state}, ${labels.country}`;
-    const description = locale === "en"
-      ? `Find Brazilian businesses in ${labels.state}, ${labels.country}. Explore cities with companies, professionals, restaurants, stores, and services from the Brazilian community.`
-      : `Encontre neg\u00f3cios brasileiros em ${labels.state}, ${labels.country}. Explore cidades com empresas, profissionais, restaurantes, lojas e servi\u00e7os da comunidade brasileira.`;
-    return {
-      heading,
-      title: `${heading}${pageSuffix} | Caramelinho.com`,
-      description: addPageToDescription(description, pageNumber, locale),
-    };
+    const heading = "Neg\u00f3cios brasileiros em " + labels.state + ", " + labels.country;
+    const description = "Encontre neg\u00f3cios brasileiros em " + labels.state + ", " + labels.country + ". Explore cidades com empresas, profissionais, restaurantes, lojas e servi\u00e7os da comunidade brasileira.";
+    return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
   }
 
-  const heading = locale === "en"
-    ? `Brazilian businesses in ${labels.city}, ${labels.state}, ${labels.country}`
-    : `Neg\u00f3cios brasileiros em ${labels.city}, ${labels.state}, ${labels.country}`;
-  const description = locale === "en"
-    ? `Find Brazilian businesses in ${labels.city}, ${labels.state}, ${labels.country}. See companies, professionals, restaurants, stores, services, contacts, and reviews.`
-    : `Encontre neg\u00f3cios brasileiros em ${labels.city}, ${labels.state}, ${labels.country}. Veja empresas, profissionais, restaurantes, lojas, servi\u00e7os, contatos e avalia\u00e7\u00f5es.`;
-  return {
-    heading,
-    title: `${heading}${pageSuffix} | Caramelinho.com`,
-    description: addPageToDescription(description, pageNumber, locale),
-  };
+  const heading = "Neg\u00f3cios brasileiros em " + labels.city + ", " + labels.state + ", " + labels.country;
+  const description = "Encontre neg\u00f3cios brasileiros em " + labels.city + ", " + labels.state + ", " + labels.country + ". Veja empresas, profissionais, restaurantes, lojas, servi\u00e7os, contatos e avalia\u00e7\u00f5es.";
+  return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
 }

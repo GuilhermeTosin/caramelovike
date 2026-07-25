@@ -48,7 +48,6 @@ import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setJsonLd, setRobots } from "@/lib/seo";
 import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
-import { getLocaleFromPathname } from "@/i18n/routing";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { DEFAULT_BUSINESS_LOGO, getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
@@ -165,11 +164,9 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const [savingEditReview, setSavingEditReview] = useState(false);
   const [hasPendingOwnershipRequest, setHasPendingOwnershipRequest] = useState(false);
 
-  const pageLocale = getLocaleFromPathname(currentPathname);
   const businessCityDisplayName = getCityDisplayName(
     business?.address.cityDisplayName || business?.address.city,
     business?.address.countryCode || business?.address.country,
-    pageLocale,
   );
   const isOnlineOnly = business?.attendanceType === "online";
   const [requestingOwnership, setRequestingOwnership] = useState(false);
@@ -267,11 +264,9 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       );
       return;
     }
-
-    const locale = getLocaleFromPathname(window.location.pathname);
     setSeoMeta(
-      buildBusinessSeoTitle(business, locale),
-      buildBusinessSeoDescription(business, locale)
+      buildBusinessSeoTitle(business),
+      buildBusinessSeoDescription(business)
     );
   }, [business, isOnlineOnly]);
 
@@ -1544,7 +1539,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                             <span className="truncate">{item.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${getCityDisplayName(item.address.cityDisplayName || item.address.city, item.address.countryCode || item.address.country, pageLocale)}, ${getCountryName(item.address.countryCode || item.address.country)}`}
+                            {`${getCityDisplayName(item.address.cityDisplayName || item.address.city, item.address.countryCode || item.address.country)}, ${getCountryName(item.address.countryCode || item.address.country)}`}
                           </p>
                         </div>
                       </div>

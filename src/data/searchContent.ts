@@ -1,5 +1,3 @@
-import type { Locale } from "@/i18n/types";
-
 export type SearchContent = {
   currentLocationLabel: string;
   searchBarPlaceholder: string;
@@ -59,7 +57,7 @@ export type SearchContent = {
   categorySeoText: Record<string, string>;
 };
 
-const SEARCH_CONTENT_BY_LOCALE: Record<Locale, SearchContent> = {
+const SEARCH_CONTENT_BY_LOCALE: Record<"pt-BR", SearchContent> = {
   "pt-BR": {
     currentLocationLabel: "Minha localização",
     searchBarPlaceholder: "Buscar por produto ou serviço (Ex: coxinha)",
@@ -146,94 +144,8 @@ const SEARCH_CONTENT_BY_LOCALE: Record<Locale, SearchContent> = {
       "Outros": "serviços diversos",
     },
   },
-  en: {
-    currentLocationLabel: "My location",
-    searchBarPlaceholder: "Search for a product or service (e.g. coxinha)",
-    locationPlaceholder: "Which city?",
-    categoryPlaceholder: "All categories",
-    allCategories: "All categories",
-    countryPlaceholder: "Country",
-    statePlaceholder: "State/Province",
-    cityPlaceholder: "City",
-    distancePlaceholder: "Distance",
-    allCountries: "All countries",
-    allStates: "All states",
-    allCities: "All cities",
-    filters: "Filters",
-    locateMe: "Locate me",
-    locatingMe: "Locating...",
-    map: "Map",
-    list: "List",
-    clearFilters: "Clear filters",
-    loadingResults: "Loading results...",
-    loadingResultsMessage: "Give us a moment while we prepare the businesses for you.",
-    noResultsTitle: "No results found",
-    noResultsBackHome: "Back to Home",
-    noResultsNoCriteria: "Caramelinho couldn't find anything with these filters.",
-    noResultsWithCriteria: (parts) => `We couldn't find any results ${parts.join(" ")}.`,
-    incompleteSearchTitle: "Incomplete search",
-    incompleteSearchMessage: "Type what you are looking for or enter your city to start searching.",
-    approximateLocationTitle: "Using approximate location",
-    approximateLocationMessage:
-      "I couldn't access your exact location. The map was centered using an approximate IP-based location.",
-    unableToLocateTitle: "Could not locate",
-    unableToLocateMessage:
-      "I couldn't access your location and the IP fallback also failed.",
-    resultsSummary: (kind, count) => {
-      const labels = {
-        businesses: ["business", "businesses"],
-        events: ["event", "events"],
-        achadinhos: ["deal", "deals"],
-      } as const;
-      const [singular, plural] = labels[kind];
-      return `${count} ${count === 1 ? singular : plural} found`;
-    },
-    communityFindsHeading: "Community finds",
-    eventsHeading: "Events and parties",
-    noCommunityFinds: "There are no active community finds in your area yet.",
-    noEvents: "There are no active events in your area yet.",
-    locationNoticeTitle: "Location required",
-    locationNoticeMessage: "To use this feature, enable location in your browser/device.",
-    locationNoticeButton: "Got it",
-    searchPromptMessage: "Type what you are looking for or enter your city to start searching.",
-    radiusRequiredMessage: "enter a location or allow location to use radius",
-    locatingReferenceMessage: "locating reference...",
-    pageOf: (page, total) => `Page ${page} of ${total}`,
-    previous: "Previous",
-    next: "Next",
-    distanceOption: (radius) => `Up to ${radius} km`,
-    filtersActiveFindsTitle: "Community finds filter active",
-    filtersInactiveFindsTitle: "Community finds filter inactive",
-    filtersActiveEventsTitle: "Events filter active",
-    filtersInactiveEventsTitle: "Events filter inactive",
-    seo: {
-      baseTitle: "Search Brazilian businesses",
-      baseDescription: "Search Brazilian businesses, services, products, and events near you abroad.",
-      categoryFallback: "businesses and services",
-      compareText: "Compare options near you and contact the businesses directly.",
-    },
-    categorySeoText: {
-      "Restaurantes e Alimentação": "restaurants, bakeries, and cafés",
-      "Alimentação (Restaurantes, Padarias, Cafés)": "restaurants, bakeries, and cafés",
-      "Serviços Automotivos": "automotive workshops and services",
-      "Saúde & Beleza": "health and beauty services",
-      "Construção & Reformas": "construction and renovation services",
-      "Advocacia & Consultoria": "law, translation, and immigration consulting",
-      "Contabilidade & Finanças": "accounting and finance",
-      "Educação & Idiomas": "education and languages",
-      "Tecnologia & TI": "technology and IT",
-      "Comércio & Varejo": "retail and commerce",
-      "Transporte & Mudança": "transport and moving",
-      "Serviços para Pets": "pet services",
-      "Cuidados Infantis e de Idosos": "child and elder care",
-      "Diaristas": "cleaning and housekeeping services",
-      "Imobiliária": "real estate and agents",
-      "Turismo & Viagens": "travel and tourism",
-      "Outros": "miscellaneous services",
-    },
-  },
 };
 
-export function getSearchContent(locale: Locale = "pt-BR"): SearchContent {
-  return SEARCH_CONTENT_BY_LOCALE[locale] || SEARCH_CONTENT_BY_LOCALE["pt-BR"];
+export function getSearchContent(): SearchContent {
+  return SEARCH_CONTENT_BY_LOCALE["pt-BR"];
 }

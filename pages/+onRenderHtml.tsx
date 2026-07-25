@@ -4,8 +4,6 @@ import { dangerouslySkipEscape, escapeInject } from "vike/server";
 import type { BusinessFrontend } from "@/types/database";
 import type { RendererPageContext } from "@/renderer/pageContext";
 import { getSiteContent } from "@/data/siteContent";
-import { getLocaleFromPathname, getLocalizedUrl } from "@/i18n/routing";
-import type { Locale } from "@/i18n/types";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
 import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
@@ -24,13 +22,7 @@ function getPageUrlParts(urlOriginal?: string) {
 
 function getCanonicalUrl(urlOriginal: string | undefined, isBusinessPage: boolean) {
   const { pathname, search } = getPageUrlParts(urlOriginal);
-  return getLocalizedUrl(
-    "https://www.caramelinho.com",
-    pathname,
-    isBusinessPage ? "" : search,
-    "",
-    "pt-BR",
-  );
+  return "https://www.caramelinho.com" + pathname + (isBusinessPage ? "" : search);
 }
 
 function isIndexableSearchUrl(urlOriginal?: string) {
@@ -54,8 +46,8 @@ function getRobotsContentForPage(urlOriginal?: string, is404?: boolean) {
   return getRobotsContent(urlOriginal);
 }
 
-function getErrorPageMeta(locale: Locale) {
-  const content = getSiteContent(locale);
+function getErrorPageMeta() {
+  const content = getSiteContent();
   return {
     title: content.seo.notFoundTitle,
     description: content.seo.notFoundDescription,
@@ -92,12 +84,12 @@ function buildSupabaseResourceHints() {
     return "";
   }
 }
-function buildBusinessTitle(business: BusinessFrontend, locale: Locale) {
-  return buildBusinessSeoTitle(business, locale);
+function buildBusinessTitle(business: BusinessFrontend) {
+  return buildBusinessSeoTitle(business);
 }
 
-function buildBusinessDescription(business: BusinessFrontend, locale: Locale) {
-  return buildBusinessSeoDescription(business, locale);
+function buildBusinessDescription(business: BusinessFrontend) {
+  return buildBusinessSeoDescription(business);
 }
 
 function buildBusinessHeroImageAssets(imageUrl: string) {
@@ -139,95 +131,63 @@ function titleCasePathSegment(value: string) {
     .join(" ");
 }
 
-function buildFallbackBusinessMeta(urlOriginal: string | undefined, locale: Locale) {
+function buildFallbackBusinessMeta(urlOriginal: string | undefined) {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
-
   const parts = pathname.split("/").filter(Boolean);
-  const citySlug = parts[2] || "";
-  const cityName = titleCasePathSegment(citySlug);
+  const cityName = titleCasePathSegment(parts[2] || "");
 
   if (parts.length === 4 && cityName) {
     return {
-      title:
-        locale === "en"
-          ? `Brazilian business in ${cityName}`
-          : `Negócio brasileiro em ${cityName}`,
-      description:
-        locale === "en"
-          ? `Find contact information, reviews, and details about Brazilian businesses in ${cityName}.`
-          : `Encontre informações de contato, avaliações e detalhes sobre negócios brasileiros em ${cityName}.`,
+      title: "NegÃ³cio brasileiro em " + cityName,
+      description: "Encontre informaÃ§Ãµes de contato, avaliaÃ§Ãµes e detalhes sobre negÃ³cios brasileiros em " + cityName + ".",
     };
   }
 
   return {
-    title: locale === "en" ? "Brazilian business" : "Negócio brasileiro",
-    description:
-      locale === "en"
-        ? "Find contact information, reviews, and details about Brazilian businesses abroad."
-        : "Encontre informações de contato, avaliações e detalhes sobre negócios brasileiros no exterior.",
+    title: "NegÃ³cio brasileiro",
+    description: "Encontre informaÃ§Ãµes de contato, avaliaÃ§Ãµes e detalhes sobre negÃ³cios brasileiros no exterior.",
   };
 }
 
-function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] = [], locale: Locale = "pt-BR") {
+function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] = []) {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
   const staticPageMeta = {
     "/sobre": {
-      title: locale === "en" ? "About Us | Caramelinho.com" : "Sobre Nós | Caramelinho.com",
-      description:
-        locale === "en"
-          ? "Learn about Caramelinho, the platform that connects Brazilians abroad with businesses and services from the community."
-          : "Conheça o Caramelinho, a plataforma que conecta brasileiros no exterior a negócios e serviços da comunidade.",
+      title: "Sobre NÃ³s | Caramelinho.com",
+      description: "ConheÃ§a o Caramelinho, a plataforma que conecta brasileiros no exterior a negÃ³cios e serviÃ§os da comunidade.",
     },
     "/contato": {
-      title: locale === "en" ? "Contact | Caramelinho.com" : "Contato | Caramelinho.com",
-      description:
-        locale === "en"
-          ? "Contact Caramelinho for questions, support, and partnership opportunities."
-          : "Fale com o Caramelinho para tirar dúvidas, obter suporte ou conversar sobre parcerias.",
+      title: "Contato | Caramelinho.com",
+      description: "Fale com o Caramelinho para tirar dÃºvidas, obter suporte ou conversar sobre parcerias.",
     },
     "/privacidade": {
-      title: locale === "en" ? "Privacy Policy | Caramelinho.com" : "Política de Privacidade | Caramelinho.com",
-      description:
-        locale === "en"
-          ? "Learn how Caramelinho collects, uses, and protects your personal data."
-          : "Entenda como o Caramelinho coleta, utiliza e protege seus dados pessoais.",
+      title: "PolÃ­tica de Privacidade | Caramelinho.com",
+      description: "Entenda como o Caramelinho coleta, utiliza e protege seus dados pessoais.",
     },
     "/termos": {
-      title: locale === "en" ? "Terms and Conditions | Caramelinho.com" : "Termos e Condições | Caramelinho.com",
-      description:
-        locale === "en"
-          ? "Read the terms and conditions for using the Caramelinho platform."
-          : "Leia os termos e condições de uso da plataforma Caramelinho.",
+      title: "Termos e CondiÃ§Ãµes | Caramelinho.com",
+      description: "Leia os termos e condiÃ§Ãµes de uso da plataforma Caramelinho.",
     },
   } as const;
 
-  if (pathname in staticPageMeta) {
-    return staticPageMeta[pathname as keyof typeof staticPageMeta];
-  }
+  if (pathname in staticPageMeta) return staticPageMeta[pathname as keyof typeof staticPageMeta];
+
   if (pathname === "/negocios" || pathname.startsWith("/negocios/")) {
-    return getDirectoryPageMeta(urlOriginal, businesses, locale) || {
-      title:
-        locale === "en" ? "Brazilian businesses by country | Caramelinho.com" : "Negócios brasileiros por país | Caramelinho.com",
-      description:
-        locale === "en"
-          ? "Browse Brazilian businesses abroad by country, state, and city."
-          : "Explore o diretório de negócios brasileiros no exterior por país, estado e cidade.",
+    return getDirectoryPageMeta(urlOriginal, businesses) || {
+      title: "NegÃ³cios brasileiros por paÃ­s | Caramelinho.com",
+      description: "Explore o diretÃ³rio de negÃ³cios brasileiros no exterior por paÃ­s, estado e cidade.",
     };
   }
+
   if (pathname === "/buscar") {
     return {
-      title: locale === "en" ? "Search Brazilian businesses | Caramelinho.com" : "Buscar negócios brasileiros | Caramelinho.com",
-      description:
-        locale === "en"
-          ? "Search Brazilian businesses, services, products, and events near you abroad."
-          : "Busque negócios, serviços, produtos e eventos brasileiros perto de você no exterior.",
+      title: "Buscar negÃ³cios brasileiros | Caramelinho.com",
+      description: "Busque negÃ³cios, serviÃ§os, produtos e eventos brasileiros perto de vocÃª no exterior.",
     };
   }
-  const content = getSiteContent(locale);
-  return {
-    title: content.seo.homeTitle,
-    description: content.seo.homeDescription,
-  };
+
+  const content = getSiteContent();
+  return { title: content.seo.homeTitle, description: content.seo.homeDescription };
 }
 
 function jsonLdScript(data: unknown) {
@@ -235,31 +195,31 @@ function jsonLdScript(data: unknown) {
   return `<script type="application/ld+json">${json}</script>`;
 }
 
-function buildWebsiteJsonLd(locale: Locale) {
+function buildWebsiteJsonLd() {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "Caramelinho.com",
-    url: getLocalizedUrl("https://www.caramelinho.com", "/", "", "", locale),
-    inLanguage: locale === "en" ? "en" : "pt-BR",
+    url: "https://www.caramelinho.com/",
+    inLanguage: "pt-BR",
     potentialAction: {
       "@type": "SearchAction",
-      target: `${getLocalizedUrl("https://www.caramelinho.com", "/buscar", "", "", locale)}?q={search_term_string}`,
+      target: "https://www.caramelinho.com/buscar?q={search_term_string}",
       "query-input": "required name=search_term_string",
     },
   };
 }
 
-function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, pageImage: string, locale: Locale) {
+function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, pageImage: string) {
   const address = business.address || {};
   const latitude = Number(address.lat);
   const longitude = Number(address.lng);
   return {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    "@id": `${canonicalUrl}#business`,
+    "@id": canonicalUrl + "#business",
     name: business.name,
-    description: business.description || buildBusinessDescription(business, locale),
+    description: business.description || buildBusinessDescription(business),
     url: canonicalUrl,
     image: pageImage,
     telephone: business.phone || undefined,
@@ -273,43 +233,27 @@ function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, p
       postalCode: address.postalCode || undefined,
       addressCountry: address.countryCode || address.country || undefined,
     },
-    geo:
-      Number.isFinite(latitude) && Number.isFinite(longitude) && (latitude !== 0 || longitude !== 0)
-        ? {
-            "@type": "GeoCoordinates",
-            latitude,
-            longitude,
-          }
-        : undefined,
-    aggregateRating:
-      business.averageRating && business.reviews?.length
-        ? {
-            "@type": "AggregateRating",
-            ratingValue: business.averageRating,
-            reviewCount: business.reviews.length,
-          }
-        : undefined,
+    geo: Number.isFinite(latitude) && Number.isFinite(longitude) && (latitude !== 0 || longitude !== 0)
+      ? { "@type": "GeoCoordinates", latitude, longitude }
+      : undefined,
+    aggregateRating: business.averageRating && business.reviews?.length
+      ? { "@type": "AggregateRating", ratingValue: business.averageRating, reviewCount: business.reviews.length }
+      : undefined,
     priceRange: "$$",
   };
 }
 
-function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl: string, locale: Locale) {
+function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl: string) {
   const address = business.address || {};
   const items = [
-    {
-      name: locale === "en" ? "Home" : "Início",
-      item: getLocalizedUrl("https://www.caramelinho.com", "/", "", "", locale),
-    },
-    {
-      name: locale === "en" ? "Search" : "Busca",
-      item: getLocalizedUrl("https://www.caramelinho.com", "/buscar", "", "", locale),
-    },
+    { name: "InÃ­cio", item: "https://www.caramelinho.com/" },
+    { name: "Busca", item: "https://www.caramelinho.com/buscar" },
   ];
 
   if (address.city) {
     items.push({
       name: address.city,
-      item: `${getLocalizedUrl("https://www.caramelinho.com", "/buscar", "", "", locale)}?cidade=${encodeURIComponent(address.city)}`,
+      item: "https://www.caramelinho.com/buscar?cidade=" + encodeURIComponent(address.city),
     });
   }
 
@@ -330,17 +274,15 @@ function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl:
 export function onRenderHtml(pageContext: PageContext) {
   const { Page } = pageContext;
   const pageHtml = renderToString(<Page pageContext={pageContext} />);
-  const currentUrl = new URL(pageContext.urlOriginal || "/", "https://www.caramelinho.com");
-  const locale = pageContext.locale || getLocaleFromPathname(currentUrl.pathname);
   const business = pageContext.initialBusiness || null;
   const isBusinessPage = !!pageContext.isBusinessPage;
   const canonicalUrl = getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
   const isErrorPage = !!pageContext.is404;
   const businessHasData = !!business;
   const staticMeta = isErrorPage
-    ? getErrorPageMeta(locale)
-    : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || [], locale);
-  const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal, locale);
+    ? getErrorPageMeta()
+    : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || []);
+  const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal);
   const businessHeroAssets =
     isBusinessPage && businessHasData
       ? buildBusinessHeroImageAssets(business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg")
@@ -348,12 +290,12 @@ export function onRenderHtml(pageContext: PageContext) {
   const pageTitle = isErrorPage
     ? staticMeta.title
     : isBusinessPage
-      ? (businessHasData ? buildBusinessTitle(business, locale) : fallbackBusinessMeta.title)
+      ? (businessHasData ? buildBusinessTitle(business) : fallbackBusinessMeta.title)
       : staticMeta.title;
   const pageDescription = isErrorPage
     ? staticMeta.description
     : isBusinessPage
-      ? (businessHasData ? buildBusinessDescription(business, locale) : fallbackBusinessMeta.description)
+      ? (businessHasData ? buildBusinessDescription(business) : fallbackBusinessMeta.description)
       : staticMeta.description;
   const pageImage =
     isBusinessPage && businessHasData
@@ -362,15 +304,15 @@ export function onRenderHtml(pageContext: PageContext) {
   const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, pageContext.is404);
   const jsonLd = isBusinessPage && businessHasData
     ? [
-        buildWebsiteJsonLd(locale),
-        buildBusinessJsonLd(business, canonicalUrl, pageImage, locale),
-        buildBusinessBreadcrumbJsonLd(business, canonicalUrl, locale),
+        buildWebsiteJsonLd(),
+        buildBusinessJsonLd(business, canonicalUrl, pageImage),
+        buildBusinessBreadcrumbJsonLd(business, canonicalUrl),
       ]
-    : [buildWebsiteJsonLd(locale)];
+    : [buildWebsiteJsonLd()];
   const jsonLdHtml = jsonLd.map(jsonLdScript).join("\n");
 
   return escapeInject`<!doctype html>
-<html lang="${locale === "en" ? "en" : "pt-BR"}">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -381,7 +323,7 @@ export function onRenderHtml(pageContext: PageContext) {
     <title>${pageTitle}</title>
     <meta name="description" content="${pageDescription}" />
     <meta property="og:site_name" content="Caramelinho.com" />
-    <meta property="og:locale" content="${locale === "en" ? "en_US" : "pt_BR"}" />
+    <meta property="og:locale" content="pt_BR" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="${pageTitle}" />
     <meta property="og:description" content="${pageDescription}" />

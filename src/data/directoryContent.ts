@@ -1,5 +1,3 @@
-import type { Locale } from "@/i18n/types";
-
 export type DirectoryContent = {
   backHome: string;
   intro: string;
@@ -14,7 +12,7 @@ export type DirectoryContent = {
   rootTitle: string;
 };
 
-const DIRECTORY_CONTENT_BY_LOCALE: Record<Locale, DirectoryContent> = {
+const DIRECTORY_CONTENT_BY_LOCALE: Record<"pt-BR", DirectoryContent> = {
   "pt-BR": {
     backHome: "Voltar para início",
     intro: "Diretório público organizado por país, estado e cidade para facilitar a descoberta das páginas de negócios.",
@@ -28,21 +26,8 @@ const DIRECTORY_CONTENT_BY_LOCALE: Record<Locale, DirectoryContent> = {
     searchBusinesses: "Buscar negócios",
     rootTitle: "Negócios brasileiros por país",
   },
-  en: {
-    backHome: "Back to home",
-    intro: "Public directory organized by country, state, and city to make it easier to discover business pages.",
-    loadingBusinesses: "Loading countries with published businesses...",
-    countriesTitle: "Countries",
-    statesTitle: "States and regions",
-    citiesTitle: "Cities",
-    businessesInCity: (count) => `${count} published ${count === 1 ? "business" : "businesses"} in this city`,
-    businessSingular: "business",
-    businessPlural: "businesses",
-    searchBusinesses: "Search businesses",
-    rootTitle: "Brazilian businesses by country",
-  },
 };
 
-export function getDirectoryContent(locale: Locale = "pt-BR"): DirectoryContent {
-  return DIRECTORY_CONTENT_BY_LOCALE[locale] || DIRECTORY_CONTENT_BY_LOCALE["pt-BR"];
+export function getDirectoryContent(): DirectoryContent {
+  return DIRECTORY_CONTENT_BY_LOCALE["pt-BR"];
 }
