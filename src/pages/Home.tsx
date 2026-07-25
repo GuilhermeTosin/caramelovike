@@ -452,7 +452,12 @@ export default function Home({
     });
 
     return Array.from(cityCounts.values())
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        const normalizedA = normalizeText(a.name);
+        const normalizedB = normalizeText(b.name);
+        return normalizedA < normalizedB ? -1 : normalizedA > normalizedB ? 1 : a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+      })
       .slice(0, 6)
       .map((city) => ({
         ...city,
