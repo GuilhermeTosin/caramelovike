@@ -195,6 +195,12 @@ export function resolveLocationContextFromBusinesses(
   allBusinesses: BusinessFrontend[],
   cityText: string
 ): { coords: { lat: number; lng: number } | null; countryCode: string | null } {
+  // A qualified location must be resolved by Google. Matching only its city name
+  // can confuse homonymous places in different countries (for example Montreal).
+  if (cityText.includes(",")) {
+    return { coords: null, countryCode: null };
+  }
+
   const matching = getMatchingCityBusinesses(allBusinesses, cityText);
   if (matching.length === 0) {
     return { coords: null, countryCode: null };

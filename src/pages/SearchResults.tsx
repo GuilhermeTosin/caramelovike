@@ -1256,7 +1256,15 @@ export default function SearchResults({
       params.delete("brasileiro");
       params.delete("portugues");
 
-      let coords = resolveCoordsFromBusinesses(typedLocation);
+      const existingLat = parseCoordParam(params.get("origem_lat") || "");
+      const existingLng = parseCoordParam(params.get("origem_lng") || "");
+      const hasMatchingCommittedOrigin =
+        existingLat !== null &&
+        existingLng !== null &&
+        normalizeText(params.get("origem_local") || "") === normalizeText(typedLocation);
+      let coords = hasMatchingCommittedOrigin
+        ? { lat: existingLat, lng: existingLng }
+        : resolveCoordsFromBusinesses(typedLocation);
       if (!coords && typedLocation.length >= 3) {
         setResolvingLocation(true);
         coords = await geocodeAddress(typedLocation);
@@ -1267,7 +1275,9 @@ export default function SearchResults({
         params.set("origem_lng", String(coords.lng));
         params.set("origem_local", typedLocation);
         params.set("origem_source", "city");
-        const cityCountryCode = resolveCountryCodeFromBusinesses(typedLocation);
+        const cityCountryCode = hasMatchingCommittedOrigin
+          ? params.get("origem_pais")
+          : resolveCountryCodeFromBusinesses(typedLocation);
         if (cityCountryCode) params.set("origem_pais", cityCountryCode);
         else params.delete("origem_pais");
       } else {
@@ -1763,7 +1773,8 @@ export default function SearchResults({
                   if (hasExplicitCity) {
                     const typedLocation = trimmedValue;
                     params.set("local", typedLocation);
-                    params.set("cidade", typedLocation);
+                    params.set("cidade", meta?.city || typedLocation);
+                    if (!params.get("raio")) params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
                     // A cidade da barra principal não deve impor filtros administrativos,
                     // pois o cadastro historico pode usar codigos diferentes (ex.: lau vs qc).
                     params.delete("pais");
@@ -1788,11 +1799,14 @@ export default function SearchResults({
                       params.set("origem_lng", String(coords.lng));
                       params.set("origem_local", typedLocation);
                       params.set("origem_source", "city");
+                      if (meta?.countryCode) params.set("origem_pais", meta.countryCode.toLowerCase());
+                      else params.delete("origem_pais");
                     } else {
                       params.delete("origem_lat");
                       params.delete("origem_lng");
                       params.delete("origem_local");
                       params.delete("origem_source");
+                      params.delete("origem_pais");
                     }
                   } else {
                     params.delete("local");
@@ -1804,6 +1818,7 @@ export default function SearchResults({
                       params.delete("origem_lng");
                       params.delete("origem_local");
                       params.delete("origem_source");
+                      params.delete("origem_pais");
                     } else {
                       params.delete("origem_local");
                     }

@@ -24,7 +24,7 @@ import {
   inferNearestCityFromBusinesses,
   resolveLocationContextFromBusinesses,
 } from "@/lib/search/locationResolver";
-import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
+import SearchInputWithSuggestions, { type LocationSuggestionMeta } from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
@@ -141,6 +141,7 @@ export default function Home({
   const [locationNoticeOpen, setLocationNoticeOpen] = useState(false);
   const [locationNoticeMessage, setLocationNoticeMessage] = useState("");
   const suppressSubmitUntilRef = useRef(0);
+  const selectedLocationRef = useRef<{ value: string; meta: LocationSuggestionMeta } | null>(null);
   const progressRef = useRef(0);
   const previousSearchRef = useRef({ query: "", location: "" });
 
@@ -294,6 +295,7 @@ export default function Home({
   }, [initialBusinesses, initialFeaturedBusinesses]);
 
   const handleUseCurrentLocationInput = async () => {
+    selectedLocationRef.current = null;
     setIsResolvingLocationInput(true);
     suppressSubmitUntilRef.current = Date.now() + 700;
     try {
@@ -319,15 +321,29 @@ export default function Home({
     const hasExplicitCity = !!locationText && !isCurrentLocationText;
 
     if (hasExplicitCity) {
-      params.set("cidade", locationText);
+      const selectedLocation = selectedLocationRef.current;
+      const selectedLocationMatches =
+        !!selectedLocation && normalizeText(selectedLocation.value) === normalizeText(locationText);
+      const selectedCoords =
+        selectedLocationMatches &&
+        typeof selectedLocation.meta.lat === "number" &&
+        typeof selectedLocation.meta.lng === "number"
+          ? { lat: selectedLocation.meta.lat, lng: selectedLocation.meta.lng }
+          : null;
+
+      params.set("cidade", selectedLocationMatches && selectedLocation.meta.city ? selectedLocation.meta.city : locationText);
       params.set("local", locationText);
       params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
       const resolved = resolveLocationContextFromBusinesses(allBusinesses, locationText);
       const coords =
+        selectedCoords ||
         resolved.coords ||
         (await geocodeLocationWithCountryFallback(
           locationText,
-          resolved.countryCode || approxCountryCode || DEFAULT_GEO_FALLBACK.countryCode
+          (selectedLocationMatches ? selectedLocation.meta.countryCode : "") ||
+            resolved.countryCode ||
+            approxCountryCode ||
+            DEFAULT_GEO_FALLBACK.countryCode
         ));
       if (!coords) {
         params.delete("cidade");
@@ -339,7 +355,10 @@ export default function Home({
       params.set("origem_lng", String(coords.lng));
       params.set("origem_local", locationText);
       params.set("origem_source", "city");
-      if (resolved.countryCode) params.set("origem_pais", resolved.countryCode);
+      const countryCode =
+        (selectedLocationMatches ? selectedLocation.meta.countryCode : "") || resolved.countryCode;
+      if (countryCode) params.set("origem_pais", countryCode.toLowerCase());
+      else params.delete("origem_pais");
       return true;
     }
 
@@ -569,7 +588,13 @@ export default function Home({
                   <SearchInputWithSuggestions
                     className="relative z-40 sm:flex-[0.9] rounded-xl sm:rounded-none"
                     value={locationQuery}
-                    onChange={setLocationQuery}
+                    onChange={(nextValue) => {
+                      setLocationQuery(nextValue);
+                      const selectedLocation = selectedLocationRef.current;
+                      if (selectedLocation && normalizeText(selectedLocation.value) !== normalizeText(nextValue)) {
+                        selectedLocationRef.current = null;
+                      }
+                    }}
                     suggestions={citySuggestions}
                     maxSuggestions={3}
                     onUseCurrentLocation={handleUseCurrentLocationInput}
@@ -577,6 +602,11 @@ export default function Home({
                     placeholder={homeText.locationPlaceholder}
                     icon="location"
                     useGooglePlaces
+                    onSubmit={(selectedValue, meta) => {
+                      if (!selectedValue || !meta) return;
+                      selectedLocationRef.current = { value: selectedValue, meta };
+                      setLocationQuery(selectedValue);
+                    }}
                     portalSuggestions={true}
                     inputClassName="h-12 sm:h-16 text-base sm:text-xl placeholder:text-[11px] sm:placeholder:text-sm"
                   />
