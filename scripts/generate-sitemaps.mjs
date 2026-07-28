@@ -38,7 +38,6 @@ function buildStaticSitemapXml(baseUrl) {
   const urls = [
     "/",
     "/negocios",
-    "/buscar",
     "/sobre",
     "/contato",
     "/privacidade",

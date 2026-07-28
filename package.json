@@ -25,7 +25,6 @@
         "source": "dist",
         "include": [
             "/",
-            "/buscar",
             "/sobre",
             "/contato",
             "/privacidade",

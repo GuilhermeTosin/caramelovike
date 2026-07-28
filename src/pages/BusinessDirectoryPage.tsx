@@ -13,16 +13,16 @@ import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 import { setSeoMeta, upsertMetaTag } from "@/lib/seo";
 import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
-import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
+import { getCityDisplayName } from "@/lib/locationDisplay";
 import {
   DIRECTORY_CATEGORY_MINIMUM_BUSINESSES,
+  DIRECTORY_PAGE_SIZE,
+  getDirectoryBusinessCitySlug,
   getDirectoryCategoryBusinesses,
   getDirectoryCategoryBySlug,
   getEligibleDirectoryCategories,
 } from "@/lib/directoryCategories";
 import Pagination from "@/components/Pagination";
-
-const PAGE_SIZE = 100;
 
 type BusinessDirectoryPageProps = {
   businesses?: BusinessFrontend[];
@@ -32,10 +32,6 @@ type DirectoryLevel = "countries" | "states" | "cities" | "businesses" | "catego
 
 function normalizeCode(value?: string) {
   return (value || "").trim().toLowerCase();
-}
-
-function getCitySlug(business: BusinessFrontend) {
-  return getCanonicalCitySlug(business.address.city, business.address.countryCode) || business.address.citySlug;
 }
 
 function isCodeLikeStateLabel(value: string, stateCode: string) {
@@ -108,7 +104,7 @@ function getDirectoryContext(businesses: BusinessFrontend[], params: Record<stri
     ? countryBusinesses.filter((business) => normalizeCode(business.address.stateCode) === stateCode)
     : countryBusinesses;
   const cityBusinesses = citySlug
-    ? stateBusinesses.filter((business) => getCitySlug(business) === citySlug)
+    ? stateBusinesses.filter((business) => getDirectoryBusinessCitySlug(business) === citySlug)
     : stateBusinesses;
 
   const level: DirectoryLevel = categorySlug
@@ -254,10 +250,10 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
     return map;
   }, [countryBusinesses, countryCode]);
 
-  const cityCounts = countBy(stateBusinesses.map((business) => getCitySlug(business)).filter(Boolean));
+  const cityCounts = countBy(stateBusinesses.map((business) => getDirectoryBusinessCitySlug(business)).filter(Boolean));
   const cityNameBySlug = new Map(
     stateBusinesses.map((business) => [
-      getCitySlug(business),
+      getDirectoryBusinessCitySlug(business),
       getCityDisplayName(
         business.address.cityDisplayName || business.address.city,
         business.address.countryCode || business.address.country,
@@ -272,9 +268,9 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
   const categoryLinks = level === "businesses"
     ? getEligibleDirectoryCategories(sortedBusinesses, countryCode, stateCode, citySlug)
     : [];
-  const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(currentList.length / DIRECTORY_PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const pageBusinesses = currentList.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageBusinesses = currentList.slice((safePage - 1) * DIRECTORY_PAGE_SIZE, safePage * DIRECTORY_PAGE_SIZE);
 
   useEffect(() => {
     if (!countryCode || !stateCode || !citySlug) return;

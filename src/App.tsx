@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
+import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
 import type { BusinessFrontend } from "@/types/database";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
@@ -51,12 +52,6 @@ function ScrollToTop() {
   return null;
 }
 
-function isIndexableSearch(search: string) {
-  if (!search) return true;
-  const params = new URLSearchParams(search);
-  return ["categoria", "cidade", "local", "q"].some((key) => (params.get(key) || "").trim().length > 0);
-}
-
 function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean }) {
   const { pathname, search } = useLocation();
 
@@ -64,9 +59,8 @@ function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean
     if (typeof window === "undefined") return;
     const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
     const isPrivatePreviewPath = pathname.startsWith("/preview/negocio/");
-    const isSearchPage = pathname === "/buscar";
-    const canonicalPathname = pathname;
-    const canonicalSearch = isBusinessPage || (isSearchPage && !isIndexableSearch(search)) ? "" : search;
+    const canonicalPathname = isBusinessPage ? pathname : getInternalSearchCanonicalPath(pathname);
+    const canonicalSearch = isBusinessPage || getInternalSearchRobots(pathname) ? "" : search;
     const canonicalPath = `${canonicalPathname}${canonicalSearch}`;
     const canonicalUrl = `${window.location.origin}${canonicalPath}`;
 
@@ -78,8 +72,9 @@ function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean
       return;
     }
 
-    if (isSearchPage && search && !isIndexableSearch(search)) {
-      setRobots("noindex,follow,max-image-preview:large");
+    const searchRobots = getInternalSearchRobots(pathname);
+    if (searchRobots) {
+      setRobots(searchRobots);
       return;
     }
 

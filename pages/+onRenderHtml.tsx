@@ -10,6 +10,7 @@ import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
 import { getDirectoryCategoryBySlug } from "@/lib/directoryCategories";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
+import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
 
 type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
@@ -25,14 +26,9 @@ function getPageUrlParts(urlOriginal?: string) {
 
 function getCanonicalUrl(urlOriginal: string | undefined, isBusinessPage: boolean) {
   const { pathname, search } = getPageUrlParts(urlOriginal);
-  return "https://www.caramelinho.com" + pathname + (isBusinessPage ? "" : search);
-}
-
-function isIndexableSearchUrl(urlOriginal?: string) {
-  const url = new URL(urlOriginal || "/", "https://www.caramelinho.com");
-  if (url.pathname !== "/buscar") return true;
-  if (!url.search) return true;
-  return ["categoria", "cidade", "local", "q"].some((key) => (url.searchParams.get(key) || "").trim().length > 0);
+  const canonicalPath = isBusinessPage ? pathname : getInternalSearchCanonicalPath(pathname);
+  const isInternalSearch = !!getInternalSearchRobots(pathname);
+  return "https://www.caramelinho.com" + canonicalPath + (isBusinessPage || isInternalSearch ? "" : search);
 }
 
 function getRobotsContent(urlOriginal?: string) {
@@ -40,7 +36,8 @@ function getRobotsContent(urlOriginal?: string) {
 
   const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
   if (privatePaths.has(pathname)) return "noindex,nofollow,noarchive";
-  if (!isIndexableSearchUrl(urlOriginal)) return "noindex,follow,max-image-preview:large";
+  const searchRobots = getInternalSearchRobots(pathname);
+  if (searchRobots) return searchRobots;
   return "index,follow,max-image-preview:large";
 }
 
