@@ -9,7 +9,6 @@ import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 
 const STATIC_PUBLIC_URLS = [
   "/",
-  "/buscar",
   "/sobre",
   "/contato",
   "/privacidade",
@@ -28,7 +27,6 @@ function buildStaticSitemapXml(baseUrl: string) {
   const urls = [
     "/",
     "/negocios",
-    "/buscar",
     "/sobre",
     "/contato",
     "/privacidade",

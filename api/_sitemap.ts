@@ -146,7 +146,6 @@ export function buildStaticSitemapXml(baseUrl: string): string {
   const urls = [
     "/",
     "/negocios",
-    "/buscar",
     "/sobre",
     "/contato",
     "/privacidade",

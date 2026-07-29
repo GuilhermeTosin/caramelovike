@@ -1,7 +1,26 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { MapPin, Store, LogIn, FileText, ScrollText, Info, Mail, Facebook } from "lucide-react";
+import { DEFAULT_GEO_FALLBACK, buildNearbyBusinessSearchPath, getApproxGeoByIp } from "@/lib/utils/geo";
 
 export default function SiteFooter() {
+  const navigate = useNavigate();
+  const [isLocatingSearch, setIsLocatingSearch] = useState(false);
+
+  const handleNearbySearch = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    if (isLocatingSearch) return;
+
+    setIsLocatingSearch(true);
+    const geo = await getApproxGeoByIp({
+      timeoutMs: 3000,
+      maxAgeMs: 24 * 60 * 60 * 1000,
+      fallback: DEFAULT_GEO_FALLBACK,
+    });
+    setIsLocatingSearch(false);
+    navigate(buildNearbyBusinessSearchPath(geo || DEFAULT_GEO_FALLBACK));
+  };
+
   return (
     <footer className="mt-16 border-t border-slate-800 bg-slate-950 text-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -34,9 +53,14 @@ export default function SiteFooter() {
           <div>
             <h2 className="text-sm font-semibold text-white mb-3">Navegação</h2>
             <div className="space-y-2 text-sm">
-              <Link to="/buscar" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+              <Link
+                to="/buscar"
+                onClick={handleNearbySearch}
+                aria-busy={isLocatingSearch}
+                className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
+              >
                 <MapPin className="w-4 h-4" />
-                Buscar negócios
+                {isLocatingSearch ? "Localizando..." : "Buscar neg\u00f3cios"}
               </Link>
               <Link to="/negocios" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Store className="w-4 h-4" />

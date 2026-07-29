@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff, CalendarDays, BadgePercent, PartyPopper, Plane } from "lucide-react";
+import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff, CalendarDays, BadgePercent, PartyPopper, Plane, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,18 +18,18 @@ import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
-import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
+import { DEFAULT_GEO_FALLBACK, DEFAULT_SEARCH_RADIUS_KM, calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import {
   geocodeLocationWithCountryFallback,
   inferNearestCityFromBusinesses,
   resolveLocationContextFromBusinesses,
 } from "@/lib/search/locationResolver";
-import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
+import SearchInputWithSuggestions, { type LocationSuggestionMeta } from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
-import { getCityDisplayName } from "@/lib/locationDisplay";
+import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
 
@@ -78,14 +78,7 @@ const HOME_CATEGORY_ICONS: Record<string, typeof Utensils> = {
   other: MoreHorizontal,
 };
 
-const DEFAULT_GEO_FALLBACK = {
-  lat: 45.5017,
-  lng: -73.5673,
-  city: "Montreal",
-  stateCode: "qc",
-  countryCode: "ca",
-} as const;
-const DEFAULT_SEARCH_RADIUS_KM = "50";
+
 const HOME_PUBLIC_DATA_REFRESH_MS = 5 * 60 * 1000;
 
 const countryCodeToFlag = (countryCode: string) => {
@@ -107,6 +100,12 @@ function extractCities(
     });
   });
   return Array.from(cities);
+}
+
+function formatHomeStatCount(count: number): string {
+  if (count >= 100) return `${Math.floor(count / 100) * 100}+`;
+  if (count >= 20) return `${Math.floor(count / 10) * 10}+`;
+  return String(count);
 }
 
 type HomeProps = {
@@ -141,6 +140,7 @@ export default function Home({
   const [locationNoticeOpen, setLocationNoticeOpen] = useState(false);
   const [locationNoticeMessage, setLocationNoticeMessage] = useState("");
   const suppressSubmitUntilRef = useRef(0);
+  const selectedLocationRef = useRef<{ value: string; meta: LocationSuggestionMeta } | null>(null);
   const progressRef = useRef(0);
   const previousSearchRef = useRef({ query: "", location: "" });
 
@@ -294,6 +294,7 @@ export default function Home({
   }, [initialBusinesses, initialFeaturedBusinesses]);
 
   const handleUseCurrentLocationInput = async () => {
+    selectedLocationRef.current = null;
     setIsResolvingLocationInput(true);
     suppressSubmitUntilRef.current = Date.now() + 700;
     try {
@@ -319,15 +320,29 @@ export default function Home({
     const hasExplicitCity = !!locationText && !isCurrentLocationText;
 
     if (hasExplicitCity) {
-      params.set("cidade", locationText);
+      const selectedLocation = selectedLocationRef.current;
+      const selectedLocationMatches =
+        !!selectedLocation && normalizeText(selectedLocation.value) === normalizeText(locationText);
+      const selectedCoords =
+        selectedLocationMatches &&
+        typeof selectedLocation.meta.lat === "number" &&
+        typeof selectedLocation.meta.lng === "number"
+          ? { lat: selectedLocation.meta.lat, lng: selectedLocation.meta.lng }
+          : null;
+
+      params.set("cidade", selectedLocationMatches && selectedLocation.meta.city ? selectedLocation.meta.city : locationText);
       params.set("local", locationText);
       params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
       const resolved = resolveLocationContextFromBusinesses(allBusinesses, locationText);
       const coords =
+        selectedCoords ||
         resolved.coords ||
         (await geocodeLocationWithCountryFallback(
           locationText,
-          resolved.countryCode || approxCountryCode || DEFAULT_GEO_FALLBACK.countryCode
+          (selectedLocationMatches ? selectedLocation.meta.countryCode : "") ||
+            resolved.countryCode ||
+            approxCountryCode ||
+            DEFAULT_GEO_FALLBACK.countryCode
         ));
       if (!coords) {
         params.delete("cidade");
@@ -339,7 +354,10 @@ export default function Home({
       params.set("origem_lng", String(coords.lng));
       params.set("origem_local", locationText);
       params.set("origem_source", "city");
-      if (resolved.countryCode) params.set("origem_pais", resolved.countryCode);
+      const countryCode =
+        (selectedLocationMatches ? selectedLocation.meta.countryCode : "") || resolved.countryCode;
+      if (countryCode) params.set("origem_pais", countryCode.toLowerCase());
+      else params.delete("origem_pais");
       return true;
     }
 
@@ -430,39 +448,75 @@ export default function Home({
     }));
   }, [allBusinesses, homeText.categories]);
 
+  const homeStats = useMemo(() => {
+    const cities = new Set<string>();
+    const countries = new Set<string>();
+    const activeCategories = new Set<string>();
+
+    allBusinesses.forEach((business) => {
+      const categoryId = business.categoryId?.trim();
+      if (categoryId) activeCategories.add(categoryId);
+
+      const address = business.address;
+      const countryCode = address?.countryCode?.trim().toLowerCase();
+      if (!countryCode) return;
+
+      countries.add(countryCode);
+
+      const stateCode = address.stateCode?.trim().toLowerCase();
+      const citySlug = getCanonicalCitySlug(address.city, countryCode);
+      if (stateCode && citySlug) cities.add(`${countryCode}-${stateCode}-${citySlug}`);
+    });
+
+    return [
+      { label: homeText.stats.businesses, value: formatHomeStatCount(allBusinesses.length), icon: Store },
+      { label: homeText.stats.cities, value: formatHomeStatCount(cities.size), icon: MapPin },
+      { label: homeText.stats.countries, value: String(countries.size), icon: Briefcase },
+      { label: homeText.stats.categories, value: String(activeCategories.size), icon: LayoutGrid },
+    ];
+  }, [allBusinesses, homeText.stats]);
+
   const activeSearchMode = homeText.searchModes[searchMode];
 
   const popularCities = useMemo(() => {
-    const cityCounts = new Map<string, { name: string; displayName: string; countryCode: string; count: number }>();
+    const cityCounts = new Map<string, {
+      name: string;
+      displayName: string;
+      countryCode: string;
+      stateCode: string;
+      count: number;
+      href: string;
+    }>();
 
-    allBusinesses.forEach((biz) => {
-      const city = biz.address.city?.trim();
-      if (!city) return;
+    allBusinesses.forEach((business) => {
+      const address = business?.address;
+      if (!address || typeof address !== "object") return;
 
-      const countryCode = biz.address.countryCode?.toLowerCase() || "";
-      const key = `${normalizeText(city)}-${countryCode}`;
+      const city = typeof address.city === "string" ? address.city.trim() : "";
+      const countryCode = typeof address.countryCode === "string" ? address.countryCode.trim().toLowerCase() : "";
+      const stateCode = typeof address.stateCode === "string" ? address.stateCode.trim().toLowerCase() : "";
+      if (!city || !countryCode || !stateCode) return;
+
+      const citySlug = getCanonicalCitySlug(city, countryCode);
+      if (!citySlug) return;
+
+      const cityDisplayName = typeof address.cityDisplayName === "string" ? address.cityDisplayName : city;
+      const key = countryCode + "-" + stateCode + "-" + citySlug;
       const current = cityCounts.get(key);
-
       cityCounts.set(key, {
         name: current?.name || city,
-        displayName: current?.displayName || getCityDisplayName(biz.address.cityDisplayName || city, countryCode),
+        displayName: current?.displayName || getCityDisplayName(cityDisplayName, countryCode) || city,
         countryCode,
+        stateCode,
         count: (current?.count || 0) + 1,
+        href: "/negocios/" + countryCode + "/" + stateCode + "/" + citySlug,
       });
     });
 
     return Array.from(cityCounts.values())
-      .sort((a, b) => {
-        if (b.count !== a.count) return b.count - a.count;
-        const normalizedA = normalizeText(a.name);
-        const normalizedB = normalizeText(b.name);
-        return normalizedA < normalizedB ? -1 : normalizedA > normalizedB ? 1 : a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-      })
+      .sort((a, b) => b.count - a.count || a.displayName.localeCompare(b.displayName, "pt-BR"))
       .slice(0, 6)
-      .map((city) => ({
-        ...city,
-        flag: countryCodeToFlag(city.countryCode),
-      }));
+      .map((city) => ({ ...city, flag: countryCodeToFlag(city.countryCode) }));
   }, [allBusinesses]);
 
   return (
@@ -569,7 +623,13 @@ export default function Home({
                   <SearchInputWithSuggestions
                     className="relative z-40 sm:flex-[0.9] rounded-xl sm:rounded-none"
                     value={locationQuery}
-                    onChange={setLocationQuery}
+                    onChange={(nextValue) => {
+                      setLocationQuery(nextValue);
+                      const selectedLocation = selectedLocationRef.current;
+                      if (selectedLocation && normalizeText(selectedLocation.value) !== normalizeText(nextValue)) {
+                        selectedLocationRef.current = null;
+                      }
+                    }}
                     suggestions={citySuggestions}
                     maxSuggestions={3}
                     onUseCurrentLocation={handleUseCurrentLocationInput}
@@ -577,6 +637,11 @@ export default function Home({
                     placeholder={homeText.locationPlaceholder}
                     icon="location"
                     useGooglePlaces
+                    onSubmit={(selectedValue, meta) => {
+                      if (!selectedValue || !meta) return;
+                      selectedLocationRef.current = { value: selectedValue, meta };
+                      setLocationQuery(selectedValue);
+                    }}
                     portalSuggestions={true}
                     inputClassName="h-12 sm:h-16 text-base sm:text-xl placeholder:text-[11px] sm:placeholder:text-sm"
                   />
@@ -625,12 +690,7 @@ export default function Home({
       <section className="border-y border-border bg-secondary/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            {[
-              { label: homeText.stats.businesses, value: "350+", icon: Store },
-              { label: homeText.stats.cities, value: "120+", icon: MapPin },
-              { label: homeText.stats.countries, value: "15+", icon: Briefcase },
-              { label: homeText.stats.reviews, value: "2.5K+", icon: Star },
-            ].map((stat) => (
+            {homeStats.map((stat) => (
               <div key={stat.label} className="flex flex-col items-center gap-1">
                 <stat.icon className="w-5 h-5 text-amber-600" />
                 <span className="text-2xl font-bold text-foreground">{stat.value}</span>
@@ -660,7 +720,7 @@ export default function Home({
             >
               <cat.icon className="w-7 h-7 text-primary" />
               <span className="font-medium text-sm text-center">{cat.name}</span>
-              <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count)}</span>
+              <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count) + " no mundo"}</span>
             </Link>
           ))}
         </div>
@@ -811,14 +871,9 @@ export default function Home({
         <div className="w-full flex flex-wrap justify-center gap-4">
           {popularCities.map((city) => (
             <Link
-              key={`${city.countryCode}-${city.name}`}
-              to={`/buscar?cidade=${encodeURIComponent(city.name)}`}
-              state={{
-                preloadedBusinesses: allBusinesses.filter((business) =>
-                  normalizeText(business.address.city || "") === normalizeText(city.name) &&
-                  (business.address.countryCode || "").toLowerCase() === city.countryCode.toLowerCase()
-                ),
-              }}
+              key={city.href}
+              to={city.href}
+              aria-label={"Negócios brasileiros em " + city.displayName}
               className="w-[160px] sm:w-[170px] lg:w-[180px] min-h-[128px] flex flex-col items-center justify-center gap-2 p-5 rounded-xl bg-card border border-border card-hover"
             >
               <img

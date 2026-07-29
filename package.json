@@ -15,6 +15,7 @@
         "preview": "vike preview --host 0.0.0.0",
         "test:search": "vitest run src/lib/search/businessSearch.test.ts",
         "test:events": "vitest run src/lib/search/eventSearch.test.ts",
+        "test:seo:ssr": "node scripts/check-seo-ssr.mjs",
         "check:encoding": "node scripts/check-encoding.mjs",
         "fix:encoding": "node scripts/fix-encoding.mjs",
         "migrate:webp": "node scripts/migrate-images-to-webp.mjs",
@@ -25,7 +26,6 @@
         "source": "dist",
         "include": [
             "/",
-            "/buscar",
             "/sobre",
             "/contato",
             "/privacidade",

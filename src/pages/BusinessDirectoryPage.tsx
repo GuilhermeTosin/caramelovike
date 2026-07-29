@@ -13,16 +13,17 @@ import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 import { setSeoMeta, upsertMetaTag } from "@/lib/seo";
 import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
-import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
+import { getCityDisplayName } from "@/lib/locationDisplay";
+import { getDirectoryInsights, type DirectoryInsights } from "@/lib/directoryInsights";
+import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import {
   DIRECTORY_CATEGORY_MINIMUM_BUSINESSES,
+  DIRECTORY_PAGE_SIZE,
+  getDirectoryBusinessCitySlug,
   getDirectoryCategoryBusinesses,
   getDirectoryCategoryBySlug,
-  getEligibleDirectoryCategories,
 } from "@/lib/directoryCategories";
 import Pagination from "@/components/Pagination";
-
-const PAGE_SIZE = 100;
 
 type BusinessDirectoryPageProps = {
   businesses?: BusinessFrontend[];
@@ -32,10 +33,6 @@ type DirectoryLevel = "countries" | "states" | "cities" | "businesses" | "catego
 
 function normalizeCode(value?: string) {
   return (value || "").trim().toLowerCase();
-}
-
-function getCitySlug(business: BusinessFrontend) {
-  return getCanonicalCitySlug(business.address.city, business.address.countryCode) || business.address.citySlug;
 }
 
 function isCodeLikeStateLabel(value: string, stateCode: string) {
@@ -108,7 +105,7 @@ function getDirectoryContext(businesses: BusinessFrontend[], params: Record<stri
     ? countryBusinesses.filter((business) => normalizeCode(business.address.stateCode) === stateCode)
     : countryBusinesses;
   const cityBusinesses = citySlug
-    ? stateBusinesses.filter((business) => getCitySlug(business) === citySlug)
+    ? stateBusinesses.filter((business) => getDirectoryBusinessCitySlug(business) === citySlug)
     : stateBusinesses;
 
   const level: DirectoryLevel = categorySlug
@@ -254,10 +251,10 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
     return map;
   }, [countryBusinesses, countryCode]);
 
-  const cityCounts = countBy(stateBusinesses.map((business) => getCitySlug(business)).filter(Boolean));
+  const cityCounts = countBy(stateBusinesses.map((business) => getDirectoryBusinessCitySlug(business)).filter(Boolean));
   const cityNameBySlug = new Map(
     stateBusinesses.map((business) => [
-      getCitySlug(business),
+      getDirectoryBusinessCitySlug(business),
       getCityDisplayName(
         business.address.cityDisplayName || business.address.city,
         business.address.countryCode || business.address.country,
@@ -269,12 +266,23 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
     ? stateNameByCode.get(stateCode) || getStateDisplayName(countryCode, stateCode)
     : "";
   const currentCityLabel = cityNameBySlug.get(citySlug) || citySlug;
-  const categoryLinks = level === "businesses"
-    ? getEligibleDirectoryCategories(sortedBusinesses, countryCode, stateCode, citySlug)
+  const directoryInsights = level === "categoryBusinesses"
+    ? null
+    : getDirectoryInsights(sortedBusinesses, { countryCode, stateCode, citySlug });
+  const relatedCities = level === "businesses"
+    ? Array.from(cityCounts.entries())
+      .filter(([slug]) => slug !== citySlug)
+      .map(([slug, count]) => ({
+        label: cityNameBySlug.get(slug) || slug,
+        href: buildCityPagePath(countryCode, stateCode, slug, 1),
+        count,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"))
+      .slice(0, 6)
     : [];
-  const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(currentList.length / DIRECTORY_PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const pageBusinesses = currentList.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageBusinesses = currentList.slice((safePage - 1) * DIRECTORY_PAGE_SIZE, safePage * DIRECTORY_PAGE_SIZE);
 
   useEffect(() => {
     if (!countryCode || !stateCode || !citySlug) return;
@@ -323,7 +331,11 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
           <p className="mt-3 text-muted-foreground leading-relaxed">
             {category
               ? "Encontre " + category.label.toLocaleLowerCase("pt-BR") + " com endere\u00e7os, hor\u00e1rios, contatos e avalia\u00e7\u00f5es em " + currentCityLabel + "."
-              : "Diret\u00f3rio p\u00fablico organizado por pa\u00eds, estado e cidade para facilitar a descoberta das p\u00e1ginas de neg\u00f3cios."}
+              : getDirectoryIntro(level, directoryInsights, {
+                country: getCountryName(countryCode) || countryCode.toUpperCase(),
+                state: currentStateLabel,
+                city: currentCityLabel,
+              })}
           </p>
         </div>
 
@@ -360,6 +372,21 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
             </>
           )}
         </nav>
+
+        {!loadingBusinesses && directoryInsights && (
+          <>
+            <DirectorySummary insights={directoryInsights} />
+            {level === "businesses" && (
+              <DirectoryCategoryOverview
+                title={"Categorias com página própria em " + currentCityLabel}
+                insights={directoryInsights}
+                getCategoryHref={(item) =>
+                  buildCategoryPagePath(countryCode, stateCode, citySlug, item.slug || "", 1)
+                }
+              />
+            )}
+          </>
+        )}
 
         {loadingBusinesses && directoryBusinesses.length === 0 ? (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
@@ -412,15 +439,9 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
           />
         )}
 
-        {level === "businesses" && !loadingBusinesses && categoryLinks.length > 0 && (
-          <DirectoryGrid
-            title={"Categorias em " + currentCityLabel}
-            items={categoryLinks.map((item) => ({
-              label: item.label,
-              href: buildCategoryPagePath(countryCode, stateCode, citySlug, item.slug, 1),
-              count: item.count,
-            }))}
-          />
+
+        {level === "businesses" && !loadingBusinesses && relatedCities.length > 0 && (
+          <DirectoryGrid title={"Outras cidades em " + currentStateLabel} items={relatedCities} />
         )}
 
         {(level === "businesses" || level === "categoryBusinesses") && !loadingBusinesses && !categoryNotFound && (
@@ -445,7 +466,19 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
                   onPointerDown={() => preloadBusinessPageAssets(business)}
                   className="block px-5 py-4 hover:bg-muted/40 transition-colors"
                 >
-                  <h3 className="text-base font-bold text-foreground">{business.name}</h3>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={business.logoUrl || DEFAULT_BUSINESS_LOGO}
+                      alt=""
+                      loading="lazy"
+                      className="h-11 w-11 shrink-0 rounded-full border border-border bg-muted object-cover"
+                      onError={(event) => {
+                        if (event.currentTarget.getAttribute("src") === DEFAULT_BUSINESS_LOGO) return;
+                        event.currentTarget.src = DEFAULT_BUSINESS_LOGO;
+                      }}
+                    />
+                    <h3 className="min-w-0 text-base font-bold text-foreground">{business.name}</h3>
+                  </div>
                   <p className="mt-1 text-sm text-muted-foreground">{getLocationLabel(business)}</p>
                   <p className="mt-1 text-sm text-primary">{business.category}</p>
                 </Link>
@@ -471,6 +504,118 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
 
       <SiteFooter />
     </div>
+  );
+}
+
+function pluralize(count: number, singular: string, plural: string) {
+  return count + " " + (count === 1 ? singular : plural);
+}
+
+function formatDirectoryDate(value?: string) {
+  if (!value || !Number.isFinite(new Date(value).getTime())) return "Sem registros";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(value));
+}
+
+function getDirectoryIntro(
+  level: DirectoryLevel,
+  insights: DirectoryInsights | null,
+  location: { country: string; state: string; city: string },
+) {
+  if (!insights) return "Explore os neg\u00f3cios publicados nesta localidade.";
+
+  const businesses = pluralize(insights.totalBusinesses, "neg\u00f3cio publicado", "neg\u00f3cios publicados");
+  const activities = pluralize(insights.totalActivities, "tipo de neg\u00f3cio", "tipos de neg\u00f3cio");
+  const distribution = insights.totalBusinesses === 1 ? "distribu\u00eddo" : "distribu\u00eddos";
+
+  if (level === "countries") {
+    return "Explore " + businesses + " no diret\u00f3rio, " + distribution + " em " + activities + " e com links para pa\u00edses, estados e cidades.";
+  }
+  if (level === "states") {
+    return "Este diret\u00f3rio re\u00fane " + businesses + " no " + location.country + ", " + distribution + " em " + activities + ".";
+  }
+  if (level === "cities") {
+    return "Este diret\u00f3rio re\u00fane " + businesses + " em " + location.state + ", " + location.country + ", " + distribution + " em " + activities + ".";
+  }
+  return "Em " + location.city + ", " + location.state + ", h\u00e1 " + businesses + " " + distribution + " em " + activities + ".";
+}
+function DirectorySummary({ insights }: { insights: DirectoryInsights }) {
+  return (
+    <section className="mt-8 rounded-2xl border border-border bg-white p-5">
+      <h2 className="text-xl font-bold text-foreground">{"Panorama do diret\u00f3rio"}</h2>
+      <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div>
+          <dt className="text-sm text-muted-foreground">{"Neg\u00f3cios publicados"}</dt>
+          <dd className="mt-1 text-2xl font-extrabold text-foreground">{insights.totalBusinesses}</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-muted-foreground">{"Tipos de neg\u00f3cio"}</dt>
+          <dd className="mt-1 text-2xl font-extrabold text-foreground">{insights.totalActivities}</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-muted-foreground">{"Neg\u00f3cios verificados"}</dt>
+          <dd className="mt-1 text-2xl font-extrabold text-foreground">{insights.verifiedBusinesses}</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-muted-foreground">{"\u00daltimo cadastro"}</dt>
+          <dd className="mt-1 text-sm font-bold text-foreground">{formatDirectoryDate(insights.latestCreatedAt)}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
+function DirectoryCategoryOverview({
+  title,
+  insights,
+  getCategoryHref,
+}: {
+  title: string;
+  insights: DirectoryInsights;
+  getCategoryHref: (category: DirectoryInsights["categories"][number]) => string;
+}) {
+  const indexableCategories = insights.categories.filter((category) => category.isIndexable && category.slug);
+  if (indexableCategories.length === 0) return null;
+
+  return (
+    <section className="mt-8">
+      <h2 className="text-xl font-bold text-foreground">{title}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {"Exibimos apenas categorias com pelo menos " + DIRECTORY_CATEGORY_MINIMUM_BUSINESSES + " neg\u00f3cios publicados."}
+      </p>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {indexableCategories.map((category) => {
+          const href = getCategoryHref(category);
+          const content = (
+            <>
+              <h3 className="font-bold text-foreground">{category.label}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {pluralize(category.count, "neg\u00f3cio", "neg\u00f3cios")}
+              </p>
+              {href ? <p className="mt-3 text-sm font-semibold text-primary">{"Ver neg\u00f3cios"}</p> : null}
+            </>
+          );
+
+          return href ? (
+            <Link
+              key={category.key}
+              to={href}
+              className="rounded-2xl border border-border bg-white p-5 hover:border-primary/40 hover:shadow-sm transition-all"
+            >
+              {content}
+            </Link>
+          ) : (
+            <div key={category.key} className="rounded-2xl border border-border bg-white p-5">
+              {content}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

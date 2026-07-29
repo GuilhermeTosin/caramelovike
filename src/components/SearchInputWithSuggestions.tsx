@@ -3,6 +3,16 @@ import { Input } from "./ui/input";
 import { Search, MapPin, X, Loader2 } from "lucide-react";
 import { isMapsApiAvailable, loadGoogleMapsApi } from "@/lib/google-maps";
 
+export type LocationSuggestionMeta = {
+  lat?: number;
+  lng?: number;
+  city?: string;
+  stateCode?: string;
+  countryCode?: string;
+  placeId?: string;
+  formattedAddress?: string;
+};
+
 interface SearchInputWithSuggestionsProps {
   value: string;
   onChange: (value: string) => void;
@@ -11,14 +21,7 @@ interface SearchInputWithSuggestionsProps {
   icon: "search" | "location";
   onSubmit?: (
     value?: string,
-    meta?: {
-      lat?: number;
-      lng?: number;
-      city?: string;
-      stateCode?: string;
-      countryCode?: string;
-      placeId?: string;
-    }
+    meta?: LocationSuggestionMeta
   ) => void;
   className?: string;
   inputClassName?: string;
@@ -208,7 +211,8 @@ export default function SearchInputWithSuggestions({
         ac.addListener("place_changed", () => {
           const place = ac.getPlace();
           const extractedCity = extractCityFromPlace(place);
-          const selected = extractedCity || place.formatted_address || inputRef.current?.value || "";
+          const formattedAddress = (place.formatted_address || "").trim();
+          const selected = formattedAddress || extractedCity || inputRef.current?.value || "";
           const components = place.address_components || [];
           const stateCode = components.find((c) => c.types.includes("administrative_area_level_1"))?.short_name || "";
           const countryCode = components.find((c) => c.types.includes("country"))?.short_name || "";
@@ -231,6 +235,7 @@ export default function SearchInputWithSuggestions({
               stateCode: stateCode.toLowerCase(),
               countryCode: countryCode.toLowerCase(),
               placeId: place.place_id,
+              formattedAddress,
             });
           }
         });

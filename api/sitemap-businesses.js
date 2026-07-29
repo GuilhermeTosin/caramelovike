@@ -97,6 +97,23 @@ function buildDirectoryCategoryUrls(baseUrl, rows) {
     .map(([path]) => baseUrl + "/negocios/" + path);
 }
 
+function buildDirectoryUrls(baseUrl, rows) {
+  const urls = new Set();
+  for (const row of rows) {
+    const country = normalizePart(row.country_code);
+    const state = normalizePart(row.state_code);
+    const city = normalizePart(getCanonicalCitySlug(row));
+    if (!country) continue;
+
+    urls.add(baseUrl + "/negocios/" + country);
+    if (!state) continue;
+
+    urls.add(baseUrl + "/negocios/" + country + "/" + state);
+    if (city) urls.add(baseUrl + "/negocios/" + country + "/" + state + "/" + city);
+  }
+  return Array.from(urls).sort();
+}
+
 function buildXml(baseUrl, rows) {
   const businessBody = rows
     .map((row) => {
@@ -113,8 +130,15 @@ function buildXml(baseUrl, rows) {
     })
     .filter(Boolean)
     .join("\n");
-  const categoryBody = buildDirectoryCategoryUrls(baseUrl, rows).map((loc) => "<url><loc>" + escapeXml(loc) + "</loc><changefreq>weekly</changefreq></url>").join("\n");
-  const body = [businessBody, categoryBody].filter(Boolean).join("\n");
+  const directoryUrls = [
+    ...buildDirectoryUrls(baseUrl, rows),
+    ...buildDirectoryCategoryUrls(baseUrl, rows),
+  ];
+  const directoryBody = Array.from(new Set(directoryUrls))
+    .sort()
+    .map((loc) => "<url><loc>" + escapeXml(loc) + "</loc><changefreq>weekly</changefreq></url>")
+    .join("\n");
+  const body = [businessBody, directoryBody].filter(Boolean).join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -196,10 +220,14 @@ export async function getBusinessSitemapData(req) {
   try {
     const rows = await fetchBusinesses(config);
     const urls = rows.filter((row) => buildBusinessUrl(baseUrl, row));
+    const directoryUrls = [
+      ...buildDirectoryUrls(baseUrl, rows),
+      ...buildDirectoryCategoryUrls(baseUrl, rows),
+    ];
     return {
       xml: buildXml(baseUrl, rows),
       source: "supabase",
-      urlCount: urls.length,
+      urlCount: urls.length + new Set(directoryUrls).size,
       reason: null,
     };
   } catch (error) {

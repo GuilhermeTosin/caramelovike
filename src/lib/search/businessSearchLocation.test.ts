@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCityAliases, filterBusinesses } from "@/lib/search/businessSearch";
+import { resolveLocationContextFromBusinesses } from "@/lib/search/locationResolver";
 import type { BusinessFrontend } from "@/types/database";
 
 const cityAliases = buildCityAliases([
@@ -93,6 +94,15 @@ function runSearch(options: {
 }
 
 describe("businessSearch location safety", () => {
+  it("nao resolve uma cidade qualificada em outro pais pelo cadastro local homonimo", () => {
+    const montrealCanada = createBusiness({ id: "montreal-canada" });
+
+    expect(resolveLocationContextFromBusinesses([montrealCanada], "Montreal, France")).toEqual({
+      coords: null,
+      countryCode: null,
+    });
+  });
+
   it("aceita o negocio com endereco completo e exclui o cadastro apenas com cidade na busca por Montreal", () => {
     const fullMontreal = createBusiness({
       id: "montreal-full",

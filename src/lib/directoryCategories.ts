@@ -11,13 +11,14 @@ export type DirectoryCategoryDefinition = {
 
 export const DIRECTORY_CATEGORIES = SHARED_DIRECTORY_CATEGORIES as readonly DirectoryCategoryDefinition[];
 export const DIRECTORY_CATEGORY_MINIMUM_BUSINESSES = SHARED_MINIMUM as number;
+export const DIRECTORY_PAGE_SIZE = 10;
 
 export function getDirectoryCategoryBySlug(slug?: string | null): DirectoryCategoryDefinition | null {
   const normalized = slugify(slug || "");
   return DIRECTORY_CATEGORIES.find((category) => category.slug === normalized) || null;
 }
 
-function getBusinessCitySlug(business: BusinessFrontend): string {
+export function getDirectoryBusinessCitySlug(business: BusinessFrontend): string {
   return getCanonicalCitySlug(business.address.city, business.address.countryCode) || slugify(business.address.citySlug || "");
 }
 
@@ -36,7 +37,7 @@ export function getDirectoryCategoryBusinesses(
     business.primaryActivity === category.categoryId &&
     (business.address.countryCode || "").trim().toLowerCase() === normalizedCountry &&
     (business.address.stateCode || "").trim().toLowerCase() === normalizedState &&
-    getBusinessCitySlug(business) === normalizedCity
+    getDirectoryBusinessCitySlug(business) === normalizedCity
   );
 }
 
