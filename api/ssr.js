@@ -234,13 +234,18 @@ function normalizePathname(pathname) {
   return trimmed || "/";
 }
 
-function applyNegociosCacheHeaders(res, pathname, statusCode) {
+function applyPublicPageCacheHeaders(res, pathname, statusCode) {
   if (statusCode !== 200) return;
 
   const normalizedPathname = normalizePathname(pathname);
-  if (normalizedPathname !== "/negocios" && !normalizedPathname.startsWith("/negocios/")) return;
-
-  const cacheHeader = "s-maxage=900, stale-while-revalidate=86400";
+  let cacheHeader = "";
+  if (normalizedPathname === "/") {
+    // Keep the homepage snapshot consistent for crawlers without serving stale business counts.
+    cacheHeader = "s-maxage=60, must-revalidate";
+  } else if (normalizedPathname === "/negocios" || normalizedPathname.startsWith("/negocios/")) {
+    cacheHeader = "s-maxage=900, stale-while-revalidate=86400";
+  }
+  if (!cacheHeader) return;
 
   res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
   res.setHeader("CDN-Cache-Control", cacheHeader);
@@ -283,7 +288,7 @@ export default async function handler(req, res) {
   const { body, statusCode, headers } = httpResponse;
   res.statusCode = statusCode;
   headers.forEach(([name, value]) => res.setHeader(name, value));
-  applyNegociosCacheHeaders(res, new URL(url, "http://localhost").pathname, statusCode);
+  applyPublicPageCacheHeaders(res, new URL(url, "http://localhost").pathname, statusCode);
   if (statusCode === 404) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(render404Html());

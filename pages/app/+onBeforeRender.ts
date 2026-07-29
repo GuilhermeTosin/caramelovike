@@ -120,9 +120,24 @@ function isKnownAppPath(pathname: string) {
   return !!parseBusinessPath(pathname);
 }
 
+async function getPublicBusinessesForSsr(): Promise<BusinessFrontend[]> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await getAllBusinesses();
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Unable to load public businesses for SSR.");
+}
+
 async function getPublicDirectoryData(includeFeatured: boolean) {
-  const [businesses, featuredBusinesses, availableLocations, searchSuggestions] = await Promise.all([
-    getAllBusinesses().catch(() => [] as BusinessFrontend[]),
+  const businesses = await getPublicBusinessesForSsr();
+  const [featuredBusinesses, availableLocations, searchSuggestions] = await Promise.all([
     includeFeatured
       ? getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[])
       : Promise.resolve([] as BusinessFrontend[]),
