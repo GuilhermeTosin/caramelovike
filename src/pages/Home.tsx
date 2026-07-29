@@ -29,7 +29,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
-import { getCityDisplayName } from "@/lib/locationDisplay";
+import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
 
@@ -452,36 +452,44 @@ export default function Home({
   const activeSearchMode = homeText.searchModes[searchMode];
 
   const popularCities = useMemo(() => {
-    const cityCounts = new Map<string, { name: string; displayName: string; countryCode: string; count: number }>();
+    const cityCounts = new Map<string, {
+      name: string;
+      displayName: string;
+      countryCode: string;
+      stateCode: string;
+      count: number;
+      href: string;
+    }>();
 
-    allBusinesses.forEach((biz) => {
-      const city = biz.address.city?.trim();
-      if (!city) return;
+    allBusinesses.forEach((business) => {
+      const address = business?.address;
+      if (!address || typeof address !== "object") return;
 
-      const countryCode = biz.address.countryCode?.toLowerCase() || "";
-      const key = `${normalizeText(city)}-${countryCode}`;
+      const city = typeof address.city === "string" ? address.city.trim() : "";
+      const countryCode = typeof address.countryCode === "string" ? address.countryCode.trim().toLowerCase() : "";
+      const stateCode = typeof address.stateCode === "string" ? address.stateCode.trim().toLowerCase() : "";
+      if (!city || !countryCode || !stateCode) return;
+
+      const citySlug = getCanonicalCitySlug(city, countryCode);
+      if (!citySlug) return;
+
+      const cityDisplayName = typeof address.cityDisplayName === "string" ? address.cityDisplayName : city;
+      const key = countryCode + "-" + stateCode + "-" + citySlug;
       const current = cityCounts.get(key);
-
       cityCounts.set(key, {
         name: current?.name || city,
-        displayName: current?.displayName || getCityDisplayName(biz.address.cityDisplayName || city, countryCode),
+        displayName: current?.displayName || getCityDisplayName(cityDisplayName, countryCode) || city,
         countryCode,
+        stateCode,
         count: (current?.count || 0) + 1,
+        href: "/negocios/" + countryCode + "/" + stateCode + "/" + citySlug,
       });
     });
 
     return Array.from(cityCounts.values())
-      .sort((a, b) => {
-        if (b.count !== a.count) return b.count - a.count;
-        const normalizedA = normalizeText(a.name);
-        const normalizedB = normalizeText(b.name);
-        return normalizedA < normalizedB ? -1 : normalizedA > normalizedB ? 1 : a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-      })
+      .sort((a, b) => b.count - a.count || a.displayName.localeCompare(b.displayName, "pt-BR"))
       .slice(0, 6)
-      .map((city) => ({
-        ...city,
-        flag: countryCodeToFlag(city.countryCode),
-      }));
+      .map((city) => ({ ...city, flag: countryCodeToFlag(city.countryCode) }));
   }, [allBusinesses]);
 
   return (
@@ -690,7 +698,7 @@ export default function Home({
             >
               <cat.icon className="w-7 h-7 text-primary" />
               <span className="font-medium text-sm text-center">{cat.name}</span>
-              <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count)}</span>
+              <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count) + " no mundo"}</span>
             </Link>
           ))}
         </div>
@@ -841,14 +849,9 @@ export default function Home({
         <div className="w-full flex flex-wrap justify-center gap-4">
           {popularCities.map((city) => (
             <Link
-              key={`${city.countryCode}-${city.name}`}
-              to={`/buscar?cidade=${encodeURIComponent(city.name)}`}
-              state={{
-                preloadedBusinesses: allBusinesses.filter((business) =>
-                  normalizeText(business.address.city || "") === normalizeText(city.name) &&
-                  (business.address.countryCode || "").toLowerCase() === city.countryCode.toLowerCase()
-                ),
-              }}
+              key={city.href}
+              to={city.href}
+              aria-label={"Negócios brasileiros em " + city.displayName}
               className="w-[160px] sm:w-[170px] lg:w-[180px] min-h-[128px] flex flex-col items-center justify-center gap-2 p-5 rounded-xl bg-card border border-border card-hover"
             >
               <img

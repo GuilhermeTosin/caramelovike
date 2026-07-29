@@ -795,7 +795,8 @@ export default function SearchResults({
       originLngParam
     );
     const hasExplicitCity = !!(cityFilter.trim() || locationFilter.trim());
-    if (radiusFilter || hasExplicitCity || !hasSearchContext) return;
+    const isGlobalCategorySearch = Boolean(categoryFilterId) && !hasExplicitCity && !countryFilter && !stateFilter && !originLatParam && !originLngParam;
+    if (radiusFilter || hasExplicitCity || isGlobalCategorySearch || !hasSearchContext) return;
 
     const params = new URLSearchParams(searchParams);
     params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
@@ -803,6 +804,7 @@ export default function SearchResults({
   }, [
     query,
     categoryFilter,
+    categoryFilterId,
     cityFilter,
     locationFilter,
     countryFilter,
@@ -1208,6 +1210,37 @@ export default function SearchResults({
     () => filteredCommunityFinds.slice(pageStart, pageEnd),
     [filteredCommunityFinds, pageStart, pageEnd]
   );
+
+  const hasCategoryLocationScope = Boolean(categoryFilterId) && Boolean(
+    cityFilter ||
+    locationFilter ||
+    countryFilter ||
+    stateFilter ||
+    radiusFilter ||
+    originLatParam ||
+    originLngParam,
+  );
+  const worldwideCategoryHref = useMemo(() => {
+    if (!hasCategoryLocationScope) return "";
+
+    const params = new URLSearchParams(searchParams);
+    [
+      "cidade",
+      "local",
+      "pais",
+      "estado",
+      "raio",
+      "auto_raio",
+      "origem_lat",
+      "origem_lng",
+      "origem_local",
+      "origem_source",
+      "origem_pais",
+      "pagina",
+    ].forEach((key) => params.delete(key));
+    const nextQuery = params.toString();
+    return nextQuery ? "/buscar?" + nextQuery : "/buscar";
+  }, [hasCategoryLocationScope, searchParams]);
 
   useEffect(() => {
     if (isResultsLoading) return;
@@ -1887,11 +1920,22 @@ export default function SearchResults({
             ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
             : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
           {query && <> para "<strong>{query}</strong>"</>}
+          {categoryFilterId && <> em <strong>{getCategoryLabel(categoryFilterId).split("(")[0].trim()}</strong></>}
           {locationFilter && <> perto de <strong>{locationFilter}</strong></>}
           {effectiveRadiusKm && <> em até <strong>{effectiveRadiusKm} km</strong></>}
           {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && !isResolvingDistanceOrigin && <> informe um local ou permita sua localização para usar raio</>}
           {resolvingLocation && <> localizando referência...</>}
         </p>
+        {hasCategoryLocationScope && worldwideCategoryHref && !isResultsLoading && (
+          <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
+            <p className="text-sm text-muted-foreground">
+              Você está vendo resultados desta categoria na sua região.
+            </p>
+            <Button asChild variant="outline" size="sm" className="mt-3 shrink-0 sm:mt-0">
+              <Link to={worldwideCategoryHref}>Ver todos no mundo</Link>
+            </Button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
           <aside className="hidden lg:block">

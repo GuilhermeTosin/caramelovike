@@ -14,6 +14,7 @@ import type { BusinessFrontend } from "@/types/database";
 import { setSeoMeta, upsertMetaTag } from "@/lib/seo";
 import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
 import { getCityDisplayName } from "@/lib/locationDisplay";
+import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import {
   DIRECTORY_CATEGORY_MINIMUM_BUSINESSES,
   DIRECTORY_PAGE_SIZE,
@@ -441,7 +442,19 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
                   onPointerDown={() => preloadBusinessPageAssets(business)}
                   className="block px-5 py-4 hover:bg-muted/40 transition-colors"
                 >
-                  <h3 className="text-base font-bold text-foreground">{business.name}</h3>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={business.logoUrl || DEFAULT_BUSINESS_LOGO}
+                      alt=""
+                      loading="lazy"
+                      className="h-11 w-11 shrink-0 rounded-full border border-border bg-muted object-cover"
+                      onError={(event) => {
+                        if (event.currentTarget.getAttribute("src") === DEFAULT_BUSINESS_LOGO) return;
+                        event.currentTarget.src = DEFAULT_BUSINESS_LOGO;
+                      }}
+                    />
+                    <h3 className="min-w-0 text-base font-bold text-foreground">{business.name}</h3>
+                  </div>
                   <p className="mt-1 text-sm text-muted-foreground">{getLocationLabel(business)}</p>
                   <p className="mt-1 text-sm text-primary">{business.category}</p>
                 </Link>

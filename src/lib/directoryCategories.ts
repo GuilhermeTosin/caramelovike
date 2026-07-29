@@ -11,7 +11,7 @@ export type DirectoryCategoryDefinition = {
 
 export const DIRECTORY_CATEGORIES = SHARED_DIRECTORY_CATEGORIES as readonly DirectoryCategoryDefinition[];
 export const DIRECTORY_CATEGORY_MINIMUM_BUSINESSES = SHARED_MINIMUM as number;
-export const DIRECTORY_PAGE_SIZE = 100;
+export const DIRECTORY_PAGE_SIZE = 10;
 
 export function getDirectoryCategoryBySlug(slug?: string | null): DirectoryCategoryDefinition | null {
   const normalized = slugify(slug || "");
