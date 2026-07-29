@@ -35,7 +35,7 @@ export type HomeContent = {
     businesses: string;
     cities: string;
     countries: string;
-    reviews: string;
+    categories: string;
   };
   categoriesHeading: string;
   categoriesDescription: string;
@@ -75,7 +75,7 @@ const HOME_CONTENT_BY_LOCALE: Record<"pt-BR", HomeContent> = {
       businesses: "Negócios Cadastrados",
       cities: "Cidades Atendidas",
       countries: "Países",
-      reviews: "Avaliações",
+      categories: "Categorias para explorar",
     },
     categoriesHeading: "Categorias",
     categoriesDescription: "Navegue por categoria para encontrar o que precisa",

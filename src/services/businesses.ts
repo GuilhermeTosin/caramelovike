@@ -658,6 +658,73 @@ export async function getAllBusinessesByRadiusRpc(params: {
   return collected;
 }
 
+type BusinessRoutePath = {
+  countryCode: string;
+  stateCode: string;
+  citySlug: string;
+  slug: string;
+};
+
+const KNOWN_LEGACY_BUSINESS_PATHS = new Map<string, BusinessRoutePath>([
+  ["ca/qc/montreal/tapi-go-montreal", { countryCode: "ca", stateCode: "qc", citySlug: "montreal", slug: "tapi-go" }],
+  ["ca/qc/mirabel/chez-luma-hotel-para-caes", { countryCode: "ca", stateCode: "qc", citySlug: "mirabel", slug: "chez-luma" }],
+]);
+
+function normalizeBusinessRoutePart(value: string) {
+  return (value || "").trim().toLowerCase();
+}
+
+function getBusinessRoutePathKey(
+  countryCode: string,
+  stateCode: string,
+  citySlug: string,
+  slug: string,
+) {
+  return [countryCode, stateCode, citySlug, slug]
+    .map(normalizeBusinessRoutePart)
+    .join("/");
+}
+
+export async function getBusinessByHistoricalPath(
+  countryCode: string,
+  stateCode: string,
+  citySlug: string,
+  slug: string,
+): Promise<BusinessFrontend | null> {
+  const normalizedCountry = normalizeBusinessRoutePart(countryCode);
+  const normalizedState = normalizeBusinessRoutePart(stateCode);
+  const normalizedCity = normalizeBusinessRoutePart(citySlug);
+  const normalizedSlug = normalizeBusinessRoutePart(slug);
+  if (!normalizedCountry || !normalizedState || !normalizedCity || !normalizedSlug) return null;
+
+  const knownTarget = KNOWN_LEGACY_BUSINESS_PATHS.get(
+    getBusinessRoutePathKey(normalizedCountry, normalizedState, normalizedCity, normalizedSlug),
+  );
+  if (knownTarget) {
+    return getBusinessBySlug(
+      knownTarget.countryCode,
+      knownTarget.stateCode,
+      knownTarget.citySlug,
+      knownTarget.slug,
+    );
+  }
+
+  const { data: history } = await supabase
+    .from("business_slug_history")
+    .select("business_id")
+    .eq("country_slug", normalizedCountry)
+    .eq("region_slug", normalizedState)
+    .eq("city_slug", normalizedCity)
+    .eq("old_business_slug", normalizedSlug)
+    .maybeSingle();
+
+  if (history?.business_id) {
+    // Resolve the current record so a historic URL always reaches the final canonical URL in one hop.
+    return getBusinessById(history.business_id);
+  }
+
+  return null;
+}
 export async function getBusinessBySlug(
   countryCode: string,
   stateCode: string,
@@ -862,6 +929,21 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
   return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
+async function isHistoricalBusinessSlugAvailable(slug: string, excludeBusinessId?: string): Promise<boolean> {
+  let query = supabase
+    .from("business_slug_history")
+    .select("business_id")
+    .eq("old_business_slug", slug)
+    .limit(1);
+  if (excludeBusinessId) {
+    query = query.neq("business_id", excludeBusinessId);
+  }
+
+  const { data, error } = await query;
+  // The migration may not have been applied in a local environment yet.
+  if (error) return true;
+  return !data || data.length === 0;
+}
 export async function isBusinessSlugAvailable(
   slug: string,
   excludeBusinessId?: string
@@ -888,8 +970,8 @@ export async function isBusinessSlugAvailable(
     legacyQuery = legacyQuery.neq("id", excludeBusinessId);
   }
   const { data: legacyData, error: legacyError } = await legacyQuery;
-  if (legacyError) return false;
-  return !legacyData || legacyData.length === 0;
+  if (legacyError || (legacyData && legacyData.length > 0)) return false;
+  return isHistoricalBusinessSlugAvailable(normalizedSlug, excludeBusinessId);
 }
 
 async function isOfficialBusinessSlugAvailable(slug: string, excludeBusinessId?: string): Promise<boolean> {
@@ -902,8 +984,8 @@ async function isOfficialBusinessSlugAvailable(slug: string, excludeBusinessId?:
   }
 
   const { data, error } = await query;
-  if (error) return false;
-  return !data || data.length === 0;
+  if (error || (data && data.length > 0)) return false;
+  return isHistoricalBusinessSlugAvailable(normalizedSlug, excludeBusinessId);
 }
 
 async function generateUniqueOfficialBusinessSlug(

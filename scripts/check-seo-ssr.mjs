@@ -89,6 +89,15 @@ async function request(path, expectedStatus = 200) {
   return body;
 }
 
+async function assertRedirect(path, expectedPath) {
+  const response = await fetch(new URL(path, baseUrl), { redirect: "manual" });
+  const location = response.headers.get("location");
+  assert(response.status === 301, path + " returned HTTP " + response.status + ", expected 301.");
+  assert(location, path + " is missing a redirect location.");
+  assert(new URL(location, baseUrl).pathname === expectedPath, path + " redirects to " + location + ", expected " + expectedPath + ".");
+  passed += 1;
+  process.stdout.write("PASS " + path + " - permanent redirect to " + expectedPath + "\n");
+}
 function assertIndexablePage(path, html) {
   const title = html.match(/<title>([\s\S]*?)<\/title>/i)?.[1]?.trim() || "";
   const description = findMeta(html, "name", "description");
@@ -108,6 +117,11 @@ function assertIndexablePage(path, html) {
   process.stdout.write("PASS " + path + " - " + h1 + "\n");
 }
 
+function assertDirectoryContent(path, html) {
+  assert(!html.includes("Diretório público organizado por país, estado e cidade"), path + " still renders the repeated generic directory introduction.");
+  assert(html.includes("Panorama do diretório"), path + " is missing the data-backed directory summary.");
+  assert(html.includes("Tipos de neg\u00f3cio"), path + " is missing directory activity content.");
+}
 function assertSearchPage(path, html) {
   const robots = findMeta(html, "name", "robots");
   const canonical = findCanonical(html);
@@ -157,17 +171,26 @@ async function run() {
 
   const city = await request(cityPath);
   assertIndexablePage(cityPath, city);
+  assertDirectoryContent(cityPath, city);
   const cityLinks = extractLinks(city);
   const businessPath = findLink(cityLinks, (href) => /^\/[a-z]{2}\/[^/]+\/[^/]+\/[^/]+$/.test(href), "a business page");
 
   const business = await request(businessPath);
   assertIndexablePage(businessPath, business);
 
+  await assertRedirect("/ca/qc/montreal/tapi-go-montreal", "/ca/qc/montreal/tapi-go");
+  await assertRedirect("/ca/qc/mirabel/chez-luma-hotel-para-caes", "/ca/qc/mirabel/chez-luma");
+
   const notFound = await request(cityPath + "/pagina/999999", 404);
   const notFoundRobots = findMeta(notFound, "name", "robots");
   assert(notFoundRobots.includes("noindex"), "Invalid directory pages must be noindex.");
   passed += 1;
   process.stdout.write("PASS " + cityPath + "/pagina/999999 - real 404.\n");
+
+  const emptyDirectory = await request("/negocios/zz", 404);
+  assert(findMeta(emptyDirectory, "name", "robots").includes("noindex"), "Empty or invalid directory pages must be noindex.");
+  passed += 1;
+  process.stdout.write("PASS /negocios/zz - empty directory is a real 404.\n");
 
   const search = await request("/buscar?categoria=food");
   assertSearchPage("/buscar?categoria=food", search);
@@ -193,6 +216,11 @@ async function run() {
   const businessSitemap = await requestSitemap("/sitemaps/businesses.xml");
   if (businessSitemap) {
     const sitemapUrls = extractSitemapUrls(businessSitemap);
+    const retiredBusinessPaths = new Set([
+      "/ca/qc/montreal/tapi-go-montreal",
+      "/ca/qc/mirabel/chez-luma-hotel-para-caes",
+    ]);
+    assert(!sitemapUrls.some((url) => retiredBusinessPaths.has(new URL(url).pathname)), "The business sitemap must not include retired business URLs.");
     const expectedCityPath = new URL(cityPath, baseUrl).pathname;
     assert(sitemapUrls.some((url) => new URL(url).pathname === expectedCityPath), "The business sitemap must include the discovered city directory page.");
     const categoryUrl = sitemapUrls.find((url) => {

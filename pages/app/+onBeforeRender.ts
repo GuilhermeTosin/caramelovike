@@ -5,6 +5,7 @@ import {
   getAvailableLocations,
   buildBusinessUrl,
   getBusinessByCountryAndSlug,
+  getBusinessByHistoricalPath,
   getBusinessByShortSlug,
   getBusinessBySlug,
   getSearchSuggestions,
@@ -301,6 +302,19 @@ export async function onBeforeRender(pageContext: PageContext) {
   } catch (error) {
     console.error("[onBeforeRender] business lookup failed:", error);
     business = null;
+  }
+
+  if (!business && businessRoute.kind === "full") {
+    try {
+      business = await getBusinessByHistoricalPath(
+        businessRoute.countryCode,
+        businessRoute.stateCode,
+        businessRoute.city,
+        businessRoute.businessName,
+      );
+    } catch (error) {
+      console.error("[onBeforeRender] business history lookup failed:", error);
+    }
   }
 
   if (!business) {

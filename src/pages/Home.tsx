@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff, CalendarDays, BadgePercent, PartyPopper, Plane } from "lucide-react";
+import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff, CalendarDays, BadgePercent, PartyPopper, Plane, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
-import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
+import { DEFAULT_GEO_FALLBACK, DEFAULT_SEARCH_RADIUS_KM, calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import {
   geocodeLocationWithCountryFallback,
   inferNearestCityFromBusinesses,
@@ -78,14 +78,7 @@ const HOME_CATEGORY_ICONS: Record<string, typeof Utensils> = {
   other: MoreHorizontal,
 };
 
-const DEFAULT_GEO_FALLBACK = {
-  lat: 45.5017,
-  lng: -73.5673,
-  city: "Montreal",
-  stateCode: "qc",
-  countryCode: "ca",
-} as const;
-const DEFAULT_SEARCH_RADIUS_KM = "50";
+
 const HOME_PUBLIC_DATA_REFRESH_MS = 5 * 60 * 1000;
 
 const countryCodeToFlag = (countryCode: string) => {
@@ -107,6 +100,12 @@ function extractCities(
     });
   });
   return Array.from(cities);
+}
+
+function formatHomeStatCount(count: number): string {
+  if (count >= 100) return `${Math.floor(count / 100) * 100}+`;
+  if (count >= 20) return `${Math.floor(count / 10) * 10}+`;
+  return String(count);
 }
 
 type HomeProps = {
@@ -449,6 +448,34 @@ export default function Home({
     }));
   }, [allBusinesses, homeText.categories]);
 
+  const homeStats = useMemo(() => {
+    const cities = new Set<string>();
+    const countries = new Set<string>();
+    const activeCategories = new Set<string>();
+
+    allBusinesses.forEach((business) => {
+      const categoryId = business.categoryId?.trim();
+      if (categoryId) activeCategories.add(categoryId);
+
+      const address = business.address;
+      const countryCode = address?.countryCode?.trim().toLowerCase();
+      if (!countryCode) return;
+
+      countries.add(countryCode);
+
+      const stateCode = address.stateCode?.trim().toLowerCase();
+      const citySlug = getCanonicalCitySlug(address.city, countryCode);
+      if (stateCode && citySlug) cities.add(`${countryCode}-${stateCode}-${citySlug}`);
+    });
+
+    return [
+      { label: homeText.stats.businesses, value: formatHomeStatCount(allBusinesses.length), icon: Store },
+      { label: homeText.stats.cities, value: formatHomeStatCount(cities.size), icon: MapPin },
+      { label: homeText.stats.countries, value: String(countries.size), icon: Briefcase },
+      { label: homeText.stats.categories, value: String(activeCategories.size), icon: LayoutGrid },
+    ];
+  }, [allBusinesses, homeText.stats]);
+
   const activeSearchMode = homeText.searchModes[searchMode];
 
   const popularCities = useMemo(() => {
@@ -663,12 +690,7 @@ export default function Home({
       <section className="border-y border-border bg-secondary/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            {[
-              { label: homeText.stats.businesses, value: "350+", icon: Store },
-              { label: homeText.stats.cities, value: "120+", icon: MapPin },
-              { label: homeText.stats.countries, value: "15+", icon: Briefcase },
-              { label: homeText.stats.reviews, value: "2.5K+", icon: Star },
-            ].map((stat) => (
+            {homeStats.map((stat) => (
               <div key={stat.label} className="flex flex-col items-center gap-1">
                 <stat.icon className="w-5 h-5 text-amber-600" />
                 <span className="text-2xl font-bold text-foreground">{stat.value}</span>

@@ -4,6 +4,15 @@ import { getPublicEnv } from "@/lib/publicRuntimeEnv";
 const GEOIP_CACHE_KEY = "caramelinho_geoip_v1";
 const GEOIP_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 
+export const DEFAULT_GEO_FALLBACK = {
+  lat: 45.5017,
+  lng: -73.5673,
+  city: "Montreal",
+  stateCode: "qc",
+  countryCode: "ca",
+} as const;
+
+export const DEFAULT_SEARCH_RADIUS_KM = "50";
 export type ApproxGeo = {
   lat: number;
   lng: number;
@@ -178,6 +187,28 @@ export async function getCurrentPositionRobust(): Promise<{
 /**
  * Obtém localização aproximada por IP (fallback quando geolocalização do navegador falha).
  */
+export function buildNearbyBusinessSearchPath(geo: ApproxGeo): string {
+  const params = new URLSearchParams();
+  const city = geo.city?.trim();
+
+  params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
+  params.set("origem_lat", String(geo.lat));
+  params.set("origem_lng", String(geo.lng));
+  params.set("origem_pais", (geo.countryCode || "").toLowerCase());
+
+  if (city) {
+    params.set("cidade", city);
+    params.set("local", city);
+    params.set("origem_local", city);
+    params.set("origem_source", "city");
+  } else {
+    params.set("auto_raio", "1");
+    params.set("origem_source", geo.source === "cache" ? "ip_cache" : "ip");
+  }
+
+  if (!params.get("origem_pais")) params.delete("origem_pais");
+  return "/buscar?" + params.toString();
+}
 export async function getApproxPositionByIp(): Promise<{ lat: number; lng: number } | null> {
   const geo = await getApproxGeoByIp();
   if (!geo) return null;

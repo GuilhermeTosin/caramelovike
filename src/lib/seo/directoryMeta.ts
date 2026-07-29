@@ -125,16 +125,31 @@ export function getDirectoryPageMeta(urlOriginal: string | undefined, businesses
 
   const labels = findDirectoryLabels(businesses, countryCode, stateCode, citySlug);
   const countryLocation = getCountryLocation(countryCode, labels.country);
+  const countryBusinesses = businesses.filter((business) => normalizeCode(business.address.countryCode) === countryCode);
+  const stateBusinesses = stateCode
+    ? countryBusinesses.filter((business) => normalizeCode(business.address.stateCode) === stateCode)
+    : countryBusinesses;
+  const cityBusinesses = citySlug
+    ? stateBusinesses.filter((business) => {
+      const businessCity = business.address.cityDisplayName || business.address.city;
+      return (getCanonicalCitySlug(businessCity, countryCode) || business.address.citySlug) === citySlug;
+    })
+    : stateBusinesses;
+  const stateCount = new Set(countryBusinesses.map((business) => normalizeCode(business.address.stateCode)).filter(Boolean)).size;
+  const cityCount = new Set(stateBusinesses.map((business) => {
+    const businessCity = business.address.cityDisplayName || business.address.city;
+    return getCanonicalCitySlug(businessCity, countryCode) || business.address.citySlug;
+  }).filter(Boolean)).size;
 
   if (!stateCode) {
     const heading = "Neg\u00f3cios brasileiros " + countryLocation;
-    const description = "Encontre neg\u00f3cios brasileiros " + countryLocation + ". Navegue por estados e cidades e descubra empresas, profissionais, restaurantes, lojas e servi\u00e7os brasileiros.";
+    const description = "Consulte " + countryBusinesses.length + " neg\u00f3cios brasileiros " + countryLocation + ", distribu\u00eddos em " + stateCount + " " + (stateCount === 1 ? "estado ou regi\u00e3o" : "estados e regi\u00f5es") + ". Explore empresas, profissionais, restaurantes, lojas e servi\u00e7os com atendimento \u00e0 comunidade brasileira.";
     return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
   }
 
   if (!citySlug) {
     const heading = "Neg\u00f3cios brasileiros em " + labels.state + ", " + labels.country;
-    const description = "Encontre neg\u00f3cios brasileiros em " + labels.state + ", " + labels.country + ". Explore cidades com empresas, profissionais, restaurantes, lojas e servi\u00e7os da comunidade brasileira.";
+    const description = "Consulte " + stateBusinesses.length + " neg\u00f3cios brasileiros em " + labels.state + ", " + labels.country + ", presentes em " + cityCount + " " + (cityCount === 1 ? "cidade" : "cidades") + ". Veja empresas, profissionais, restaurantes, lojas e servi\u00e7os da comunidade brasileira.";
     return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
   }
 
@@ -151,6 +166,6 @@ export function getDirectoryPageMeta(urlOriginal: string | undefined, businesses
   }
 
   const heading = "Neg\u00f3cios brasileiros em " + cityLocation;
-  const description = "Encontre neg\u00f3cios brasileiros em " + cityLocation + ". Veja empresas, profissionais, restaurantes, lojas, servi\u00e7os, contatos e avalia\u00e7\u00f5es.";
+  const description = "Consulte " + cityBusinesses.length + " " + (cityBusinesses.length === 1 ? "neg\u00f3cio brasileiro" : "neg\u00f3cios brasileiros") + " em " + cityLocation + ". Veja empresas, profissionais, restaurantes, lojas, servi\u00e7os, contatos e avalia\u00e7\u00f5es.";
   return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
 }
