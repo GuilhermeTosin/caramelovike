@@ -245,15 +245,32 @@ function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, p
 
 function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl: string) {
   const address = business.address || {};
+  const countryCode = String(address.countryCode || "").toLowerCase();
+  const stateCode = String(address.stateCode || "").toLowerCase();
+  const citySlug = getCanonicalCitySlug(address.city, countryCode) || slugify(address.citySlug || address.city || "");
   const items = [
     { name: "In\u00edcio", item: "https://www.caramelinho.com/" },
-    { name: "Busca", item: "https://www.caramelinho.com/buscar" },
+    { name: "Neg\u00f3cios", item: "https://www.caramelinho.com/negocios" },
   ];
 
-  if (address.city) {
+  if (countryCode) {
     items.push({
-      name: address.city,
-      item: "https://www.caramelinho.com/buscar?cidade=" + encodeURIComponent(address.city),
+      name: getCountryName(countryCode) || countryCode.toUpperCase(),
+      item: "https://www.caramelinho.com/negocios/" + countryCode,
+    });
+  }
+
+  if (countryCode && stateCode) {
+    items.push({
+      name: getStateDisplayName(countryCode, stateCode, address.state) || stateCode.toUpperCase(),
+      item: "https://www.caramelinho.com/negocios/" + countryCode + "/" + stateCode,
+    });
+  }
+
+  if (countryCode && stateCode && citySlug) {
+    items.push({
+      name: getCityDisplayName(address.city, countryCode) || address.city,
+      item: "https://www.caramelinho.com/negocios/" + countryCode + "/" + stateCode + "/" + citySlug,
     });
   }
 
