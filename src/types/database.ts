@@ -174,6 +174,7 @@ export interface Business {
   promotions?: Promotion[];
   events?: BusinessEvent[];
   created_at: string;
+  updated_at?: string;
 }
 
 export interface Conversation {
@@ -256,6 +257,7 @@ export interface BusinessFrontend {
   promotions: Promotion[];
   events: BusinessEvent[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type FeaturedScopeType = "city" | "state" | "country" | "global";

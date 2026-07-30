@@ -55,7 +55,7 @@ import NotFound from "@/pages/NotFound";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
-import { formatDatePtBr } from "@/lib/dates";
+import { formatDatePtBr, getMeaningfulUpdatedAt } from "@/lib/dates";
 
 type BusinessPageProps = {
   initialBusiness?: BusinessFrontend | null;
@@ -176,6 +176,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const [reportReason, setReportReason] = useState<"fake" | "difamacao" | "golpe" | "conteudo_ofensivo" | "outro">("fake");
   const [reportDetails, setReportDetails] = useState("");
   const [reporting, setReporting] = useState(false);
+  const [canUseNativeShare, setCanUseNativeShare] = useState(false);
   const activePromotions = (business?.promotions || []).filter((promotion) => {
     if (!promotion?.expiresAt) return false;
     return promotion.expiresAt >= new Date().toISOString().slice(0, 10);
@@ -248,6 +249,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       active = false;
     };
   }, [previewMode, businessId, countryCode, stateCode, city, businessName, initialBusinesses, initialSimilarBusinesses]);
+
+  useEffect(() => {
+    setCanUseNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
 
   useEffect(() => {
     if (!business || previewMode) return;
@@ -595,7 +600,6 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   const pageOrigin = typeof window !== "undefined" ? window.location.origin : "https://www.caramelinho.com";
   const shareUrl = business ? `${pageOrigin}${buildBusinessUrl(business)}` : "";
-  const canUseNativeShare = typeof navigator !== "undefined" && !!navigator.share;
 
   const handleCopyLink = async () => {
     if (!business) return;
@@ -662,6 +666,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   if (!business) {
     return <NotFound />;
   }
+
+  const meaningfulUpdatedAt = getMeaningfulUpdatedAt(business.updatedAt, business.createdAt);
+  const businessActivityDate = meaningfulUpdatedAt || business.createdAt;
+  const businessActivityLabel = meaningfulUpdatedAt ? "Informações atualizadas em" : "Perfil publicado em";
 
   if (false && !business) {
     return (
@@ -823,6 +831,12 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   }
                   dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(business.description) }}
                 />
+                {businessActivityDate ? (
+                  <p className="mt-5 inline-flex items-center gap-1.5 text-xs text-muted-foreground/80">
+                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                    {`${businessActivityLabel} ${formatDatePtBr(businessActivityDate)}`}
+                  </p>
+                ) : null}
               </TabsContent>
 
               {getCategoryId(business.category) !== "food" && hasServiceItems && (

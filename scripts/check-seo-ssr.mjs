@@ -151,6 +151,9 @@ function extractSitemapUrls(xml) {
 async function run() {
   const home = await request("/");
   assertIndexablePage("/", home);
+  assert(home.includes("Neg\u00f3cios Cadastrados"), "/ is missing the server-rendered business count.");
+  assert(home.includes("Categorias para explorar"), "/ is missing the server-rendered category count.");
+  assert(!home.includes("2.5K+"), "/ must not render the retired static review count.");
 
   for (const staticPath of ["/sobre", "/contato", "/privacidade", "/termos", "/negocio-verificado"]) {
     const staticPage = await request(staticPath);
@@ -180,6 +183,7 @@ async function run() {
 
   await assertRedirect("/ca/qc/montreal/tapi-go-montreal", "/ca/qc/montreal/tapi-go");
   await assertRedirect("/ca/qc/mirabel/chez-luma-hotel-para-caes", "/ca/qc/mirabel/chez-luma");
+  await assertRedirect("/ca/les-brasileirinhos", "/ca/qc/montreal/les-brasileirinhos");
 
   const notFound = await request(cityPath + "/pagina/999999", 404);
   const notFoundRobots = findMeta(notFound, "name", "robots");

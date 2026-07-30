@@ -83,7 +83,7 @@ export type FeaturedForm = {
   notes: string;
 };
 
-export type VerificationAdminView = "pendentes" | "verificados";
+export type VerificationAdminView = "pendentes" | "verificados" | "a_vencer";
 export type ReportsView = "active" | "archived";
 export type ReportsKind = "negocios" | "achadinhos";
 

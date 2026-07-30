@@ -417,6 +417,7 @@ export function toFrontend(
     promotions: b.promotions || [],
     events: b.events || [],
     createdAt: b.created_at,
+    updatedAt: b.updated_at || b.created_at,
   };
 }
 

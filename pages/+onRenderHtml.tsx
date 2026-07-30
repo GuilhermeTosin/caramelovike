@@ -11,6 +11,7 @@ import { getDirectoryCategoryBySlug } from "@/lib/directoryCategories";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
+import { getMeaningfulUpdatedAt } from "@/lib/dates";
 
 type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
@@ -214,6 +215,7 @@ function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, p
   const address = business.address || {};
   const latitude = Number(address.lat);
   const longitude = Number(address.lng);
+  const meaningfulUpdatedAt = getMeaningfulUpdatedAt(business.updatedAt, business.createdAt);
   return {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -222,6 +224,8 @@ function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, p
     description: business.description || buildBusinessDescription(business),
     url: canonicalUrl,
     image: pageImage,
+    datePublished: business.createdAt || undefined,
+    dateModified: meaningfulUpdatedAt,
     telephone: business.phone || undefined,
     email: business.email || undefined,
     sameAs: [business.website, business.instagram, business.facebook].filter(Boolean),
