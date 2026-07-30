@@ -7,6 +7,14 @@ import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import type { BusinessFrontend, BusinessVerificationRequest } from "@/types/database";
 import type { VerificationAdminView } from "@/pages/user-profile/types";
 
+const VERIFICATION_EXPIRY_WARNING_DAYS = 30;
+
+function getDaysUntil(value: string) {
+  const expiresAt = new Date(value).getTime();
+  if (Number.isNaN(expiresAt)) return null;
+  return Math.max(0, Math.ceil((expiresAt - Date.now()) / (1000 * 60 * 60 * 24)));
+}
+
 type VerificationAdminTabProps = {
   verificationAdminView: VerificationAdminView;
   verificationLoading: boolean;
@@ -31,6 +39,14 @@ export default function VerificationAdminTab({
   onRemoveBusinessVerification,
 }: VerificationAdminTabProps) {
   const verifiedBusinesses = allBusinesses.filter((business) => business.ownerVerified);
+  const now = Date.now();
+  const expiryWarningLimit = now + VERIFICATION_EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000;
+  const expiringBusinesses = verifiedBusinesses
+    .filter((business) => {
+      const expiresAt = business.ownerVerifiedUntil ? new Date(business.ownerVerifiedUntil).getTime() : Number.NaN;
+      return Number.isFinite(expiresAt) && expiresAt >= now && expiresAt <= expiryWarningLimit;
+    })
+    .sort((a, b) => new Date(a.ownerVerifiedUntil || 0).getTime() - new Date(b.ownerVerifiedUntil || 0).getTime());
 
   return (
     <TabsContent value="verificacoes" className="mt-0">
@@ -47,6 +63,9 @@ export default function VerificationAdminTab({
               <TabsList>
                 <TabsTrigger value="pendentes">Pendentes</TabsTrigger>
                 <TabsTrigger value="verificados">Verificados</TabsTrigger>
+                <TabsTrigger value="a_vencer">
+                  A vencer{expiringBusinesses.length > 0 ? ` (${expiringBusinesses.length})` : ""}
+                </TabsTrigger>
               </TabsList>
             </Tabs>
             <Button variant="outline" size="sm" onClick={onRefresh} disabled={verificationLoading}>
@@ -93,6 +112,41 @@ export default function VerificationAdminTab({
                     </div>
                   </div>
                 ))}
+              </div>
+            )
+          ) : verificationAdminView === "a_vencer" ? (
+            expiringBusinesses.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                Nenhuma verificação vence nos próximos {VERIFICATION_EXPIRY_WARNING_DAYS} dias.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {expiringBusinesses.map((business) => {
+                  const daysUntil = getDaysUntil(business.ownerVerifiedUntil || "");
+                  const expiresSoon = daysUntil !== null && daysUntil <= 7;
+                  return (
+                    <div key={business.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold">{business.name}</h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {business.address.city || "Cidade não informada"}
+                          {getCountryName(business.address.countryCode || business.address.country) ? `, ${getCountryName(business.address.countryCode || business.address.country)}` : ""}
+                        </p>
+                        {business.ownerName ? (
+                          <p className="text-xs text-muted-foreground mt-2">Responsável: {business.ownerName}</p>
+                        ) : null}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Válido até: {business.ownerVerifiedUntil ? new Date(business.ownerVerifiedUntil).toLocaleDateString("pt-BR") : "Não informado"}
+                        </p>
+                      </div>
+                      <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${
+                        expiresSoon ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"
+                      }`}>
+                        {daysUntil === 0 ? "Vence hoje" : `Vence em ${daysUntil || 0} ${daysUntil === 1 ? "dia" : "dias"}`}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )
           ) : verifiedBusinesses.length === 0 ? (

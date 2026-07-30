@@ -720,7 +720,7 @@ export default function Home({
             >
               <cat.icon className="w-7 h-7 text-primary" />
               <span className="font-medium text-sm text-center">{cat.name}</span>
-              <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count) + " no mundo"}</span>
+              <span className="w-full text-center text-xs text-muted-foreground">{formatBusinessCount(cat.count) + " no mundo"}</span>
             </Link>
           ))}
         </div>

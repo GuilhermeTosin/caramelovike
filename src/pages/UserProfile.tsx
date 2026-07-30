@@ -819,7 +819,7 @@ export default function UserProfile() {
                 allBusinesses={allBusinesses}
                 onVerificationAdminViewChange={setVerificationAdminView}
                 onRefresh={() => {
-                  void loadVerificationAdminData();
+                  void Promise.all([loadVerificationAdminData(), refreshAllBusinesses()]);
                 }}
                 onApproveVerification={handleApproveVerification}
                 onRejectVerification={handleRejectVerification}

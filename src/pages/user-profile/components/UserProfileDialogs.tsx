@@ -1361,11 +1361,22 @@ export default function UserProfileDialogs({
       <Dialog open={!!verificationBusiness} onOpenChange={(open) => !open && setVerificationBusiness(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Solicitar negócio verificado</DialogTitle>
+            <DialogTitle>Solicitar verificação do negócio</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              Requisitos: mínimo de 5 avaliações e Instagram do negócio configurado.
+              <p className="font-semibold">Antes de enviar sua solicitação</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                <li>Tenha pelo menos 5 avaliações e o Instagram do negócio cadastrado.</li>
+                <li>Publique sobre o Caramelinho no Instagram e marque nosso perfil.</li>
+              </ul>
+              <p className="mt-2 text-xs leading-relaxed">A equipe analisa os critérios e o post enviado antes de ativar o selo.</p>
+            </div>
+            <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
+              <p className="font-semibold">Validade do selo</p>
+              <p className="mt-1 leading-relaxed">
+                Após aprovado, o selo é válido por 12 meses. Depois desse período, pedimos uma nova confirmação para manter no diretório apenas negócios ativos, com atendimento e informações de contato atualizados.
+              </p>
             </div>
             <div className="text-sm text-muted-foreground">
               Negócio: <strong>{verificationBusiness?.name}</strong>
@@ -1375,7 +1386,7 @@ export default function UserProfileDialogs({
               Instagram cadastrado: <strong>{verificationBusiness?.instagram ? "Sim" : "Não"}</strong>
             </div>
             <div>
-              <Label htmlFor="verification-instagram-post">Link do post no Instagram marcando o Caramelinho *</Label>
+              <Label htmlFor="verification-instagram-post">Link do post público no Instagram marcando o Caramelinho *</Label>
               <Input
                 id="verification-instagram-post"
                 className="mt-1.5"
@@ -1383,6 +1394,9 @@ export default function UserProfileDialogs({
                 onChange={(event) => setInstagramPostUrl(event.target.value)}
                 placeholder="https://www.instagram.com/p/..."
               />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Envie o link da publicação usada para solicitar a verificação.
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -1390,7 +1404,7 @@ export default function UserProfileDialogs({
               Cancelar
             </Button>
             <Button onClick={handleSubmitVerificationRequest} disabled={verificationSubmitting}>
-              {verificationSubmitting ? "Enviando..." : "Enviar solicitação"}
+              {verificationSubmitting ? "Enviando..." : "Enviar para análise"}
             </Button>
           </DialogFooter>
         </DialogContent>
