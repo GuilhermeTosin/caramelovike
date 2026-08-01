@@ -140,7 +140,7 @@ function toDirectorySsrBusiness(business: BusinessFrontend): BusinessFrontend {
     heroImage: "",
     logoUrl: business.logoUrl,
     address: {
-      street: "",
+      street: business.address.street,
       city: business.address.city,
       citySlug: business.address.citySlug,
       cityDisplayName: business.address.cityDisplayName,
