@@ -472,7 +472,7 @@ function mergeBusinessEvents(
 
 export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFrontend[]> {
   const columns = [
-    "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "logo_url",
+    "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "logo_url", "hero_image",
     "street", "city", "city_slug", "state", "country", "country_code", "state_code",
     "lat", "lng", "attendance_type", "average_rating", "owner_verified", "owner_verified_until",
     "moderation_status", "moderation_reviewed_at", "moderation_reviewed_by", "created_at", "updated_at",

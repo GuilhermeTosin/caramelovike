@@ -133,7 +133,9 @@ function compactDirectoryBusiness(business: BusinessFrontend): BusinessFrontend 
     ownerId: "",
     ownerName: "",
     description: "",
-    heroImage: "",
+    // The paginated directory passes this item into the business route on click.
+    // Keep the cover URL so the public page never flashes the generic fallback.
+    heroImage: business.heroImage,
     services: [],
     serviceItems: [],
     keywords: [],
