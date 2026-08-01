@@ -500,6 +500,68 @@ export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFronten
 // Similar-business cards need only businesses in the same category and country.
 // Querying this small candidate set keeps business-page SSR independent from the
 // full directory payload (profiles, galleries, reviews and unrelated businesses).
+export async function getPublicBusinessSearchIndex(): Promise<BusinessFrontend[]> {
+  const columns = [
+    "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom",
+    "description", "hero_image", "logo_url", "street", "city", "city_slug", "state",
+    "country", "country_code", "state_code", "postal_code", "lat", "lng", "attendance_type",
+    "services", "service_items", "keywords", "menu", "is_vegan_friendly",
+    "is_vegetarian_friendly", "is_gluten_free_friendly", "average_rating", "owner_verified",
+    "owner_verified_until", "moderation_status", "created_at", "updated_at", "events",
+  ].join(",");
+  const pageSize = 1000;
+  const rows: Business[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("businesses")
+      .select(columns)
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    const pageRows = (data || []) as Business[];
+    rows.push(...pageRows);
+    if (pageRows.length < pageSize) break;
+  }
+
+  if (rows.length === 0) return [];
+
+  const businessIds = rows.map((business) => business.id);
+  const eventBatchSize = 75;
+  const eventBatches: string[][] = [];
+  for (let index = 0; index < businessIds.length; index += eventBatchSize) {
+    eventBatches.push(businessIds.slice(index, index + eventBatchSize));
+  }
+
+  const eventBatchResults = await Promise.all(
+    eventBatches.map((ids) =>
+      supabase
+        .from("events")
+        .select("*")
+        .in("business_id", ids)
+        .eq("status", "published")
+    )
+  );
+  const linkedEvents = eventBatchResults.flatMap((result) => (result.data || []) as CommunityEvent[]);
+
+  const linkedEventsByBusinessId = linkedEvents.reduce((acc, event) => {
+    const events = acc.get(event.business_id) || [];
+    events.push(event);
+    acc.set(event.business_id, events);
+    return acc;
+  }, new Map<string, CommunityEvent[]>());
+
+  return rows.map((business) =>
+    toFrontend({
+      ...business,
+      events: mergeBusinessEvents(business.events, linkedEventsByBusinessId.get(business.id) || []),
+    } as Business)
+  );
+}
+
 export async function getSimilarBusinessesForBusiness(
   business: BusinessFrontend,
   limit = 3,

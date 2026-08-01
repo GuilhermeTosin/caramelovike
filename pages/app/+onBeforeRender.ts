@@ -1,6 +1,7 @@
 import type { PageContextServer } from "vike/types";
 import { redirect, render } from "vike/abort";
 import {
+  getPublicBusinessSearchIndex,
   getPublicBusinessDirectoryIndex,
   getSimilarBusinessesForBusiness,
   getAvailableLocations,
@@ -35,6 +36,7 @@ type PageContext = PageContextServer & {
   initialBusiness?: BusinessFrontend | null;
   initialSimilarBusinesses?: BusinessFrontend[];
   initialBusinesses?: BusinessFrontend[];
+  initialBusinessesAreSearchReady?: boolean;
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: AvailableLocation[];
   initialSearchSuggestions?: string[];
@@ -218,6 +220,25 @@ async function getPublicDirectoryData(includeFeatured: boolean) {
   };
 }
 
+async function getPublicSearchData(includeFeatured: boolean) {
+  const [businesses, featuredBusinesses, availableLocations, searchSuggestions] = await Promise.all([
+    getPublicBusinessSearchIndex(),
+    includeFeatured
+      ? getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[])
+      : Promise.resolve([] as BusinessFrontend[]),
+    getAvailableLocations().catch(() => [] as AvailableLocation[]),
+    getSearchSuggestions().catch(() => [] as string[]),
+  ]);
+
+  return {
+    initialBusinesses: businesses,
+    initialBusinessesAreSearchReady: true,
+    initialFeaturedBusinesses: featuredBusinesses,
+    initialAvailableLocations: availableLocations,
+    initialSearchSuggestions: searchSuggestions,
+  };
+}
+
 export async function onBeforeRender(pageContext: PageContext) {
   const isPrerendering = !!pageContext.isPrerendering;
   const pathname = (() => {
@@ -264,7 +285,7 @@ export async function onBeforeRender(pageContext: PageContext) {
   if (pathname === "/") {
     return {
       pageContext: {
-        ...(await getPublicDirectoryData(true)),
+        ...(await getPublicSearchData(true)),
         initialBusiness: null,
         isBusinessPage: false,
       },
@@ -286,7 +307,7 @@ export async function onBeforeRender(pageContext: PageContext) {
 
     return {
       pageContext: {
-        ...(await getPublicDirectoryData(false)),
+        ...(await getPublicSearchData(false)),
         initialBusiness: null,
         isBusinessPage: false,
       },

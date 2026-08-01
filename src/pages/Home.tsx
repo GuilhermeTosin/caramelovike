@@ -110,6 +110,7 @@ function formatHomeStatCount(count: number): string {
 
 type HomeProps = {
   initialBusinesses?: BusinessFrontend[];
+  initialBusinessesAreSearchReady?: boolean;
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
   initialSearchSuggestions?: string[];
@@ -117,6 +118,7 @@ type HomeProps = {
 
 export default function Home({
   initialBusinesses = [],
+  initialBusinessesAreSearchReady = false,
   initialFeaturedBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
@@ -129,6 +131,7 @@ export default function Home({
   const [locationQuery, setLocationQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("businesses");
   const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinesses);
+  const [hasCompleteSearchData, setHasCompleteSearchData] = useState(initialBusinessesAreSearchReady);
   const [featuredBusinesses, setFeaturedBusinesses] = useState<BusinessFrontend[]>(initialFeaturedBusinesses);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>(initialSearchSuggestions);
   const [citySuggestions, setCitySuggestions] = useState<string[]>(() => extractCities(initialAvailableLocations));
@@ -211,6 +214,7 @@ export default function Home({
 
       if (businessesRes.status === "fulfilled") {
         setAllBusinesses(businessesRes.value);
+        setHasCompleteSearchData(true);
       }
 
       if (locationsRes.status === "fulfilled") {
@@ -272,8 +276,8 @@ export default function Home({
       setFeaturedBusinesses(regionalFeatured);
     };
 
-    // SSR already supplies the directory data. Delay only geolocation and personalization
-    // so the first paint is not competing with three client-side Supabase requests.
+    // The server snapshot is already complete for filtering and cards. Delay only
+    // geolocation and regional personalization so the first paint stays responsive.
     const initialLoadTimer = hasServerBusinesses
       ? window.setTimeout(() => void loadData(false), 1500)
       : null;
@@ -408,7 +412,9 @@ export default function Home({
       return;
     }
 
-    navigate(`/buscar?${params.toString()}`);
+    navigate(`/buscar?${params.toString()}`, {
+      state: hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined,
+    });
     setIsSubmittingSearch(false);
   };
 
@@ -419,7 +425,9 @@ export default function Home({
     if (modeParam) params.set(modeParam, "1");
     params.set("q", tag.trim());
     await appendLocationContext(params, locationQuery);
-    navigate(`/buscar?${params.toString()}`);
+    navigate(`/buscar?${params.toString()}`, {
+      state: hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined,
+    });
     setIsSubmittingSearch(false);
   };
 
@@ -428,7 +436,9 @@ export default function Home({
     const params = new URLSearchParams();
     params.set("categoria", category);
     await appendLocationContext(params, locationQuery);
-    navigate(`/buscar?${params.toString()}`);
+    navigate(`/buscar?${params.toString()}`, {
+      state: hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined,
+    });
     setIsSubmittingSearch(false);
   };
 

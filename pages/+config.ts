@@ -10,6 +10,7 @@ export default {
     "initialBusiness",
     "initialSimilarBusinesses",
     "initialBusinesses",
+    "initialBusinessesAreSearchReady",
     "initialFeaturedBusinesses",
     "initialAvailableLocations",
     "initialSearchSuggestions",

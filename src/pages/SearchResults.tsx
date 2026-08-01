@@ -33,7 +33,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl, preloadResponsiveImage } from "@/lib/images";
-import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
+import { preloadBusinessPageAssets, preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
 import {
   BUSINESS_CATEGORY_OPTIONS,
   buildBusinessUrl,
@@ -48,7 +48,8 @@ import {
 } from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { DEFAULT_CATEGORY_SYNONYMS, getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
-import type { CommunityEvent } from "@/types/database";
+import type { BusinessFrontend, CommunityEvent } from "@/types/database";
+import { resolveInitialSearchBusinesses } from "@/lib/search/searchBusinessSnapshot";
 import type { CommunityFindWithVote } from "@/types/database";
 import type { CommunityFindMessage } from "@/types/database";
 import {
@@ -235,6 +236,7 @@ const parseCoordParam = (raw: string): number | null => {
 
 type SearchResultsProps = {
   initialBusinesses?: BusinessFrontend[];
+  initialBusinessesAreSearchReady?: boolean;
   initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
   initialSearchSuggestions?: string[];
 };
@@ -257,6 +259,7 @@ function extractCities(
 
 export default function SearchResults({
   initialBusinesses = [],
+  initialBusinessesAreSearchReady = false,
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
 }: SearchResultsProps = {}) {
@@ -292,7 +295,11 @@ export default function SearchResults({
 
   const navigationState = location.state as SearchResultsLocationState | null;
   const preloadedBusinesses = navigationState?.preloadedBusinesses;
-  const initialBusinessPool = preloadedBusinesses?.length ? preloadedBusinesses : initialBusinesses;
+  const initialBusinessPool = resolveInitialSearchBusinesses({
+    preloadedBusinesses,
+    initialBusinesses,
+    initialBusinessesAreSearchReady,
+  });
   const hasSeededBusinessPool = initialBusinessPool.length > 0;
   const [searchInput, setSearchInput] = useState(query);
   const [locationInput, setLocationInput] = useState(locationFilter);
@@ -351,6 +358,12 @@ export default function SearchResults({
     vote: voteCommunityFind,
     reload: reloadCommunityFinds,
   } = useCommunityFinds();
+
+  useEffect(() => {
+    // Load the public profile code after results become interactive so a card click
+    // does not show a route-level loading screen while its chunk is downloaded.
+    void preloadBusinessPageChunk();
+  }, []);
 
   const showLocationNotice = useCallback((title: string, message: string) => {
     setLocationNoticeTitle(title);
@@ -699,7 +712,9 @@ export default function SearchResults({
               query: query || undefined,
               city: rpcCityFilter,
             })
-          : getAllBusinesses();
+          : hasSeededBusinessPool
+            ? Promise.resolve(initialBusinessPool)
+            : getAllBusinesses();
 
         const [businessesRes] = await Promise.allSettled([businessesPromise]);
         if (!active) return;
