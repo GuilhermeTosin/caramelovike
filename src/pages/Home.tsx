@@ -29,7 +29,8 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
-import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
+import { getCityDisplayName } from "@/lib/locationDisplay";
+import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnapshot";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
 
@@ -114,6 +115,7 @@ type HomeProps = {
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
   initialSearchSuggestions?: string[];
+  initialHomeSnapshot?: HomePublicSnapshot;
 };
 
 export default function Home({
@@ -122,6 +124,7 @@ export default function Home({
   initialFeaturedBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
+  initialHomeSnapshot,
 }: HomeProps = {}) {
   const siteText = getSiteContent();
   const homeText = getHomeContent();
@@ -276,8 +279,8 @@ export default function Home({
       setFeaturedBusinesses(regionalFeatured);
     };
 
-    // The server snapshot is already complete for filtering and cards. Delay only
-    // geolocation and regional personalization so the first paint stays responsive.
+    // The server sends only home aggregates. Load the full search index on the client
+    // so geolocation and instant search navigation remain available without bloating SSR.
     const initialLoadTimer = hasServerBusinesses
       ? window.setTimeout(() => void loadData(false), 1500)
       : null;
@@ -450,84 +453,34 @@ export default function Home({
     }, 0);
     return () => window.clearTimeout(timer);
   }, [mascotPhrases]);
+  const liveHomeSnapshot = useMemo(() => buildHomePublicSnapshot(allBusinesses), [allBusinesses]);
+  const homeSnapshot = allBusinesses.length > 0
+    ? liveHomeSnapshot
+    : initialHomeSnapshot || liveHomeSnapshot;
+
   const categories = useMemo(() => {
     return homeText.categories.map((cat) => ({
       ...cat,
       icon: HOME_CATEGORY_ICONS[cat.id] || MoreHorizontal,
-      count: allBusinesses.filter((biz) => biz.categoryId === cat.id).length,
+      count: homeSnapshot.categoryCounts[cat.id] || 0,
     }));
-  }, [allBusinesses, homeText.categories]);
+  }, [homeSnapshot.categoryCounts, homeText.categories]);
 
   const homeStats = useMemo(() => {
-    const cities = new Set<string>();
-    const countries = new Set<string>();
-    const activeCategories = new Set<string>();
-
-    allBusinesses.forEach((business) => {
-      const categoryId = business.categoryId?.trim();
-      if (categoryId) activeCategories.add(categoryId);
-
-      const address = business.address;
-      const countryCode = address?.countryCode?.trim().toLowerCase();
-      if (!countryCode) return;
-
-      countries.add(countryCode);
-
-      const stateCode = address.stateCode?.trim().toLowerCase();
-      const citySlug = getCanonicalCitySlug(address.city, countryCode);
-      if (stateCode && citySlug) cities.add(`${countryCode}-${stateCode}-${citySlug}`);
-    });
-
     return [
-      { label: homeText.stats.businesses, value: formatHomeStatCount(allBusinesses.length), icon: Store },
-      { label: homeText.stats.cities, value: formatHomeStatCount(cities.size), icon: MapPin },
-      { label: homeText.stats.countries, value: String(countries.size), icon: Briefcase },
-      { label: homeText.stats.categories, value: String(activeCategories.size), icon: LayoutGrid },
+      { label: homeText.stats.businesses, value: formatHomeStatCount(homeSnapshot.businessCount), icon: Store },
+      { label: homeText.stats.cities, value: formatHomeStatCount(homeSnapshot.cityCount), icon: MapPin },
+      { label: homeText.stats.countries, value: String(homeSnapshot.countryCount), icon: Briefcase },
+      { label: homeText.stats.categories, value: String(homeSnapshot.categoryCount), icon: LayoutGrid },
     ];
-  }, [allBusinesses, homeText.stats]);
+  }, [homeSnapshot, homeText.stats]);
 
   const activeSearchMode = homeText.searchModes[searchMode];
 
-  const popularCities = useMemo(() => {
-    const cityCounts = new Map<string, {
-      name: string;
-      displayName: string;
-      countryCode: string;
-      stateCode: string;
-      count: number;
-      href: string;
-    }>();
-
-    allBusinesses.forEach((business) => {
-      const address = business?.address;
-      if (!address || typeof address !== "object") return;
-
-      const city = typeof address.city === "string" ? address.city.trim() : "";
-      const countryCode = typeof address.countryCode === "string" ? address.countryCode.trim().toLowerCase() : "";
-      const stateCode = typeof address.stateCode === "string" ? address.stateCode.trim().toLowerCase() : "";
-      if (!city || !countryCode || !stateCode) return;
-
-      const citySlug = getCanonicalCitySlug(city, countryCode);
-      if (!citySlug) return;
-
-      const cityDisplayName = typeof address.cityDisplayName === "string" ? address.cityDisplayName : city;
-      const key = countryCode + "-" + stateCode + "-" + citySlug;
-      const current = cityCounts.get(key);
-      cityCounts.set(key, {
-        name: current?.name || city,
-        displayName: current?.displayName || getCityDisplayName(cityDisplayName, countryCode) || city,
-        countryCode,
-        stateCode,
-        count: (current?.count || 0) + 1,
-        href: "/negocios/" + countryCode + "/" + stateCode + "/" + citySlug,
-      });
-    });
-
-    return Array.from(cityCounts.values())
-      .sort((a, b) => b.count - a.count || a.displayName.localeCompare(b.displayName, "pt-BR"))
-      .slice(0, 6)
-      .map((city) => ({ ...city, flag: countryCodeToFlag(city.countryCode) }));
-  }, [allBusinesses]);
+  const popularCities = useMemo(
+    () => homeSnapshot.popularCities.map((city) => ({ ...city, flag: countryCodeToFlag(city.countryCode) })),
+    [homeSnapshot.popularCities],
+  );
 
   return (
     <div className="min-h-screen">

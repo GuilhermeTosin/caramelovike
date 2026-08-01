@@ -1,6 +1,9 @@
 import "@/index.css";
 import App from "@/App";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
+import type { HomePublicSnapshot } from "@/lib/homeSnapshot";
+import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
+import type { PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
 
 type PageContext = {
   urlOriginal?: string;
@@ -15,6 +18,9 @@ type PageContext = {
     states: { code: string; name: string; cities: string[] }[];
   }>;
   initialSearchSuggestions?: string[];
+  initialSearchSnapshot?: PublicSearchPageSnapshot;
+  initialHomeSnapshot?: HomePublicSnapshot;
+  initialDirectorySnapshot?: DirectoryPageSnapshot;
   initialEvent?: CommunityEvent | null;
   isBusinessPage?: boolean;
 };
@@ -34,6 +40,9 @@ export function Page({ pageContext }: { pageContext?: PageContext }) {
       initialFeaturedBusinesses={pageContext?.initialFeaturedBusinesses || []}
       initialAvailableLocations={pageContext?.initialAvailableLocations || []}
       initialSearchSuggestions={pageContext?.initialSearchSuggestions || []}
+      initialSearchSnapshot={pageContext?.initialSearchSnapshot}
+      initialHomeSnapshot={pageContext?.initialHomeSnapshot}
+      initialDirectorySnapshot={pageContext?.initialDirectorySnapshot}
       initialEvent={pageContext?.initialEvent || null}
       isBusinessPage={pageContext?.isBusinessPage || false}
     />

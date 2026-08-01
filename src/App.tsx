@@ -5,6 +5,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
+import type { HomePublicSnapshot } from "@/lib/homeSnapshot";
+import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
+import type { PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
 import BusinessDirectoryPage from "@/pages/BusinessDirectoryPage";
@@ -99,6 +102,9 @@ type AppProps = {
     states: { code: string; name: string; cities: string[] }[];
   }>;
   initialSearchSuggestions?: string[];
+  initialSearchSnapshot?: PublicSearchPageSnapshot;
+  initialHomeSnapshot?: HomePublicSnapshot;
+  initialDirectorySnapshot?: DirectoryPageSnapshot;
   initialEvent?: CommunityEvent | null;
   isBusinessPage?: boolean;
 };
@@ -121,6 +127,9 @@ export default function App({
   initialFeaturedBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
+  initialSearchSnapshot,
+  initialHomeSnapshot,
+  initialDirectorySnapshot,
   initialEvent = null,
   isBusinessPage = false,
 }: AppProps = {}) {
@@ -140,6 +149,8 @@ export default function App({
                 initialFeaturedBusinesses={initialFeaturedBusinesses}
                 initialAvailableLocations={initialAvailableLocations}
                 initialSearchSuggestions={initialSearchSuggestions}
+                initialSearchSnapshot={initialSearchSnapshot}
+                initialHomeSnapshot={initialHomeSnapshot}
               />
             }
           />
@@ -151,16 +162,17 @@ export default function App({
                 initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
                 initialAvailableLocations={initialAvailableLocations}
                 initialSearchSuggestions={initialSearchSuggestions}
+                initialSearchSnapshot={initialSearchSnapshot}
               />
             }
           />
-          <Route path="/negocios" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
-          <Route path="/negocios/:countryCode" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
-          <Route path="/negocios/:countryCode/:stateCode" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
-          <Route path="/negocios/:countryCode/:stateCode/:citySlug/:categorySlug/pagina/:page" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
-          <Route path="/negocios/:countryCode/:stateCode/:citySlug/:categorySlug" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
-          <Route path="/negocios/:countryCode/:stateCode/:citySlug" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
-          <Route path="/negocios/:countryCode/:stateCode/:citySlug/pagina/:page" element={<BusinessDirectoryPage businesses={initialBusinesses} />} />
+          <Route path="/negocios" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/negocios/:countryCode" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/negocios/:countryCode/:stateCode" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/negocios/:countryCode/:stateCode/:citySlug/:categorySlug/pagina/:page" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/negocios/:countryCode/:stateCode/:citySlug/:categorySlug" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/negocios/:countryCode/:stateCode/:citySlug" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/negocios/:countryCode/:stateCode/:citySlug/pagina/:page" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
           <Route path="/cadastro" element={<Register />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/redefinir-senha" element={<ResetPassword />} />

@@ -38,11 +38,11 @@ import {
   BUSINESS_CATEGORY_OPTIONS,
   buildBusinessUrl,
   getAllBusinesses,
-  getAllBusinessesByRadiusRpc,
+  getAllBusinessesByPublicSearchRpc,
   getAvailableLocations,
   getCategoryId,
   getCategoryLabel,
-  getBusinessesByRadiusRpc,
+  getBusinessesByPublicSearchRpc,
   getCountryName,
   getSearchSuggestions,
 } from "@/services/businesses";
@@ -50,15 +50,16 @@ import { getPublishedCommunityEvents } from "@/services/events";
 import { DEFAULT_CATEGORY_SYNONYMS, getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import { resolveInitialSearchBusinesses } from "@/lib/search/searchBusinessSnapshot";
+import {
+  buildPublicSearchPageRequest,
+  isPublicBusinessSearch,
+  type PublicSearchPageRequest,
+  type PublicSearchPageSnapshot,
+} from "@/lib/search/publicSearchPage";
 import type { CommunityFindWithVote } from "@/types/database";
 import type { CommunityFindMessage } from "@/types/database";
 import {
-  buildCityAliases,
-  cityMatches,
   filterBusinesses,
-  hasPreciseBusinessLocation,
-  hasReliableBusinessLocation,
-  resolveSearchQueryCategoryIds,
   normalizeText,
 } from "@/lib/search/businessSearch";
 import {
@@ -197,7 +198,6 @@ const DEFAULT_SEARCH_RADIUS_KM = "50";
 const RESULTS_PER_PAGE = 6;
 const STRICT_SEARCH_MODE = (import.meta.env.VITE_STRICT_SEARCH_MODE ?? "1") !== "0";
 const STRICT_SEARCH_MIN_SCORE = Number(import.meta.env.VITE_STRICT_SEARCH_MIN_SCORE ?? "3");
-const SEARCH_BACKEND = (import.meta.env.VITE_SEARCH_BACKEND ?? "client").toLowerCase();
 
 const CATEGORY_SEO_TEXT: Record<string, string> = {
   "Restaurantes e Alimentação": "restaurantes, padarias e cafés",
@@ -239,10 +239,16 @@ type SearchResultsProps = {
   initialBusinessesAreSearchReady?: boolean;
   initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
   initialSearchSuggestions?: string[];
+  initialSearchSnapshot?: PublicSearchPageSnapshot;
 };
 
 type SearchResultsLocationState = {
   preloadedBusinesses?: BusinessFrontend[];
+};
+
+type PublicSearchPageResult = {
+  items: BusinessFrontend[];
+  totalCount: number;
 };
 
 function extractCities(
@@ -262,6 +268,7 @@ export default function SearchResults({
   initialBusinessesAreSearchReady = false,
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
+  initialSearchSnapshot,
 }: SearchResultsProps = {}) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -293,13 +300,22 @@ export default function SearchResults({
   const hasLocationContext = !!(cityFilter.trim() || locationFilter.trim());
   const effectiveRadiusKm = radiusKm;
 
+  const publicSearchRequest = useMemo(
+    () => buildPublicSearchPageRequest(searchParams),
+    [searchParams]
+  );
+  const isBusinessSearchMode = isPublicBusinessSearch(searchParams);
   const navigationState = location.state as SearchResultsLocationState | null;
   const preloadedBusinesses = navigationState?.preloadedBusinesses;
-  const initialBusinessPool = resolveInitialSearchBusinesses({
-    preloadedBusinesses,
-    initialBusinesses,
-    initialBusinessesAreSearchReady,
-  });
+  const initialSnapshotMatchesRequest =
+    initialSearchSnapshot?.requestKey === publicSearchRequest.key;
+  const initialBusinessPool = initialSnapshotMatchesRequest
+    ? initialSearchSnapshot.businesses
+    : resolveInitialSearchBusinesses({
+        preloadedBusinesses,
+        initialBusinesses,
+        initialBusinessesAreSearchReady,
+      });
   const hasSeededBusinessPool = initialBusinessPool.length > 0;
   const [searchInput, setSearchInput] = useState(query);
   const [locationInput, setLocationInput] = useState(locationFilter);
@@ -320,12 +336,12 @@ export default function SearchResults({
   const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
     DEFAULT_CATEGORY_SYNONYMS
   );
-  const queryCategoryIds = useMemo(
-    () => resolveSearchQueryCategoryIds(query, categorySynonymsMap, SEARCH_SYNONYMS),
-    [query, categorySynonymsMap]
-  );
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
-  const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
+  const businessPageCacheRef = useRef(new Map<string, Promise<PublicSearchPageResult>>());
+  const resolvedBusinessPageCacheRef = useRef(new Map<string, PublicSearchPageResult>());
+  const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(() =>
+    initialSnapshotMatchesRequest ? initialSearchSnapshot.totalCount : null
+  );
   const [rpcFallbackMode, setRpcFallbackMode] = useState(false);
   const [mapBusinesses, setMapBusinesses] = useState<BusinessFrontend[] | null>(null);
   const [mapBusinessesLoading, setMapBusinessesLoading] = useState(false);
@@ -544,115 +560,71 @@ export default function SearchResults({
     );
   }, []);
 
-  const canUseRpcRadiusMode = useMemo(() => {
-    const initialRadius = radiusFilter ? Number(radiusFilter) : null;
-    const initialLat = parseCoordParam(originLatParam);
-    const initialLng = parseCoordParam(originLngParam);
-    const cityContext = (cityFilter || locationFilter || "").trim();
-    const normalizedCityContext = normalizeText(cityContext);
-    const hasCityContext = !!normalizedCityContext;
-    return (
-      SEARCH_BACKEND === "rpc" &&
-      !hasSeededBusinessPool &&
-      !isEventMode &&
-      !hasCityContext &&
-      initialLat !== null &&
-      initialLng !== null &&
-      !!initialRadius &&
-      initialRadius > 0 &&
-      queryCategoryIds.length === 0
-    );
-  }, [
-    radiusFilter,
-    originLatParam,
-    originLngParam,
-    cityFilter,
-    locationFilter,
-    originLocalParam,
-    originSourceParam,
-    isEventMode,
-    queryCategoryIds,
-    hasSeededBusinessPool,
-  ]);
+  const resultsRequestKey = publicSearchRequest.key;
+  const getCachedBusinessPage = useCallback((request: PublicSearchPageRequest) => {
+    const cached = businessPageCacheRef.current.get(request.key);
+    if (cached) return cached;
 
-  const requestPage = canUseRpcRadiusMode ? currentPage : 1;
-  const resultsRequestKey = useMemo(
-    () =>
-      JSON.stringify({
-        radiusFilter,
-        originLatParam,
-        originLngParam,
-        originLocalParam,
-        originSourceParam,
-        originCountryParam,
-        categoryFilter,
-        categoryFilterId,
-        countryFilter,
-        stateFilter,
-        query,
-        cityFilter,
-        locationFilter,
-        isEventMode,
-        isCommunityFindsMode,
-        canUseRpcRadiusMode,
-        requestPage,
-      }),
-    [
-      radiusFilter,
-      originLatParam,
-      originLngParam,
-      originLocalParam,
-      originSourceParam,
-      originCountryParam,
-      categoryFilter,
-      categoryFilterId,
-      countryFilter,
-      stateFilter,
-      query,
-      cityFilter,
-      locationFilter,
-      isEventMode,
-      isCommunityFindsMode,
-      canUseRpcRadiusMode,
-      requestPage,
-    ]
-  );
+    const requestPromise = getBusinessesByPublicSearchRpc(request)
+      .then((result) => {
+        resolvedBusinessPageCacheRef.current.set(request.key, result);
+        return result;
+      })
+      .catch((error) => {
+        businessPageCacheRef.current.delete(request.key);
+        resolvedBusinessPageCacheRef.current.delete(request.key);
+        throw error;
+      });
+    businessPageCacheRef.current.set(request.key, requestPromise);
+    return requestPromise;
+  }, []);
   const [loadedResultsRequestKey, setLoadedResultsRequestKey] = useState<string | null>(() =>
-    hasSeededBusinessPool ? resultsRequestKey : null
+    initialSnapshotMatchesRequest || hasSeededBusinessPool ? resultsRequestKey : null
   );
-  const isResultsLoading = loadedResultsRequestKey !== resultsRequestKey;
+  const cachedBusinessPage = resolvedBusinessPageCacheRef.current.get(resultsRequestKey);
+  const isResultsLoading = loadedResultsRequestKey !== resultsRequestKey && !cachedBusinessPage;
+  const usesPagedBusinessSearch =
+    isBusinessSearchMode && !rpcFallbackMode && rpcTotalCount !== null;
 
-  const fullRadiusMapQuery = useMemo(() => {
-    if (!canUseRpcRadiusMode || rpcFallbackMode) return null;
+  const nextBusinessPageRequest = useMemo(() => {
+    if (!usesPagedBusinessSearch || isResultsLoading) return null;
 
-    const originLat = parseCoordParam(originLatParam);
-    const originLng = parseCoordParam(originLngParam);
-    const radiusKm = radiusFilter ? Number(radiusFilter) : null;
-    if (originLat === null || originLng === null || !radiusKm || radiusKm <= 0) return null;
+    const totalPages = Math.ceil(rpcTotalCount / publicSearchRequest.limit);
+    if (publicSearchRequest.page >= totalPages) return null;
 
-    return {
-      originLat,
-      originLng,
-      radiusKm,
-      categoryId: categoryFilterId || undefined,
-      countryCode: countryFilter || undefined,
-      stateCode: stateFilter || undefined,
-      query: query || undefined,
-    };
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("pagina", String(publicSearchRequest.page + 1));
+    return buildPublicSearchPageRequest(nextParams);
   }, [
-    canUseRpcRadiusMode,
-    rpcFallbackMode,
-    originLatParam,
-    originLngParam,
-    radiusFilter,
-    categoryFilterId,
-    countryFilter,
-    stateFilter,
-    query,
+    isResultsLoading,
+    publicSearchRequest.limit,
+    publicSearchRequest.page,
+    rpcTotalCount,
+    searchParams,
+    usesPagedBusinessSearch,
   ]);
+
+  const fullMapSearchRequestKey = JSON.stringify({
+    query: publicSearchRequest.query,
+    categoryId: publicSearchRequest.categoryId,
+    queryCategoryIds: publicSearchRequest.queryCategoryIds,
+    city: publicSearchRequest.city,
+    cityAliases: publicSearchRequest.cityAliases,
+    location: publicSearchRequest.location,
+    countryCode: publicSearchRequest.countryCode,
+    stateCode: publicSearchRequest.stateCode,
+    radiusKm: publicSearchRequest.radiusKm,
+    originLat: publicSearchRequest.originLat,
+    originLng: publicSearchRequest.originLng,
+  });
+  const fullMapSearchRequest = useMemo(() => {
+    if (!usesPagedBusinessSearch) return null;
+    const { key, page, limit, ...query } = publicSearchRequest;
+    return query;
+  }, [usesPagedBusinessSearch, fullMapSearchRequestKey]);
 
   useEffect(() => {
-    if (!showMap || !fullRadiusMapQuery) return;
+    if (!showMap || !fullMapSearchRequest) return;
 
     let active = true;
     void (async () => {
@@ -660,10 +632,10 @@ export default function SearchResults({
       setMapBusinesses(null);
       setMapBusinessesError(null);
       try {
-        const businesses = await getAllBusinessesByRadiusRpc(fullRadiusMapQuery);
+        const businesses = await getAllBusinessesByPublicSearchRpc(fullMapSearchRequest);
         if (active) setMapBusinesses(businesses);
       } catch {
-        if (active) setMapBusinessesError("N\u00e3o foi poss\u00edvel carregar todos os neg\u00f3cios no mapa.");
+        if (active) setMapBusinessesError("Não foi possível carregar todos os negócios no mapa.");
       } finally {
         if (active) setMapBusinessesLoading(false);
       }
@@ -672,7 +644,7 @@ export default function SearchResults({
     return () => {
       active = false;
     };
-  }, [showMap, fullRadiusMapQuery]);
+  }, [showMap, fullMapSearchRequest]);
 
   useEffect(() => {
     let active = true;
@@ -683,69 +655,42 @@ export default function SearchResults({
         getSearchSuggestions(),
         getPublishedCommunityEvents(),
       ]);
+
       try {
-        const initialRadius = radiusFilter ? Number(radiusFilter) : null;
-        const initialLat = parseCoordParam(originLatParam);
-        const initialLng = parseCoordParam(originLngParam);
-        const canUseRpcRadius = canUseRpcRadiusMode;
-        if (canUseRpcRadius) {
+        if (isBusinessSearchMode) {
+          const page = initialSnapshotMatchesRequest
+            ? {
+                items: initialSearchSnapshot.businesses,
+                totalCount: initialSearchSnapshot.totalCount,
+              }
+            : await getCachedBusinessPage(publicSearchRequest);
+          if (!active) return;
+          setAllBusinesses(page.items);
+          setRpcTotalCount(page.totalCount);
           setRpcFallbackMode(false);
-        }
-        const rpcCityFilter =
-          canUseRpcRadius
-            ? undefined // com raio, cidade é origem; não deve restringir só à cidade
-            : ((cityFilter || locationFilter) || undefined);
-
-        const pageForRpc = requestPage;
-        const offset = (pageForRpc - 1) * RESULTS_PER_PAGE;
-
-        const businessesPromise = canUseRpcRadius
-          ? getBusinessesByRadiusRpc({
-              originLat: initialLat as number,
-              originLng: initialLng as number,
-              radiusKm: initialRadius as number,
-              limit: RESULTS_PER_PAGE,
-              offset,
-              categoryId: categoryFilterId || undefined,
-              countryCode: countryFilter || undefined,
-              stateCode: stateFilter || undefined,
-              query: query || undefined,
-              city: rpcCityFilter,
-            })
-          : hasSeededBusinessPool
-            ? Promise.resolve(initialBusinessPool)
-            : getAllBusinesses();
-
-        const [businessesRes] = await Promise.allSettled([businessesPromise]);
-        if (!active) return;
-
-        if (businessesRes.status === "fulfilled") {
-          if (canUseRpcRadius) {
-            setAllBusinesses(businessesRes.value.items);
-            setRpcTotalCount(businessesRes.value.totalCount);
-            setRpcFallbackMode(false);
-          } else {
-            setAllBusinesses(businessesRes.value);
-            setRpcTotalCount(null);
-            setRpcFallbackMode(false);
-          }
-        } else if (canUseRpcRadius) {
-          try {
-            const fallbackBusinesses = await getAllBusinesses();
-            if (!active) return;
-            setAllBusinesses(fallbackBusinesses);
-            setRpcTotalCount(null);
-            setRpcFallbackMode(true);
-          } catch {
-            if (!active) return;
-            setAllBusinesses([]);
-            setRpcTotalCount(null);
-            setRpcFallbackMode(true);
-          }
         } else {
-          setAllBusinesses([]);
+          const businesses = hasSeededBusinessPool
+            ? initialBusinessPool
+            : await getAllBusinesses();
+          if (!active) return;
+          setAllBusinesses(businesses);
           setRpcTotalCount(null);
           setRpcFallbackMode(false);
+        }
+      } catch {
+        // Keep the existing client-side filter as a temporary compatibility
+        // fallback if the Supabase migration has not been applied yet.
+        try {
+          const businesses = await getAllBusinesses();
+          if (!active) return;
+          setAllBusinesses(businesses);
+          setRpcTotalCount(null);
+          setRpcFallbackMode(true);
+        } catch {
+          if (!active) return;
+          setAllBusinesses([]);
+          setRpcTotalCount(null);
+          setRpcFallbackMode(true);
         }
       } finally {
         if (active) setLoadedResultsRequestKey(resultsRequestKey);
@@ -778,7 +723,43 @@ export default function SearchResults({
     return () => {
       active = false;
     };
-  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, originCountryParam, categoryFilter, categoryFilterId, countryFilter, stateFilter, query, cityFilter, locationFilter, requestPage, canUseRpcRadiusMode, resultsRequestKey]);
+  }, [
+    resultsRequestKey,
+    publicSearchRequest,
+    isBusinessSearchMode,
+    initialSnapshotMatchesRequest,
+    initialSearchSnapshot,
+    hasSeededBusinessPool,
+    initialBusinessPool,
+    getCachedBusinessPage,
+  ]);
+
+  useEffect(() => {
+    if (!nextBusinessPageRequest) return;
+
+    let cancelled = false;
+    const prefetch = () => {
+      if (cancelled) return;
+      void getCachedBusinessPage(nextBusinessPageRequest).catch(() => {
+        // Prefetching is opportunistic. The normal page load keeps its own
+        // fallback path if this background request fails.
+      });
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      const idleCallbackId = window.requestIdleCallback(prefetch, { timeout: 1200 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idleCallbackId);
+      };
+    }
+
+    const timeoutId = window.setTimeout(prefetch, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [getCachedBusinessPage, nextBusinessPageRequest]);
 
   // Localização aproximada em segundo plano (sem pedir permissão de GPS na abertura).
   useEffect(() => {
@@ -1069,11 +1050,11 @@ export default function SearchResults({
   }, [query, categoryFilter, cityFilter]);
 
   const results = useMemo(() => {
-    // The radius RPC already applies every business filter before pagination.
+    // The server search RPC applies every business filter before pagination.
     // Filtering this six-item page again makes the displayed count diverge from
     // the RPC total and produces sparse or empty later pages.
-    if (canUseRpcRadiusMode && !rpcFallbackMode && rpcTotalCount !== null) {
-      return allBusinesses;
+    if (usesPagedBusinessSearch) {
+      return cachedBusinessPage?.items || allBusinesses;
     }
 
     return filterBusinesses({
@@ -1113,15 +1094,16 @@ export default function SearchResults({
     effectiveRadiusKm,
     hasLocationContext,
     allBusinesses,
+    cachedBusinessPage,
     distanceOrigin,
     eventsFilter,
     categorySynonymsMap,
-    canUseRpcRadiusMode,
+    usesPagedBusinessSearch,
     rpcFallbackMode,
     rpcTotalCount,
   ]);
 
-  const businessesForMap = fullRadiusMapQuery ? mapBusinesses || [] : results;
+  const businessesForMap = fullMapSearchRequest ? mapBusinesses || [] : results;
 
   const mapCenter =
     distanceOrigin ||
@@ -1198,7 +1180,7 @@ export default function SearchResults({
     ? filteredCommunityFinds.length
     : isEventMode
     ? eventResults.length
-    : canUseRpcRadiusMode && !rpcFallbackMode && rpcTotalCount !== null
+    : usesPagedBusinessSearch
     ? rpcTotalCount
     : results.length;
   const totalPages = Math.max(1, Math.ceil(totalResults / RESULTS_PER_PAGE));
@@ -1207,13 +1189,8 @@ export default function SearchResults({
   const pageEnd = pageStart + RESULTS_PER_PAGE;
 
   const paginatedBusinesses = useMemo(
-    () => {
-      if (canUseRpcRadiusMode && !rpcFallbackMode) {
-        return rpcTotalCount === null ? results.slice(pageStart, pageEnd) : results;
-      }
-      return results.slice(pageStart, pageEnd);
-    },
-    [results, pageStart, pageEnd, canUseRpcRadiusMode, rpcFallbackMode, rpcTotalCount]
+    () => (usesPagedBusinessSearch ? results : results.slice(pageStart, pageEnd)),
+    [results, pageStart, pageEnd, usesPagedBusinessSearch]
   );
 
   const paginatedEvents = useMemo(
@@ -1259,13 +1236,13 @@ export default function SearchResults({
 
   useEffect(() => {
     if (isResultsLoading) return;
-    if (canUseRpcRadiusMode && rpcTotalCount === null) return;
+    if (isBusinessSearchMode && !rpcFallbackMode && rpcTotalCount === null) return;
     if (safeCurrentPage === effectivePage) return;
     const params = new URLSearchParams(searchParams);
     if (safeCurrentPage <= 1) params.delete("pagina");
     else params.set("pagina", String(safeCurrentPage));
     setSearchParams(params, { replace: true });
-  }, [safeCurrentPage, effectivePage, searchParams, setSearchParams, isResultsLoading, canUseRpcRadiusMode, rpcTotalCount]);
+  }, [safeCurrentPage, effectivePage, searchParams, setSearchParams, isResultsLoading, isBusinessSearchMode, rpcFallbackMode, rpcTotalCount]);
 
   useEffect(() => {
     if (safeCurrentPage <= 1) return;
@@ -1996,11 +1973,11 @@ export default function SearchResults({
             <>
             {showMap && (
               <div className="mb-8 rounded-xl overflow-hidden border border-border h-[400px]">
-                {fullRadiusMapQuery && mapBusinessesLoading ? (
+                {fullMapSearchRequest && mapBusinessesLoading ? (
                   <div className="flex h-full items-center justify-center bg-secondary/30 p-6 text-center">
                     <p className="text-sm text-muted-foreground">{"Carregando todos os neg\u00f3cios encontrados no mapa..."}</p>
                   </div>
-                ) : fullRadiusMapQuery && mapBusinessesError ? (
+                ) : fullMapSearchRequest && mapBusinessesError ? (
                   <div className="flex h-full items-center justify-center bg-destructive/5 p-6 text-center">
                     <p className="text-sm text-destructive">{mapBusinessesError}</p>
                   </div>

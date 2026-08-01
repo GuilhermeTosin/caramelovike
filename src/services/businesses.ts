@@ -4,6 +4,7 @@ import type { CommunityEvent } from "@/types/database";
 import { getFollowLinksBusinessIds } from "@/services/searchPreferences";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
+import type { PublicSearchPageRequest } from "@/lib/search/publicSearchPage";
 
 export const BUSINESS_CATEGORY_OPTIONS = [
   { id: "food", label: "Restaurantes e Alimentação" },
@@ -648,6 +649,112 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
   );
 }
 
+async function hydratePublicSearchBusinessIds(ids: string[]): Promise<BusinessFrontend[]> {
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
+    .in("id", ids);
+
+  if (error) throw error;
+
+  const byId = new Map(
+    (await attachLocationDisplayNames((data || []) as Business[])).map((business) => [
+      business.id,
+      toFrontend(business),
+    ])
+  );
+
+  return ids.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[];
+}
+
+export async function getBusinessesByPublicSearchRpc(
+  params: PublicSearchPageRequest,
+): Promise<{ items: BusinessFrontend[]; totalCount: number }> {
+  const { data, error } = await supabase.rpc("search_public_businesses", {
+    p_limit: Math.max(1, Math.min(params.limit, 100)),
+    p_offset: Math.max(0, (params.page - 1) * params.limit),
+    p_query: params.query || null,
+    p_category_id: params.categoryId,
+    p_query_category_ids: params.queryCategoryIds.length > 0 ? params.queryCategoryIds : null,
+    p_city: params.city,
+    p_city_aliases: params.cityAliases.length > 0 ? params.cityAliases : null,
+    p_location: params.location,
+    p_country_code: params.countryCode,
+    p_state_code: params.stateCode,
+    p_origin_lat: params.originLat,
+    p_origin_lng: params.originLng,
+    p_radius_km: params.radiusKm,
+  });
+
+  if (error) {
+    throw new Error(`[search_public_businesses] ${error.message}`);
+  }
+
+  const ids = Array.from(
+    new Set(
+      (data || [])
+        .map((row: { business_id?: string }) => row.business_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0)
+    )
+  );
+  let totalCount = Number((data && data[0]?.total_count) || 0);
+
+  // Window counts are not returned when an invalid page offset has no rows.
+  // Read one row from the first page so the UI can normalize that URL instead
+  // of incorrectly treating a later page as an empty search.
+  if (ids.length === 0 && params.page > 1) {
+    const { data: firstPage, error: firstPageError } = await supabase.rpc("search_public_businesses", {
+      p_limit: 1,
+      p_offset: 0,
+      p_query: params.query || null,
+      p_category_id: params.categoryId,
+      p_query_category_ids: params.queryCategoryIds.length > 0 ? params.queryCategoryIds : null,
+      p_city: params.city,
+      p_city_aliases: params.cityAliases.length > 0 ? params.cityAliases : null,
+      p_location: params.location,
+      p_country_code: params.countryCode,
+      p_state_code: params.stateCode,
+      p_origin_lat: params.originLat,
+      p_origin_lng: params.originLng,
+      p_radius_km: params.radiusKm,
+    });
+    if (firstPageError) throw new Error(`[search_public_businesses] ${firstPageError.message}`);
+    totalCount = Number((firstPage && firstPage[0]?.total_count) || 0);
+  }
+
+  return {
+    items: await hydratePublicSearchBusinessIds(ids),
+    totalCount,
+  };
+}
+
+export async function getAllBusinessesByPublicSearchRpc(
+  params: Omit<PublicSearchPageRequest, "page" | "limit" | "key">,
+): Promise<BusinessFrontend[]> {
+  const pageSize = 100;
+  const businesses: BusinessFrontend[] = [];
+  let page = 1;
+  let totalCount: number;
+  let fetched = 0;
+
+  do {
+    const result = await getBusinessesByPublicSearchRpc({
+      ...params,
+      page,
+      limit: pageSize,
+      key: "map",
+    });
+    businesses.push(...result.items);
+    totalCount = result.totalCount;
+    fetched += pageSize;
+    page += 1;
+  } while (fetched < totalCount);
+
+  return businesses;
+}
 export async function getBusinessesByRadiusRpc(params: {
   originLat: number;
   originLng: number;

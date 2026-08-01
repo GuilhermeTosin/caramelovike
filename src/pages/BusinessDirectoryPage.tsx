@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import {
   buildBusinessUrl,
@@ -7,53 +7,25 @@ import {
   getCountryName,
   getStateDisplayName,
   resolveCanonicalLocationSlug,
-  slugify,
 } from "@/services/businesses";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import type { BusinessFrontend } from "@/types/database";
 import { setSeoMeta, upsertMetaTag } from "@/lib/seo";
-import { getDirectoryPageMeta } from "@/lib/seo/directoryMeta";
 import { getCityDisplayName } from "@/lib/locationDisplay";
-import { getDirectoryInsights, type DirectoryInsights } from "@/lib/directoryInsights";
+import { type DirectoryInsights } from "@/lib/directoryInsights";
 import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
+import { DIRECTORY_CATEGORY_MINIMUM_BUSINESSES } from "@/lib/directoryCategories";
 import {
-  DIRECTORY_CATEGORY_MINIMUM_BUSINESSES,
-  DIRECTORY_PAGE_SIZE,
-  getDirectoryBusinessCitySlug,
-  getDirectoryCategoryBusinesses,
-  getDirectoryCategoryBySlug,
-} from "@/lib/directoryCategories";
+  buildDirectoryPagePath,
+  buildDirectoryPageSnapshot,
+  type DirectoryLevel,
+  type DirectoryPageSnapshot,
+} from "@/lib/directorySnapshot";
 import Pagination from "@/components/Pagination";
 
 type BusinessDirectoryPageProps = {
-  businesses?: BusinessFrontend[];
+  initialDirectorySnapshot?: DirectoryPageSnapshot;
 };
-
-type DirectoryLevel = "countries" | "states" | "cities" | "businesses" | "categoryBusinesses";
-
-function normalizeCode(value?: string) {
-  return (value || "").trim().toLowerCase();
-}
-
-function isCodeLikeStateLabel(value: string, stateCode: string) {
-  const label = (value || "").trim();
-  const code = (stateCode || "").trim();
-  return !!label && !!code && label.toLowerCase() === code.toLowerCase();
-}
-
-function preferStateLabel(current: string, candidate: string, stateCode: string) {
-  const currentLabel = (current || "").trim();
-  const candidateLabel = (candidate || "").trim();
-  if (!candidateLabel) return currentLabel;
-  if (!currentLabel) return candidateLabel;
-
-  const currentCodeLike = isCodeLikeStateLabel(currentLabel, stateCode);
-  const candidateCodeLike = isCodeLikeStateLabel(candidateLabel, stateCode);
-  if (currentCodeLike && !candidateCodeLike) return candidateLabel;
-  if (!currentCodeLike && candidateCodeLike) return currentLabel;
-  if (candidateLabel.length > currentLabel.length && !candidateCodeLike) return candidateLabel;
-  return currentLabel;
-}
 
 function getLocationLabel(business: BusinessFrontend) {
   const parts = [
@@ -61,99 +33,7 @@ function getLocationLabel(business: BusinessFrontend) {
     getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode, business.address.state),
     getCountryName(business.address.countryCode || business.address.country),
   ].filter(Boolean);
-  return parts.join(", ") || "Localiza\u00e7\u00e3o n\u00e3o informada";
-}
-
-function sortBusinesses(a: BusinessFrontend, b: BusinessFrontend) {
-  const countryCompare = (a.address.country || a.address.countryCode || "").localeCompare(
-    b.address.country || b.address.countryCode || "",
-    "pt-BR",
-  );
-  if (countryCompare !== 0) return countryCompare;
-
-  const stateCompare = (a.address.state || a.address.stateCode || "").localeCompare(
-    b.address.state || b.address.stateCode || "",
-    "pt-BR",
-  );
-  if (stateCompare !== 0) return stateCompare;
-
-  const cityCompare = (a.address.city || "").localeCompare(b.address.city || "", "pt-BR");
-  if (cityCompare !== 0) return cityCompare;
-
-  return a.name.localeCompare(b.name, "pt-BR");
-}
-
-function countBy<T extends string>(values: T[]) {
-  return values.reduce((acc, value) => {
-    acc.set(value, (acc.get(value) || 0) + 1);
-    return acc;
-  }, new Map<T, number>());
-}
-
-function getDirectoryContext(businesses: BusinessFrontend[], params: Record<string, string | undefined>) {
-  const countryCode = normalizeCode(params.countryCode);
-  const stateCode = normalizeCode(params.stateCode);
-  const citySlug = slugify(params.citySlug || "");
-  const categorySlug = slugify(params.categorySlug || "");
-  const category = getDirectoryCategoryBySlug(categorySlug);
-  const page = Math.max(1, Number(params.page || "1"));
-
-  const countryBusinesses = countryCode
-    ? businesses.filter((business) => normalizeCode(business.address.countryCode) === countryCode)
-    : businesses;
-  const stateBusinesses = stateCode
-    ? countryBusinesses.filter((business) => normalizeCode(business.address.stateCode) === stateCode)
-    : countryBusinesses;
-  const cityBusinesses = citySlug
-    ? stateBusinesses.filter((business) => getDirectoryBusinessCitySlug(business) === citySlug)
-    : stateBusinesses;
-
-  const level: DirectoryLevel = categorySlug
-    ? "categoryBusinesses"
-    : !countryCode
-      ? "countries"
-      : !stateCode
-        ? "states"
-        : !citySlug
-          ? "cities"
-          : "businesses";
-
-  const currentList =
-    level === "categoryBusinesses" && category
-      ? getDirectoryCategoryBusinesses(businesses, countryCode, stateCode, citySlug, category)
-      : level === "businesses"
-        ? cityBusinesses
-        : [];
-
-  return {
-    countryCode,
-    stateCode,
-    citySlug,
-    categorySlug,
-    category,
-    page,
-    level,
-    countryBusinesses,
-    stateBusinesses,
-    cityBusinesses,
-    currentList,
-  };
-}
-
-function buildCityPagePath(countryCode: string, stateCode: string, citySlug: string, page: number) {
-  const base = "/negocios/" + countryCode + "/" + stateCode + "/" + citySlug;
-  return page <= 1 ? base : base + "/pagina/" + page;
-}
-
-function buildCategoryPagePath(
-  countryCode: string,
-  stateCode: string,
-  citySlug: string,
-  categorySlug: string,
-  page: number,
-) {
-  const base = buildCityPagePath(countryCode, stateCode, citySlug, 1) + "/" + categorySlug;
-  return page <= 1 ? base : base + "/pagina/" + page;
+  return parts.join(", ") || "Localização não informada";
 }
 
 function Header() {
@@ -179,7 +59,7 @@ function Header() {
             </div>
           </Link>
           <Link to="/buscar" className="text-sm font-semibold text-primary hover:text-primary/80">
-            {"Buscar neg\u00f3cios"}
+            Buscar negócios
           </Link>
         </div>
       </div>
@@ -187,136 +67,67 @@ function Header() {
   );
 }
 
-export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirectoryPageProps) {
-  const params = useParams();
+export default function BusinessDirectoryPage({ initialDirectorySnapshot }: BusinessDirectoryPageProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [directoryBusinesses, setDirectoryBusinesses] = useState<BusinessFrontend[]>(businesses);
-  const [loadingBusinesses, setLoadingBusinesses] = useState(businesses.length === 0);
+  const [directoryBusinesses, setDirectoryBusinesses] = useState<BusinessFrontend[]>([]);
+  const [loadedDirectory, setLoadedDirectory] = useState(false);
 
   useEffect(() => {
     let active = true;
-
-    setDirectoryBusinesses(businesses);
-    setLoadingBusinesses(businesses.length === 0);
-
     void getAllBusinesses()
       .then((rows) => {
-        if (!active) return;
-        setDirectoryBusinesses(rows);
+        if (active) setDirectoryBusinesses(rows);
       })
       .catch(() => {
-        if (!active && businesses.length > 0) return;
-        if (businesses.length === 0) setDirectoryBusinesses([]);
+        if (active) setDirectoryBusinesses([]);
       })
       .finally(() => {
-        if (!active) return;
-        setLoadingBusinesses(false);
+        if (active) setLoadedDirectory(true);
       });
 
     return () => {
       active = false;
     };
-  }, [businesses]);
+  }, []);
 
-  const sortedBusinesses = useMemo(() => [...directoryBusinesses].sort(sortBusinesses), [directoryBusinesses]);
-  const {
-    countryCode,
-    stateCode,
-    citySlug,
-    categorySlug,
-    category,
-    page,
-    level,
-    countryBusinesses,
-    stateBusinesses,
-    cityBusinesses,
-    currentList,
-  } = getDirectoryContext(sortedBusinesses, params);
-
-  const countryCounts = countBy(
-    sortedBusinesses.map((business) => normalizeCode(business.address.countryCode)).filter(Boolean),
+  const liveSnapshot = useMemo(
+    () => directoryBusinesses.length > 0 ? buildDirectoryPageSnapshot(pathname, directoryBusinesses) : null,
+    [directoryBusinesses, pathname],
   );
-  const stateCounts = countBy(
-    countryBusinesses.map((business) => normalizeCode(business.address.stateCode)).filter(Boolean),
-  );
-  const stateNameByCode = useMemo(() => {
-    const map = new Map<string, string>();
-    countryBusinesses.forEach((business) => {
-      const code = normalizeCode(business.address.stateCode);
-      if (!code) return;
-      const candidate = getStateDisplayName(countryCode, code, business.address.state);
-      map.set(code, preferStateLabel(map.get(code) || "", candidate, code));
-    });
-    return map;
-  }, [countryBusinesses, countryCode]);
-
-  const cityCounts = countBy(stateBusinesses.map((business) => getDirectoryBusinessCitySlug(business)).filter(Boolean));
-  const cityNameBySlug = new Map(
-    stateBusinesses.map((business) => [
-      getDirectoryBusinessCitySlug(business),
-      getCityDisplayName(
-        business.address.cityDisplayName || business.address.city,
-        business.address.countryCode || business.address.country,
-      ) || "Cidade",
-    ]),
-  );
-
-  const currentStateLabel = stateCode
-    ? stateNameByCode.get(stateCode) || getStateDisplayName(countryCode, stateCode)
-    : "";
-  const currentCityLabel = cityNameBySlug.get(citySlug) || citySlug;
-  const directoryInsights = level === "categoryBusinesses"
-    ? null
-    : getDirectoryInsights(sortedBusinesses, { countryCode, stateCode, citySlug });
-  const relatedCities = level === "businesses"
-    ? Array.from(cityCounts.entries())
-      .filter(([slug]) => slug !== citySlug)
-      .map(([slug, count]) => ({
-        label: cityNameBySlug.get(slug) || slug,
-        href: buildCityPagePath(countryCode, stateCode, slug, 1),
-        count,
-      }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"))
-      .slice(0, 6)
-    : [];
-  const totalPages = Math.max(1, Math.ceil(currentList.length / DIRECTORY_PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageBusinesses = currentList.slice((safePage - 1) * DIRECTORY_PAGE_SIZE, safePage * DIRECTORY_PAGE_SIZE);
+  const initialSnapshotMatchesPath = initialDirectorySnapshot?.pathname === pathname;
+  const snapshot = liveSnapshot || (initialSnapshotMatchesPath ? initialDirectorySnapshot : null);
+  const loadingBusinesses = !snapshot && !loadedDirectory;
 
   useEffect(() => {
-    if (!countryCode || !stateCode || !citySlug) return;
+    if (!snapshot) return;
+    setSeoMeta(snapshot.pageMeta.title, snapshot.pageMeta.description);
+    upsertMetaTag("property", "og:title", snapshot.pageMeta.title);
+    upsertMetaTag("property", "og:description", snapshot.pageMeta.description);
+    upsertMetaTag("name", "twitter:title", snapshot.pageMeta.title);
+    upsertMetaTag("name", "twitter:description", snapshot.pageMeta.description);
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (!snapshot?.route.countryCode || !snapshot.route.stateCode || !snapshot.route.citySlug) return;
     let active = true;
-
-    void resolveCanonicalLocationSlug(countryCode, stateCode, citySlug).then((canonicalCitySlug) => {
-      if (!active || !canonicalCitySlug || canonicalCitySlug === citySlug) return;
-      if (categorySlug) {
-        navigate(buildCategoryPagePath(countryCode, stateCode, canonicalCitySlug, categorySlug, page), { replace: true });
-      } else {
-        navigate(buildCityPagePath(countryCode, stateCode, canonicalCitySlug, page), { replace: true });
-      }
+    void resolveCanonicalLocationSlug(
+      snapshot.route.countryCode,
+      snapshot.route.stateCode,
+      snapshot.route.citySlug,
+    ).then((canonicalCitySlug) => {
+      if (!active || !canonicalCitySlug || canonicalCitySlug === snapshot.route.citySlug) return;
+      navigate(buildDirectoryPagePath({ ...snapshot.route, citySlug: canonicalCitySlug }), { replace: true });
     });
-
     return () => {
       active = false;
     };
-  }, [countryCode, stateCode, citySlug, categorySlug, page, navigate]);
+  }, [navigate, snapshot]);
 
-  const pageMeta = useMemo(
-    () => getDirectoryPageMeta(pathname, sortedBusinesses),
-    [pathname, sortedBusinesses],
+  const title = snapshot?.pageMeta.heading || "Negócios brasileiros no exterior por país";
+  const categoryNotFound = !!snapshot?.route.categorySlug && (
+    !snapshot.category || snapshot.totalBusinesses < DIRECTORY_CATEGORY_MINIMUM_BUSINESSES
   );
-  const title = pageMeta?.heading || "Neg\u00f3cios brasileiros no exterior por pa\u00eds";
-  const categoryNotFound = !!categorySlug && (!category || (!loadingBusinesses && currentList.length < DIRECTORY_CATEGORY_MINIMUM_BUSINESSES));
-
-  useEffect(() => {
-    if (!pageMeta) return;
-    setSeoMeta(pageMeta.title, pageMeta.description);
-    upsertMetaTag("property", "og:title", pageMeta.title);
-    upsertMetaTag("property", "og:description", pageMeta.description);
-    upsertMetaTag("name", "twitter:title", pageMeta.title);
-    upsertMetaTag("name", "twitter:description", pageMeta.description);
-  }, [pageMeta]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -325,138 +136,118 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
         <div className="max-w-4xl">
           <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            {"Voltar para in\u00edcio"}
+            Voltar para início
           </Link>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mt-4">{title}</h1>
-          <p className="mt-3 text-muted-foreground leading-relaxed">
-            {category
-              ? "Encontre " + category.label.toLocaleLowerCase("pt-BR") + " com endere\u00e7os, hor\u00e1rios, contatos e avalia\u00e7\u00f5es em " + currentCityLabel + "."
-              : getDirectoryIntro(level, directoryInsights, {
-                country: getCountryName(countryCode) || countryCode.toUpperCase(),
-                state: currentStateLabel,
-                city: currentCityLabel,
-              })}
-          </p>
+          {snapshot && (
+            <p className="mt-3 text-muted-foreground leading-relaxed">
+              {snapshot.category
+                ? "Encontre " + snapshot.category.label.toLocaleLowerCase("pt-BR") + " com endereços, horários, contatos e avaliações em " + snapshot.labels.city + "."
+                : getDirectoryIntro(snapshot.level, snapshot.insights, snapshot.labels)}
+            </p>
+          )}
         </div>
 
-        <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label={"Navega\u00e7\u00e3o do diret\u00f3rio"}>
-          <Link className="text-primary hover:underline" to="/negocios">{"Neg\u00f3cios"}</Link>
-          {countryCode && (
-            <>
-              <span className="text-muted-foreground">/</span>
-              <Link className="text-primary hover:underline" to={"/negocios/" + countryCode}>
-                {getCountryName(countryCode) || countryCode.toUpperCase()}
-              </Link>
-            </>
-          )}
-          {countryCode && stateCode && (
-            <>
-              <span className="text-muted-foreground">/</span>
-              <Link className="text-primary hover:underline" to={"/negocios/" + countryCode + "/" + stateCode}>
-                {currentStateLabel || getStateDisplayName(countryCode, stateCode) || stateCode.toUpperCase()}
-              </Link>
-            </>
-          )}
-          {countryCode && stateCode && citySlug && (
-            <>
-              <span className="text-muted-foreground">/</span>
-              <Link className="text-primary hover:underline" to={buildCityPagePath(countryCode, stateCode, citySlug, 1)}>
-                {currentCityLabel}
-              </Link>
-            </>
-          )}
-          {category && (
-            <>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-foreground">{category.label}</span>
-            </>
-          )}
-        </nav>
+        {snapshot && (
+          <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Navegação do diretório">
+            <Link className="text-primary hover:underline" to="/negocios">Negócios</Link>
+            {snapshot.route.countryCode && (
+              <>
+                <span className="text-muted-foreground">/</span>
+                <Link className="text-primary hover:underline" to={`/negocios/${snapshot.route.countryCode}`}>
+                  {snapshot.labels.country}
+                </Link>
+              </>
+            )}
+            {snapshot.route.countryCode && snapshot.route.stateCode && (
+              <>
+                <span className="text-muted-foreground">/</span>
+                <Link className="text-primary hover:underline" to={`/negocios/${snapshot.route.countryCode}/${snapshot.route.stateCode}`}>
+                  {snapshot.labels.state}
+                </Link>
+              </>
+            )}
+            {snapshot.route.countryCode && snapshot.route.stateCode && snapshot.route.citySlug && (
+              <>
+                <span className="text-muted-foreground">/</span>
+                <Link className="text-primary hover:underline" to={buildDirectoryPagePath({ ...snapshot.route, categorySlug: "", page: 1 })}>
+                  {snapshot.labels.city}
+                </Link>
+              </>
+            )}
+            {snapshot.category && (
+              <>
+                <span className="text-muted-foreground">/</span>
+                <span className="text-foreground">{snapshot.category.label}</span>
+              </>
+            )}
+          </nav>
+        )}
 
-        {!loadingBusinesses && directoryInsights && (
+        {snapshot?.insights && (
           <>
-            <DirectorySummary insights={directoryInsights} />
-            {level === "businesses" && (
+            <DirectorySummary insights={snapshot.insights} />
+            {snapshot.level === "businesses" && (
               <DirectoryCategoryOverview
-                title={"Categorias com página própria em " + currentCityLabel}
-                insights={directoryInsights}
+                title={`Categorias com página própria em ${snapshot.labels.city}`}
+                insights={snapshot.insights}
                 getCategoryHref={(item) =>
-                  buildCategoryPagePath(countryCode, stateCode, citySlug, item.slug || "", 1)
+                  buildDirectoryPagePath({ ...snapshot.route, categorySlug: item.slug || "", page: 1 })
                 }
               />
             )}
           </>
         )}
 
-        {loadingBusinesses && directoryBusinesses.length === 0 ? (
+        {loadingBusinesses && (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
-            <p className="text-sm text-muted-foreground">{"Carregando pa\u00edses com neg\u00f3cios publicados..."}</p>
+            <p className="text-sm text-muted-foreground">Carregando países com negócios publicados...</p>
           </section>
-        ) : null}
+        )}
 
-        {categoryNotFound && !loadingBusinesses && (
+        {!loadingBusinesses && !snapshot && (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
-            <h2 className="text-xl font-bold">{"P\u00e1gina n\u00e3o encontrada"}</h2>
+            <h2 className="text-xl font-bold">Página não encontrada</h2>
+            <p className="mt-2 text-muted-foreground">Não encontramos esta página no diretório público.</p>
+          </section>
+        )}
+
+        {categoryNotFound && snapshot && (
+          <section className="mt-8 rounded-2xl border border-border bg-white p-6">
+            <h2 className="text-xl font-bold">Página não encontrada</h2>
             <p className="mt-2 text-muted-foreground">
-              {"Esta categoria ainda n\u00e3o tem neg\u00f3cios suficientes publicados nesta cidade."}
+              Esta categoria ainda não tem negócios suficientes publicados nesta cidade.
             </p>
-            <Link className="mt-4 inline-block text-primary hover:underline" to={buildCityPagePath(countryCode, stateCode, citySlug, 1)}>
-              {"Ver todos os neg\u00f3cios da cidade"}
+            <Link className="mt-4 inline-block text-primary hover:underline" to={buildDirectoryPagePath({ ...snapshot.route, categorySlug: "", page: 1 })}>
+              Ver todos os negócios da cidade
             </Link>
           </section>
         )}
 
-        {level === "countries" && !loadingBusinesses && (
+        {snapshot && !categoryNotFound && ["countries", "states", "cities"].includes(snapshot.level) && (
           <DirectoryGrid
-            title={"Pa\u00edses"}
-            items={Array.from(countryCounts.entries()).map(([code, count]) => ({
-              label: getCountryName(code) || code.toUpperCase(),
-              href: "/negocios/" + code,
-              count,
-            }))}
+            title={snapshot.level === "countries" ? "Países" : snapshot.level === "states" ? "Estados e regiões" : "Cidades"}
+            items={snapshot.gridItems}
           />
         )}
 
-        {level === "states" && !loadingBusinesses && (
-          <DirectoryGrid
-            title={"Estados e regi\u00f5es"}
-            items={Array.from(stateCounts.entries()).map(([code, count]) => ({
-              label: stateNameByCode.get(code) || getStateDisplayName(countryCode, code) || code.toUpperCase(),
-              href: "/negocios/" + countryCode + "/" + code,
-              count,
-            }))}
-          />
+        {snapshot?.level === "businesses" && snapshot.relatedCities.length > 0 && (
+          <DirectoryGrid title={`Outras cidades em ${snapshot.labels.state}`} items={snapshot.relatedCities} />
         )}
 
-        {level === "cities" && !loadingBusinesses && (
-          <DirectoryGrid
-            title="Cidades"
-            items={Array.from(cityCounts.entries()).map(([slug, count]) => ({
-              label: cityNameBySlug.get(slug) || slug,
-              href: "/negocios/" + countryCode + "/" + stateCode + "/" + slug,
-              count,
-            }))}
-          />
-        )}
-
-
-        {level === "businesses" && !loadingBusinesses && relatedCities.length > 0 && (
-          <DirectoryGrid title={"Outras cidades em " + currentStateLabel} items={relatedCities} />
-        )}
-
-        {(level === "businesses" || level === "categoryBusinesses") && !loadingBusinesses && !categoryNotFound && (
+        {snapshot && (snapshot.level === "businesses" || snapshot.level === "categoryBusinesses") && !categoryNotFound && (
           <section className="mt-8 rounded-2xl border border-border bg-white overflow-hidden">
             <div className="px-5 py-4 border-b border-border bg-muted/30">
               <h2 className="font-bold text-foreground">
-                {category ? category.label + " em " + currentCityLabel : "Neg\u00f3cios em " + currentCityLabel}
+                {snapshot.category ? `${snapshot.category.label} em ${snapshot.labels.city}` : `Negócios em ${snapshot.labels.city}`}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {currentList.length} {currentList.length === 1 ? "neg\u00f3cio publicado" : "neg\u00f3cios publicados"}
+                {snapshot.totalBusinesses} {snapshot.totalBusinesses === 1 ? "negócio publicado" : "negócios publicados"}
               </p>
             </div>
 
             <div className="divide-y divide-border">
-              {pageBusinesses.map((business) => (
+              {snapshot.pageBusinesses.map((business) => (
                 <Link
                   key={business.id}
                   to={buildBusinessUrl(business)}
@@ -485,16 +276,12 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
               ))}
             </div>
 
-            {totalPages > 1 && (
+            {snapshot.totalPages > 1 && (
               <div className="px-5 py-4 border-t border-border">
                 <Pagination
-                  currentPage={safePage}
-                  totalPages={totalPages}
-                  getPageHref={(pageNumber) =>
-                    category
-                      ? buildCategoryPagePath(countryCode, stateCode, citySlug, category.slug, pageNumber)
-                      : buildCityPagePath(countryCode, stateCode, citySlug, pageNumber)
-                  }
+                  currentPage={snapshot.route.page}
+                  totalPages={snapshot.totalPages}
+                  getPageHref={(pageNumber) => buildDirectoryPagePath(snapshot.route, pageNumber)}
                 />
               </div>
             )}
@@ -506,7 +293,6 @@ export default function BusinessDirectoryPage({ businesses = [] }: BusinessDirec
     </div>
   );
 }
-
 function pluralize(count: number, singular: string, plural: string) {
   return count + " " + (count === 1 ? singular : plural);
 }

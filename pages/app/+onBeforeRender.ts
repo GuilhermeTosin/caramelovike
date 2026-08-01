@@ -2,6 +2,7 @@ import type { PageContextServer } from "vike/types";
 import { redirect, render } from "vike/abort";
 import {
   getPublicBusinessSearchIndex,
+  getBusinessesByPublicSearchRpc,
   getPublicBusinessDirectoryIndex,
   getSimilarBusinessesForBusiness,
   getAvailableLocations,
@@ -24,6 +25,9 @@ import {
   getDirectoryCategoryBySlug,
   getDirectoryCategoryBusinesses,
 } from "@/lib/directoryCategories";
+import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnapshot";
+import { buildPublicSearchPageRequest, isPublicBusinessSearch, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
+import { buildDirectoryPagePath, buildDirectoryPageSnapshot, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 
 type AvailableLocation = {
   countryCode: string;
@@ -40,6 +44,9 @@ type PageContext = PageContextServer & {
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: AvailableLocation[];
   initialSearchSuggestions?: string[];
+  initialSearchSnapshot?: PublicSearchPageSnapshot;
+  initialHomeSnapshot?: HomePublicSnapshot;
+  initialDirectorySnapshot?: DirectoryPageSnapshot;
   initialEvent?: CommunityEvent | null;
   isBusinessPage?: boolean;
   isEventPage?: boolean;
@@ -65,39 +72,8 @@ function parseShortLinkPath(pathname: string) {
   return parts[1];
 }
 
-type DirectoryRoute = {
-  countryCode?: string;
-  stateCode?: string;
-  citySlug?: string;
-  categorySlug?: string;
-  page: number;
-};
-
-function parseDirectoryPath(pathname: string): DirectoryRoute | null {
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts[0] !== "negocios") return null;
-  if (parts.length === 1) return { page: 1 };
-  if (parts.length === 2) return { countryCode: parts[1], page: 1 };
-  if (parts.length === 3) return { countryCode: parts[1], stateCode: parts[2], page: 1 };
-  if (parts.length === 4) return { countryCode: parts[1], stateCode: parts[2], citySlug: parts[3], page: 1 };
-  if (parts.length === 5) return { countryCode: parts[1], stateCode: parts[2], citySlug: parts[3], categorySlug: parts[4], page: 1 };
-  if (parts.length === 6 && parts[4] === "pagina" && /^\d+$/.test(parts[5])) {
-    return { countryCode: parts[1], stateCode: parts[2], citySlug: parts[3], page: Number(parts[5]) };
-  }
-  if (parts.length === 7 && parts[5] === "pagina" && /^\d+$/.test(parts[6])) {
-    return { countryCode: parts[1], stateCode: parts[2], citySlug: parts[3], categorySlug: parts[4], page: Number(parts[6]) };
-  }
-  return null;
-}
-
 function normalizeCode(value?: string) {
   return (value || "").trim().toLowerCase();
-}
-
-function buildDirectoryPath(route: DirectoryRoute, citySlug = route.citySlug) {
-  const parts = ["negocios", route.countryCode, route.stateCode, citySlug, route.categorySlug].filter(Boolean);
-  const base = "/" + parts.join("/");
-  return route.page > 1 ? base + "/pagina/" + route.page : base;
 }
 
 function isKnownAppPath(pathname: string) {
@@ -125,67 +101,8 @@ function isKnownAppPath(pathname: string) {
   return !!parseBusinessPath(pathname);
 }
 
-// Public directory pages only need this compact index during hydration. It avoids
-// serializing descriptions, galleries, reviews and contact data for every business.
-function toDirectorySsrBusiness(business: BusinessFrontend): BusinessFrontend {
-  return {
-    id: business.id,
-    ownerId: "",
-    ownerName: "",
-    name: business.name,
-    slug: business.slug,
-    categoryId: business.categoryId,
-    category: business.category,
-    primaryActivity: business.primaryActivity,
-    primaryActivityCustom: business.primaryActivityCustom,
-    description: "",
-    heroImage: "",
-    logoUrl: business.logoUrl,
-    address: {
-      street: business.address.street,
-      city: business.address.city,
-      citySlug: business.address.citySlug,
-      cityDisplayName: business.address.cityDisplayName,
-      state: business.address.state,
-      country: business.address.country,
-      countryCode: business.address.countryCode,
-      stateCode: business.address.stateCode,
-      postalCode: "",
-      lat: business.address.lat,
-      lng: business.address.lng,
-    },
-    attendanceType: business.attendanceType,
-    services: [],
-    serviceItems: [],
-    keywords: [],
-    menu: [],
-    isBrazilianOwned: false,
-    servesPortuguese: false,
-    isVeganFriendly: false,
-    isVegetarianFriendly: false,
-    isGlutenFreeFriendly: false,
-    photos: [],
-    phone: "",
-    email: "",
-    website: "",
-    instagram: "",
-    facebook: "",
-    whatsapp: "",
-    reviews: [],
-    averageRating: business.averageRating,
-    ownerVerified: business.ownerVerified,
-    ownerVerifiedUntil: business.ownerVerifiedUntil,
-    moderationStatus: business.moderationStatus,
-    moderationReviewedAt: business.moderationReviewedAt,
-    moderationReviewedBy: business.moderationReviewedBy,
-    openingHours: [],
-    promotions: [],
-    events: [],
-    createdAt: business.createdAt,
-    updatedAt: business.updatedAt,
-  };
-}
-
+// The server may inspect the compact index to build a route-specific snapshot,
+// but it never passes the complete directory to the browser.
 async function getPublicBusinessesForSsr(): Promise<BusinessFrontend[]> {
   let lastError: unknown;
 
@@ -201,44 +118,59 @@ async function getPublicBusinessesForSsr(): Promise<BusinessFrontend[]> {
 
   throw lastError instanceof Error ? lastError : new Error("Unable to load public businesses for SSR.");
 }
+async function getPublicSearchData(urlOriginal?: string) {
+  const params = new URL(urlOriginal || "/buscar", "https://www.caramelinho.com").searchParams;
+  const [availableLocations, searchSuggestions] = await Promise.all([
+    getAvailableLocations().catch(() => [] as AvailableLocation[]),
+    getSearchSuggestions().catch(() => [] as string[]),
+  ]);
 
-async function getPublicDirectoryData(includeFeatured: boolean) {
+  if (!isPublicBusinessSearch(params)) {
+    return { initialAvailableLocations: availableLocations, initialSearchSuggestions: searchSuggestions };
+  }
+
+  const request = buildPublicSearchPageRequest(params);
+  try {
+    const page = await getBusinessesByPublicSearchRpc(request);
+    return {
+      initialSearchSnapshot: {
+        requestKey: request.key,
+        page: request.page,
+        totalCount: page.totalCount,
+        businesses: page.items,
+      },
+      initialAvailableLocations: availableLocations,
+      initialSearchSuggestions: searchSuggestions,
+    };
+  } catch (error) {
+    // The full index fallback prevents an outage while a newly deployed RPC is
+    // being applied in Supabase. It is removed from the rendered payload as soon
+    // as migration 00038 is available.
+    console.error("[onBeforeRender] public search RPC unavailable:", error);
+    return {
+      initialBusinesses: await getPublicBusinessSearchIndex().catch(() => getPublicBusinessesForSsr()),
+      initialBusinessesAreSearchReady: true,
+      initialAvailableLocations: availableLocations,
+      initialSearchSuggestions: searchSuggestions,
+    };
+  }
+}
+
+async function getPublicHomeData() {
   const businesses = await getPublicBusinessesForSsr();
   const [featuredBusinesses, availableLocations, searchSuggestions] = await Promise.all([
-    includeFeatured
-      ? getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[])
-      : Promise.resolve([] as BusinessFrontend[]),
+    getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[]),
     getAvailableLocations().catch(() => [] as AvailableLocation[]),
     getSearchSuggestions().catch(() => [] as string[]),
   ]);
 
   return {
-    initialBusinesses: businesses.map(toDirectorySsrBusiness),
+    initialHomeSnapshot: buildHomePublicSnapshot(businesses),
     initialFeaturedBusinesses: featuredBusinesses,
     initialAvailableLocations: availableLocations,
     initialSearchSuggestions: searchSuggestions,
   };
 }
-
-async function getPublicSearchData(includeFeatured: boolean) {
-  const [businesses, featuredBusinesses, availableLocations, searchSuggestions] = await Promise.all([
-    getPublicBusinessSearchIndex(),
-    includeFeatured
-      ? getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[])
-      : Promise.resolve([] as BusinessFrontend[]),
-    getAvailableLocations().catch(() => [] as AvailableLocation[]),
-    getSearchSuggestions().catch(() => [] as string[]),
-  ]);
-
-  return {
-    initialBusinesses: businesses,
-    initialBusinessesAreSearchReady: true,
-    initialFeaturedBusinesses: featuredBusinesses,
-    initialAvailableLocations: availableLocations,
-    initialSearchSuggestions: searchSuggestions,
-  };
-}
-
 export async function onBeforeRender(pageContext: PageContext) {
   const isPrerendering = !!pageContext.isPrerendering;
   const pathname = (() => {
@@ -285,7 +217,7 @@ export async function onBeforeRender(pageContext: PageContext) {
   if (pathname === "/") {
     return {
       pageContext: {
-        ...(await getPublicSearchData(true)),
+        ...(await getPublicHomeData()),
         initialBusiness: null,
         isBusinessPage: false,
       },
@@ -307,7 +239,7 @@ export async function onBeforeRender(pageContext: PageContext) {
 
     return {
       pageContext: {
-        ...(await getPublicSearchData(false)),
+        ...(await getPublicSearchData(pageContext.urlOriginal)),
         initialBusiness: null,
         isBusinessPage: false,
       },
@@ -315,11 +247,10 @@ export async function onBeforeRender(pageContext: PageContext) {
   }
 
   if (pathname === "/negocios" || pathname.startsWith("/negocios/")) {
-    const directoryRoute = parseDirectoryPath(pathname);
+    const directoryRoute = parseDirectoryRoute(pathname);
     if (!directoryRoute) throw render(404);
 
-    const publicDirectoryData = await getPublicDirectoryData(false);
-    const businesses = publicDirectoryData.initialBusinesses || [];
+    const businesses = await getPublicBusinessesForSsr();
     const countryCode = normalizeCode(directoryRoute.countryCode);
     const stateCode = normalizeCode(directoryRoute.stateCode);
     const citySlug = slugify(directoryRoute.citySlug || "");
@@ -337,7 +268,7 @@ export async function onBeforeRender(pageContext: PageContext) {
     if (citySlug) {
       const canonicalCitySlug = await resolveCanonicalLocationSlug(countryCode, stateCode, citySlug).catch(() => null);
       if (canonicalCitySlug && canonicalCitySlug !== citySlug) {
-        throw redirect(buildDirectoryPath(directoryRoute, canonicalCitySlug), 301);
+        throw redirect(buildDirectoryPagePath({ ...directoryRoute, citySlug: canonicalCitySlug }), 301);
       }
 
       const cityBusinesses = stateBusinesses.filter(
@@ -364,7 +295,7 @@ export async function onBeforeRender(pageContext: PageContext) {
 
     return {
       pageContext: {
-        ...publicDirectoryData,
+        initialDirectorySnapshot: buildDirectoryPageSnapshot(pathname, businesses) || undefined,
         initialBusiness: null,
         isBusinessPage: false,
       },
