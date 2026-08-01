@@ -24,6 +24,7 @@ import type {
 } from "@/pages/user-profile/types";
 import ProfileTab from "@/pages/user-profile/components/ProfileTab";
 import SearchSettingsTab from "@/pages/user-profile/components/SearchSettingsTab";
+import GoogleAnalyticsSettingsTab from "@/pages/user-profile/components/GoogleAnalyticsSettingsTab";
 import ReviewsTab from "@/pages/user-profile/components/ReviewsTab";
 import MessagesTab from "@/pages/user-profile/components/MessagesTab";
 import ModerationPreviewDialog from "@/pages/user-profile/components/ModerationPreviewDialog";
@@ -916,6 +917,8 @@ export default function UserProfile() {
                 onDisableBusinessFollowLinks={handleDisableBusinessFollowLinks}
               />
             ) : null}
+
+            {canManageUsers ? <GoogleAnalyticsSettingsTab enabled={activeTab === "analytics"} /> : null}
 
             <ReviewsTab
               subAvaliacoesTab={subAvaliacoesTab}

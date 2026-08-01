@@ -92,6 +92,9 @@ export default function PrivacyPage() {
                 Utilizamos cookies essenciais para manter você conectado à sua conta e cookies de análise para entender como os visitantes interagem com a plataforma.
                 Você pode configurar seu navegador para recusar todos os cookies, no entanto, isso pode limitar algumas funcionalidades do site, como a lembrança de suas preferências de busca.
               </p>
+              <p className="mt-3 text-muted-foreground leading-relaxed">
+                {"Quando habilitado, o Google Analytics coleta dados de uso de forma agregada para medir visitas, p\u00e1ginas acessadas e desempenho do site. Esses dados s\u00e3o tratados conforme as pol\u00edticas do Google. Voc\u00ea pode gerenciar cookies de an\u00e1lise nas configura\u00e7\u00f5es do navegador."}
+              </p>
             </section>
 
             <section>
@@ -140,7 +143,7 @@ export default function PrivacyPage() {
           </div>
 
           <p className="mt-8 text-sm text-muted-foreground">
-            <strong className="text-foreground">Última atualização:</strong> 24/05/2026
+            <strong className="text-foreground">Última atualização:</strong> 31/07/2026
           </p>
         </div>
       </main>

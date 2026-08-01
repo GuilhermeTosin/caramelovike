@@ -1,4 +1,4 @@
-import { Calendar, Flag, LogOut, MapPin, Megaphone, MessageCircle, Search, ShieldCheck, Star, Store, User, BadgeCheck, ClipboardCheck, Users } from "lucide-react";
+import { BarChart3, Calendar, Flag, LogOut, MapPin, Megaphone, MessageCircle, Search, ShieldCheck, Star, Store, User, BadgeCheck, ClipboardCheck, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -59,6 +59,7 @@ export default function UserProfileNavigation({
               {isAdmin && <SelectItem value="denuncias">Denúncias</SelectItem>}
               {isAdmin && <SelectItem value="destaques">Destaques</SelectItem>}
               {isAdmin && <SelectItem value="busca">Busca</SelectItem>}
+              {canManageUsers && <SelectItem value="analytics">Google Analytics</SelectItem>}
               <SelectItem value="avaliacoes">Avaliações</SelectItem>
               <SelectItem value="mensagens">Mensagens</SelectItem>
               <SelectItem value="__logout__">Sair</SelectItem>
@@ -138,6 +139,12 @@ export default function UserProfileNavigation({
                 <TabsTrigger value="busca" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                   <Search className="w-4 h-4" />
                   Busca
+                </TabsTrigger>
+              )}
+              {canManageUsers && (
+                <TabsTrigger value="analytics" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                  <BarChart3 className="w-4 h-4" />
+                  Google Analytics
                 </TabsTrigger>
               )}
               <TabsTrigger value="avaliacoes" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
