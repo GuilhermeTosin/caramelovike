@@ -26,7 +26,7 @@
       },
       "dest": "/ads.txt"
     },
-    { "src": "/perfil", "dest": "/index.html" },
+    { "src": "/perfil", "dest": "/api/ssr" },
     { "src": "/entrar", "dest": "/index.html" },
     { "src": "/cadastro", "dest": "/index.html" },
     { "src": "/redefinir-senha", "dest": "/index.html" },
