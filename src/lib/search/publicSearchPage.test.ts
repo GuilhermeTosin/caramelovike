@@ -27,6 +27,31 @@ describe("public search page request", () => {
     expect(complete.originLng).toBe(-73.5);
   });
 
+  it("recognizes every canonical category identifier used by the home cards", () => {
+    const categoryIds = [
+      "food",
+      "health_beauty",
+      "auto",
+      "construction",
+      "legal_consulting",
+      "education",
+      "accounting_finance",
+      "retail",
+      "transport_moving",
+      "real_estate",
+      "tourism",
+      "artists",
+      "pets",
+      "child_elder_care",
+      "cleaning",
+      "other",
+    ];
+
+    for (const categoryId of categoryIds) {
+      const request = buildPublicSearchPageRequest(new URLSearchParams({ categoria: categoryId }));
+      expect(request.categoryId).toBe(categoryId);
+    }
+  });
   it("keeps events and community finds outside the business-page RPC", () => {
     expect(isPublicBusinessSearch(new URLSearchParams("eventos=1"))).toBe(false);
     expect(isPublicBusinessSearch(new URLSearchParams("achadinhos=1"))).toBe(false);

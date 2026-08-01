@@ -6,6 +6,7 @@ const CATEGORY_ID_BY_INPUT: Record<string, string> = {
   "restaurantes e alimentacao": "food",
   "alimentacao (restaurantes, padarias, cafes)": "food",
   alimentacao: "food",
+  auto: "auto",
   "servicos automotivos": "auto",
   automotivo: "auto",
   "saude e beleza": "health_beauty",
@@ -42,6 +43,7 @@ const CATEGORY_ID_BY_INPUT: Record<string, string> = {
   tourism: "tourism",
   artistas: "artists",
   artists: "artists",
+  other: "other",
 };
 
 function normalizeText(value: string) {
@@ -121,7 +123,7 @@ export function buildPublicSearchPageRequest(
     page,
     limit,
     query: normalizeOptional(params.get("q")) || "",
-    categoryId: resolvedCategoryId && resolvedCategoryId !== "other" ? resolvedCategoryId : null,
+    categoryId: resolvedCategoryId || null,
     queryCategoryIds: [],
     city: radiusKm && originLat !== null && originLng !== null ? null : city,
     cityAliases: radiusKm && originLat !== null && originLng !== null ? [] : cityAliases,
