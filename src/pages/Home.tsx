@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { getSiteContent, getMascotPhrases } from "@/data/siteContent";
 import { getHomeContent } from "@/data/homeContent";
-import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getCountryName, getSearchSuggestions } from "@/services/businesses";
+import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getBusinessesByPublicSearchRpc, getCountryName, getSearchSuggestions } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
@@ -31,6 +31,7 @@ import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnapshot";
+import { buildPublicSearchPageRequest, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
 
@@ -391,6 +392,23 @@ export default function Home({
     return !!coords;
   };
 
+  const getBusinessSearchNavigationState = async (params: URLSearchParams) => {
+    const request = buildPublicSearchPageRequest(params);
+
+    try {
+      const page = await getBusinessesByPublicSearchRpc(request);
+      const snapshot: PublicSearchPageSnapshot = {
+        requestKey: request.key,
+        page: request.page,
+        totalCount: page.totalCount,
+        businesses: page.items,
+      };
+      return { preloadedSearchSnapshot: snapshot };
+    } catch {
+      // SearchResults handles the RPC fallback when the search route opens.
+      return undefined;
+    }
+  };
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (Date.now() < suppressSubmitUntilRef.current) return;
@@ -415,9 +433,10 @@ export default function Home({
       return;
     }
 
-    navigate(`/buscar?${params.toString()}`, {
-      state: hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined,
-    });
+    const state = searchMode === "businesses"
+      ? await getBusinessSearchNavigationState(params)
+      : hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined;
+    navigate(`/buscar?${params.toString()}`, { state });
     setIsSubmittingSearch(false);
   };
 
@@ -428,9 +447,10 @@ export default function Home({
     if (modeParam) params.set(modeParam, "1");
     params.set("q", tag.trim());
     await appendLocationContext(params, locationQuery);
-    navigate(`/buscar?${params.toString()}`, {
-      state: hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined,
-    });
+    const state = searchMode === "businesses"
+      ? await getBusinessSearchNavigationState(params)
+      : hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined;
+    navigate(`/buscar?${params.toString()}`, { state });
     setIsSubmittingSearch(false);
   };
 
@@ -439,9 +459,8 @@ export default function Home({
     const params = new URLSearchParams();
     params.set("categoria", category);
     await appendLocationContext(params, locationQuery);
-    navigate(`/buscar?${params.toString()}`, {
-      state: hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined,
-    });
+    const state = await getBusinessSearchNavigationState(params);
+    navigate(`/buscar?${params.toString()}`, { state });
     setIsSubmittingSearch(false);
   };
 

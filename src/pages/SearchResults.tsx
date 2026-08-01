@@ -244,6 +244,7 @@ type SearchResultsProps = {
 
 type SearchResultsLocationState = {
   preloadedBusinesses?: BusinessFrontend[];
+  preloadedSearchSnapshot?: PublicSearchPageSnapshot;
 };
 
 type PublicSearchPageResult = {
@@ -307,15 +308,25 @@ export default function SearchResults({
   const isBusinessSearchMode = isPublicBusinessSearch(searchParams);
   const navigationState = location.state as SearchResultsLocationState | null;
   const preloadedBusinesses = navigationState?.preloadedBusinesses;
+  const preloadedSearchSnapshot = navigationState?.preloadedSearchSnapshot;
   const initialSnapshotMatchesRequest =
     initialSearchSnapshot?.requestKey === publicSearchRequest.key;
-  const initialBusinessPool = initialSnapshotMatchesRequest
-    ? initialSearchSnapshot.businesses
-    : resolveInitialSearchBusinesses({
-        preloadedBusinesses,
-        initialBusinesses,
-        initialBusinessesAreSearchReady,
-      });
+  const preloadedSnapshotMatchesRequest =
+    preloadedSearchSnapshot?.requestKey === publicSearchRequest.key;
+  const matchingSearchSnapshot = initialSnapshotMatchesRequest
+    ? initialSearchSnapshot
+    : preloadedSnapshotMatchesRequest
+      ? preloadedSearchSnapshot
+      : undefined;
+  const initialBusinessPool = matchingSearchSnapshot
+    ? matchingSearchSnapshot.businesses
+    : isBusinessSearchMode
+      ? []
+      : resolveInitialSearchBusinesses({
+          preloadedBusinesses,
+          initialBusinesses,
+          initialBusinessesAreSearchReady,
+        });
   const hasSeededBusinessPool = initialBusinessPool.length > 0;
   const [searchInput, setSearchInput] = useState(query);
   const [locationInput, setLocationInput] = useState(locationFilter);
@@ -340,7 +351,7 @@ export default function SearchResults({
   const businessPageCacheRef = useRef(new Map<string, Promise<PublicSearchPageResult>>());
   const resolvedBusinessPageCacheRef = useRef(new Map<string, PublicSearchPageResult>());
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(() =>
-    initialSnapshotMatchesRequest ? initialSearchSnapshot.totalCount : null
+    matchingSearchSnapshot?.totalCount ?? null
   );
   const [rpcFallbackMode, setRpcFallbackMode] = useState(false);
   const [mapBusinesses, setMapBusinesses] = useState<BusinessFrontend[] | null>(null);
@@ -579,7 +590,7 @@ export default function SearchResults({
     return requestPromise;
   }, []);
   const [loadedResultsRequestKey, setLoadedResultsRequestKey] = useState<string | null>(() =>
-    initialSnapshotMatchesRequest || hasSeededBusinessPool ? resultsRequestKey : null
+    matchingSearchSnapshot || (!isBusinessSearchMode && hasSeededBusinessPool) ? resultsRequestKey : null
   );
   const cachedBusinessPage = resolvedBusinessPageCacheRef.current.get(resultsRequestKey);
   const isResultsLoading = loadedResultsRequestKey !== resultsRequestKey && !cachedBusinessPage;
@@ -658,10 +669,10 @@ export default function SearchResults({
 
       try {
         if (isBusinessSearchMode) {
-          const page = initialSnapshotMatchesRequest
+          const page = matchingSearchSnapshot
             ? {
-                items: initialSearchSnapshot.businesses,
-                totalCount: initialSearchSnapshot.totalCount,
+                items: matchingSearchSnapshot.businesses,
+                totalCount: matchingSearchSnapshot.totalCount,
               }
             : await getCachedBusinessPage(publicSearchRequest);
           if (!active) return;
@@ -727,8 +738,7 @@ export default function SearchResults({
     resultsRequestKey,
     publicSearchRequest,
     isBusinessSearchMode,
-    initialSnapshotMatchesRequest,
-    initialSearchSnapshot,
+    matchingSearchSnapshot,
     hasSeededBusinessPool,
     initialBusinessPool,
     getCachedBusinessPage,
