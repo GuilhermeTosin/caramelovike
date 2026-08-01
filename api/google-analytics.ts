@@ -1,11 +1,22 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getGoogleAnalyticsMeasurementId } from "../src/lib/googleAnalytics";
 
 const ADMIN_EMAIL = "contact@guilhermetosin.com";
 const SETTINGS_PATH = "/rest/v1/site_analytics_settings?id=eq.true&select=google_analytics_measurement_id&limit=1";
 const FALLBACK_SETTINGS_KEY = "google_analytics_measurement_id";
 const FALLBACK_SETTINGS_PATH =
   "/rest/v1/search_settings?key=eq." + FALLBACK_SETTINGS_KEY + "&select=value&limit=1";
+const MEASUREMENT_ID_PATTERN = /\bG-[A-Z0-9]{6,20}\b/gi;
+
+function getGoogleAnalyticsMeasurementId(value: unknown): string {
+  const matches = Array.from(
+    new Set(
+      String(value || "")
+        .match(MEASUREMENT_ID_PATTERN)
+        ?.map((match) => match.toUpperCase()) || [],
+    ),
+  );
+  return matches.length === 1 ? matches[0] : "";
+}
 
 type ServerConfig = {
   url: string;
