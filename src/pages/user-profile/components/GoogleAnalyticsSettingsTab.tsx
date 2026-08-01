@@ -14,6 +14,17 @@ type GoogleAnalyticsSettingsTabProps = {
   enabled: boolean;
 };
 
+function getApiErrorMessage(payload: unknown, fallback: string) {
+  if (!payload || typeof payload !== "object") return fallback;
+  const error = (payload as { error?: unknown }).error;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+}
+
 async function getAuthorizationHeader() {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token || "";
@@ -33,13 +44,19 @@ export default function GoogleAnalyticsSettingsTab({ enabled }: GoogleAnalyticsS
       const response = await utf8Fetch("/api/google-analytics", {
         headers: await getAuthorizationHeader(),
       });
-      if (!response.ok) throw new Error();
-      const payload = (await response.json()) as { measurementId?: unknown };
+      const payload = (await response.json().catch(() => ({}))) as { measurementId?: unknown; error?: unknown };
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, "N\u00e3o foi poss\u00edvel carregar a configura\u00e7\u00e3o do Google Analytics."));
+      }
       const savedId = getGoogleAnalyticsMeasurementId(payload.measurementId);
       setMeasurementId(savedId);
       setSnippet(savedId);
-    } catch {
-      toast.error("N\u00e3o foi poss\u00edvel carregar a configura\u00e7\u00e3o do Google Analytics.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "N\u00e3o foi poss\u00edvel carregar a configura\u00e7\u00e3o do Google Analytics.",
+      );
     } finally {
       setLoading(false);
     }
@@ -63,8 +80,8 @@ export default function GoogleAnalyticsSettingsTab({ enabled }: GoogleAnalyticsS
         headers: await getAuthorizationHeader(),
         body: JSON.stringify({ snippet }),
       });
-      const payload = (await response.json().catch(() => ({}))) as { measurementId?: unknown; error?: string };
-      if (!response.ok) throw new Error(payload.error || "Erro ao salvar.");
+      const payload = (await response.json().catch(() => ({}))) as { measurementId?: unknown; error?: unknown };
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, "Erro ao salvar."));
       setMeasurementId(getGoogleAnalyticsMeasurementId(payload.measurementId));
       setSnippet(parsedMeasurementId);
       toast.success("Google Analytics ativado. A altera\u00e7\u00e3o pode levar at\u00e9 um minuto para alcan\u00e7ar todas as p\u00e1ginas p\u00fablicas.");
@@ -84,8 +101,8 @@ export default function GoogleAnalyticsSettingsTab({ enabled }: GoogleAnalyticsS
         method: "DELETE",
         headers: await getAuthorizationHeader(),
       });
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Erro ao desativar.");
+      const payload = (await response.json().catch(() => ({}))) as { error?: unknown };
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, "Erro ao desativar."));
       setMeasurementId("");
       setSnippet("");
       toast.success("Google Analytics desativado.");

@@ -3,6 +3,9 @@ import { getGoogleAnalyticsMeasurementId } from "../src/lib/googleAnalytics";
 
 const ADMIN_EMAIL = "contact@guilhermetosin.com";
 const SETTINGS_PATH = "/rest/v1/site_analytics_settings?id=eq.true&select=google_analytics_measurement_id&limit=1";
+const FALLBACK_SETTINGS_KEY = "google_analytics_measurement_id";
+const FALLBACK_SETTINGS_PATH =
+  "/rest/v1/search_settings?key=eq." + FALLBACK_SETTINGS_KEY + "&select=value&limit=1";
 
 type ServerConfig = {
   url: string;
@@ -50,12 +53,59 @@ async function isAuthorizedAdmin(req: VercelRequest, config: ServerConfig) {
 
 async function getMeasurementId(config: ServerConfig) {
   const response = await fetch(config.url + SETTINGS_PATH, { headers: serverHeaders(config.key) });
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Supabase ${response.status}: ${details.slice(0, 240)}`);
+  if (response.ok) {
+    const rows = (await response.json()) as Array<{ google_analytics_measurement_id?: unknown }>;
+    const measurementId = getGoogleAnalyticsMeasurementId(rows[0]?.google_analytics_measurement_id);
+    if (measurementId) return measurementId;
   }
-  const rows = (await response.json()) as Array<{ google_analytics_measurement_id?: unknown }>;
-  return getGoogleAnalyticsMeasurementId(rows[0]?.google_analytics_measurement_id);
+
+  const fallbackResponse = await fetch(config.url + FALLBACK_SETTINGS_PATH, {
+    headers: serverHeaders(config.key),
+  });
+  if (fallbackResponse.ok) {
+    const rows = (await fallbackResponse.json()) as Array<{ value?: unknown }>;
+    return getGoogleAnalyticsMeasurementId(rows[0]?.value);
+  }
+
+  const [primaryDetails, fallbackDetails] = await Promise.all([
+    response.ok ? Promise.resolve("") : response.text(),
+    fallbackResponse.text(),
+  ]);
+  throw new Error(
+    `Supabase analytics settings unavailable. primary=${response.status}:${primaryDetails.slice(0, 120)} ` +
+      `fallback=${fallbackResponse.status}:${fallbackDetails.slice(0, 120)}`,
+  );
+}
+
+async function saveMeasurementId(config: ServerConfig, measurementId: string) {
+  const commonHeaders = {
+    ...serverHeaders(config.key),
+    "Content-Type": "application/json",
+    Prefer: "resolution=merge-duplicates,return=minimal",
+  };
+  const [primaryResponse, fallbackResponse] = await Promise.all([
+    fetch(config.url + "/rest/v1/site_analytics_settings?on_conflict=id", {
+      method: "POST",
+      headers: commonHeaders,
+      body: JSON.stringify({ id: true, google_analytics_measurement_id: measurementId }),
+    }),
+    fetch(config.url + "/rest/v1/search_settings?on_conflict=key", {
+      method: "POST",
+      headers: commonHeaders,
+      body: JSON.stringify({ key: FALLBACK_SETTINGS_KEY, value: measurementId }),
+    }),
+  ]);
+
+  if (primaryResponse.ok || fallbackResponse.ok) return;
+
+  const [primaryDetails, fallbackDetails] = await Promise.all([
+    primaryResponse.text(),
+    fallbackResponse.text(),
+  ]);
+  throw new Error(
+    `Supabase analytics settings save failed. primary=${primaryResponse.status}:${primaryDetails.slice(0, 120)} ` +
+      `fallback=${fallbackResponse.status}:${fallbackDetails.slice(0, 120)}`,
+  );
 }
 
 function readBody(req: VercelRequest): Record<string, unknown> {
@@ -92,20 +142,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "O c\u00f3digo deve conter um \u00fanico ID GA4 no formato G-XXXXXXXXXX." });
     }
 
-    const response = await fetch(config.url + "/rest/v1/site_analytics_settings?on_conflict=id", {
-      method: "POST",
-      headers: {
-        ...serverHeaders(config.key),
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates,return=representation",
-      },
-      body: JSON.stringify({ id: true, google_analytics_measurement_id: measurementId }),
-    });
-    if (!response.ok) throw new Error(await response.text());
+    await saveMeasurementId(config, measurementId);
     return res.status(200).json({ measurementId });
   } catch (error) {
     console.error("[google-analytics]", error);
     res.setHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate");
-    return res.status(500).json({ error: "N\u00e3o foi poss\u00edvel salvar a configura\u00e7\u00e3o do Google Analytics." });
+    const action = req.method === "GET" ? "carregar" : "salvar";
+    return res.status(500).json({
+      error: `N\u00e3o foi poss\u00edvel ${action} a configura\u00e7\u00e3o do Google Analytics.`,
+    });
   }
 }
