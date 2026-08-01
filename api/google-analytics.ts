@@ -50,7 +50,10 @@ async function isAuthorizedAdmin(req: VercelRequest, config: ServerConfig) {
 
 async function getMeasurementId(config: ServerConfig) {
   const response = await fetch(config.url + SETTINGS_PATH, { headers: serverHeaders(config.key) });
-  if (!response.ok) throw new Error("N\u00e3o foi poss\u00edvel consultar a configura\u00e7\u00e3o do Google Analytics.");
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Supabase ${response.status}: ${details.slice(0, 240)}`);
+  }
   const rows = (await response.json()) as Array<{ google_analytics_measurement_id?: unknown }>;
   return getGoogleAnalyticsMeasurementId(rows[0]?.google_analytics_measurement_id);
 }
@@ -73,8 +76,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === "GET") {
       // GA4 measurement IDs are public by design. Cache this tiny response briefly to avoid an extra database read per page view.
+      const measurementId = await getMeasurementId(config);
       res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60, stale-while-revalidate=60");
-      return res.status(200).json({ measurementId: await getMeasurementId(config) });
+      return res.status(200).json({ measurementId });
     }
 
     if (req.method !== "PUT" && req.method !== "DELETE") {
@@ -101,6 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ measurementId });
   } catch (error) {
     console.error("[google-analytics]", error);
+    res.setHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate");
     return res.status(500).json({ error: "N\u00e3o foi poss\u00edvel salvar a configura\u00e7\u00e3o do Google Analytics." });
   }
 }
