@@ -22,6 +22,7 @@ import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
 import NotFound from "@/pages/NotFound";
 import BusinessPageRoute from "@/pages/BusinessPageRoute";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 const VercelAnalytics = lazy(async () => {
   const module = await import("@vercel/analytics/react");
@@ -124,6 +125,7 @@ export default function App({
       <AppRouter router={router} location={location}>
         <ScrollToTop />
         <CanonicalManager isBusinessPage={isBusinessPage} />
+        <GoogleAnalytics />
         <Routes>
           <Route
             path="/"
