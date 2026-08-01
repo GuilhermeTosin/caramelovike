@@ -6,35 +6,63 @@ import { Card } from "@/components/ui/card";
 import SiteFooter from "@/components/SiteFooter";
 import { getCommunityEventById } from "@/services/events";
 import type { CommunityEvent } from "@/types/database";
-import { setSeoMeta } from "@/lib/seo";
+import { setJsonLd, setSeoMeta } from "@/lib/seo";
+import {
+  buildEventBreadcrumbStructuredData,
+  buildEventCanonicalUrl,
+  buildEventSeoDescription,
+  buildEventSeoTitle,
+  buildEventStructuredData,
+} from "@/lib/seo/eventMeta";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 
-export default function EventPage() {
+type EventPageProps = {
+  initialEvent?: CommunityEvent | null;
+};
+
+export default function EventPage({ initialEvent = null }: EventPageProps) {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const [event, setEvent] = useState<CommunityEvent | null>(null);
-  const [loading, setLoading] = useState(true);
+  const hasMatchingInitialEvent = !!initialEvent && initialEvent.id === eventId;
+  const [event, setEvent] = useState<CommunityEvent | null>(() => hasMatchingInitialEvent ? initialEvent : null);
+  const [loading, setLoading] = useState(() => !hasMatchingInitialEvent);
 
   useEffect(() => {
+    let active = true;
+
     if (!eventId) {
-      Promise.resolve().then(() => {
-        setLoading(false);
-      });
-      return;
+      setEvent(null);
+      setLoading(false);
+      return () => { active = false; };
     }
-    getCommunityEventById(eventId).then((data) => {
+
+    if (initialEvent?.id === eventId) {
+      setEvent(initialEvent);
+      setLoading(false);
+      return () => { active = false; };
+    }
+
+    setLoading(true);
+    void getCommunityEventById(eventId).then((data) => {
+      if (!active) return;
       setEvent(data);
       setLoading(false);
-      if (data) {
-        setSeoMeta(
-          `${data.title} | Evento | Caramelinho.com`,
-          `${data.title} em ${data.location}. Veja data, detalhes e informações do evento.`
-        );
-      } else {
-        setSeoMeta("Evento | Caramelinho.com", "Detalhes de evento da comunidade.");
-      }
     });
-  }, [eventId]);
+
+    return () => { active = false; };
+  }, [eventId, initialEvent]);
+
+  useEffect(() => {
+    if (!event) {
+      if (!loading) setSeoMeta("Evento | Caramelinho.com", "Detalhes de evento da comunidade.");
+      return;
+    }
+
+    const canonicalUrl = buildEventCanonicalUrl(event.id);
+    setSeoMeta(buildEventSeoTitle(event), buildEventSeoDescription(event));
+    setJsonLd("event", buildEventStructuredData(event, canonicalUrl));
+    setJsonLd("event-breadcrumb", buildEventBreadcrumbStructuredData(event, canonicalUrl));
+  }, [event, loading]);
 
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Carregando evento...</div>;

@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
-import type { BusinessFrontend } from "@/types/database";
+import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
 import BusinessDirectoryPage from "@/pages/BusinessDirectoryPage";
@@ -98,6 +98,7 @@ type AppProps = {
     states: { code: string; name: string; cities: string[] }[];
   }>;
   initialSearchSuggestions?: string[];
+  initialEvent?: CommunityEvent | null;
   isBusinessPage?: boolean;
 };
 
@@ -118,6 +119,7 @@ export default function App({
   initialFeaturedBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
+  initialEvent = null,
   isBusinessPage = false,
 }: AppProps = {}) {
   return (
@@ -164,7 +166,7 @@ export default function App({
           <Route path="/contato" element={<ContactPage />} />
           <Route path="/privacidade" element={<PrivacyPage />} />
           <Route path="/termos" element={<TermsPage />} />
-          <Route path="/eventos/:eventId" element={<EventPage />} />
+          <Route path="/eventos/:eventId" element={<EventPage initialEvent={initialEvent} />} />
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
           <Route path="/preview/negocio/:businessId" element={<BusinessPageRoute previewMode />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />

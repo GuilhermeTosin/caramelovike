@@ -1,7 +1,8 @@
 import type { PageContextServer } from "vike/types";
 import { redirect, render } from "vike/abort";
 import {
-  getAllBusinesses,
+  getPublicBusinessDirectoryIndex,
+  getSimilarBusinessesForBusiness,
   getAvailableLocations,
   buildBusinessUrl,
   getBusinessByCountryAndSlug,
@@ -13,8 +14,8 @@ import {
   slugify,
 } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion } from "@/services/featured";
-import type { BusinessFrontend } from "@/types/database";
-import { getSimilarBusinesses } from "@/lib/businessSimilar";
+import type { BusinessFrontend, CommunityEvent } from "@/types/database";
+import { getCommunityEventById } from "@/services/events";
 import {
   DIRECTORY_CATEGORY_MINIMUM_BUSINESSES,
   DIRECTORY_PAGE_SIZE,
@@ -37,7 +38,9 @@ type PageContext = PageContextServer & {
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: AvailableLocation[];
   initialSearchSuggestions?: string[];
+  initialEvent?: CommunityEvent | null;
   isBusinessPage?: boolean;
+  isEventPage?: boolean;
   isPrerendering?: boolean;
 };
 
@@ -120,14 +123,76 @@ function isKnownAppPath(pathname: string) {
   return !!parseBusinessPath(pathname);
 }
 
+// Public directory pages only need this compact index during hydration. It avoids
+// serializing descriptions, galleries, reviews and contact data for every business.
+function toDirectorySsrBusiness(business: BusinessFrontend): BusinessFrontend {
+  return {
+    id: business.id,
+    ownerId: "",
+    ownerName: "",
+    name: business.name,
+    slug: business.slug,
+    categoryId: business.categoryId,
+    category: business.category,
+    primaryActivity: business.primaryActivity,
+    primaryActivityCustom: business.primaryActivityCustom,
+    description: "",
+    heroImage: "",
+    logoUrl: business.logoUrl,
+    address: {
+      street: "",
+      city: business.address.city,
+      citySlug: business.address.citySlug,
+      cityDisplayName: business.address.cityDisplayName,
+      state: business.address.state,
+      country: business.address.country,
+      countryCode: business.address.countryCode,
+      stateCode: business.address.stateCode,
+      postalCode: "",
+      lat: business.address.lat,
+      lng: business.address.lng,
+    },
+    attendanceType: business.attendanceType,
+    services: [],
+    serviceItems: [],
+    keywords: [],
+    menu: [],
+    isBrazilianOwned: false,
+    servesPortuguese: false,
+    isVeganFriendly: false,
+    isVegetarianFriendly: false,
+    isGlutenFreeFriendly: false,
+    photos: [],
+    phone: "",
+    email: "",
+    website: "",
+    instagram: "",
+    facebook: "",
+    whatsapp: "",
+    reviews: [],
+    averageRating: business.averageRating,
+    ownerVerified: business.ownerVerified,
+    ownerVerifiedUntil: business.ownerVerifiedUntil,
+    moderationStatus: business.moderationStatus,
+    moderationReviewedAt: business.moderationReviewedAt,
+    moderationReviewedBy: business.moderationReviewedBy,
+    openingHours: [],
+    promotions: [],
+    events: [],
+    createdAt: business.createdAt,
+    updatedAt: business.updatedAt,
+  };
+}
+
 async function getPublicBusinessesForSsr(): Promise<BusinessFrontend[]> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      return await getAllBusinesses();
+      return await getPublicBusinessDirectoryIndex();
     } catch (error) {
       lastError = error;
+      console.error("[onBeforeRender] public directory index failed:", error);
       if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 200));
     }
   }
@@ -146,7 +211,7 @@ async function getPublicDirectoryData(includeFeatured: boolean) {
   ]);
 
   return {
-    initialBusinesses: businesses,
+    initialBusinesses: businesses.map(toDirectorySsrBusiness),
     initialFeaturedBusinesses: featuredBusinesses,
     initialAvailableLocations: availableLocations,
     initialSearchSuggestions: searchSuggestions,
@@ -173,6 +238,27 @@ export async function onBeforeRender(pageContext: PageContext) {
       };
     }
     throw render(404);
+  }
+
+  if (pathname.startsWith("/eventos/")) {
+    const eventId = pathname.split("/").filter(Boolean)[1] || "";
+    const event = eventId ? await getCommunityEventById(eventId).catch(() => null) : null;
+
+    if (!event) {
+      if (isPrerendering) {
+        return { pageContext: { initialEvent: null, isBusinessPage: false, isEventPage: true } };
+      }
+      throw render(404);
+    }
+
+    return {
+      pageContext: {
+        initialEvent: event,
+        initialBusiness: null,
+        isBusinessPage: false,
+        isEventPage: true,
+      },
+    };
   }
 
   if (pathname === "/") {
@@ -352,7 +438,7 @@ export async function onBeforeRender(pageContext: PageContext) {
 
   let similarBusinesses: BusinessFrontend[] = [];
   try {
-    similarBusinesses = getSimilarBusinesses(business, await getAllBusinesses());
+    similarBusinesses = await getSimilarBusinessesForBusiness(business);
   } catch (error) {
     console.error("[onBeforeRender] similar businesses lookup failed:", error);
   }

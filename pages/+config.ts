@@ -13,6 +13,7 @@ export default {
     "initialFeaturedBusinesses",
     "initialAvailableLocations",
     "initialSearchSuggestions",
+    "initialEvent",
     "isBusinessPage",
   ],
 } satisfies Config;

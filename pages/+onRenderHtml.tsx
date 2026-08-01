@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { dangerouslySkipEscape, escapeInject } from "vike/server";
-import type { BusinessFrontend } from "@/types/database";
+import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import type { RendererPageContext } from "@/renderer/pageContext";
 import { getSiteContent } from "@/data/siteContent";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
@@ -12,9 +12,26 @@ import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay"
 import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
 import { getMeaningfulUpdatedAt } from "@/lib/dates";
+import {
+  buildEventBreadcrumbStructuredData,
+  buildEventCanonicalUrl,
+  buildEventSeoDescription,
+  buildEventSeoTitle,
+  buildEventStructuredData,
+} from "@/lib/seo/eventMeta";
+import { stripRichTextHtml } from "@/lib/richText";
+import {
+  buildBusinessOfferCatalog,
+  buildOpeningHoursSpecification,
+  buildReviewStructuredData,
+  getBusinessMenuUrl,
+  getBusinessStructuredDataType,
+} from "@/lib/seo/businessStructuredData";
 
 type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
+  initialEvent?: CommunityEvent | null;
+  isEventPage?: boolean;
 };
 
 function getPageUrlParts(urlOriginal?: string) {
@@ -169,6 +186,10 @@ function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] 
       title: "Termos e Condi\u00e7\u00f5es | Caramelinho.com",
       description: "Leia os termos e condi\u00e7\u00f5es de uso da plataforma Caramelinho.",
     },
+    "/negocio-verificado": {
+      title: "Verifica\u00e7\u00e3o de neg\u00f3cio | Caramelinho.com",
+      description: "Entenda como solicitar a verifica\u00e7\u00e3o do seu neg\u00f3cio no Caramelinho e exiba um selo de confian\u00e7a para seus clientes.",
+    },
   } as const;
 
   if (pathname in staticPageMeta) return staticPageMeta[pathname as keyof typeof staticPageMeta];
@@ -191,9 +212,9 @@ function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] 
   return { title: content.seo.homeTitle, description: content.seo.homeDescription };
 }
 
-function jsonLdScript(data: unknown) {
+function jsonLdScript(data: unknown, id: string) {
   const json = JSON.stringify(data).replace(/</g, "\\u003c");
-  return `<script type="application/ld+json">${json}</script>`;
+  return `<script id="jsonld-${id}" type="application/ld+json">${json}</script>`;
 }
 
 function buildWebsiteJsonLd() {
@@ -216,14 +237,18 @@ function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, p
   const latitude = Number(address.lat);
   const longitude = Number(address.lng);
   const meaningfulUpdatedAt = getMeaningfulUpdatedAt(business.updatedAt, business.createdAt);
+  const structuredReviews = buildReviewStructuredData(business.reviews);
+  const openingHoursSpecification = buildOpeningHoursSpecification(business.openingHours);
   return {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
+    "@type": getBusinessStructuredDataType(business),
     "@id": canonicalUrl + "#business",
     name: business.name,
-    description: business.description || buildBusinessDescription(business),
+    description: stripRichTextHtml(business.description) || buildBusinessDescription(business),
     url: canonicalUrl,
-    image: pageImage,
+    image: [pageImage, business.logoUrl, ...(business.photos || []).slice(0, 8)].filter(Boolean),
+    menu: getBusinessMenuUrl(business.menuPdfUrl),
+    hasOfferCatalog: buildBusinessOfferCatalog(business),
     datePublished: business.createdAt || undefined,
     dateModified: meaningfulUpdatedAt,
     telephone: business.phone || undefined,
@@ -243,7 +268,8 @@ function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, p
     aggregateRating: business.averageRating && business.reviews?.length
       ? { "@type": "AggregateRating", ratingValue: business.averageRating, reviewCount: business.reviews.length }
       : undefined,
-    priceRange: "$$",
+    review: structuredReviews.length ? structuredReviews : undefined,
+    openingHoursSpecification: openingHoursSpecification.length ? openingHoursSpecification : undefined,
   };
 }
 
@@ -316,15 +342,22 @@ export function onRenderHtml(pageContext: PageContext) {
   const { Page } = pageContext;
   const pageHtml = renderToString(<Page pageContext={pageContext} />);
   const business = pageContext.initialBusiness || null;
+  const event = pageContext.initialEvent || null;
   const isBusinessPage = !!pageContext.isBusinessPage;
+  const isEventPage = !!pageContext.isEventPage;
   const isDirectoryPage = pageContext.urlOriginal ? new URL(pageContext.urlOriginal, "https://www.caramelinho.com").pathname === "/negocios" || new URL(pageContext.urlOriginal, "https://www.caramelinho.com").pathname.startsWith("/negocios/") : false;
-  const canonicalUrl = getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
+  const canonicalUrl = isEventPage && event
+    ? buildEventCanonicalUrl(event.id)
+    : getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
   const isErrorPage = !!pageContext.is404;
   const businessHasData = !!business;
   const staticMeta = isErrorPage
     ? getErrorPageMeta()
     : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || []);
   const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal);
+  const eventMeta = event
+    ? { title: buildEventSeoTitle(event), description: buildEventSeoDescription(event) }
+    : { title: "Evento | Caramelinho.com", description: "Detalhes de evento da comunidade." };
   const businessHeroAssets =
     isBusinessPage && businessHasData
       ? buildBusinessHeroImageAssets(business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg")
@@ -333,27 +366,42 @@ export function onRenderHtml(pageContext: PageContext) {
     ? staticMeta.title
     : isBusinessPage
       ? (businessHasData ? buildBusinessTitle(business) : fallbackBusinessMeta.title)
-      : staticMeta.title;
+      : isEventPage
+        ? eventMeta.title
+        : staticMeta.title;
   const pageDescription = isErrorPage
     ? staticMeta.description
     : isBusinessPage
       ? (businessHasData ? buildBusinessDescription(business) : fallbackBusinessMeta.description)
-      : staticMeta.description;
+      : isEventPage
+        ? eventMeta.description
+        : staticMeta.description;
   const pageImage =
     isBusinessPage && businessHasData
       ? businessHeroAssets?.optimizedImageUrl || business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg"
+      : isEventPage && event
+      ? event.flyer_url || "https://www.caramelinho.com/og-image.jpg"
       : "https://www.caramelinho.com/og-image.jpg";
   const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, pageContext.is404);
   const jsonLd = isBusinessPage && businessHasData
     ? [
-        buildWebsiteJsonLd(),
-        buildBusinessJsonLd(business, canonicalUrl, pageImage),
-        buildBusinessBreadcrumbJsonLd(business, canonicalUrl),
+        { id: "website", data: buildWebsiteJsonLd() },
+        { id: "business-local", data: buildBusinessJsonLd(business, canonicalUrl, pageImage) },
+        { id: "business-breadcrumb", data: buildBusinessBreadcrumbJsonLd(business, canonicalUrl) },
       ]
-    : isDirectoryPage
-      ? [buildWebsiteJsonLd(), buildDirectoryBreadcrumbJsonLd(pageContext.urlOriginal, pageContext.initialBusinesses || [], canonicalUrl)]
-      : [buildWebsiteJsonLd()];
-  const jsonLdHtml = jsonLd.map(jsonLdScript).join("\n");
+    : isEventPage && event
+      ? [
+          { id: "website", data: buildWebsiteJsonLd() },
+          { id: "event", data: buildEventStructuredData(event, canonicalUrl) },
+          { id: "event-breadcrumb", data: buildEventBreadcrumbStructuredData(event, canonicalUrl) },
+        ]
+      : isDirectoryPage
+        ? [
+            { id: "website", data: buildWebsiteJsonLd() },
+            { id: "directory-breadcrumb", data: buildDirectoryBreadcrumbJsonLd(pageContext.urlOriginal, pageContext.initialBusinesses || [], canonicalUrl) },
+          ]
+        : [{ id: "website", data: buildWebsiteJsonLd() }];
+  const jsonLdHtml = jsonLd.map((item) => jsonLdScript(item.data, item.id)).join("\n");
 
   return escapeInject`<!doctype html>
 <html lang="pt-BR">

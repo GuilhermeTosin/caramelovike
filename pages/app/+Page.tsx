@@ -1,6 +1,6 @@
 import "@/index.css";
 import App from "@/App";
-import type { BusinessFrontend } from "@/types/database";
+import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 
 type PageContext = {
   urlOriginal?: string;
@@ -14,6 +14,7 @@ type PageContext = {
     states: { code: string; name: string; cities: string[] }[];
   }>;
   initialSearchSuggestions?: string[];
+  initialEvent?: CommunityEvent | null;
   isBusinessPage?: boolean;
 };
 
@@ -31,6 +32,7 @@ export function Page({ pageContext }: { pageContext?: PageContext }) {
       initialFeaturedBusinesses={pageContext?.initialFeaturedBusinesses || []}
       initialAvailableLocations={pageContext?.initialAvailableLocations || []}
       initialSearchSuggestions={pageContext?.initialSearchSuggestions || []}
+      initialEvent={pageContext?.initialEvent || null}
       isBusinessPage={pageContext?.isBusinessPage || false}
     />
   );

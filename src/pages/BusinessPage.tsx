@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useParams, useNavigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import {
   ShieldCheck,
@@ -30,12 +30,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { getAllBusinesses, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateDisplayName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
+import { getSimilarBusinessesForBusiness, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateDisplayName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
 import { getOrCreateConversation } from "@/services/messages";
 import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
@@ -56,6 +55,13 @@ import { getSimilarBusinesses } from "@/lib/businessSimilar";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { formatDatePtBr, getMeaningfulUpdatedAt } from "@/lib/dates";
+import {
+  buildBusinessOfferCatalog,
+  buildOpeningHoursSpecification,
+  buildReviewStructuredData,
+  getBusinessMenuUrl,
+  getBusinessStructuredDataType,
+} from "@/lib/seo/businessStructuredData";
 
 type BusinessPageProps = {
   initialBusiness?: BusinessFrontend | null;
@@ -64,62 +70,163 @@ type BusinessPageProps = {
   previewMode?: boolean;
 };
 
+const SERVICE_PREVIEW_LIMIT = 6;
+const MENU_PREVIEW_LIMIT = 6;
+const REVIEWS_PER_PAGE = 5;
+const PHOTO_PREVIEW_LIMIT = 6;
+
+const BUSINESS_SECTION_IDS: Record<string, string> = {
+  about: "sobre",
+  services: "servicos",
+  menu: "cardapio",
+  photos: "fotos",
+  promotions: "promocoes",
+  events: "eventos",
+  reviews: "avaliacoes",
+};
 type BusinessPageLocationState = {
   preloadedBusiness?: BusinessFrontend | null;
   preloadedSimilarBusinesses?: BusinessFrontend[];
 } | null;
 
-const WEEKDAY_SCHEMA_MAP: Record<string, string> = {
-  domingo: "Sunday",
-  segunda: "Monday",
-  "segunda-feira": "Monday",
-  terca: "Tuesday",
-  "terça": "Tuesday",
-  "terca-feira": "Tuesday",
-  "terça-feira": "Tuesday",
-  quarta: "Wednesday",
-  "quarta-feira": "Wednesday",
-  quinta: "Thursday",
-  "quinta-feira": "Thursday",
-  sexta: "Friday",
-  "sexta-feira": "Friday",
-  sabado: "Saturday",
-  "sábado": "Saturday",
+function ClientOnly({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  return mounted ? <>{children}</> : null;
+}
+
+
+type BusinessPrimaryInfoProps = {
+  business: BusinessFrontend;
+  businessCityDisplayName: string;
+  onWhatsApp: () => void;
+  onSendMessage: () => void;
+  onRoute: () => void;
+  onExternalClick: (type: "phone" | "email" | "website") => void;
 };
 
-function normalizeWeekday(value: string): string {
-  return (value || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
+function BusinessPrimaryInfo({
+  business,
+  businessCityDisplayName,
+  onWhatsApp,
+  onSendMessage,
+  onRoute,
+  onExternalClick,
+}: BusinessPrimaryInfoProps) {
+  const country = getCountryName(business.address.countryCode || business.address.country);
+  const state = business.address.stateCode || business.address.state
+    ? getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode || business.address.state, business.address.state)
+    : "";
 
-function parseOpeningHoursToSchema(hours: string[]) {
-  return (hours || [])
-    .map((line) => {
-      const text = String(line || "").trim();
-      if (!text) return null;
-      if (/fechado/i.test(text)) return null;
-      const [dayRaw, timeRaw] = text.split(":");
-      if (!dayRaw || !timeRaw) return null;
-      const dayKey = normalizeWeekday(dayRaw);
-      const day = WEEKDAY_SCHEMA_MAP[dayKey];
-      if (!day) return null;
-      const rangeMatch = timeRaw.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
-      if (!rangeMatch) return null;
-      const opens = rangeMatch[1].padStart(5, "0");
-      const closes = rangeMatch[2].padStart(5, "0");
-      return {
-        "@type": "OpeningHoursSpecification",
-        dayOfWeek: `https://schema.org/${day}`,
-        opens,
-        closes,
-      };
-    })
-    .filter(Boolean);
-}
+  return (
+    <div className="space-y-6">
+      {business.ownerVerified ? (
+        <Card className="border-emerald-200 bg-emerald-50 p-3">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex cursor-help items-center gap-2">
+                  <div className="rounded-full bg-emerald-100 p-1.5">
+                    <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-emerald-900">Negócio verificado</h3>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-sm leading-relaxed">
+                Selo de autenticidade: este negócio foi validado pela equipe Caramelinho. Verificamos sua presença real e suas informações para oferecer uma experiência mais segura.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </Card>
+      ) : null}
 
+      <Card className="border-border p-5">
+        <h3 className="mb-4 font-semibold">Informações de contato</h3>
+        <div className="space-y-2">
+          <div className="flex items-start gap-3">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <div className="text-sm">
+              {business.address.street ? <p>{business.address.street}</p> : null}
+              <p className="text-muted-foreground">{businessCityDisplayName}{state ? `, ${state}` : ""}</p>
+              <p className="text-muted-foreground">{country}{business.address.postalCode ? ` — ${business.address.postalCode}` : ""}</p>
+            </div>
+          </div>
+          {business.phone ? (
+            <div className="flex items-center gap-3">
+              <Phone className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <a href={`tel:${business.phone}`} onClick={() => onExternalClick("phone")} className="text-sm text-primary hover:underline">{business.phone}</a>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Phone className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>Telefone não informado.</span>
+            </div>
+          )}
+          {business.email ? (
+            <div className="flex items-center gap-3">
+              <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <a href={`mailto:${business.email}`} onClick={() => onExternalClick("email")} className="truncate text-sm text-primary hover:underline">{business.email}</a>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Mail className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>E-mail não informado.</span>
+            </div>
+          )}
+          {business.website ? (
+            <div className="flex items-center gap-3">
+              <Globe className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <a
+                href={business.website.startsWith("http") ? business.website : `https://${business.website}`}
+                {...getExternalLinkProps({ allowFollow: business.allowFollowExternalLinks })}
+                onClick={() => onExternalClick("website")}
+                className="truncate text-sm text-primary hover:underline"
+              >
+                {business.website.replace(/^https?:\/\//, "")}
+              </a>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-5 space-y-3 border-t border-border pt-5">
+          {business.whatsapp ? (
+            <Button onClick={onWhatsApp} className="h-11 w-full gap-2 border-0 bg-[#25D366] font-bold text-white hover:bg-[#20bd5a]">
+              <MessageCircle className="h-5 w-5 fill-current" />
+              WhatsApp
+            </Button>
+          ) : null}
+          <Button onClick={onSendMessage} className="h-11 w-full gap-2 border-0 bg-amber-500 font-bold text-white hover:bg-amber-400">
+            <Send className="h-4 w-4" />
+            Enviar mensagem
+          </Button>
+          <Button onClick={onRoute} variant="outline" className="h-11 w-full gap-2 border-border hover:bg-secondary">
+            <Car className="h-4 w-4" />
+            Ver rota
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="border-border p-5">
+        <h3 className="mb-4 flex items-center gap-2 font-semibold">
+          <Clock className="h-4 w-4 text-primary" aria-hidden="true" />
+          Horários
+        </h3>
+        {business.openingHours.length > 0 ? (
+          <div className="space-y-2">
+            {business.openingHours.map((line) => <p key={line} className="text-sm text-muted-foreground">{line}</p>)}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Horários ainda não informados.</p>
+        )}
+      </Card>
+
+    </div>
+  );
+}
 
 export default function BusinessPage({ initialBusiness = null, initialBusinesses = [], initialSimilarBusinesses, previewMode = false }: BusinessPageProps = {}) {
   const { countryCode, stateCode, city, businessName, businessId } = useParams();
@@ -134,10 +241,12 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     !!initialBusiness &&
     !previewMode &&
     buildBusinessUrl(initialBusiness) === currentPathname;
-  const seededBusiness = routeState?.preloadedBusiness || (initialBusinessMatchesRoute ? initialBusiness : null);
-  const hasServerSimilarBusinesses = !routeState?.preloadedBusiness && initialBusinessMatchesRoute && Array.isArray(initialSimilarBusinesses);
-  const hasPreloadedSimilarBusinesses = (routeState?.preloadedSimilarBusinesses?.length ?? 0) > 0;
-  const hasInitialBusinessPool = !!routeState?.preloadedBusiness && initialBusinesses.length > 0;
+  // Browser history can retain a lightweight preloaded business after a full reload.
+  // Prefer the SSR payload for this route so the first client render matches the HTML.
+  const seededBusiness = initialBusinessMatchesRoute ? initialBusiness : routeState?.preloadedBusiness || null;
+  const hasServerSimilarBusinesses = initialBusinessMatchesRoute && Array.isArray(initialSimilarBusinesses);
+  const hasPreloadedSimilarBusinesses = !initialBusinessMatchesRoute && (routeState?.preloadedSimilarBusinesses?.length ?? 0) > 0;
+  const hasInitialBusinessPool = !initialBusinessMatchesRoute && !!routeState?.preloadedBusiness && initialBusinesses.length > 0;
   const currentBusinessIsInPool = !!seededBusiness && initialBusinesses.some((item) => item.id === seededBusiness.id);
   const pooledSimilarBusinesses = hasInitialBusinessPool && currentBusinessIsInPool && seededBusiness
     ? getSimilarBusinesses(seededBusiness, initialBusinesses)
@@ -164,6 +273,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const [editComment, setEditComment] = useState("");
   const [savingEditReview, setSavingEditReview] = useState(false);
   const [hasPendingOwnershipRequest, setHasPendingOwnershipRequest] = useState(false);
+  const [showAllServices, setShowAllServices] = useState(false);
+  const [showAllMenuItems, setShowAllMenuItems] = useState(false);
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
+  const [reviewPage, setReviewPage] = useState(1);
 
   const businessCityDisplayName = getCityDisplayName(
     business?.address.cityDisplayName || business?.address.city,
@@ -206,16 +319,18 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const heroImagePreviewUrl = getOptimizedImageUrl(heroImageSource, { width: 96, quality: 35, format: "webp" });
   const heroImageUrl = getOptimizedImageUrl(heroImageSource, { width: 960, quality: 72, format: "webp" });
   const heroImageSrcSet = getOptimizedImageSrcSet(heroImageSource, [480, 640, 800, 960], 72);
-  const initialTab =
-    requestedTab === "about" ||
-    requestedTab === "services" ||
-    requestedTab === "menu" ||
-    requestedTab === "photos" ||
-    requestedTab === "promotions" ||
-    requestedTab === "events" ||
-    requestedTab === "reviews"
-      ? requestedTab
-      : "about";
+  const serviceEntries = business
+    ? (business.serviceItems?.length
+        ? business.serviceItems
+        : business.services.map((name) => ({ name, description: "", price: "" })))
+    : [];
+  const menuEntries = business?.menu || [];
+  const reviewPageCount = Math.max(1, Math.ceil((business?.reviews.length || 0) / REVIEWS_PER_PAGE));
+  const currentReviewPage = Math.min(reviewPage, reviewPageCount);
+  const visibleReviews = (business?.reviews || []).slice(
+    (currentReviewPage - 1) * REVIEWS_PER_PAGE,
+    currentReviewPage * REVIEWS_PER_PAGE,
+  );
 
   const loadBusiness = async () => {
     let biz: BusinessFrontend | null = null;
@@ -226,11 +341,16 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     } else if (countryCode && businessName) {
       biz = await getBusinessByCountryAndSlug(countryCode, businessName);
     }
-    setBusiness(biz);
+    setBusiness((current) => {
+      if (!biz) return null;
+      if (current?.id === biz.id && current.reviews.length > biz.reviews.length) {
+        return { ...biz, reviews: current.reviews, averageRating: current.averageRating };
+      }
+      return biz;
+    });
     setLoading(false);
     if (biz && !hasInitialSimilarBusinesses) {
-      const businesses = await getAllBusinesses();
-      setSimilarBusinesses(getSimilarBusinesses(biz, businesses));
+      setSimilarBusinesses(await getSimilarBusinessesForBusiness(biz));
     }
   };
 
@@ -241,10 +361,19 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     setSelectedPhoto(null);
     setSelectedPhotoIndex(-1);
     setSimilarBusinesses(seededSimilarBusinesses);
+    setShowAllServices(false);
+    setShowAllMenuItems(false);
+    setShowAllPhotos(false);
+    setReviewPage(1);
     let active = true;
-    Promise.resolve().then(() => {
-      if (active) void loadBusiness();
-    });
+    // The SSR payload is the source of truth during hydration. Refetching it
+    // immediately can return a differently-permitted review set and break the
+    // server/client markup before the page becomes interactive.
+    if (!initialBusinessMatchesRoute) {
+      Promise.resolve().then(() => {
+        if (active) void loadBusiness();
+      });
+    }
     return () => {
       active = false;
     };
@@ -253,6 +382,16 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   useEffect(() => {
     setCanUseNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
   }, []);
+
+  useEffect(() => {
+    if (!business || !requestedTab) return;
+    const sectionId = BUSINESS_SECTION_IDS[requestedTab];
+    if (!sectionId) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [business?.id, requestedTab]);
 
   useEffect(() => {
     if (!business || previewMode) return;
@@ -308,31 +447,16 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     setCanonical(canonicalUrl);
     setRobots("index,follow,max-image-preview:large");
 
-    const openingHoursSpecification = parseOpeningHoursToSchema(business.openingHours || []);
-    const reviewJsonLd = (business.reviews || [])
-      .slice(0, 10)
-      .map((review) => ({
-        "@type": "Review",
-        author: {
-          "@type": "Person",
-          name: review.user_name || "Usuário",
-        },
-        reviewRating: {
-          "@type": "Rating",
-          ratingValue: review.rating,
-          bestRating: 5,
-          worstRating: 1,
-        },
-        reviewBody: review.comment || undefined,
-        datePublished: review.created_at || undefined,
-      }));
-
+    const structuredReviews = buildReviewStructuredData(business.reviews);
+    const openingHoursSpecification = buildOpeningHoursSpecification(business.openingHours);
     const localBusinessJsonLd = {
       "@context": "https://schema.org",
-      "@type": "LocalBusiness",
+      "@type": getBusinessStructuredDataType(business),
       name: business.name,
       description: stripRichTextHtml(business.description) || undefined,
-      image: [business.heroImage, business.logoUrl].filter(Boolean),
+      image: [business.heroImage, business.logoUrl, ...(business.photos || []).slice(0, 8)].filter(Boolean),
+      menu: getBusinessMenuUrl(business.menuPdfUrl),
+      hasOfferCatalog: buildBusinessOfferCatalog(business),
       url: canonicalUrl,
       telephone: business.phone || undefined,
       email: business.email || undefined,
@@ -361,9 +485,8 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               reviewCount: business.reviews.length,
             }
           : undefined,
-      review: reviewJsonLd.length > 0 ? reviewJsonLd : undefined,
-      openingHoursSpecification: openingHoursSpecification.length > 0 ? openingHoursSpecification : undefined,
-      priceRange: "$$",
+      review: structuredReviews.length ? structuredReviews : undefined,
+      openingHoursSpecification: openingHoursSpecification.length ? openingHoursSpecification : undefined,
       areaServed: business.address.countryCode || business.address.country
         ? {
             "@type": "Country",
@@ -647,7 +770,6 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     !!business &&
     (!session || session.userId !== business.ownerId);
   const reviewBreakdown = getReviewBreakdown(business?.reviews || []);
-  const primaryCta = business?.whatsapp ? "whatsapp" : "message";
   const hasUserReview =
     !!session?.userId &&
     (business?.reviews || []).some((r) => r.user_id === session.userId);
@@ -671,18 +793,6 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const businessActivityDate = meaningfulUpdatedAt || business.createdAt;
   const businessActivityLabel = meaningfulUpdatedAt ? "Informações atualizadas em" : "Perfil publicado em";
 
-  if (false && !business) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <PawPrint className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Negócio não encontrado</h1>
-          <p className="text-muted-foreground mb-6">O Caramelinho não achou esse negócio.</p>
-          <Button onClick={() => navigate("/")}>Voltar ao Início</Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -756,33 +866,36 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 min-w-0">
-            <Tabs key={initialTab} defaultValue={initialTab} className="w-full">
-              <div className="relative">
-                <div className="-mx-2 px-2 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide">
-              <TabsList className="w-max min-w-full justify-start border-b border-border rounded-none bg-transparent h-auto p-0">
-                <TabsTrigger value="about" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+            <div className="w-full">
+              <div className="sticky top-16 z-30 sm:top-24 -mx-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:mx-0 sm:px-0">
+                <div className="overflow-x-auto scrollbar-hide">
+              <nav aria-label="Seções do negócio" className="flex w-max min-w-full items-center justify-start bg-transparent">
+                <a href="#sobre" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
                   Sobre
-                </TabsTrigger>
-                {getCategoryId(business.category) !== "food" && hasServiceItems && (
-                  <TabsTrigger value="services" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                </a>
+                <a href="#fotos" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
+                  Fotos
+                </a>
+
+
+              {getCategoryId(business.category) !== "food" && hasServiceItems && (
+                  <a href="#servicos" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
                     Serviços
-                  </TabsTrigger>
+                  </a>
                 )}
                 {(business.menu && business.menu.length > 0) || !!business.menuPdfUrl ? (
-                  <TabsTrigger value="menu" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                  <a href="#cardapio" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
                     Cardápio
-                  </TabsTrigger>
+                  </a>
                 ) : null}
-                <TabsTrigger value="photos" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
-                  Fotos
-                </TabsTrigger>
+
                 {activePromotions.length > 0 && (
-                  <TabsTrigger value="promotions" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                  <a href="#promocoes" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
                     Promoções
-                  </TabsTrigger>
+                  </a>
                 )}
                 {upcomingEvents.length > 0 && (
-                  <TabsTrigger value="events" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                  <a href="#eventos" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
                     <span className="inline-flex items-center gap-2">
                       <CalendarDays className="w-4 h-4 text-amber-600" />
                       Eventos
@@ -790,17 +903,17 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                         Novo
                       </span>
                     </span>
-                  </TabsTrigger>
+                  </a>
                 )}
-                <TabsTrigger value="reviews" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                <a href="#avaliacoes" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
                   Avaliações
-                </TabsTrigger>
-              </TabsList>
+                </a>
+              </nav>
                 </div>
                 <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
               </div>
 
-              <TabsContent value="about" className="mt-6 min-w-0">
+              <section id="sobre" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
                 <h2 className="text-xl font-bold text-foreground mb-3">Sobre {business.name}</h2>
                 {business.categoryId === "food" && (business.isVeganFriendly || business.isVegetarianFriendly || business.isGlutenFreeFriendly) ? (
                   <div className="flex flex-wrap gap-2 mb-3">
@@ -831,20 +944,78 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   }
                   dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(business.description) }}
                 />
-                {businessActivityDate ? (
-                  <p className="mt-5 inline-flex items-center gap-1.5 text-xs text-muted-foreground/80">
-                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                    {`${businessActivityLabel} ${formatDatePtBr(businessActivityDate)}`}
-                  </p>
-                ) : null}
-              </TabsContent>
+
+                <div className="mt-6 lg:hidden">
+                  <BusinessPrimaryInfo
+                    business={business}
+                    businessCityDisplayName={businessCityDisplayName}
+                    onWhatsApp={handleWhatsApp}
+                    onSendMessage={handleSendMessage}
+                    onRoute={handleRoute}
+                    onExternalClick={handleExternalClick}
+                  />
+                </div>
+
+              </section>
+
+              <section id="fotos" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8">
+                <h2 className="mb-4 text-xl font-bold text-foreground">Fotos</h2>
+                {galleryPhotos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma foto disponível.</p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {galleryPhotos.slice(0, showAllPhotos ? galleryPhotos.length : PHOTO_PREVIEW_LIMIT).map((photo, index) => (
+                        <button
+                          key={photo}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPhoto(photo);
+                            setSelectedPhotoIndex(index);
+                          }}
+                          className="group relative aspect-square overflow-hidden rounded-lg"
+                        >
+                          <img
+                            src={photo}
+                            alt={`Foto de ${business.name}`}
+                            width={640}
+                            height={640}
+                            loading="lazy"
+                            decoding="async"
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+                        </button>
+                      ))}
+                    </div>
+                    {galleryPhotos.length > PHOTO_PREVIEW_LIMIT && !showAllPhotos ? (
+                      <div className="relative mt-3 h-20 overflow-hidden rounded-lg border border-border bg-secondary/30">
+                        <div aria-hidden="true" className="grid grid-cols-2 gap-3 p-1.5 opacity-60 blur-[1.5px] sm:grid-cols-3">
+                          {galleryPhotos.slice(PHOTO_PREVIEW_LIMIT).map((photo) => (
+                            <img key={photo} src={photo} alt="" loading="lazy" decoding="async" className="aspect-square w-full scale-105 object-cover" />
+                          ))}
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-background/20 via-background/65 to-background/95">
+                          <Button type="button" size="sm" variant="secondary" className="shadow-sm" onClick={() => setShowAllPhotos(true)}>
+                            Ver todas as {galleryPhotos.length} fotos
+                          </Button>
+                        </div>
+                      </div>
+                    ) : galleryPhotos.length > PHOTO_PREVIEW_LIMIT ? (
+                      <Button type="button" size="sm" variant="outline" className="mt-4" onClick={() => setShowAllPhotos(false)}>
+                        Mostrar menos fotos
+                      </Button>
+                    ) : null}
+                  </>
+                )}
+              </section>
 
               {getCategoryId(business.category) !== "food" && hasServiceItems && (
-                <TabsContent value="services" className="mt-6">
+                <section id="servicos" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
                   <h2 className="text-xl font-bold text-foreground mb-4">Serviços</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {(business.serviceItems?.length ? business.serviceItems : business.services.map((name) => ({ name, description: "", price: "" }))).map((service, idx) => (
-                      <div key={`${service.name}-${idx}`} className="p-4 rounded-lg bg-secondary/50 border border-border">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {serviceEntries.map((service, idx) => (
+                      <div key={`${service.name}-${idx}`} className={`${!showAllServices && idx >= SERVICE_PREVIEW_LIMIT ? "hidden" : ""} p-3 rounded-lg bg-secondary/50 border border-border`}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3">
                             <ThumbsUp className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -862,11 +1033,16 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       </div>
                     ))}
                   </div>
-                </TabsContent>
+                  {serviceEntries.length > SERVICE_PREVIEW_LIMIT ? (
+                    <Button type="button" variant="outline" size="sm" className="mt-4" aria-expanded={showAllServices} onClick={() => setShowAllServices((current) => !current)}>
+                      {showAllServices ? "Mostrar menos" : `Ver todos os ${serviceEntries.length} serviços`}
+                    </Button>
+                  ) : null}
+                </section>
               )}
 
               {(business.menu && business.menu.length > 0) || !!business.menuPdfUrl ? (
-                <TabsContent value="menu" className="mt-6">
+                <section id="cardapio" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
                   <h2 className="text-xl font-bold text-foreground mb-4">Cardápio</h2>
                   {business.menuPdfUrl && (
                     <div className="mb-4">
@@ -879,9 +1055,9 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                     </div>
                   )}
                   {business.menu && business.menu.length > 0 ? (
-                    <div className="space-y-3">
-                      {business.menu.map((item) => (
-                        <div key={item.name} className="flex items-start justify-between p-5 rounded-lg border border-border bg-card">
+                    <div className="space-y-2">
+                      {menuEntries.map((item, idx) => (
+                        <div key={`${item.name}-${idx}`} className={`${!showAllMenuItems && idx >= MENU_PREVIEW_LIMIT ? "hidden" : ""} flex items-start justify-between p-3 rounded-lg border border-border bg-card`}>
                           <div>
                             <h3 className="font-semibold">{item.name}</h3>
                             <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
@@ -893,41 +1069,18 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       ))}
                     </div>
                   ) : null}
-                </TabsContent>
+                  {menuEntries.length > MENU_PREVIEW_LIMIT ? (
+                    <Button type="button" variant="outline" size="sm" className="mt-4" aria-expanded={showAllMenuItems} onClick={() => setShowAllMenuItems((current) => !current)}>
+                      {showAllMenuItems ? "Mostrar menos" : `Ver todos os ${menuEntries.length} itens`}
+                    </Button>
+                  ) : null}
+                </section>
               ) : null}
 
-              <TabsContent value="photos" className="mt-6">
-                <h2 className="text-xl font-bold text-foreground mb-4">Fotos</h2>
-                {business.photos.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">Nenhuma foto disponível.</p>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {business.photos.slice(0, 8).map((photo, index) => (
-                      <button
-                        key={photo}
-                        onClick={() => {
-                          setSelectedPhoto(photo);
-                          setSelectedPhotoIndex(index);
-                        }}
-                        className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer"
-                      >
-                        <img
-                          src={photo}
-                          alt={`Foto de ${business.name}`}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-              </TabsContent>
-
               {activePromotions.length > 0 && (
-                <TabsContent value="promotions" className="mt-6">
+                <section id="promocoes" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
                   <h2 className="text-xl font-bold text-foreground mb-4">Promoções</h2>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {activePromotions.map((promotion, idx) => (
                       <Card key={`${promotion.code}-${idx}`} className="p-5 border-border">
                         <h3 className="font-semibold text-lg">{promotion.title}</h3>
@@ -945,11 +1098,11 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       </Card>
                     ))}
                   </div>
-                </TabsContent>
+                </section>
               )}
 
               {upcomingEvents.length > 0 && (
-                <TabsContent value="events" className="mt-6">
+                <section id="eventos" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
                   <h2 className="text-xl font-bold text-foreground mb-4">Próximos eventos</h2>
                   <div className="space-y-4">
                     {upcomingEvents.map((event, idx) => (
@@ -1008,10 +1161,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       </Card>
                     ))}
                   </div>
-                </TabsContent>
+                </section>
               )}
 
-              <TabsContent value="reviews" className="mt-6">
+              <section id="avaliacoes" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
                 <h2 className="text-xl font-bold text-foreground mb-6">Avaliações</h2>
                 <Card className="p-5 mb-6 border-border">
                   <div className="flex flex-col sm:flex-row gap-6 sm:items-center">
@@ -1044,7 +1197,8 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   </div>
                 </Card>
 
-                <Card className="p-5 mb-6 border-border bg-secondary/30">
+                <ClientOnly>
+                  <Card className="p-5 mb-6 border-border bg-secondary/30">
                   <h3 className="font-semibold text-sm mb-3">Deixe sua avaliação</h3>
                   {hasUserReview && (
                     <p className="text-sm text-muted-foreground mb-3">
@@ -1083,14 +1237,15 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                     <Button type="submit" size="sm" className="caramelo-gradient text-white border-0" disabled={sendingReview || hasUserReview}>
                       {sendingReview ? "Enviando..." : "Enviar Avaliação"}
                     </Button>
-                  </form>
-                </Card>
+                    </form>
+                  </Card>
+                </ClientOnly>
 
                 <div className="space-y-4">
                   {business.reviews.length === 0 ? (
                     <p className="text-muted-foreground text-sm">Nenhuma avaliação ainda. Seja o primeiro!</p>
                   ) : (
-                    business.reviews.map((review) => (
+                    visibleReviews.map((review) => (
                       <div key={review.id} className="p-4 rounded-lg border border-border bg-card">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -1099,6 +1254,8 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                                 <img
                                   src={review.user_avatar || user?.avatar || ""}
                                   alt={review.user_name}
+                                  loading="lazy"
+                                  decoding="async"
                                   className="w-full h-full rounded-full object-cover"
                                 />
                               ) : (
@@ -1124,7 +1281,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                           </div>
                         </div>
                         {editingReviewId === review.id ? (
-                          <div className="space-y-3">
+                          <div className="space-y-2">
                             <div className="flex items-center gap-1">
                               {[1, 2, 3, 4, 5].map((star) => (
                                 <button
@@ -1178,8 +1335,21 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                     ))
                   )}
                 </div>
-              </TabsContent>
-            </Tabs>
+                {reviewPageCount > 1 ? (
+                  <nav aria-label="Paginação das avaliações" className="mt-5 flex items-center justify-center gap-3">
+                    <Button type="button" variant="outline" size="sm" disabled={currentReviewPage === 1} onClick={() => setReviewPage((page) => Math.max(1, page - 1))}>
+                      Anterior
+                    </Button>
+                    <span className="text-sm text-muted-foreground" aria-live="polite">
+                      Página {currentReviewPage} de {reviewPageCount}
+                    </span>
+                    <Button type="button" variant="outline" size="sm" disabled={currentReviewPage === reviewPageCount} onClick={() => setReviewPage((page) => Math.min(reviewPageCount, page + 1))}>
+                      Próxima
+                    </Button>
+                  </nav>
+                ) : null}
+              </section>
+            </div>
 
             {selectedPhoto && (
               <div
@@ -1234,134 +1404,23 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
           </div>
 
           <aside className="lg:col-span-1">
-            <div className="sticky top-24 space-y-6">
-              {business.ownerVerified && (
-                <Card className="p-3 border-emerald-200 bg-emerald-50">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-2 cursor-help">
-                          <div className="rounded-full bg-emerald-100 p-1.5">
-                            <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-emerald-900">Negócio Verificado</h3>
-                          </div>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs text-sm leading-relaxed">
-                        Selo de Autenticidade: este negócio foi validado pela equipe Caramelinho. Verificamos a presença real e a veracidade das informações para garantir uma experiência segura e livre de perfis enganosos.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </Card>
-              )}
-              {/* Contact Card */}
-              <Card className="p-5 border-border">
-                <h3 className="font-semibold mb-4">Informações de Contato</h3>
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <div className="text-sm">
-                      <>
-                        {business.address.street ? <p>{business.address.street}</p> : null}
-                        <p className="text-muted-foreground">
-                          {businessCityDisplayName}
-                          {business.address.stateCode || business.address.state ? `, ${getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode || business.address.state, business.address.state)}` : ""}
-                        </p>
-                        <p className="text-muted-foreground">
-                          {getCountryName(business.address.countryCode || business.address.country)}
-                          {business.address.postalCode ? ` — ${business.address.postalCode}` : ""}
-                        </p>
-                      </>
-                    </div>
-                  </div>
-                  {business.phone ? (
-                    <div className="flex items-center gap-3">
-                      <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      <a href={`tel:${business.phone}`} onClick={() => handleExternalClick("phone")} className="text-sm text-primary hover:underline">
-                        {business.phone}
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <Phone className="w-4 h-4 flex-shrink-0" />
-                      <span>Telefone não informado.</span>
-                    </div>
-                  )}
-                  {business.email ? (
-                    <div className="flex items-center gap-3">
-                      <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      <a href={`mailto:${business.email}`} onClick={() => handleExternalClick("email")} className="text-sm text-primary hover:underline truncate">
-                        {business.email}
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <Mail className="w-4 h-4 flex-shrink-0" />
-                      <span>E-mail não informado.</span>
-                    </div>
-                  )}
-                  {business.website && (
-                    <div className="flex items-center gap-3">
-                      <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      <a
-                        href={business.website.startsWith("http") ? business.website : `https://${business.website}`}
-                        {...getExternalLinkProps({ allowFollow: business.allowFollowExternalLinks })}
-                        onClick={() => handleExternalClick("website")}
-                        className="text-sm text-primary hover:underline truncate"
-                      >
-                        {business.website.replace(/^https?:\/\//, "")}
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-5 mt-5 border-t border-border space-y-3">
-                  {primaryCta === "whatsapp" && (
-                    <Button 
-                      onClick={handleWhatsApp} 
-                      className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white border-0 gap-2 font-bold h-11"
-                    >
-                      <MessageCircle className="w-5 h-5 fill-current" />
-                      WhatsApp
-                    </Button>
-                  )}
-                  <Button 
-                    onClick={handleSendMessage} 
-                    className="w-full gap-2 font-bold h-11 bg-amber-500 hover:bg-amber-400 text-white border-0"
-                  >
-                    <Send className="w-4 h-4" />
-                    Enviar mensagem
-                  </Button>
-                  <Button onClick={handleRoute} variant="outline" className="w-full border-border hover:bg-secondary gap-2 h-11">
-                    <Car className="w-4 h-4" />
-                    Ver rota
-                  </Button>
-                </div>
-              </Card>
-
-              <Card className="p-5 border-border">
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-primary" />
-                  Horários
-                </h3>
-                {business.openingHours.length > 0 ? (
-                  <div className="space-y-2">
-                    {business.openingHours.map((line) => (
-                      <p key={line} className="text-sm text-muted-foreground">{line}</p>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Horários ainda não informados.</p>
-                )}
-              </Card>
+            <div className="space-y-6 lg:sticky lg:top-24">
+              <div className="hidden lg:block">
+                <BusinessPrimaryInfo
+                  business={business}
+                  businessCityDisplayName={businessCityDisplayName}
+                  onWhatsApp={handleWhatsApp}
+                  onSendMessage={handleSendMessage}
+                  onRoute={handleRoute}
+                  onExternalClick={handleExternalClick}
+                />
+              </div>
 
               {/* Social Media */}
               {(business.instagram || business.facebook) && (
                 <Card className="p-5 border-border">
                   <h3 className="font-semibold mb-4">Redes Sociais</h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {business.instagram && (
                       <a
                         href={buildInstagramUrl(business.instagram)}
@@ -1433,7 +1492,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               </Card>
 
               {canRequestOwnership && (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <Button
                     variant="ghost"
                     className="w-full text-muted-foreground hover:text-foreground"
@@ -1456,6 +1515,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               >
                 Denunciar anúncio
               </Button>
+              <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground/80">
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                {`${businessActivityLabel} ${formatDatePtBr(businessActivityDate)}`}
+              </p>
             </div>
           </aside>
         </div>

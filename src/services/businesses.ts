@@ -3,6 +3,7 @@ import type { Business, BusinessFrontend, Review } from "@/types/database";
 import type { CommunityEvent } from "@/types/database";
 import { getFollowLinksBusinessIds } from "@/services/searchPreferences";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
+import { getSimilarBusinesses } from "@/lib/businessSimilar";
 
 export const BUSINESS_CATEGORY_OPTIONS = [
   { id: "food", label: "Restaurantes e Alimentação" },
@@ -466,6 +467,67 @@ function mergeBusinessEvents(
       ticketUrl: String(evt.ticketUrl || "").trim(),
     }))
     .filter((evt) => evt.title || evt.date || evt.location);
+}
+
+export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFrontend[]> {
+  const columns = [
+    "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "logo_url",
+    "city", "city_slug", "state", "country", "country_code", "state_code",
+    "lat", "lng", "attendance_type", "average_rating", "owner_verified", "owner_verified_until",
+    "moderation_status", "moderation_reviewed_at", "moderation_reviewed_by", "created_at", "updated_at",
+  ].join(",");
+  const pageSize = 1000;
+  const rows: Business[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("businesses")
+      .select(columns)
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    const pageRows = (data || []) as Business[];
+    rows.push(...pageRows);
+    if (pageRows.length < pageSize) break;
+  }
+
+  return rows.map((row) => toFrontend(row));
+}
+
+// Similar-business cards need only businesses in the same category and country.
+// Querying this small candidate set keeps business-page SSR independent from the
+// full directory payload (profiles, galleries, reviews and unrelated businesses).
+export async function getSimilarBusinessesForBusiness(
+  business: BusinessFrontend,
+  limit = 3,
+): Promise<BusinessFrontend[]> {
+  const categoryId = getCategoryId(business.categoryId);
+  const countryCode = String(business.address.countryCode || "").trim().toLowerCase();
+
+  if (!categoryId || !countryCode) return [];
+
+  const columns = [
+    "id", "name", "slug", "category_id", "description", "hero_image", "logo_url",
+    "city", "city_slug", "state", "country", "country_code", "state_code",
+    "lat", "lng", "attendance_type", "services", "is_vegan_friendly",
+    "is_vegetarian_friendly", "is_gluten_free_friendly", "average_rating",
+    "owner_verified", "owner_verified_until", "moderation_status", "created_at", "updated_at",
+  ].join(",");
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select(columns)
+    .or("moderation_status.eq.approved,moderation_status.is.null")
+    .eq("category_id", categoryId)
+    .eq("country_code", countryCode)
+    .neq("id", business.id);
+
+  if (error) throw error;
+
+  return getSimilarBusinesses(business, ((data || []) as Business[]).map(toFrontend), limit);
 }
 
 export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
