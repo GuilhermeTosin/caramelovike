@@ -26,6 +26,7 @@ import {
   getDirectoryCategoryBusinesses,
 } from "@/lib/directoryCategories";
 import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnapshot";
+import { buildEnglishBusinessUrl, hasEnglishBusinessTranslation } from "@/lib/businessEnglish";
 import { buildPublicSearchPageRequest, isPublicBusinessSearch, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
 import { buildDirectoryPagePath, buildDirectoryPageSnapshot, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 
@@ -54,14 +55,17 @@ type PageContext = PageContextServer & {
 };
 
 function parseBusinessPath(pathname: string) {
-  const parts = pathname.split("/").filter(Boolean);
+  const pathParts = pathname.split("/").filter(Boolean);
+  const locale = pathParts[0] === "en" ? "en" as const : "pt-BR" as const;
+  const parts = locale === "en" ? pathParts.slice(1) : pathParts;
+
   if (parts.length === 4) {
     const [countryCode, stateCode, city, businessName] = parts;
-    return { kind: "full" as const, countryCode, stateCode, city, businessName };
+    return { kind: "full" as const, countryCode, stateCode, city, businessName, locale };
   }
-  if (parts.length === 2) {
+  if (locale === "pt-BR" && parts.length === 2) {
     const [countryCode, businessName] = parts;
-    return { kind: "country" as const, countryCode, businessName };
+    return { kind: "country" as const, countryCode, businessName, locale };
   }
   return null;
 }
@@ -91,9 +95,15 @@ function isKnownAppPath(pathname: string) {
     "/privacidade",
     "/termos",
     "/negocio/wizard",
+    "/en/search",
+    "/en/about",
+    "/en/contact",
+    "/en/privacy",
+    "/en/terms",
   ]);
 
   if (exactPaths.has(pathname)) return true;
+  if (pathname === "/en" || pathname === "/en/businesses" || pathname.startsWith("/en/businesses/")) return true;
   if (pathname.startsWith("/negocios/")) return true;
   if (pathname.startsWith("/eventos/")) return true;
   if (pathname.startsWith("/preview/negocio/")) return true;
@@ -214,7 +224,7 @@ export async function onBeforeRender(pageContext: PageContext) {
     };
   }
 
-  if (pathname === "/") {
+  if (pathname === "/" || pathname === "/en") {
     return {
       pageContext: {
         ...(await getPublicHomeData()),
@@ -224,7 +234,7 @@ export async function onBeforeRender(pageContext: PageContext) {
     };
   }
 
-  if (pathname === "/buscar") {
+  if (pathname === "/buscar" || pathname === "/en/search") {
     if (pageContext.isClientSideNavigation) {
       return {
         pageContext: {
@@ -246,9 +256,9 @@ export async function onBeforeRender(pageContext: PageContext) {
     };
   }
 
-  if (pathname === "/negocios" || pathname.startsWith("/negocios/")) {
+  if (pathname === "/negocios" || pathname.startsWith("/negocios/") || pathname === "/en/businesses" || pathname.startsWith("/en/businesses/")) {
     const directoryRoute = parseDirectoryRoute(pathname);
-    if (!directoryRoute) throw render(404);
+    if (!directoryRoute || (directoryRoute.locale === "en" && directoryRoute.categorySlug)) throw render(404);
 
     const businesses = await getPublicBusinessesForSsr();
     const countryCode = normalizeCode(directoryRoute.countryCode);
@@ -382,7 +392,11 @@ export async function onBeforeRender(pageContext: PageContext) {
     throw render(404);
   }
 
-  const canonicalPath = buildBusinessUrl(business);
+  if (businessRoute.locale === "en" && !hasEnglishBusinessTranslation(business)) {
+    throw render(404);
+  }
+
+  const canonicalPath = businessRoute.locale === "en" ? buildEnglishBusinessUrl(business) : buildBusinessUrl(business);
   if (canonicalPath !== pathname) {
     const search = new URL(pageContext.urlOriginal || "/", "http://localhost").search;
     throw redirect(`${canonicalPath}${search}`, 301);

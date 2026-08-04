@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { getSiteContent, getMascotPhrases } from "@/data/siteContent";
 import { getHomeContent } from "@/data/homeContent";
-import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getBusinessesByPublicSearchRpc, getCountryName, getSearchSuggestions } from "@/services/businesses";
+import { getAllBusinesses, getAvailableLocations, getBusinessesByPublicSearchRpc, getCountryName, getSearchSuggestions } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
@@ -31,7 +31,10 @@ import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnapshot";
+import { useSiteLocale } from "@/contexts/LocaleContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { buildPublicSearchPageRequest, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
+import { buildBusinessUrlForLocale } from "@/lib/businessEnglish";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
 
@@ -127,9 +130,13 @@ export default function Home({
   initialSearchSuggestions = [],
   initialHomeSnapshot,
 }: HomeProps = {}) {
+  const { locale, toLocalePath } = useSiteLocale();
   const siteText = getSiteContent();
-  const homeText = getHomeContent();
-  const mascotPhrases = getMascotPhrases();
+  const homeText = getHomeContent(locale);
+  const mascotPhrases = getMascotPhrases(locale);
+  const homeSeo = locale === "en"
+    ? { title: "Caramelinho.com - Find Brazilian businesses around the world", description: "Find Brazilian businesses, services and professionals abroad." }
+    : siteText.seo;
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
@@ -152,8 +159,8 @@ export default function Home({
   const previousSearchRef = useRef({ query: "", location: "" });
 
   useEffect(() => {
-    setSeoMeta(siteText.seo.homeTitle, siteText.seo.homeDescription);
-  }, [siteText]);
+    setSeoMeta(homeSeo.title, homeSeo.description);
+  }, [homeSeo.description, homeSeo.title]);
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -436,7 +443,7 @@ export default function Home({
     const state = searchMode === "businesses"
       ? await getBusinessSearchNavigationState(params)
       : hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined;
-    navigate(`/buscar?${params.toString()}`, { state });
+    navigate(toLocalePath(`/buscar?${params.toString()}`), { state });
     setIsSubmittingSearch(false);
   };
 
@@ -450,7 +457,7 @@ export default function Home({
     const state = searchMode === "businesses"
       ? await getBusinessSearchNavigationState(params)
       : hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined;
-    navigate(`/buscar?${params.toString()}`, { state });
+    navigate(toLocalePath(`/buscar?${params.toString()}`), { state });
     setIsSubmittingSearch(false);
   };
 
@@ -460,7 +467,7 @@ export default function Home({
     params.set("categoria", category);
     await appendLocationContext(params, locationQuery);
     const state = await getBusinessSearchNavigationState(params);
-    navigate(`/buscar?${params.toString()}`, { state });
+    navigate(toLocalePath(`/buscar?${params.toString()}`), { state });
     setIsSubmittingSearch(false);
   };
 
@@ -495,6 +502,7 @@ export default function Home({
   }, [homeSnapshot, homeText.stats]);
 
   const activeSearchMode = homeText.searchModes[searchMode];
+  const visibleSearchModes = locale === "en" ? (["businesses"] as SearchMode[]) : HOME_SEARCH_MODE_ORDER;
 
   const popularCities = useMemo(
     () => homeSnapshot.popularCities.map((city) => ({ ...city, flag: countryCodeToFlag(city.countryCode) })),
@@ -507,7 +515,7 @@ export default function Home({
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-24">
-            <Link to="/" className="flex items-center gap-3 group">
+            <Link to={toLocalePath("/")} className="flex items-center gap-3 group">
               <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
                 <img
                   src="/logo-112.webp"
@@ -524,12 +532,15 @@ export default function Home({
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
                 <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">
-                  {"O SEU FARO FORA DO BRASIL".toUpperCase()}
+                  {(locale === "en" ? "YOUR BRAZILIAN BUSINESS FINDER ABROAD" : "O SEU FARO FORA DO BRASIL").toUpperCase()}
                 </div>
               </div>
             </Link>
             
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <LanguageSwitcher />
+              <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+            </div>
           </div>
         </div>
       </header>
@@ -551,7 +562,11 @@ export default function Home({
               }`}
             >
               <span>
-                Encontre <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>negócios brasileiros</span> no mundo todo
+                {locale === "en" ? (
+                  <>Find <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>Brazilian businesses</span> around the world</>
+                ) : (
+                  <>Encontre <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>negócios brasileiros</span> no mundo todo</>
+                )}
               </span>
             </h1>
             <p className="mt-5 text-[1rem] sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed whitespace-pre-line">
@@ -563,7 +578,7 @@ export default function Home({
             <form onSubmit={handleSearch} className="mt-8 sm:mt-10 w-full">
               <div className="mb-3 sm:mb-4 rounded-2xl bg-white/92 px-2.5 py-2.5 sm:px-3 shadow-sm backdrop-blur-sm">
                 <div className="flex flex-wrap justify-center gap-2">
-                  {HOME_SEARCH_MODE_ORDER.map((mode) => {
+                  {visibleSearchModes.map((mode) => {
                     const modeConfig = HOME_SEARCH_MODE_STYLES[mode];
                     const modeText = homeText.searchModes[mode];
                     const ModeIcon = modeConfig.icon;
@@ -616,6 +631,7 @@ export default function Home({
                     maxSuggestions={3}
                     onUseCurrentLocation={handleUseCurrentLocationInput}
                     isLoading={isResolvingLocationInput}
+                    currentLocationLabel={locale === "en" ? "Use my location" : "Usar minha localização"}
                     placeholder={homeText.locationPlaceholder}
                     icon="location"
                     useGooglePlaces
@@ -693,7 +709,7 @@ export default function Home({
           {categories.map((cat) => (
             <Link
               key={cat.id}
-              to={`/buscar?categoria=${encodeURIComponent(cat.id)}`}
+              to={toLocalePath(`/buscar?categoria=${encodeURIComponent(cat.id)}`)}
               onClick={(event) => {
                 event.preventDefault();
                 void handleCategorySearch(cat.id);
@@ -702,7 +718,7 @@ export default function Home({
             >
               <cat.icon className="w-7 h-7 text-primary" />
               <span className="font-medium text-sm text-center">{cat.name}</span>
-              <span className="w-full text-center text-xs text-muted-foreground">{formatBusinessCount(cat.count) + " no mundo"}</span>
+              <span className="w-full text-center text-xs text-muted-foreground">{formatBusinessCount(cat.count, locale) + (locale === "en" ? " worldwide" : " no mundo")}</span>
             </Link>
           ))}
         </div>
@@ -725,7 +741,7 @@ export default function Home({
               return (
               <Link
                 key={biz.id}
-                to={buildBusinessUrl(biz)}
+                to={buildBusinessUrlForLocale(biz, locale)}
                 state={{ preloadedBusiness: biz }}
                 onMouseEnter={() => preloadBusinessPageAssets(biz)}
                 onFocus={() => preloadBusinessPageAssets(biz)}
@@ -854,8 +870,8 @@ export default function Home({
           {popularCities.map((city) => (
             <Link
               key={city.href}
-              to={city.href}
-              aria-label={"Negócios brasileiros em " + city.displayName}
+              to={toLocalePath(city.href)}
+              aria-label={locale === "en" ? "Brazilian businesses in " + city.displayName : "Negócios brasileiros em " + city.displayName}
               className="w-[160px] sm:w-[170px] lg:w-[180px] min-h-[128px] flex flex-col items-center justify-center gap-2 p-5 rounded-xl bg-card border border-border card-hover"
             >
               <img
@@ -871,7 +887,7 @@ export default function Home({
               />
               <span className="text-2xl hidden">{city.flag}</span>
               <span className="font-medium text-sm">{city.displayName}</span>
-              <span className="text-xs text-muted-foreground">{formatBusinessCount(city.count)}</span>
+              <span className="text-xs text-muted-foreground">{formatBusinessCount(city.count, locale)}</span>
             </Link>
           ))}
         </div>
@@ -929,7 +945,8 @@ function normalizeText(value?: string | null): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function formatBusinessCount(count: number): string {
+function formatBusinessCount(count: number, locale: "pt-BR" | "en" = "pt-BR"): string {
+  if (locale === "en") return String(count) + " " + (count === 1 ? "business" : "businesses");
   return String(count) + " " + (count === 1 ? "neg\u00f3cio" : "neg\u00f3cios");
 }
 

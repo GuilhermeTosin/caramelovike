@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDirectoryPageSnapshot } from "@/lib/directorySnapshot";
+import { buildDirectoryPagePath, buildDirectoryPageSnapshot, parseDirectoryRoute } from "@/lib/directorySnapshot";
 import type { BusinessFrontend } from "@/types/database";
 
 function business(index: number): BusinessFrontend {
@@ -38,5 +38,18 @@ describe("directory page snapshot", () => {
     expect(snapshot?.pageBusinesses.map((item) => item.name)).toEqual(["Business 11", "Business 12"]);
     expect(snapshot?.pageBusinesses[0]?.description).toBe("");
     expect(snapshot?.pageBusinesses[0]?.photos).toEqual([]);
+  });
+  it("parses and builds English directory paths without changing Portuguese paths", () => {
+    const route = parseDirectoryRoute("/en/businesses/ca/qc/montreal/pagina/2");
+
+    expect(route).toMatchObject({
+      locale: "en",
+      countryCode: "ca",
+      stateCode: "qc",
+      citySlug: "montreal",
+      page: 2,
+    });
+    expect(route && buildDirectoryPagePath(route)).toBe("/en/businesses/ca/qc/montreal/pagina/2");
+    expect(buildDirectoryPagePath({ locale: "pt-BR", countryCode: "ca", stateCode: "qc", citySlug: "montreal", categorySlug: "", page: 1 })).toBe("/negocios/ca/qc/montreal");
   });
 });

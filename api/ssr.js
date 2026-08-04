@@ -192,14 +192,17 @@ function render500Html() {
 }
 
 function parseBusinessPath(pathname) {
-  const parts = pathname.split("/").filter(Boolean);
+  const pathParts = pathname.split("/").filter(Boolean);
+  const locale = pathParts[0] === "en" ? "en" : "pt-BR";
+  const parts = locale === "en" ? pathParts.slice(1) : pathParts;
+
   if (parts.length === 4) {
     const [countryCode, stateCode, city, businessName] = parts;
-    return { kind: "full", countryCode, stateCode, city, businessName };
+    return { kind: "full", countryCode, stateCode, city, businessName, locale };
   }
-  if (parts.length === 2) {
+  if (locale === "pt-BR" && parts.length === 2) {
     const [countryCode, businessName] = parts;
-    return { kind: "country", countryCode, businessName };
+    return { kind: "country", countryCode, businessName, locale };
   }
   return null;
 }
@@ -207,6 +210,8 @@ function parseBusinessPath(pathname) {
 function isKnownAppPath(pathname) {
   const exactPaths = new Set([
     "/",
+    "/en",
+    "/en/businesses",
     "/buscar",
     "/negocios",
     "/cadastro",
@@ -219,10 +224,16 @@ function isKnownAppPath(pathname) {
     "/privacidade",
     "/termos",
     "/negocio/wizard",
+    "/en/search",
+    "/en/about",
+    "/en/contact",
+    "/en/privacy",
+    "/en/terms",
   ]);
 
   if (exactPaths.has(pathname)) return true;
   if (pathname.startsWith("/negocios/")) return true;
+  if (pathname.startsWith("/en/businesses/")) return true;
   if (pathname.startsWith("/eventos/")) return true;
   if (pathname.startsWith("/preview/negocio/")) return true;
   if (pathname.startsWith("/go/")) return true;
@@ -239,10 +250,10 @@ function applyPublicPageCacheHeaders(res, pathname, statusCode) {
 
   const normalizedPathname = normalizePathname(pathname);
   let cacheHeader = "";
-  if (normalizedPathname === "/") {
+  if (normalizedPathname === "/" || normalizedPathname === "/en") {
     // Keep the homepage snapshot consistent for crawlers without serving stale business counts.
     cacheHeader = "s-maxage=60, must-revalidate";
-  } else if (normalizedPathname === "/negocios" || normalizedPathname.startsWith("/negocios/")) {
+  } else if (normalizedPathname === "/negocios" || normalizedPathname.startsWith("/negocios/") || normalizedPathname === "/en/businesses" || normalizedPathname.startsWith("/en/businesses/")) {
     cacheHeader = "s-maxage=900, stale-while-revalidate=86400";
   }
   if (!cacheHeader) return;

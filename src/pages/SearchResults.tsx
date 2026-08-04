@@ -26,6 +26,10 @@ import { stripRichTextHtml } from "@/lib/richText";
 import MapView from "@/components/MapView";
 import { useAuth } from "@/contexts/AuthContext";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useSiteLocale } from "@/contexts/LocaleContext";
+import { getHomeContent } from "@/data/homeContent";
+import { getCountryDisplayName } from "@/lib/locales";
 import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import { geocodeAddress } from "@/lib/google-maps";
 import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
@@ -79,6 +83,7 @@ import {
 } from "@/services/communityFinds";
 import { createCommunityFindReport } from "@/services/communityFindReports";
 import { getCityDisplayName } from "@/lib/locationDisplay";
+import { buildBusinessUrlForLocale } from "@/lib/businessEnglish";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
   dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
@@ -274,6 +279,20 @@ export default function SearchResults({
   const navigate = useNavigate();
   const location = useLocation();
   const { session } = useAuth();
+  const { locale, toLocalePath } = useSiteLocale();
+  const isEnglish = locale === "en";
+  const text = isEnglish
+    ? {
+        searchPlaceholder: "Search for a product or service (e.g. coxinha)", locationPlaceholder: "Which city?", currentLocation: "My location", submit: "Search", filters: "Filters", map: "Map", list: "List", loading: "Loading results...", noResults: "No results found", clear: "Clear filters", backHome: "Back to home", loadingDescription: "Please wait while we prepare businesses for you.", country: "Country", allCountries: "All countries", region: "State / province", allRegions: "All states and provinces", city: "City", allCities: "All cities", distance: "Distance", within: "Within", business: "business", found: "found", allWorldwide: "See all worldwide", regionalCategory: "You are viewing results from this category in your region.", locationRequired: "Enter a location or allow location access to use a radius.", locatingReference: "Locating reference...", businessSearch: "Search Brazilian businesses", slogan: "YOUR BRAZILIAN BUSINESS FINDER ABROAD",
+      }
+    : {
+        searchPlaceholder: "Buscar por produto ou serviço (Ex: coxinha)", locationPlaceholder: "Em qual cidade?", currentLocation: CURRENT_LOCATION_LABEL, submit: "Farejar", filters: "Filtros", map: "Mapa", list: "Lista", loading: "Carregando resultados...", noResults: "Nenhum resultado encontrado", clear: "Limpar filtros", backHome: "Voltar ao Início", loadingDescription: "Aguarde um instante enquanto preparamos os negócios para você.", country: "País", allCountries: "Todos os países", region: "Estado/Província", allRegions: "Todos os estados", city: "Cidade", allCities: "Todas as cidades", distance: "Distância", within: "Até", business: "negócio", found: "encontrado", allWorldwide: "Ver todos no mundo", regionalCategory: "Você está vendo resultados desta categoria na sua região.", locationRequired: "informe um local ou permita sua localização para usar raio", locatingReference: "localizando referência...", businessSearch: "Buscar negócios brasileiros", slogan: "O SEU FARO FORA DO BRASIL",
+      };
+  const categoryLabels = new Map(getHomeContent(locale).categories.map((category) => [category.id, category.name]));
+  const getDisplayCategoryLabel = (categoryId: string, fallback = getCategoryLabel(categoryId)) => {
+    if (!isEnglish) return fallback.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduções" : fallback.split("(")[0].trim();
+    return categoryLabels.get(categoryId) || fallback.split("(")[0].trim();
+  };
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const categoryFilter = searchParams.get("categoria") || "";
@@ -289,8 +308,8 @@ export default function SearchResults({
   const communityFindIdParam = searchParams.get("achadinho") || "";
   const pageParam = Number(searchParams.get("pagina") || "1");
   const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
-  const isEventMode = eventsFilter === "1";
-  const isCommunityFindsMode = communityFindsFilter === "1";
+  const isEventMode = !isEnglish && eventsFilter === "1";
+  const isCommunityFindsMode = !isEnglish && communityFindsFilter === "1";
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
   const originLocalParam = searchParams.get("origem_local") || "";
@@ -893,13 +912,13 @@ export default function SearchResults({
       // Quando a origem é GPS/IP, mantemos o texto atual do campo
       // (cidade inferida ou "Minha localização"), sem limpar automaticamente.
       if ((originSourceParam === "gps" || originSourceParam === "ip") && !cityFilter.trim()) {
-        setLocationInput((prev) => prev.trim() || CURRENT_LOCATION_LABEL);
+        setLocationInput((prev) => prev.trim() || text.currentLocation);
         return;
       }
 
       setLocationInput("");
     });
-  }, [locationFilter, originSourceParam, cityFilter]);
+  }, [locationFilter, originSourceParam, cityFilter, text.currentLocation]);
 
   const selectedCountryData = useMemo(() => {
     return availableLocations.find(l => l.countryCode === countryFilter);
@@ -1032,32 +1051,32 @@ export default function SearchResults({
   const emptyStateMessage = useMemo(() => {
     const parts: string[] = [];
     if (categoryFilterId) {
-      parts.push(`para ${getCategoryLabel(categoryFilterId).split("(")[0].trim().toLowerCase()}`);
+      parts.push(`${isEnglish ? "for" : "para"} ${getDisplayCategoryLabel(categoryFilterId).toLowerCase()}`);
     }
     const cityOrLocal = cityFilter.trim() || locationFilter.trim();
     if (cityOrLocal) {
-      parts.push(`em ${cityOrLocal}`);
+      parts.push(`${isEnglish ? "in" : "em"} ${cityOrLocal}`);
     }
 
     if (parts.length > 0) {
-      return `Não encontramos resultados ${parts.join(" ")}.`;
+      return isEnglish ? `No results found ${parts.join(" ")}.` : `Não encontramos resultados ${parts.join(" ")}.`;
     }
 
-    return "O Caramelinho não achou nada com esses critérios.";
-  }, [categoryFilter, cityFilter, locationFilter]);
+    return isEnglish ? "Caramelinho could not find anything with these criteria." : "O Caramelinho não achou nada com esses critérios.";
+  }, [categoryFilterId, cityFilter, locationFilter, isEnglish]);
 
 
   useEffect(() => {
-    const baseTitle = "Buscar negócios brasileiros";
-    const cityText = cityFilter ? ` em ${cityFilter}` : "";
-    const categoryText = categoryFilterId ? (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase()) : "negócios e serviços";
-    const queryPart = query ? ` para ${query}` : "";
+    const baseTitle = text.businessSearch;
+    const cityText = cityFilter ? `${isEnglish ? " in " : " em "}${cityFilter}` : "";
+    const categoryText = categoryFilterId ? (isEnglish ? getDisplayCategoryLabel(categoryFilterId).toLowerCase() : (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase())) : (isEnglish ? "businesses and services" : "negócios e serviços");
+    const queryPart = query ? `${isEnglish ? " for " : " para "}${query}` : "";
 
     setSeoMeta(
       `${baseTitle}${cityText} | Caramelinho.com`,
-      `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
+      isEnglish ? `Find ${categoryText}${cityText}${queryPart}. Compare options near you and contact businesses directly.` : `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
     );
-  }, [query, categoryFilter, cityFilter]);
+  }, [query, categoryFilter, cityFilter, isEnglish, text.businessSearch]);
 
   const results = useMemo(() => {
     // The server search RPC applies every business filter before pagination.
@@ -1241,8 +1260,8 @@ export default function SearchResults({
       "pagina",
     ].forEach((key) => params.delete(key));
     const nextQuery = params.toString();
-    return nextQuery ? "/buscar?" + nextQuery : "/buscar";
-  }, [hasCategoryLocationScope, searchParams]);
+    return toLocalePath(nextQuery ? "/buscar?" + nextQuery : "/buscar");
+  }, [hasCategoryLocationScope, searchParams, toLocalePath]);
 
   useEffect(() => {
     if (isResultsLoading) return;
@@ -1265,8 +1284,8 @@ export default function SearchResults({
     if (nextPage <= 1) params.delete("pagina");
     else params.set("pagina", String(nextPage));
     const query = params.toString();
-    return query ? `/buscar?${query}` : "/buscar";
-  }, [searchParams]);
+    return toLocalePath(query ? `/buscar?${query}` : "/buscar");
+  }, [searchParams, toLocalePath]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1277,7 +1296,7 @@ export default function SearchResults({
     else params.delete("q");
     const locationText = locationInput.trim();
     const isCurrentLocationText =
-      normalizeText(locationText) === normalizeText(CURRENT_LOCATION_LABEL);
+      normalizeText(locationText) === normalizeText(text.currentLocation);
     const hasExplicitCity = !!locationText && !isCurrentLocationText;
     if (hasExplicitCity) {
       const typedLocation = locationText;
@@ -1392,7 +1411,7 @@ export default function SearchResults({
   const handleClearFilters = () => {
     setSearchInput("");
     setLocationInput("");
-    navigate("/buscar");
+    navigate(toLocalePath("/buscar"));
   };
 
   const handleLocateMe = async (requireExactGps = false) => {
@@ -1410,7 +1429,7 @@ export default function SearchResults({
         if (approxGeo) {
           setApproxCoords({ lat: approxGeo.lat, lng: approxGeo.lng });
           if (approxGeo.countryCode) setApproxCountryCode(approxGeo.countryCode);
-          const inferredCity = inferNearestCityFromCoords(approxGeo) || CURRENT_LOCATION_LABEL;
+          const inferredCity = inferNearestCityFromCoords(approxGeo) || text.currentLocation;
           setLocationInput("");
           window.setTimeout(() => setLocationInput(inferredCity), 0);
 
@@ -1443,7 +1462,7 @@ export default function SearchResults({
       }
 
       setUserCoords(coords);
-      const inferredCity = inferNearestCityFromCoords(coords) || CURRENT_LOCATION_LABEL;
+      const inferredCity = inferNearestCityFromCoords(coords) || text.currentLocation;
       setLocationInput("");
       window.setTimeout(() => setLocationInput(inferredCity), 0);
 
@@ -1559,13 +1578,13 @@ export default function SearchResults({
         }}
       >
         <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder="Todas as categorias" />
+          <SelectValue placeholder={isEnglish ? "All categories" : "Todas as categorias"} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todas as categorias</SelectItem>
+          <SelectItem value="all">{isEnglish ? "All categories" : "Todas as categorias"}</SelectItem>
           {BUSINESS_CATEGORY_OPTIONS.filter((cat) => cat.id !== "tourism").map((cat) => (
               <SelectItem key={cat.id} value={cat.id}>
-               {cat.label.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduções" : cat.label.split("(")[0].trim()}
+               {getDisplayCategoryLabel(cat.id, cat.label)}
               </SelectItem>
           ))}
         </SelectContent>
@@ -1588,15 +1607,15 @@ export default function SearchResults({
         }}
       >
         <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder="País" />
+          <SelectValue placeholder={text.country} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos os países</SelectItem>
+          <SelectItem value="all">{text.allCountries}</SelectItem>
           {availableLocations
             .filter((loc) => typeof loc?.countryCode === "string" && loc.countryCode.trim().length > 0)
             .map((loc) => (
               <SelectItem key={loc.countryCode} value={loc.countryCode}>
-                {loc.countryName}
+                {getCountryDisplayName(loc.countryCode, loc.countryName, locale)}
               </SelectItem>
             ))}
         </SelectContent>
@@ -1618,10 +1637,10 @@ export default function SearchResults({
           }}
         >
           <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder="Estado/Província" />
+            <SelectValue placeholder={text.region} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os estados</SelectItem>
+            <SelectItem value="all">{text.allRegions}</SelectItem>
             {selectedCountryData.states
               .filter((s: any) => typeof s?.code === "string" && s.code.trim().length > 0)
               .map((s: any) => (
@@ -1644,10 +1663,10 @@ export default function SearchResults({
           }}
         >
           <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder="Cidade" />
+            <SelectValue placeholder={text.city} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas as cidades</SelectItem>
+            <SelectItem value="all">{text.allCities}</SelectItem>
             {selectedStateData.cities
               .filter((city: string) => typeof city === "string" && city.trim().length > 0)
               .map((city: string) => (
@@ -1671,18 +1690,18 @@ export default function SearchResults({
       >
         <SelectTrigger className="w-full h-9 text-sm">
           <Navigation className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-          <SelectValue placeholder="Distância" />
+          <SelectValue placeholder={text.distance} />
         </SelectTrigger>
         <SelectContent>
           {RADIUS_OPTIONS.map((radius) => (
             <SelectItem key={radius} value={String(radius)}>
-              Até {radius} km
+              {text.within} {radius} km
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
       <div
-        className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
+        className={`${isEnglish ? "hidden " : ""}h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
           isCommunityFindsMode ? "bg-blue-100 border-blue-500" : "bg-blue-50 border-blue-300"
         }`}
       >
@@ -1708,7 +1727,7 @@ export default function SearchResults({
         </button>
       </div>
       <div
-        className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
+        className={`${isEnglish ? "hidden " : ""}h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
           isEventMode ? "bg-amber-100 border-amber-500" : "bg-amber-50 border-amber-300"
         }`}
       >
@@ -1736,7 +1755,7 @@ export default function SearchResults({
       {hasActiveFilters && (
         <Button type="button" variant="ghost" size="sm" className="h-9 w-full justify-start text-muted-foreground" onClick={handleClearFilters}>
           <X className="w-4 h-4 mr-1" />
-          Limpar filtros
+          {text.clear}
         </Button>
       )}
     </div>
@@ -1747,17 +1766,17 @@ export default function SearchResults({
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-24">
-            <Link to="/" className="flex items-center gap-3 group">
+            <Link to={toLocalePath("/")} className="flex items-center gap-3 group">
               <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
                 <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{"O SEU FARO FORA DO BRASIL"}</div>
+                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{text.slogan}</div>
               </div>
             </Link>
 
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+            <div className="flex items-center gap-1.5 sm:gap-3"><LanguageSwitcher /><SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact /></div>
           </div>
         </div>
       </header>
@@ -1770,7 +1789,7 @@ export default function SearchResults({
               onChange={setSearchInput}
               suggestions={searchSuggestions}
               disableLocalSuggestions
-              placeholder="Buscar por produto ou serviço (Ex: coxinha)"
+              placeholder={text.searchPlaceholder}
               icon="search"
               onSubmit={(selectedValue) => {
                 const nextValue = selectedValue ?? searchInput;
@@ -1791,7 +1810,8 @@ export default function SearchResults({
               suggestions={citySuggestions}
               onUseCurrentLocation={() => handleLocateMe(true)}
               isLoading={locatingMe}
-              placeholder="Em qual cidade?"
+              placeholder={text.locationPlaceholder}
+              currentLocationLabel={text.currentLocation}
               icon="location"
               useGooglePlaces
               onSubmit={(selectedValue, meta) => {
@@ -1802,7 +1822,7 @@ export default function SearchResults({
                   params.delete("pagina");
                   const trimmedValue = nextValue.trim();
                   const isCurrentLocationText =
-                    normalizeText(trimmedValue) === normalizeText(CURRENT_LOCATION_LABEL);
+                    normalizeText(trimmedValue) === normalizeText(text.currentLocation);
                   const hasExplicitCity = !!trimmedValue && !isCurrentLocationText;
 
                   if (hasExplicitCity) {
@@ -1866,7 +1886,7 @@ export default function SearchResults({
             />
             <div className="pt-2 lg:p-2 flex items-center">
               <Button type="submit" size="sm" className="w-full lg:w-auto caramelo-gradient text-white border-0 !rounded-xl">
-                Farejar
+                {text.submit}
               </Button>
             </div>
           </div>
@@ -1881,16 +1901,16 @@ export default function SearchResults({
             onClick={() => setFiltersOpen(true)}
           >
             <SlidersHorizontal className="w-4 h-4 mr-2" />
-            Filtros
+            {text.filters}
           </Button>
           <div className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground">
             <SlidersHorizontal className="w-4 h-4" />
-            Filtros
+            {text.filters}
           </div>
           <div className="w-full sm:w-auto sm:ml-auto flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleLocateMe} className="h-9 flex-1 sm:flex-none" disabled={locatingMe}>
               <Navigation className="w-4 h-4 mr-1" />
-              {locatingMe ? "Localizando..." : "Me localizar"}
+              {locatingMe ? (isEnglish ? "Locating..." : "Localizando...") : (isEnglish ? "Use my location" : "Me localizar")}
             </Button>
             <Button
               variant={showMap ? "default" : "outline"}
@@ -1904,37 +1924,37 @@ export default function SearchResults({
               }`}
             >
               <MapIcon className="w-4 h-4 mr-1" />
-              Mapa
+              {text.map}
             </Button>
             <Button variant={!showMap ? "default" : "outline"} size="sm" onClick={() => setShowMap(false)} className="h-9 flex-1 sm:flex-none">
               <List className="w-4 h-4 mr-1" />
-              Lista
+              {text.list}
             </Button>
           </div>
         </div>
 
         <p className="text-sm text-muted-foreground mb-6">
           {isResultsLoading || isResolvingDistanceOrigin
-            ? "Carregando resultados..."
+            ? text.loading
             : isCommunityFindsMode
             ? `${filteredCommunityFinds.length} achadinho${filteredCommunityFinds.length !== 1 ? "s" : ""} encontrado${filteredCommunityFinds.length !== 1 ? "s" : ""}`
             : isEventMode
             ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
-            : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
-          {query && <> para "<strong>{query}</strong>"</>}
-          {categoryFilterId && <> em <strong>{getCategoryLabel(categoryFilterId).split("(")[0].trim()}</strong></>}
-          {locationFilter && <> perto de <strong>{locationFilter}</strong></>}
-          {effectiveRadiusKm && <> em até <strong>{effectiveRadiusKm} km</strong></>}
-          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && !isResolvingDistanceOrigin && <> informe um local ou permita sua localização para usar raio</>}
-          {resolvingLocation && <> localizando referência...</>}
+            : isEnglish ? `${totalResults} ${text.business}${totalResults !== 1 ? "es" : ""} ${text.found}` : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
+          {query && <>{isEnglish ? " for " : " para "}<strong>{query}</strong></>}
+          {categoryFilterId && <>{isEnglish ? " in " : " em "}<strong>{getDisplayCategoryLabel(categoryFilterId)}</strong></>}
+          {locationFilter && <>{isEnglish ? " near " : " perto de "}<strong>{locationFilter}</strong></>}
+          {effectiveRadiusKm && <>{isEnglish ? " within " : " em até "}<strong>{effectiveRadiusKm} km</strong></>}
+          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && !isResolvingDistanceOrigin && <> {text.locationRequired}</>}
+          {resolvingLocation && <> {text.locatingReference}</>}
         </p>
         {hasCategoryLocationScope && worldwideCategoryHref && !isResultsLoading && (
           <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
             <p className="text-sm text-muted-foreground">
-              Você está vendo resultados desta categoria na sua região.
+              {text.regionalCategory}
             </p>
             <Button asChild variant="outline" size="sm" className="mt-3 shrink-0 sm:mt-0">
-              <Link to={worldwideCategoryHref}>Ver todos no mundo</Link>
+              <Link to={worldwideCategoryHref}>{text.allWorldwide}</Link>
             </Button>
           </div>
         )}
@@ -1952,18 +1972,18 @@ export default function SearchResults({
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0" />
                   <div className="flex-1">
-                    <h2 className="text-xl font-bold text-foreground mb-2">Nenhum resultado encontrado</h2>
+                    <h2 className="text-xl font-bold text-foreground mb-2">{text.noResults}</h2>
                     <p className="text-muted-foreground mb-6">{emptyStateMessage}</p>
                     <div className="flex flex-col sm:flex-row gap-3 lg:justify-start justify-center">
                       {hasActiveFilters && (
                         <Button variant="outline" onClick={handleClearFilters}>
                           <X className="w-4 h-4 mr-2" />
-                          Limpar filtros
+                          {text.clear}
                         </Button>
                       )}
-                      <Button onClick={() => navigate("/")}>
+                      <Button onClick={() => navigate(toLocalePath("/"))}>
                         <PawPrint className="w-4 h-4 mr-2" />
-                        Voltar ao Início
+                        {text.backHome}
                       </Button>
                     </div>
                   </div>
@@ -1974,8 +1994,8 @@ export default function SearchResults({
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0 animate-pulse" />
                   <div className="flex-1">
-                    <h2 className="text-xl font-bold text-foreground mb-2">Carregando resultados...</h2>
-                    <p className="text-muted-foreground">Aguarde um instante enquanto preparamos os negócios para você.</p>
+                    <h2 className="text-xl font-bold text-foreground mb-2">{text.loading}</h2>
+                    <p className="text-muted-foreground">{text.loadingDescription}</p>
                   </div>
                 </div>
               </div>
@@ -2303,7 +2323,7 @@ export default function SearchResults({
                 return (
                 <Link
                   key={biz.id}
-                  to={buildBusinessUrl(biz)}
+                  to={buildBusinessUrlForLocale(biz, locale)}
                   state={{ preloadedBusiness: biz }}
                   onMouseEnter={() => preloadBusinessPageAssets(biz)}
                   onFocus={() => preloadBusinessPageAssets(biz)}
@@ -2431,7 +2451,7 @@ export default function SearchResults({
         <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Filtros</DialogTitle>
+              <DialogTitle>{text.filters}</DialogTitle>
             </DialogHeader>
             {renderFilterControls()}
             <div className="pt-2">
@@ -2440,7 +2460,7 @@ export default function SearchResults({
                 className="w-full"
                 onClick={() => setFiltersOpen(false)}
               >
-                Aplicar filtros
+                {isEnglish ? "Apply filters" : "Aplicar filtros"}
               </Button>
             </div>
           </DialogContent>

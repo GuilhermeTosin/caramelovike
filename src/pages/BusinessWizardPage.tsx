@@ -170,6 +170,8 @@ export default function BusinessWizardPage() {
     primaryActivity: "",
     primaryActivityCustom: "",
     description: "",
+    publishEnglishVersion: false,
+    descriptionEn: "",
     keywords: "",
     services: "",
     phone: "",
@@ -402,6 +404,8 @@ export default function BusinessWizardPage() {
           primaryActivity: biz.primaryActivity || "",
           primaryActivityCustom: biz.primaryActivityCustom || "",
           description: biz.description || "",
+          publishEnglishVersion: Boolean(stripRichTextHtml(biz.descriptionEn || "").trim()),
+          descriptionEn: biz.descriptionEn || "",
           keywords: (biz.keywords || []).join(", "),
           services: "",
           phone: biz.phone || "",
@@ -472,6 +476,10 @@ export default function BusinessWizardPage() {
     if (step === 2) {
       if (!stripRichTextHtml(form.description).trim()) {
         toast.error("Preencha a descrição.");
+        return false;
+      }
+      if (form.publishEnglishVersion && !stripRichTextHtml(form.descriptionEn).trim()) {
+        toast.error("Preencha a descrição em inglês ou desative a versão em inglês.");
         return false;
       }
       return true;
@@ -695,6 +703,7 @@ export default function BusinessWizardPage() {
         primaryActivity: form.primaryActivity,
         primaryActivityCustom: normalizePrimaryActivityCustom(form.primaryActivityCustom),
         description: sanitizeRichTextHtml(form.description),
+        descriptionEn: form.publishEnglishVersion ? sanitizeRichTextHtml(form.descriptionEn) : "",
         street: form.hasPhysicalAddress ? form.street.trim() : "",
         city: form.city.trim(),
         ...(locationResolution?.databaseReady ? { citySlug: locationResolution.citySlug, locationId: locationResolution.locationId } : {}),
@@ -945,6 +954,29 @@ export default function BusinessWizardPage() {
                   className="mt-1.5"
                   placeholder="Descreva claramente o que seu negocio oferece."
                 />
+              </div>
+              <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.publishEnglishVersion}
+                    onChange={(event) => updateField("publishEnglishVersion", event.target.checked)}
+                    className="mt-1 h-4 w-4"
+                  />
+                  <span>
+                    <span className="font-semibold text-sky-950">Publicar também em inglês</span>
+                    <span className="mt-1 block text-sm text-sky-900/80">A versão em inglês ganha uma URL própria e aparece apenas quando a descrição em inglês estiver preenchida. Sem ela, seu negócio continua somente em português.</span>
+                  </span>
+                </label>
+                {form.publishEnglishVersion ? (
+                  <div className="mt-4 space-y-4 border-t border-sky-200 pt-4">
+                    <div>
+                      <Label>Descrição em inglês *</Label>
+                      <p className="mt-1 text-sm text-muted-foreground">Escreva uma versão natural para clientes que pesquisam em inglês. Não publicamos traduções automáticas.</p>
+                      <RichTextEditor id="business-description-en" value={form.descriptionEn} onChange={(value) => updateField("descriptionEn", value)} className="mt-1.5 bg-white" placeholder="Describe your business, services and what makes it different." />
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div>
                 <Label>Palavras-chave</Label>

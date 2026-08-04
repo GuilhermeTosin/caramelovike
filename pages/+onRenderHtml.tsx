@@ -7,10 +7,13 @@ import { getSiteContent } from "@/data/siteContent";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
 import { getDirectoryPageMeta, type DirectoryPageMeta } from "@/lib/seo/directoryMeta";
-import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
+import { buildDirectoryPagePath, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import { getDirectoryCategoryBySlug } from "@/lib/directoryCategories";
+import { getLocalizedDirectoryMeta } from "@/lib/directoryLocale";
+import { getCountryDisplayName, getLocaleHtmlLang, getLocaleOgCode, getPortuguesePath, getSiteLocale, localizePath, type SiteLocale } from "@/lib/locales";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
-import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
+import { buildBusinessUrl, getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
+import { buildEnglishBusinessUrl, getEnglishBusinessContent, hasEnglishBusinessTranslation } from "@/lib/businessEnglish";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
 import { getMeaningfulUpdatedAt } from "@/lib/dates";
 import {
@@ -109,6 +112,22 @@ function buildBusinessTitle(business: BusinessFrontend) {
 
 function buildBusinessDescription(business: BusinessFrontend) {
   return buildBusinessSeoDescription(business);
+}
+
+function buildEnglishBusinessTitle(business: BusinessFrontend) {
+  const location = [
+    business.address.city,
+    business.address.state,
+    getCountryDisplayName(business.address.countryCode, business.address.country, "en"),
+  ].filter(Boolean).join(", ");
+  return `${business.name} | Brazilian business${location ? ` in ${location}` : " abroad"} | Caramelinho.com`;
+}
+
+function buildEnglishBusinessDescription(business: BusinessFrontend) {
+  const description = stripRichTextHtml(business.description).trim().replace(/\s+/g, " ");
+  if (description) return description.length > 160 ? `${description.slice(0, 157).trimEnd()}...` : description;
+  const location = [business.address.city, getCountryDisplayName(business.address.countryCode, business.address.country, "en")].filter(Boolean).join(", ");
+  return `Find contact details, services and reviews for ${business.name}${location ? ` in ${location}` : ""}.`;
 }
 
 function buildBusinessHeroImageAssets(imageUrl: string) {
@@ -218,16 +237,16 @@ function jsonLdScript(data: unknown, id: string) {
   return `<script id="jsonld-${id}" type="application/ld+json">${json}</script>`;
 }
 
-function buildWebsiteJsonLd() {
+function buildWebsiteJsonLd(locale: SiteLocale = "pt-BR") {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "Caramelinho.com",
-    url: "https://www.caramelinho.com/",
-    inLanguage: "pt-BR",
+    url: locale === "en" ? "https://www.caramelinho.com/en" : "https://www.caramelinho.com/",
+    inLanguage: getLocaleHtmlLang(locale),
     potentialAction: {
       "@type": "SearchAction",
-      target: "https://www.caramelinho.com/buscar?q={search_term_string}",
+      target: locale === "en" ? "https://www.caramelinho.com/en/search?q={search_term_string}" : "https://www.caramelinho.com/buscar?q={search_term_string}",
       "query-input": "required name=search_term_string",
     },
   };
@@ -274,34 +293,34 @@ function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, p
   };
 }
 
-function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl: string) {
+function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl: string, locale: SiteLocale = "pt-BR") {
   const address = business.address || {};
   const countryCode = String(address.countryCode || "").toLowerCase();
   const stateCode = String(address.stateCode || "").toLowerCase();
   const citySlug = getCanonicalCitySlug(address.city, countryCode) || slugify(address.citySlug || address.city || "");
   const items = [
-    { name: "In\u00edcio", item: "https://www.caramelinho.com/" },
-    { name: "Neg\u00f3cios", item: "https://www.caramelinho.com/negocios" },
+    { name: locale === "en" ? "Home" : "In\u00edcio", item: "https://www.caramelinho.com" + (locale === "en" ? "/en" : "/") },
+    { name: locale === "en" ? "Businesses" : "Neg\u00f3cios", item: "https://www.caramelinho.com" + (locale === "en" ? "/en/businesses" : "/negocios") },
   ];
 
   if (countryCode) {
     items.push({
-      name: getCountryName(countryCode) || countryCode.toUpperCase(),
-      item: "https://www.caramelinho.com/negocios/" + countryCode,
+      name: getCountryDisplayName(countryCode, getCountryName(countryCode) || countryCode.toUpperCase(), locale),
+      item: "https://www.caramelinho.com" + (locale === "en" ? "/en/businesses/" : "/negocios/") + countryCode,
     });
   }
 
   if (countryCode && stateCode) {
     items.push({
       name: getStateDisplayName(countryCode, stateCode, address.state) || stateCode.toUpperCase(),
-      item: "https://www.caramelinho.com/negocios/" + countryCode + "/" + stateCode,
+      item: "https://www.caramelinho.com" + (locale === "en" ? "/en/businesses/" : "/negocios/") + countryCode + "/" + stateCode,
     });
   }
 
   if (countryCode && stateCode && citySlug) {
     items.push({
       name: getCityDisplayName(address.city, countryCode) || address.city,
-      item: "https://www.caramelinho.com/negocios/" + countryCode + "/" + stateCode + "/" + citySlug,
+      item: "https://www.caramelinho.com" + (locale === "en" ? "/en/businesses/" : "/negocios/") + countryCode + "/" + stateCode + "/" + citySlug,
     });
   }
 
@@ -324,42 +343,112 @@ function buildDirectoryBreadcrumbJsonLd(
   businesses: BusinessFrontend[],
   canonicalUrl: string,
   snapshot?: DirectoryPageSnapshot,
+  locale: SiteLocale = "pt-BR",
 ) {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
-  const parts = pathname.split("/").filter(Boolean);
-  const countryCode = (parts[1] || "").toLowerCase();
-  const stateCode = (parts[2] || "").toLowerCase();
-  const citySlug = slugify(parts[3] || "");
-  const category = snapshot?.category || getDirectoryCategoryBySlug(parts[4]);
+  const route = snapshot?.route || parseDirectoryRoute(pathname);
+  if (!route) return null;
+
+  const countryCode = route.countryCode;
+  const stateCode = route.stateCode;
+  const citySlug = route.citySlug;
+  const category = snapshot?.category || getDirectoryCategoryBySlug(route.categorySlug);
   const cityBusiness = businesses.find((business) => {
     const businessCity = getCanonicalCitySlug(business.address.city, business.address.countryCode) || slugify(business.address.citySlug || "");
     return businessCity === citySlug && (business.address.countryCode || "").toLowerCase() === countryCode && (business.address.stateCode || "").toLowerCase() === stateCode;
   });
   const cityName = snapshot?.labels.city || (cityBusiness ? getCityDisplayName(cityBusiness.address.city, countryCode) : citySlug.split("-").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "));
-  const items = [{ name: "Neg\u00f3cios", item: "https://www.caramelinho.com/negocios" }];
-  if (countryCode) items.push({ name: getCountryName(countryCode) || countryCode.toUpperCase(), item: "https://www.caramelinho.com/negocios/" + countryCode });
-  if (stateCode) items.push({ name: snapshot?.labels.state || getStateDisplayName(countryCode, stateCode, cityBusiness?.address.state) || stateCode.toUpperCase(), item: "https://www.caramelinho.com/negocios/" + countryCode + "/" + stateCode });
-  if (citySlug) items.push({ name: cityName || citySlug, item: "https://www.caramelinho.com/negocios/" + countryCode + "/" + stateCode + "/" + citySlug });
+  const rootPath = localizePath("/negocios", locale);
+  const items = [{ name: locale === "en" ? "Businesses" : "Negócios", item: "https://www.caramelinho.com" + rootPath }];
+
+  if (countryCode) {
+    items.push({
+      name: getCountryDisplayName(countryCode, getCountryName(countryCode) || countryCode.toUpperCase(), locale),
+      item: "https://www.caramelinho.com" + buildDirectoryPagePath({ ...route, stateCode: "", citySlug: "", categorySlug: "", page: 1 }),
+    });
+  }
+  if (stateCode) {
+    items.push({
+      name: snapshot?.labels.state || getStateDisplayName(countryCode, stateCode, cityBusiness?.address.state) || stateCode.toUpperCase(),
+      item: "https://www.caramelinho.com" + buildDirectoryPagePath({ ...route, citySlug: "", categorySlug: "", page: 1 }),
+    });
+  }
+  if (citySlug) {
+    items.push({
+      name: cityName || citySlug,
+      item: "https://www.caramelinho.com" + buildDirectoryPagePath({ ...route, categorySlug: "", page: 1 }),
+    });
+  }
   if (category) items.push({ name: category.label, item: canonicalUrl });
   return { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: item.item })) };
 }
 
+function getEnglishPublicPageMeta(pathname: string) {
+  const pages: Record<string, { title: string; description: string }> = {
+    "/en/about": { title: "About Caramelinho | Caramelinho.com", description: "Learn about Caramelinho, the platform that connects people abroad with Brazilian businesses and services." },
+    "/en/contact": { title: "Contact | Caramelinho.com", description: "Contact Caramelinho for support, questions and partnership opportunities." },
+    "/en/privacy": { title: "Privacy Policy | Caramelinho.com", description: "Learn how Caramelinho collects, uses and protects personal information." },
+    "/en/terms": { title: "Terms and Conditions | Caramelinho.com", description: "Read the terms and conditions for using the Caramelinho platform." },
+    "/en/search": { title: "Search Brazilian businesses | Caramelinho.com", description: "Search for Brazilian businesses, services and professionals abroad." },
+  };
+  return pages[pathname] || null;
+}
+function getEnglishHomeMeta() {
+  return {
+    title: "Find Brazilian businesses abroad | Caramelinho.com",
+    description: "Find Brazilian businesses, services and professionals around the world with Caramelinho.",
+  };
+}
+
+function getLocaleAlternateLinks(pathname: string, business?: BusinessFrontend | null) {
+  if (business && hasEnglishBusinessTranslation(business)) {
+    const portuguesePath = buildBusinessUrl(business);
+    const englishPath = buildEnglishBusinessUrl(business);
+    return [
+      `<link rel="alternate" hreflang="pt-BR" href="https://www.caramelinho.com${portuguesePath}" />`,
+      `<link rel="alternate" hreflang="en" href="https://www.caramelinho.com${englishPath}" />`,
+      `<link rel="alternate" hreflang="x-default" href="https://www.caramelinho.com${portuguesePath}" />`,
+    ].join("\n");
+  }
+
+  const directoryRoute = parseDirectoryRoute(pathname);
+  const supportsAlternates = pathname === "/" || pathname === "/en" || ["/sobre", "/contato", "/privacidade", "/termos", "/en/about", "/en/contact", "/en/privacy", "/en/terms"].includes(pathname) || (!!directoryRoute && !directoryRoute.categorySlug);
+  if (!supportsAlternates) return "";
+
+  const portuguesePath = getPortuguesePath(pathname);
+  const englishPath = localizePath(portuguesePath, "en");
+  return [
+    `<link rel="alternate" hreflang="pt-BR" href="https://www.caramelinho.com${portuguesePath}" />`,
+    `<link rel="alternate" hreflang="en" href="https://www.caramelinho.com${englishPath}" />`,
+    `<link rel="alternate" hreflang="x-default" href="https://www.caramelinho.com${portuguesePath}" />`,
+  ].join("\n");
+}
 export function onRenderHtml(pageContext: PageContext) {
   const { Page } = pageContext;
   const pageHtml = renderToString(<Page pageContext={pageContext} />);
   const business = pageContext.initialBusiness || null;
   const event = pageContext.initialEvent || null;
+  const { pathname } = getPageUrlParts(pageContext.urlOriginal);
+  const locale = getSiteLocale(pathname);
   const isBusinessPage = !!pageContext.isBusinessPage;
   const isEventPage = !!pageContext.isEventPage;
-  const isDirectoryPage = pageContext.urlOriginal ? new URL(pageContext.urlOriginal, "https://www.caramelinho.com").pathname === "/negocios" || new URL(pageContext.urlOriginal, "https://www.caramelinho.com").pathname.startsWith("/negocios/") : false;
+  const isDirectoryPage = !!parseDirectoryRoute(pathname);
   const canonicalUrl = isEventPage && event
     ? buildEventCanonicalUrl(event.id)
     : getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
   const isErrorPage = !!pageContext.is404;
   const businessHasData = !!business;
+  const localizedBusiness = business && locale === "en" ? getEnglishBusinessContent(business) : business;
+  const englishPublicMeta = locale === "en" ? getEnglishPublicPageMeta(pathname) : null;
   const staticMeta = isErrorPage
     ? getErrorPageMeta()
-    : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || [], pageContext.initialDirectorySnapshot?.pageMeta);
+    : locale === "en" && pageContext.initialDirectorySnapshot
+      ? getLocalizedDirectoryMeta(pageContext.initialDirectorySnapshot, locale)
+      : englishPublicMeta
+        ? englishPublicMeta
+        : locale === "en" && pathname === "/en"
+          ? getEnglishHomeMeta()
+          : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || [], pageContext.initialDirectorySnapshot?.pageMeta);
   const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal);
   const eventMeta = event
     ? { title: buildEventSeoTitle(event), description: buildEventSeoDescription(event) }
@@ -371,14 +460,14 @@ export function onRenderHtml(pageContext: PageContext) {
   const pageTitle = isErrorPage
     ? staticMeta.title
     : isBusinessPage
-      ? (businessHasData ? buildBusinessTitle(business) : fallbackBusinessMeta.title)
+      ? (businessHasData ? (locale === "en" ? buildEnglishBusinessTitle(localizedBusiness!) : buildBusinessTitle(localizedBusiness!)) : fallbackBusinessMeta.title)
       : isEventPage
         ? eventMeta.title
         : staticMeta.title;
   const pageDescription = isErrorPage
     ? staticMeta.description
     : isBusinessPage
-      ? (businessHasData ? buildBusinessDescription(business) : fallbackBusinessMeta.description)
+      ? (businessHasData ? (locale === "en" ? buildEnglishBusinessDescription(localizedBusiness!) : buildBusinessDescription(localizedBusiness!)) : fallbackBusinessMeta.description)
       : isEventPage
         ? eventMeta.description
         : staticMeta.description;
@@ -391,26 +480,26 @@ export function onRenderHtml(pageContext: PageContext) {
   const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, pageContext.is404);
   const jsonLd = isBusinessPage && businessHasData
     ? [
-        { id: "website", data: buildWebsiteJsonLd() },
-        { id: "business-local", data: buildBusinessJsonLd(business, canonicalUrl, pageImage) },
-        { id: "business-breadcrumb", data: buildBusinessBreadcrumbJsonLd(business, canonicalUrl) },
+        { id: "website", data: buildWebsiteJsonLd(locale) },
+        { id: "business-local", data: buildBusinessJsonLd(localizedBusiness!, canonicalUrl, pageImage) },
+        { id: "business-breadcrumb", data: buildBusinessBreadcrumbJsonLd(localizedBusiness!, canonicalUrl, locale) },
       ]
     : isEventPage && event
       ? [
-          { id: "website", data: buildWebsiteJsonLd() },
+          { id: "website", data: buildWebsiteJsonLd(locale) },
           { id: "event", data: buildEventStructuredData(event, canonicalUrl) },
           { id: "event-breadcrumb", data: buildEventBreadcrumbStructuredData(event, canonicalUrl) },
         ]
       : isDirectoryPage
         ? [
-            { id: "website", data: buildWebsiteJsonLd() },
-            { id: "directory-breadcrumb", data: buildDirectoryBreadcrumbJsonLd(pageContext.urlOriginal, pageContext.initialBusinesses || [], canonicalUrl, pageContext.initialDirectorySnapshot) },
+            { id: "website", data: buildWebsiteJsonLd(locale) },
+            { id: "directory-breadcrumb", data: buildDirectoryBreadcrumbJsonLd(pageContext.urlOriginal, pageContext.initialBusinesses || [], canonicalUrl, pageContext.initialDirectorySnapshot, locale) },
           ]
-        : [{ id: "website", data: buildWebsiteJsonLd() }];
+        : [{ id: "website", data: buildWebsiteJsonLd(locale) }];
   const jsonLdHtml = jsonLd.map((item) => jsonLdScript(item.data, item.id)).join("\n");
 
   return escapeInject`<!doctype html>
-<html lang="pt-BR">
+<html lang="${getLocaleHtmlLang(locale)}">
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -421,12 +510,13 @@ export function onRenderHtml(pageContext: PageContext) {
     <title>${pageTitle}</title>
     <meta name="description" content="${pageDescription}" />
     <meta property="og:site_name" content="Caramelinho.com" />
-    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:locale" content="${getLocaleOgCode(locale)}" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="${pageTitle}" />
     <meta property="og:description" content="${pageDescription}" />
     <meta property="og:url" content="${canonicalUrl}" />
     <link rel="canonical" href="${canonicalUrl}" />
+    ${dangerouslySkipEscape(getLocaleAlternateLinks(pathname, business))}
     <meta property="og:image" content="${pageImage}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />

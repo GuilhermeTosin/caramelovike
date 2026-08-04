@@ -1,4 +1,5 @@
 import type { BusinessFrontend } from "@/types/database";
+import type { SiteLocale } from "@/lib/locales";
 import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getDirectoryInsights, type DirectoryInsights } from "@/lib/directoryInsights";
@@ -20,6 +21,7 @@ export type DirectoryNavigationItem = {
 };
 
 export type DirectoryRoute = {
+  locale?: SiteLocale;
   countryCode: string;
   stateCode: string;
   citySlug: string;
@@ -91,38 +93,41 @@ function countBy(values: string[]) {
 
 export function parseDirectoryRoute(pathname: string): DirectoryRoute | null {
   const parts = pathname.split("/").filter(Boolean);
-  if (parts[0] !== "negocios") return null;
+  const locale: SiteLocale = parts[0] === "en" && parts[1] === "businesses" ? "en" : "pt-BR";
+  const routeParts = locale === "en" ? parts.slice(2) : parts.slice(1);
+
+  if (locale === "pt-BR" && parts[0] !== "negocios") return null;
+  if (locale === "en" && (parts[0] !== "en" || parts[1] !== "businesses")) return null;
 
   const route: DirectoryRoute = {
-    countryCode: normalizeCode(parts[1]),
-    stateCode: normalizeCode(parts[2]),
-    citySlug: slugify(parts[3] || ""),
+    locale,
+    countryCode: normalizeCode(routeParts[0]),
+    stateCode: normalizeCode(routeParts[1]),
+    citySlug: slugify(routeParts[2] || ""),
     categorySlug: "",
     page: 1,
   };
 
-  if (parts.length === 1) return route;
-  if (parts.length === 2) return route;
-  if (parts.length === 3) return route;
-  if (parts.length === 4) return route;
-  if (parts.length === 5) {
-    route.categorySlug = slugify(parts[4]);
+  if (routeParts.length <= 3) return route;
+  if (routeParts.length === 4) {
+    route.categorySlug = slugify(routeParts[3]);
     return route;
   }
-  if (parts.length === 6 && parts[4] === "pagina" && /^\d+$/.test(parts[5])) {
-    route.page = Number(parts[5]);
+  if (routeParts.length === 5 && routeParts[3] === "pagina" && /^\d+$/.test(routeParts[4])) {
+    route.page = Number(routeParts[4]);
     return route;
   }
-  if (parts.length === 7 && parts[5] === "pagina" && /^\d+$/.test(parts[6])) {
-    route.categorySlug = slugify(parts[4]);
-    route.page = Number(parts[6]);
+  if (routeParts.length === 6 && routeParts[4] === "pagina" && /^\d+$/.test(routeParts[5])) {
+    route.categorySlug = slugify(routeParts[3]);
+    route.page = Number(routeParts[5]);
     return route;
   }
   return null;
 }
 
 export function buildDirectoryPagePath(route: DirectoryRoute, page = route.page) {
-  const parts = ["negocios", route.countryCode, route.stateCode, route.citySlug, route.categorySlug].filter(Boolean);
+  const prefix = route.locale === "en" ? ["en", "businesses"] : ["negocios"];
+  const parts = [...prefix, route.countryCode, route.stateCode, route.citySlug, route.categorySlug].filter(Boolean);
   const base = `/${parts.join("/")}`;
   return page <= 1 ? base : `${base}/pagina/${page}`;
 }
@@ -214,18 +219,18 @@ export function buildDirectoryPageSnapshot(
   const cityCounts = countBy(stateBusinesses.map(getDirectoryBusinessCitySlug).filter(Boolean));
   const gridItems: DirectoryNavigationItem[] = level === "countries"
     ? Array.from(countryCounts.entries()).map(([code, count]) => ({
-      label: getCountryName(code) || code.toUpperCase(), href: `/negocios/${code}`, count,
+      label: getCountryName(code) || code.toUpperCase(), href: buildDirectoryPagePath({ ...route, countryCode: code, stateCode: "", citySlug: "", categorySlug: "", page: 1 }), count,
     }))
     : level === "states"
       ? Array.from(stateCounts.entries()).map(([code, count]) => ({
         label: stateNameByCode.get(code) || getStateDisplayName(route.countryCode, code) || code.toUpperCase(),
-        href: `/negocios/${route.countryCode}/${code}`,
+        href: buildDirectoryPagePath({ ...route, stateCode: code, citySlug: "", categorySlug: "", page: 1 }),
         count,
       }))
       : level === "cities"
         ? Array.from(cityCounts.entries()).map(([slug, count]) => ({
           label: cityNameBySlug.get(slug) || slug,
-          href: `/negocios/${route.countryCode}/${route.stateCode}/${slug}`,
+          href: buildDirectoryPagePath({ ...route, citySlug: slug, categorySlug: "", page: 1 }),
           count,
         }))
         : [];

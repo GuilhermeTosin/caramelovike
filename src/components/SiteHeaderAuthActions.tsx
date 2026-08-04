@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { MessageCircle, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-
+import { useSiteLocale } from "@/contexts/LocaleContext";
 type SiteHeaderAuthActionsProps = {
   className?: string;
   compact?: boolean;
@@ -13,6 +13,8 @@ export default function SiteHeaderAuthActions({
   compact = false,
 }: SiteHeaderAuthActionsProps) {
   const { session, unreadMessages, isLoading } = useAuth();
+  const { locale } = useSiteLocale();
+  const isEnglish = locale === "en";
 
   const messageIconClassName = compact ? "w-4 h-4" : "w-5 h-5";
   const unreadBadgeClassName = compact ? "w-3.5 h-3.5 bg-primary text-[9px]" : "w-4 h-4 bg-primary text-[10px]";
@@ -58,12 +60,12 @@ export default function SiteHeaderAuthActions({
         <div className="flex items-center gap-2">
           <Link to="/entrar">
             <Button variant="ghost" size="sm" className={loginButtonClassName}>
-              Entrar
+              {isEnglish ? "Sign in" : "Entrar"}
             </Button>
           </Link>
           <Link to="/cadastro">
             <Button size="sm" className={signupButtonClassName} style={signupButtonStyle}>
-              Cadastrar
+              {isEnglish ? "List your business" : "Cadastrar"}
             </Button>
           </Link>
         </div>

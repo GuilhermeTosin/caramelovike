@@ -32,6 +32,7 @@ interface SearchInputWithSuggestionsProps {
   portalSuggestions?: boolean;
   onUseCurrentLocation?: () => void | Promise<void>;
   isLoading?: boolean;
+  currentLocationLabel?: string;
 }
 
 function extractCityFromPlace(place: google.maps.places.PlaceResult): string {
@@ -74,6 +75,7 @@ export default function SearchInputWithSuggestions({
   portalSuggestions = false,
   onUseCurrentLocation,
   isLoading = false,
+  currentLocationLabel = "Usar minha localização",
 }: SearchInputWithSuggestionsProps) {
   const legacyPlacesAutocompleteEnabled = true;
   const suggestionsDisabled = disableLocalSuggestions;
@@ -332,7 +334,7 @@ export default function SearchInputWithSuggestions({
           >
             <MapPin className="w-4 h-4 text-primary" />
             <span className="text-foreground font-semibold text-xs lg:text-[11px] whitespace-nowrap">
-              {"Usar minha localiza\u00e7\u00e3o"}
+              {currentLocationLabel}
             </span>
           </button>
         </li>

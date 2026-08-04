@@ -6,31 +6,46 @@ import { getPublishedCommunityEvents } from "@/services/events";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
+import { buildEnglishBusinessUrl, hasEnglishBusinessTranslation } from "@/lib/businessEnglish";
 
 const STATIC_PUBLIC_URLS = [
   "/",
+  "/en",
+  "/en/businesses",
   "/sobre",
   "/contato",
   "/privacidade",
   "/termos",
+  "/en/about",
+  "/en/contact",
+  "/en/privacy",
+  "/en/terms",
   "/negocio-verificado",
 ];
 
 function buildBusinessUrls(businesses: BusinessFrontend[]) {
-  return businesses
-    .map((business) => buildBusinessUrl(business))
-    .filter((url): url is string => !!url);
+  return businesses.flatMap((business) => {
+    const portugueseUrl = buildBusinessUrl(business);
+    const englishUrl = hasEnglishBusinessTranslation(business) ? buildEnglishBusinessUrl(business) : null;
+    return [portugueseUrl, englishUrl].filter((url): url is string => !!url);
+  });
 }
 
 function buildStaticSitemapXml(baseUrl: string) {
   const now = new Date().toISOString();
   const urls = [
     "/",
+    "/en",
     "/negocios",
+    "/en/businesses",
     "/sobre",
     "/contato",
     "/privacidade",
     "/termos",
+    "/en/about",
+    "/en/contact",
+    "/en/privacy",
+    "/en/terms",
     "/negocio-verificado",
   ];
   const body = urls

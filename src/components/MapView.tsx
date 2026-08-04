@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
-import { buildBusinessUrl } from "@/services/businesses";
 import type { BusinessFrontend, CommunityFindWithVote } from "@/types/database";
 import { MapPin, Loader2, AlertCircle, AtSign, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useSiteLocale } from "@/contexts/LocaleContext";
+import { buildBusinessUrlForLocale } from "@/lib/businessEnglish";
 
 interface MapViewProps {
   businesses: BusinessFrontend[];
@@ -26,6 +27,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<GoogleMapMarker[]>([]);
   const navigate = useNavigate();
+  const { locale } = useSiteLocale();
   const { maps, loading, error, available } = useGoogleMaps();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedApproximateGroupKey, setSelectedApproximateGroupKey] = useState<string | null>(null);
@@ -111,7 +113,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
             anchor: new google.maps.Point(22, 52),
           },
         });
-        marker.addListener("click", () => navigate(buildMarkerUrl(business)));
+        marker.addListener("click", () => navigate(buildMarkerUrl(business, locale)));
         markersRef.current.push(marker);
       });
 
@@ -176,7 +178,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
 
       const handleMarkerClick = () => {
         setSelectedId(business.id);
-        navigate(buildMarkerUrl(business));
+        navigate(buildMarkerUrl(business, locale));
       };
       addMarkerClickListeners(marker, pinElement, handleMarkerClick);
       markersRef.current.push(marker);
@@ -228,7 +230,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
 
     fitMapToPoints(map, maps, mapPoints);
     return undefined;
-  }, [approximateBusinessGroups, communityFinds, exactBusinesses, mapPoints, maps, navigate, selectedId]);
+  }, [approximateBusinessGroups, communityFinds, exactBusinesses, locale, mapPoints, maps, navigate, selectedId]);
 
   if (!available) {
     return (
@@ -317,7 +319,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
                 type="button"
                 onClick={() => {
                   setSelectedApproximateGroupKey(null);
-                  navigate(buildMarkerUrl(business));
+                  navigate(buildMarkerUrl(business, locale));
                 }}
                 className="block w-full rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-amber-300 hover:bg-amber-50"
               >
@@ -409,8 +411,8 @@ function addMarkerClickListeners(
   });
 }
 
-function buildMarkerUrl(business: BusinessFrontend): string {
-  return buildBusinessUrl(business);
+function buildMarkerUrl(business: BusinessFrontend, locale: "pt-BR" | "en"): string {
+  return buildBusinessUrlForLocale(business, locale);
 }
 
 type GoogleMapMarker = google.maps.marker.AdvancedMarkerElement | google.maps.Marker;

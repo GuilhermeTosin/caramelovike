@@ -8,6 +8,7 @@ function getPathname(urlOriginal?: string) {
 }
 
 function isBusinessRoute(pathname: string) {
+  if (pathname === "/en" || pathname.startsWith("/en/businesses")) return false;
   return (
     pathname.startsWith("/preview/negocio/") ||
     pathname.startsWith("/go/") ||

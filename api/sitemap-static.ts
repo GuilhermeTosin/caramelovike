@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 // Internal search URLs are intentionally noindex and must never be advertised in a sitemap.
-const PUBLIC_PAGE_PATHS = ["/", "/negocios", "/sobre", "/contato", "/privacidade", "/termos", "/negocio-verificado"];
+const PUBLIC_PAGE_PATHS = ["/", "/en", "/negocios", "/en/businesses", "/sobre", "/contato", "/privacidade", "/termos", "/en/about", "/en/contact", "/en/privacy", "/en/terms", "/negocio-verificado"];
 
 function getBaseUrl(req: VercelRequest) {
   const proto = String(req.headers["x-forwarded-proto"] || "https");

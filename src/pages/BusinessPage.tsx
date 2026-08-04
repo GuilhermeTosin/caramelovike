@@ -35,6 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { getSimilarBusinessesForBusiness, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateDisplayName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
+import { hasEnglishBusinessTranslation } from "@/lib/businessEnglish";
 import { getOrCreateConversation } from "@/services/messages";
 import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
@@ -43,6 +44,7 @@ import type { BusinessFrontend } from "@/types/database";
 import { getRichTextBlockClassName, sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import { useAuth } from "@/contexts/AuthContext";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setJsonLd, setRobots } from "@/lib/seo";
@@ -808,7 +810,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                 <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </Link>
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+            <div className="flex items-center gap-2 sm:gap-3">
+              {hasEnglishBusinessTranslation(business) ? <LanguageSwitcher /> : null}
+              <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+            </div>
           </div>
         </div>
       </header>

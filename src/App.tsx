@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes, StaticRouter, useLocation } from "react-r
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { LocaleProvider } from "@/contexts/LocaleContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
@@ -23,8 +24,10 @@ import AboutPage from "@/pages/AboutPage";
 import ContactPage from "@/pages/ContactPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
+import { EnglishAboutPage, EnglishContactPage, EnglishPrivacyPage, EnglishTermsPage } from "@/pages/EnglishPublicPages";
 import NotFound from "@/pages/NotFound";
 import BusinessPageRoute from "@/pages/BusinessPageRoute";
+import EnglishBusinessPage from "@/pages/EnglishBusinessPage";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 const VercelAnalytics = lazy(async () => {
@@ -136,6 +139,7 @@ export default function App({
   return (
     <AuthProvider>
       <AppRouter router={router} location={location}>
+        <LocaleProvider>
         <ScrollToTop />
         <CanonicalManager isBusinessPage={isBusinessPage} />
         <GoogleAnalytics />
@@ -151,6 +155,32 @@ export default function App({
                 initialSearchSuggestions={initialSearchSuggestions}
                 initialSearchSnapshot={initialSearchSnapshot}
                 initialHomeSnapshot={initialHomeSnapshot}
+              />
+            }
+          />
+          <Route
+            path="/en"
+            element={
+              <Home
+                initialBusinesses={initialBusinesses}
+                initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
+                initialFeaturedBusinesses={initialFeaturedBusinesses}
+                initialAvailableLocations={initialAvailableLocations}
+                initialSearchSuggestions={initialSearchSuggestions}
+                initialSearchSnapshot={initialSearchSnapshot}
+                initialHomeSnapshot={initialHomeSnapshot}
+              />
+            }
+          />
+                    <Route
+            path="/en/search"
+            element={
+              <SearchResults
+                initialBusinesses={initialBusinesses}
+                initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
+                initialAvailableLocations={initialAvailableLocations}
+                initialSearchSuggestions={initialSearchSuggestions}
+                initialSearchSnapshot={initialSearchSnapshot}
               />
             }
           />
@@ -173,11 +203,20 @@ export default function App({
           <Route path="/negocios/:countryCode/:stateCode/:citySlug/:categorySlug" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
           <Route path="/negocios/:countryCode/:stateCode/:citySlug" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
           <Route path="/negocios/:countryCode/:stateCode/:citySlug/pagina/:page" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/en/businesses" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/en/businesses/:countryCode" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/en/businesses/:countryCode/:stateCode" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/en/businesses/:countryCode/:stateCode/:citySlug/pagina/:page" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
+          <Route path="/en/businesses/:countryCode/:stateCode/:citySlug" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
           <Route path="/cadastro" element={<Register />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/redefinir-senha" element={<ResetPassword />} />
           <Route path="/perfil" element={<UserProfile />} />
           <Route path="/negocio-verificado" element={<VerifiedBusinessInfo />} />
+          <Route path="/en/about" element={<EnglishAboutPage />} />
+          <Route path="/en/contact" element={<EnglishContactPage />} />
+          <Route path="/en/privacy" element={<EnglishPrivacyPage />} />
+          <Route path="/en/terms" element={<EnglishTermsPage />} />
           <Route path="/sobre" element={<AboutPage />} />
           <Route path="/contato" element={<ContactPage />} />
           <Route path="/privacidade" element={<PrivacyPage />} />
@@ -186,10 +225,12 @@ export default function App({
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
           <Route path="/preview/negocio/:businessId" element={<BusinessPageRoute previewMode />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
+          <Route path="/en/:countryCode/:stateCode/:city/:businessName" element={<EnglishBusinessPage initialBusiness={initialBusiness} />} />
           <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="/:countryCode/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </LocaleProvider>
       </AppRouter>
       <Toaster richColors position="top-center" />
       <DeferredAnalytics />

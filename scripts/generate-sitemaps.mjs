@@ -37,11 +37,17 @@ function buildStaticSitemapXml(baseUrl) {
   const now = new Date().toISOString();
   const urls = [
     "/",
+    "/en",
     "/negocios",
+    "/en/businesses",
     "/sobre",
     "/contato",
     "/privacidade",
     "/termos",
+    "/en/about",
+    "/en/contact",
+    "/en/privacy",
+    "/en/terms",
     "/negocio-verificado",
   ];
   const body = urls
