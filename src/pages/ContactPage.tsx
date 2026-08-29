@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { submitContactMessage } from "@/services/contact";
 import { toast } from "sonner";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 
 export default function ContactPage() {
   const { session } = useAuth();
@@ -80,7 +81,10 @@ export default function ContactPage() {
               </div>
             </Link>
 
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+            <div className="hidden sm:flex">
+              <SiteHeaderAuthActions className="flex items-center gap-3" compact />
+            </div>
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>

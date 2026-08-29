@@ -27,7 +27,6 @@ import TermsPage from "@/pages/TermsPage";
 import { EnglishAboutPage, EnglishContactPage, EnglishPrivacyPage, EnglishTermsPage } from "@/pages/EnglishPublicPages";
 import NotFound from "@/pages/NotFound";
 import BusinessPageRoute from "@/pages/BusinessPageRoute";
-import EnglishBusinessPage from "@/pages/EnglishBusinessPage";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 const VercelAnalytics = lazy(async () => {
@@ -225,7 +224,7 @@ export default function App({
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
           <Route path="/preview/negocio/:businessId" element={<BusinessPageRoute previewMode />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
-          <Route path="/en/:countryCode/:stateCode/:city/:businessName" element={<EnglishBusinessPage initialBusiness={initialBusiness} />} />
+          <Route path="/en/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} locale="en" />} />
           <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="/:countryCode/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="*" element={<NotFound />} />

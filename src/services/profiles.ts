@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { fetchInFilterBatches } from "@/lib/supabaseBatches";
 import type { Profile, UserFrontend } from "@/types/database";
 
 export async function getProfileById(id: string): Promise<Profile | null> {
@@ -14,12 +15,11 @@ export async function getProfilesByIds(ids: string[]): Promise<Profile[]> {
   const uniqueIds = [...new Set(ids.filter(Boolean))];
   if (uniqueIds.length === 0) return [];
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("*")
-    .in("id", uniqueIds);
-
-  return (data || []) as Profile[];
+  return fetchInFilterBatches<Profile>(
+    uniqueIds,
+    (batch) => supabase.from("profiles").select("*").in("id", batch),
+    "profiles-by-id",
+  );
 }
 
 export async function updateProfile(

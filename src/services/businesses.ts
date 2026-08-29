@@ -5,6 +5,7 @@ import { getFollowLinksBusinessIds } from "@/services/searchPreferences";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
 import type { PublicSearchPageRequest } from "@/lib/search/publicSearchPage";
+import { fetchInFilterBatches } from "@/lib/supabaseBatches";
 
 export const BUSINESS_CATEGORY_OPTIONS = [
   { id: "food", label: "Restaurantes e Alimentação" },
@@ -319,12 +320,13 @@ async function attachLocationDisplayNames(rows: Business[]): Promise<Business[]>
   const locationIds = [...new Set(rows.map((row) => row.location_id).filter(Boolean))] as string[];
   if (locationIds.length === 0) return rows;
 
-  const { data, error } = await supabase
-    .from("business_locations")
-    .select("id, display_name_pt_br")
-    .in("id", locationIds);
+  const data = await fetchInFilterBatches<{ id: string; display_name_pt_br: string | null }>(
+    locationIds,
+    (batch) => supabase.from("business_locations").select("id, display_name_pt_br").in("id", batch),
+    "business-locations",
+  );
 
-  if (error || !data) return rows;
+  if (data.length === 0) return rows;
 
   const namesById = new Map(
     data
@@ -531,23 +533,11 @@ export async function getPublicBusinessSearchIndex(): Promise<BusinessFrontend[]
 
   if (rows.length === 0) return [];
 
-  const businessIds = rows.map((business) => business.id);
-  const eventBatchSize = 75;
-  const eventBatches: string[][] = [];
-  for (let index = 0; index < businessIds.length; index += eventBatchSize) {
-    eventBatches.push(businessIds.slice(index, index + eventBatchSize));
-  }
-
-  const eventBatchResults = await Promise.all(
-    eventBatches.map((ids) =>
-      supabase
-        .from("events")
-        .select("*")
-        .in("business_id", ids)
-        .eq("status", "published")
-    )
+  const linkedEvents = await fetchInFilterBatches<CommunityEvent>(
+    rows.map((business) => business.id),
+    (batch) => supabase.from("events").select("*").in("business_id", batch).eq("status", "published"),
+    "public-search-events",
   );
-  const linkedEvents = eventBatchResults.flatMap((result) => (result.data || []) as CommunityEvent[]);
 
   const linkedEventsByBusinessId = linkedEvents.reduce((acc, event) => {
     const events = acc.get(event.business_id) || [];
@@ -617,18 +607,26 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
 
   const ownerIds = [...new Set(businessRows.map((b: Business) => b.owner_id))];
   const businessIds = businessRows.map((b) => b.id);
-  const [profilesResult, linkedEventsResult, followLinkIds, enrichedBusinessRows] = await Promise.all([
-    supabase.from("profiles").select("id, name").in("id", ownerIds),
-    supabase.from("events").select("*").in("business_id", businessIds).eq("status", "published"),
+  const [profiles, linkedEvents, followLinkIds, enrichedBusinessRows] = await Promise.all([
+    fetchInFilterBatches<{ id: string; name: string }>(
+      ownerIds,
+      (batch) => supabase.from("profiles").select("id, name").in("id", batch),
+      "all-business-profiles",
+    ),
+    fetchInFilterBatches<CommunityEvent>(
+      businessIds,
+      (batch) => supabase.from("events").select("*").in("business_id", batch).eq("status", "published"),
+      "all-business-events",
+    ),
     getFollowLinksBusinessIds(),
     attachLocationDisplayNames(businessRows),
   ]);
 
   const ownerNames = new Map(
-    (profilesResult.data || []).map((p: { id: string; name: string }) => [p.id, p.name])
+    profiles.map((p) => [p.id, p.name])
   );
 
-  const linkedEventsByBusinessId = ((linkedEventsResult.data || []) as CommunityEvent[]).reduce((acc, evt) => {
+  const linkedEventsByBusinessId = linkedEvents.reduce((acc, evt) => {
     const key = evt.business_id;
     const list = acc.get(key) || [];
     list.push(evt);
@@ -813,18 +811,26 @@ export async function getBusinessesByRadiusRpc(params: {
 
   const ownerIds = [...new Set(physical.map((b: Business) => b.owner_id))];
   const businessIds = physical.map((b) => b.id);
-  const [profilesResult, linkedEventsResult, followLinkIds, businessRows] = await Promise.all([
-    supabase.from("profiles").select("id, name").in("id", ownerIds),
-    supabase.from("events").select("*").in("business_id", businessIds).eq("status", "published"),
+  const [profiles, linkedEvents, followLinkIds, businessRows] = await Promise.all([
+    fetchInFilterBatches<{ id: string; name: string }>(
+      ownerIds,
+      (batch) => supabase.from("profiles").select("id, name").in("id", batch),
+      "radius-search-profiles",
+    ),
+    fetchInFilterBatches<CommunityEvent>(
+      businessIds,
+      (batch) => supabase.from("events").select("*").in("business_id", batch).eq("status", "published"),
+      "radius-search-events",
+    ),
     getFollowLinksBusinessIds(),
     attachLocationDisplayNames(physical),
   ]);
 
   const ownerNames = new Map(
-    (profilesResult.data || []).map((p: { id: string; name: string }) => [p.id, p.name])
+    profiles.map((p) => [p.id, p.name])
   );
 
-  const linkedEventsByBusinessId = ((linkedEventsResult.data || []) as CommunityEvent[]).reduce((acc, evt) => {
+  const linkedEventsByBusinessId = linkedEvents.reduce((acc, evt) => {
     const key = evt.business_id as string;
     const list = acc.get(key) || [];
     list.push(evt);
@@ -1289,14 +1295,16 @@ export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFro
   let reviewsByBusinessId = new Map<string, Review[]>();
 
   if (businessIds.length > 0) {
-    const { data: reviews } = await supabase
-      .from("reviews")
-      .select("*")
-      .in("business_id", businessIds)
-      .order("created_at", { ascending: false });
+    const reviews = await fetchInFilterBatches<Review>(
+      businessIds,
+      (batch) => supabase.from("reviews").select("*").in("business_id", batch).order("created_at", { ascending: false }),
+      "owner-business-reviews",
+    );
 
-    if (reviews) {
-      reviewsByBusinessId = reviews.reduce((acc, r: any) => {
+    reviews.sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at));
+
+    if (reviews.length > 0) {
+      reviewsByBusinessId = reviews.reduce((acc, r) => {
         const review: Review = {
           id: r.id,
           business_id: r.business_id,
@@ -1315,9 +1323,11 @@ export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFro
   }
 
   const businessRows = await attachLocationDisplayNames(data as Business[]);
-  const { data: linkedEventsRows } = businessIds.length > 0
-    ? await supabase.from("events").select("*").in("business_id", businessIds)
-    : { data: [] as any[] };
+  const linkedEventsRows = await fetchInFilterBatches<CommunityEvent>(
+    businessIds,
+    (batch) => supabase.from("events").select("*").in("business_id", batch),
+    "owner-business-events",
+  );
 
   const linkedEventsByBusinessId = (linkedEventsRows || []).reduce((acc, evt: any) => {
     const key = evt.business_id as string;
@@ -1609,10 +1619,11 @@ export async function getPendingBusinessesForAdmin(): Promise<BusinessFrontend[]
   if (!data) return [];
 
   const ownerIds = [...new Set((data as Business[]).map((b) => b.owner_id))];
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, name")
-    .in("id", ownerIds);
+  const profiles = await fetchInFilterBatches<{ id: string; name: string }>(
+    ownerIds,
+    (batch) => supabase.from("profiles").select("id, name").in("id", batch),
+    "pending-business-profiles",
+  );
 
   const ownerNames = new Map(
     (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])

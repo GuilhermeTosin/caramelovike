@@ -18,6 +18,7 @@ import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import { DEFAULT_GEO_FALLBACK, DEFAULT_SEARCH_RADIUS_KM, calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import {
   geocodeLocationWithCountryFallback,
@@ -537,10 +538,11 @@ export default function Home({
               </div>
             </Link>
             
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden items-center gap-3 sm:flex">
               <LanguageSwitcher />
-              <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+              <SiteHeaderAuthActions className="flex items-center gap-3" compact />
             </div>
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>

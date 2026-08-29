@@ -320,3 +320,26 @@ describe("business SEO metadata", () => {
     expect(getBusinessSeoDescriptor(legacyBusiness, "pt-BR")).toBe("Restaurantes e Alimentacao");
   });
 });
+describe("English business SEO metadata", () => {
+  it("uses the curated English primary activity in the title and description", () => {
+    expect(buildBusinessSeoTitle(baseBusiness, "en")).toBe(
+      "Sabor Carioca | Brazilian restaurant in Toronto, Ontario",
+    );
+    expect(buildBusinessSeoDescription(baseBusiness, "en")).toContain("Sabor Carioca: Restaurant in Toronto, Ontario.");
+    expect(buildBusinessSeoDescription(baseBusiness, "en")).toContain("See services, reviews, photos, and contact details.");
+  });
+
+  it("does not expose an untranslated custom activity in English metadata", () => {
+    const customPetBusiness = {
+      ...baseBusiness,
+      categoryId: "pets",
+      category: "Serviços para Pets",
+      primaryActivity: "other",
+      primaryActivityCustom: "Hospedagem especial para cães",
+    };
+
+    expect(buildBusinessSeoTitle(customPetBusiness, "en")).toBe(
+      "Sabor Carioca | Brazilian pet services in Toronto, Ontario",
+    );
+  });
+});

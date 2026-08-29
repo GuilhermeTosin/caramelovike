@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import { useEffect } from "react";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 
 function setMetaTag(attr: "name" | "property", key: string, content: string) {
   let meta = document.querySelector(`meta[${attr}="${key}"]`) as HTMLMetaElement | null;
@@ -65,7 +66,10 @@ export default function AboutPage() {
               </div>
             </Link>
 
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+            <div className="hidden sm:flex">
+              <SiteHeaderAuthActions className="flex items-center gap-3" compact />
+            </div>
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>

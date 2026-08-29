@@ -68,7 +68,7 @@ export default function NotFound() {
                 width={420}
                 height={382}
                 loading="eager"
-                fetchPriority="high"
+                fetchpriority="high"
                 className="relative h-auto w-[220px] drop-shadow-lg sm:w-[300px] md:w-[350px]"
               />
             </div>

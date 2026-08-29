@@ -3,6 +3,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { useEffect } from "react";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 
 export default function TermsPage() {
   useEffect(() => {
@@ -27,7 +28,10 @@ export default function TermsPage() {
               </div>
             </Link>
 
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+            <div className="hidden sm:flex">
+              <SiteHeaderAuthActions className="flex items-center gap-3" compact />
+            </div>
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>

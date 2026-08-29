@@ -43,9 +43,33 @@ const PRIMARY_ACTIVITY_CUSTOM_PLACEHOLDERS: Record<string, string> = {
   other: "Ex: Servi" + String.fromCharCode(0xE7) + "o local especializado",
 };
 const LEGACY_PRIMARY_ACTIVITY_LABELS: Record<string, string> = { catering: "Catering", detailing: "Est" + String.fromCharCode(0xE9) + "tica automotiva", architect_engineer: "Arquitetura ou engenharia", renovation: "Reformas", document_services: "Serv" + String.fromCharCode(0xE7) + "os de documentos", business_consultant: "Consultoria empresarial", bookkeeping: "Escrit" + "ura" + String.fromCharCode(0xE7) + String.fromCharCode(0xE3) + "o cont" + String.fromCharCode(0xE1) + "bil", language_school: "Escola de idiomas", private_tutor: "Aulas particulares", professional_courses: "Cursos profissionalizantes", music_school: "Escola de m" + String.fromCharCode(0xFA) + "sica", brazilian_store: "Loja de produtos brasileiros", online_store: "Loja online", courier: "Entregas e courier", car_rental: "Aluguel de carros", storage: "Guarda-volumes", pet_hotel: "Hotel para c" + String.fromCharCode(0xE3) + "es e gatos", pet_daycare: "Creche para pets", special_needs_support: "Apoio a necessidades especiais", post_construction: "Limpeza p" + String.fromCharCode(0xF3) + "s-obra", airbnb_cleaning: "Limpeza para Airbnb", upholstery_cleaning: "Limpeza de carpetes e estofados", organizing: "Organiza" + String.fromCharCode(0xE7) + String.fromCharCode(0xE3) + "o residencial", property_rental: "Aluguel de im" + String.fromCharCode(0xF3) + "veis", videographer: "Videomaker", illustrator: "Ilustrador", designer: "Designer" };
-type SeoDescriptorLocale = "pt-BR";
+type SeoDescriptorLocale = "pt-BR" | "en";
 
-type SeoDescriptorOverride = Record<SeoDescriptorLocale, string>;
+const ENGLISH_PRIMARY_ACTIVITY_LABELS: Record<string, string> = {
+  restaurant: "Restaurant", pizzeria: "Pizzeria", churrascaria: "Steakhouse", bakery: "Bakery", confectionery: "Confectionery", bar: "Bar", snack_bar: "Snack bar", food_truck: "Food truck", buffet: "Buffet", cafe: "Cafe",
+  mechanic: "Auto repair shop", body_shop: "Auto body and paint shop", tires: "Tire shop", auto_electric: "Auto electrical service", car_wash: "Car wash", towing: "Towing service", dealership: "Car dealership", car_dealership: "Used car dealer", automotive_center: "Automotive center", paintless_dent_repair: "Paintless dent repair",
+  medical_clinic: "Medical clinic", doctor: "Doctor", doctor_female: "Doctor", pediatrician: "Pediatrician", dentist: "Dentist", depilation: "Hair removal", manicure: "Manicurist", physiotherapy: "Physiotherapist", psychology: "Psychologist", psychologist_female: "Psychologist", nutrition: "Nutritionist", hairdresser: "Hairdresser", hairdresser_female: "Hairdresser", beauty_salon: "Beauty salon", barbershop: "Barbershop", aesthetics: "Aesthetics", personal_trainer: "Personal trainer",
+  construction_company: "Construction company", general_contractor: "General contractor", electrician: "Electrician", plumber: "Plumber", painter: "Painter", carpenter: "Carpenter", engineer: "Engineer", architect: "Architect", gardener: "Gardener",
+  lawyer: "Lawyer", lawyer_female: "Lawyer", translator: "Translator", translator_female: "Translator", notary: "Notary", notary_female: "Notary", immigration_consultant: "Immigration consulting",
+  accountant: "Accountant", accountant_female: "Accountant", financial_advisor: "Financial advisor", financial_advisor_female: "Financial advisor", insurance_broker: "Insurance broker", insurance_broker_female: "Insurance broker", remittance: "Currency exchange and remittances", tax_preparation: "Income tax services",
+  teacher: "Teacher", teacher_female: "Teacher", english_teacher: "English teacher", english_teacher_female: "English teacher", driving_school: "Driving school", school: "School",
+  supermarket: "Supermarket", retail_market: "Grocery store", brazilian_store: "Brazilian products store", fashion: "Fashion store", clothing_store: "Clothing store", beauty_store: "Beauty products store", lingerie: "Lingerie store", furniture_store: "Home decor store", gift_shop: "Gift shop",
+  moving_company: "Moving company", freight_logistics: "Freight service", passenger_transport: "Passenger transport", van_service: "Van service",
+  cat_boarding: "Cat boarding", dog_boarding: "Dog boarding", grooming: "Pet grooming", veterinary: "Veterinary clinic", veterinarian: "Veterinarian", pet_training: "Pet training", dog_walker: "Dog walker", pet_shop: "Pet shop",
+  daycare: "Daycare", babysitter: "Babysitter", elderly_caregiver: "Elderly caregiver", elderly_caregiver_female: "Elderly caregiver", nurse: "Nurse", nurse_female: "Nurse", home_care: "Home care",
+  diarist: "House cleaner", home_cleaning: "Residential cleaning", commercial_cleaning: "Commercial cleaning",
+  real_estate_agency: "Real estate agency", realtor: "Real estate agent", realtor_female: "Real estate agent", property_management: "Property management", mortgage_broker: "Mortgage consulting", property_inspection: "Property inspection",
+  travel_agency: "Travel agency", tour_guide: "Tour guide", tours: "Tours and excursions", travel_insurance: "Travel insurance", accommodation: "Accommodation", hotel: "Hotel",
+  rock_band: "Rock band", forro_band: "Forro band", chorinho: "Choro music", samba: "Samba", funk: "Funk", pagode_group: "Pagode group", sertanejo: "Sertanejo", choir: "Choir", musician: "Musician", music: "Music", musicista: "Musician", dj: "DJ", photographer: "Photographer", painter: "Painter", performer: "Event performer",
+  community_organization: "Community organization", religious_organization: "Religious organization", technology_services: "Technology services", nonprofit: "Nonprofit organization", local_services: "Local services",
+  catering: "Catering", detailing: "Auto detailing", architect_engineer: "Architecture and engineering", renovation: "Renovations", document_services: "Document services", business_consultant: "Business consulting", bookkeeping: "Bookkeeping", language_school: "Language school", private_tutor: "Private tutoring", professional_courses: "Professional courses", music_school: "Music school", online_store: "Online store", courier: "Courier service", car_rental: "Car rental", storage: "Storage", pet_hotel: "Pet hotel", pet_daycare: "Pet daycare", special_needs_support: "Special needs support", post_construction: "Post-construction cleaning", airbnb_cleaning: "Airbnb cleaning", upholstery_cleaning: "Upholstery cleaning", organizing: "Home organizing", property_rental: "Property rental", videographer: "Videographer", illustrator: "Illustrator", designer: "Designer",
+};
+
+const ENGLISH_SEO_DESCRIPTOR_EXCEPTIONS = new Set([
+  "churrascaria", "brazilian_store", "immigration_consultant", "remittance", "tax_preparation", "passenger_transport", "cat_boarding", "dog_boarding", "property_management", "mortgage_broker", "property_inspection", "tours", "travel_insurance",
+]);
+
+type SeoDescriptorOverride = Partial<Record<SeoDescriptorLocale, string>>;
 
 const SEO_DESCRIPTOR_OVERRIDES: Record<string, SeoDescriptorOverride> = {
   restaurant: { "pt-BR": "Restaurante brasileiro" },
@@ -202,9 +226,19 @@ export function isPrimaryActivityValid(categoryId: string, activityId: string, c
   return getPrimaryActivityOptions(categoryId).some((option) => option.id === activityId) || Object.prototype.hasOwnProperty.call(LEGACY_PRIMARY_ACTIVITY_LABELS, activityId);
 }
 
-export function getPrimaryActivityLabel(categoryId: string, activityId?: string, customValue?: string): string {
+export function getPrimaryActivityLabel(
+  categoryId: string,
+  activityId?: string,
+  customValue?: string,
+  locale: SeoDescriptorLocale = "pt-BR",
+): string {
   if (!activityId) return "";
-  if (activityId === OTHER_PRIMARY_ACTIVITY_ID) return normalizePrimaryActivityCustom(customValue);
+  if (activityId === OTHER_PRIMARY_ACTIVITY_ID) {
+    return locale === "en" ? "" : normalizePrimaryActivityCustom(customValue);
+  }
+  if (locale === "en") {
+    return ENGLISH_PRIMARY_ACTIVITY_LABELS[activityId] || activityId.replace(/_/g, " ");
+  }
   return getPrimaryActivityOptions(categoryId).find((option) => option.id === activityId)?.label || LEGACY_PRIMARY_ACTIVITY_LABELS[activityId] || "";
 }
 
@@ -214,7 +248,10 @@ export function getPrimaryActivitySeoLabel(
   customValue?: string,
   locale: SeoDescriptorLocale = "pt-BR",
 ): string {
-  const activityLabel = getPrimaryActivityLabel(categoryId, activityId, customValue);
+  const activityLabel = getPrimaryActivityLabel(categoryId, activityId, customValue, locale);
   if (!activityId || !activityLabel) return "";
+  if (locale === "en") {
+    return ENGLISH_SEO_DESCRIPTOR_EXCEPTIONS.has(activityId) ? activityLabel : `Brazilian ${activityLabel.toLowerCase()}`;
+  }
   return SEO_DESCRIPTOR_OVERRIDES[activityId]?.[locale] || activityLabel;
 }

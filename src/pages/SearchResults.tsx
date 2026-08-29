@@ -26,6 +26,7 @@ import { stripRichTextHtml } from "@/lib/richText";
 import MapView from "@/components/MapView";
 import { useAuth } from "@/contexts/AuthContext";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getHomeContent } from "@/data/homeContent";
@@ -1776,7 +1777,8 @@ export default function SearchResults({
               </div>
             </Link>
 
-            <div className="flex items-center gap-1.5 sm:gap-3"><LanguageSwitcher /><SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact /></div>
+            <div className="hidden items-center gap-3 sm:flex"><LanguageSwitcher /><SiteHeaderAuthActions className="flex items-center gap-3" compact /></div>
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>

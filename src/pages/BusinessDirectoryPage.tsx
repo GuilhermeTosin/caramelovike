@@ -23,6 +23,7 @@ import {
 import Pagination from "@/components/Pagination";
 import { useSiteLocale } from "@/contexts/LocaleContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import { getLocalizedDirectoryIntro, getLocalizedDirectoryMeta } from "@/lib/directoryLocale";
 import { getHomeContent } from "@/data/homeContent";
 import { getCountryDisplayName } from "@/lib/locales";
@@ -60,12 +61,13 @@ function Header() {
               </div>
             </div>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="hidden items-center gap-3 sm:flex">
             <LanguageSwitcher />
-            <Link to="/buscar" className="text-sm font-semibold text-primary hover:text-primary/80">
+            <Link to={isEnglish ? "/en/search" : "/buscar"} className="text-sm font-semibold text-primary hover:text-primary/80">
               {isEnglish ? "Search businesses" : "Buscar negócios"}
             </Link>
           </div>
+          <MobileHeaderMenu showSearchLink />
         </div>
       </div>
     </header>

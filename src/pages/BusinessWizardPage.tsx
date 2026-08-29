@@ -22,6 +22,7 @@ import {
 } from "@/lib/businessActivities";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import {
   BUSINESS_CATEGORY_OPTIONS,
   createBusiness,
@@ -805,7 +806,10 @@ export default function BusinessWizardPage() {
               <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{"O SEU FARO FORA DO BRASIL"}</div>
             </div>
           </Link>
-          <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+          <div className="hidden sm:flex">
+            <SiteHeaderAuthActions className="flex items-center gap-3" compact />
+          </div>
+          <MobileHeaderMenu showLanguage={false} />
         </div>
       </div>
     </header>

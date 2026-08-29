@@ -114,22 +114,6 @@ function buildBusinessDescription(business: BusinessFrontend) {
   return buildBusinessSeoDescription(business);
 }
 
-function buildEnglishBusinessTitle(business: BusinessFrontend) {
-  const location = [
-    business.address.city,
-    business.address.state,
-    getCountryDisplayName(business.address.countryCode, business.address.country, "en"),
-  ].filter(Boolean).join(", ");
-  return `${business.name} | Brazilian business${location ? ` in ${location}` : " abroad"} | Caramelinho.com`;
-}
-
-function buildEnglishBusinessDescription(business: BusinessFrontend) {
-  const description = stripRichTextHtml(business.description).trim().replace(/\s+/g, " ");
-  if (description) return description.length > 160 ? `${description.slice(0, 157).trimEnd()}...` : description;
-  const location = [business.address.city, getCountryDisplayName(business.address.countryCode, business.address.country, "en")].filter(Boolean).join(", ");
-  return `Find contact details, services and reviews for ${business.name}${location ? ` in ${location}` : ""}.`;
-}
-
 function buildBusinessHeroImageAssets(imageUrl: string) {
   const optimizedImageUrl = getOptimizedImageUrl(imageUrl, { width: 960, quality: 72, format: "webp" });
   const srcSet = getOptimizedImageSrcSet(imageUrl, [480, 640, 800, 960], 72);
@@ -460,14 +444,14 @@ export function onRenderHtml(pageContext: PageContext) {
   const pageTitle = isErrorPage
     ? staticMeta.title
     : isBusinessPage
-      ? (businessHasData ? (locale === "en" ? buildEnglishBusinessTitle(localizedBusiness!) : buildBusinessTitle(localizedBusiness!)) : fallbackBusinessMeta.title)
+      ? (businessHasData ? (locale === "en" ? buildBusinessSeoTitle(localizedBusiness!, "en") : buildBusinessTitle(localizedBusiness!)) : fallbackBusinessMeta.title)
       : isEventPage
         ? eventMeta.title
         : staticMeta.title;
   const pageDescription = isErrorPage
     ? staticMeta.description
     : isBusinessPage
-      ? (businessHasData ? (locale === "en" ? buildEnglishBusinessDescription(localizedBusiness!) : buildBusinessDescription(localizedBusiness!)) : fallbackBusinessMeta.description)
+      ? (businessHasData ? (locale === "en" ? buildBusinessSeoDescription(localizedBusiness!, "en") : buildBusinessDescription(localizedBusiness!)) : fallbackBusinessMeta.description)
       : isEventPage
         ? eventMeta.description
         : staticMeta.description;

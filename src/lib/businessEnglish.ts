@@ -20,8 +20,5 @@ export function getEnglishBusinessContent(business: BusinessFrontend): BusinessF
   return {
     ...business,
     description: business.descriptionEn || business.description,
-    services: [],
-    serviceItems: [],
-    menu: [],
   };
 }

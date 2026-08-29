@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,10 +33,11 @@ function EnglishHeader() {
               <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">YOUR BRAZILIAN BUSINESS FINDER ABROAD</div>
             </div>
           </Link>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden items-center gap-3 sm:flex">
             <LanguageSwitcher />
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
+            <SiteHeaderAuthActions className="flex items-center gap-3" compact />
           </div>
+          <MobileHeaderMenu />
         </div>
       </div>
     </header>
@@ -67,7 +69,7 @@ export function EnglishAboutPage() {
       <h1 className="text-3xl font-bold mt-4">About Caramelinho</h1>
       <section className="mt-6 rounded-2xl border border-border/60 bg-gradient-to-br from-emerald-100 via-amber-50 to-sky-100 p-3 sm:p-4">
         <div className="flex justify-center">
-          <img src="/logo.webp" alt="Caramelinho mascot finding Brazilian businesses around the world" width={280} height={280} decoding="async" fetchPriority="high" className="w-full max-w-[220px] sm:max-w-[280px] h-auto object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.12)]" />
+          <img src="/logo.webp" alt="Caramelinho mascot finding Brazilian businesses around the world" width={280} height={280} decoding="async" fetchpriority="high" className="w-full max-w-[220px] sm:max-w-[280px] h-auto object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.12)]" />
         </div>
       </section>
       <div className="mt-6 space-y-4 text-muted-foreground leading-relaxed">
