@@ -25,6 +25,13 @@ export function localizePath(path: string, locale: SiteLocale): string {
       "/privacidade": "/en/privacy",
       "/termos": "/en/terms",
       "/buscar": "/en/search",
+      "/eventos": "/en/events",
+      "/perfil": "/en/profile",
+      "/entrar": "/en/login",
+      "/cadastro": "/en/register",
+      "/redefinir-senha": "/en/reset-password",
+      "/negocio/wizard": "/en/business/wizard",
+      "/negocio-verificado": "/en/verified-business",
     };
     localizedPath = publicPagePath[pathname] || (pathname.startsWith("/negocios/")
       ? `/en/businesses${pathname.slice("/negocios".length)}`
@@ -36,10 +43,26 @@ export function localizePath(path: string, locale: SiteLocale): string {
 export function getPortuguesePath(pathname: string): string {
   if (pathname === "/en") return "/";
   if (pathname === "/en/businesses") return "/negocios";
-  const portuguesePublicPath = { "/en/about": "/sobre", "/en/contact": "/contato", "/en/privacy": "/privacidade", "/en/terms": "/termos", "/en/search": "/buscar" }[pathname];
+  const portuguesePublicPath = {
+    "/en/about": "/sobre",
+    "/en/contact": "/contato",
+    "/en/privacy": "/privacidade",
+    "/en/terms": "/termos",
+    "/en/search": "/buscar",
+    "/en/events": "/eventos",
+    "/en/profile": "/perfil",
+    "/en/login": "/entrar",
+    "/en/register": "/cadastro",
+    "/en/reset-password": "/redefinir-senha",
+    "/en/business/wizard": "/negocio/wizard",
+    "/en/verified-business": "/negocio-verificado",
+  }[pathname];
   if (portuguesePublicPath) return portuguesePublicPath;
   if (pathname.startsWith("/en/businesses/")) {
     return `/negocios${pathname.slice("/en/businesses".length)}`;
+  }
+  if (pathname.startsWith("/en/events/")) {
+    return `/eventos${pathname.slice("/en/events".length)}`;
   }
   return pathname.startsWith("/en/") ? pathname.slice(3) || "/" : pathname;
 }
@@ -50,6 +73,10 @@ export function getLocaleHtmlLang(locale: SiteLocale): string {
 
 export function getLocaleOgCode(locale: SiteLocale): string {
   return locale === "en" ? "en_US" : "pt_BR";
+}
+
+export function getSiteSlogan(locale: SiteLocale): string {
+  return locale === "en" ? "YOUR NOSE OUTSIDE BRAZIL" : "O SEU FARO FORA DO BRASIL";
 }
 
 export function getCountryDisplayName(countryCode: string, fallback: string, locale: SiteLocale): string {

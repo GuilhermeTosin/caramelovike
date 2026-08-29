@@ -13,6 +13,7 @@ import { getCityDisplayName } from "@/lib/locationDisplay";
 import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import { getBusinessProfileCompletionData, getBusinessProfileScore } from "@/lib/profileCompleteness";
 import type { BusinessFrontend } from "@/types/database";
+import { useSiteLocale } from "@/contexts/LocaleContext";
 
 type BusinessesTabProps = {
   loadingMyBusinesses: boolean;
@@ -119,18 +120,20 @@ export default function BusinessesTab({
   onOpenVerificationModal,
   onDeleteMyBusiness,
 }: BusinessesTabProps) {
+  const { locale, toLocalePath } = useSiteLocale();
+  const isEnglish = locale === "en";
   return (
     <TabsContent value="negocios" className="mt-0">
       <div className="mb-8 rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Meus negócios</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Gerencie e encontre rapidamente seus negócios cadastrados.</p>
+            <h2 className="text-2xl font-bold text-foreground">{isEnglish ? "My businesses" : "Meus negócios"}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{isEnglish ? "Manage and quickly find your listed businesses." : "Gerencie e encontre rapidamente seus negócios cadastrados."}</p>
           </div>
-          <Link to="/negocio/wizard" className="w-full sm:w-auto">
+          <Link to={toLocalePath("/negocio/wizard")} className="w-full sm:w-auto">
             <Button size="sm" className="w-full sm:w-auto">
               <Plus className="mr-1 h-3.5 w-3.5" />
-              Adicionar novo negócio
+              {isEnglish ? "Add new business" : "Adicionar novo negócio"}
             </Button>
           </Link>
         </div>
@@ -142,8 +145,8 @@ export default function BusinessesTab({
             type="search"
             value={myBusinessesSearch}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Buscar por nome, cidade ou país"
-            aria-label="Buscar por nome, cidade ou país"
+            placeholder={isEnglish ? "Search by name, city or country" : "Buscar por nome, cidade ou país"}
+            aria-label={isEnglish ? "Search by name, city or country" : "Buscar por nome, cidade ou país"}
             className="h-10 pl-9"
           />
         </div>
@@ -151,23 +154,23 @@ export default function BusinessesTab({
       {loadingMyBusinesses && myBusinesses.length === 0 ? (
         <Card className="border-border p-8 text-center">
           <Store className="mx-auto mb-3 h-12 w-12 animate-pulse text-muted-foreground/30" />
-          <p className="mb-1 text-muted-foreground">Carregando seus negócios...</p>
+          <p className="mb-1 text-muted-foreground">{isEnglish ? "Loading your businesses..." : "Carregando seus negócios..."}</p>
         </Card>
       ) : myBusinesses.length === 0 ? (
         <Card className="border-border p-8 text-center">
           <Store className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
-          <p className="mb-4 text-muted-foreground">Você ainda não cadastrou nenhum negócio.</p>
-          <Link to="/negocio/wizard">
+          <p className="mb-4 text-muted-foreground">{isEnglish ? "You have not listed a business yet." : "Você ainda não cadastrou nenhum negócio."}</p>
+          <Link to={toLocalePath("/negocio/wizard")}>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Cadastrar negócio
+              {isEnglish ? "List a business" : "Cadastrar negócio"}
             </Button>
           </Link>
         </Card>
       ) : filteredMyBusinesses.length === 0 ? (
         <Card className="border-border p-8 text-center">
           <Store className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="text-muted-foreground">Nenhum negócio encontrado com esse filtro.</p>
+          <p className="text-muted-foreground">{isEnglish ? "No businesses found with this filter." : "Nenhum negócio encontrado com esse filtro."}</p>
         </Card>
       ) : (
         <div id="meus-negocios-lista" className="space-y-4">
@@ -196,32 +199,32 @@ export default function BusinessesTab({
                     <BusinessProfileScoreBadge business={biz} />
                     {biz.moderationStatus === "pending" ? (
                       <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">
-                        Em analise
+                        {isEnglish ? "Under review" : "Em analise"}
                       </Badge>
                     ) : null}
                     {biz.moderationStatus === "rejected" ? (
                       <Badge variant="outline" className="border-destructive/30 text-destructive">
-                        Rejeitado
+                        {isEnglish ? "Rejected" : "Rejeitado"}
                       </Badge>
                     ) : null}
                     {(() => {
                       const status = getMyVerificationStatusByBusiness(biz.id);
                       if (!status) return null;
-                      if (status === "pending") return <Badge variant="outline">{"Verifica\u00e7\u00e3o pendente"}</Badge>;
+                      if (status === "pending") return <Badge variant="outline">{isEnglish ? "Verification pending" : "Verificação pendente"}</Badge>;
                       if (status === "approved" && biz.ownerVerified) {
                         return (
                           <Badge className="inline-flex items-center gap-1.5 bg-emerald-600 text-white">
                             <Lock className="h-3 w-3" />
-                            Verificado
+                            {isEnglish ? "Verified" : "Verificado"}
                           </Badge>
                         );
                       }
                       if (status === "approved" && !biz.ownerVerified) {
-                        return <Badge variant="outline">{"Verifica\u00e7\u00e3o expirada"}</Badge>;
+                        return <Badge variant="outline">{isEnglish ? "Verification expired" : "Verificação expirada"}</Badge>;
                       }
                       return (
                         <Badge variant="outline" className="border-destructive/30 text-destructive">
-                          {"Verifica\u00e7\u00e3o rejeitada"}
+                          {isEnglish ? "Verification rejected" : "Verificação rejeitada"}
                         </Badge>
                       );
                     })()}
@@ -242,17 +245,17 @@ export default function BusinessesTab({
                 <span className="flex shrink-0 items-center gap-1 whitespace-nowrap leading-tight">
                   <Star className="h-3 w-3 shrink-0 text-amber-500" />
                   <span>
-                    {biz.averageRating.toFixed(1)} ({biz.reviews.length} {biz.reviews.length === 1 ? "avaliação" : "avaliações"})
+                    {biz.averageRating.toFixed(1)} ({biz.reviews.length} {isEnglish ? (biz.reviews.length === 1 ? "review" : "reviews") : (biz.reviews.length === 1 ? "avaliação" : "avaliações")})
                   </span>
                 </span>
               </div>
 
               <div className="mt-3 border-t border-border/60 pt-3">
                 <div className="grid items-stretch gap-2 sm:flex sm:flex-wrap sm:items-center grid-cols-2">
-                  <Link to={`/negocio/wizard?editBusinessId=${biz.id}`}>
+                  <Link to={toLocalePath(`/negocio/wizard?editBusinessId=${biz.id}`)}>
                     <Button size="sm" variant="outline" className="w-full sm:w-auto">
                       <Edit3 className="mr-1.5 h-3.5 w-3.5" />
-                      Editar
+                      {isEnglish ? "Edit" : "Editar"}
                     </Button>
                   </Link>
 
@@ -263,12 +266,12 @@ export default function BusinessesTab({
                   />
                   <Button size="sm" variant="outline" onClick={() => onOpenEventsModal(biz)} className="w-full sm:w-auto">
                     <Calendar className="mr-1.5 h-3.5 w-3.5" />
-                    Eventos
+                    {isEnglish ? "Events" : "Eventos"}
                   </Button>
 
                   <Button size="sm" variant="outline" onClick={() => onOpenCouponModal(biz)} className="w-full sm:w-auto">
                     <TicketPercent className="mr-1.5 h-3.5 w-3.5" />
-                    {"Promo\u00e7\u00f5es"}
+                    {isEnglish ? "Promotions" : "Promoções"}
                   </Button>
 
                   {!biz.ownerVerified ? (
@@ -280,12 +283,12 @@ export default function BusinessesTab({
                       className="w-full sm:w-auto"
                       title={
                         getMyVerificationStatusByBusiness(biz.id) === "pending"
-                          ? "Já existe uma solicitação pendente"
-                          : "Solicitar verifica\u00e7\u00e3o"
+                          ? (isEnglish ? "There is already a pending request" : "Já existe uma solicitação pendente")
+                          : (isEnglish ? "Request verification" : "Solicitar verificação")
                       }
                     >
                       <BadgeCheck className="mr-1.5 h-3.5 w-3.5" />
-                      {"Solicitar verifica\u00e7\u00e3o"}
+                      {isEnglish ? "Request verification" : "Solicitar verificação"}
                     </Button>
                   ) : null}
 

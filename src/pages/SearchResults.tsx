@@ -30,7 +30,7 @@ import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getHomeContent } from "@/data/homeContent";
-import { getCountryDisplayName } from "@/lib/locales";
+import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
 import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import { geocodeAddress } from "@/lib/google-maps";
 import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
@@ -284,12 +284,141 @@ export default function SearchResults({
   const isEnglish = locale === "en";
   const text = isEnglish
     ? {
-        searchPlaceholder: "Search for a product or service (e.g. coxinha)", locationPlaceholder: "Which city?", currentLocation: "My location", submit: "Search", filters: "Filters", map: "Map", list: "List", loading: "Loading results...", noResults: "No results found", clear: "Clear filters", backHome: "Back to home", loadingDescription: "Please wait while we prepare businesses for you.", country: "Country", allCountries: "All countries", region: "State / province", allRegions: "All states and provinces", city: "City", allCities: "All cities", distance: "Distance", within: "Within", business: "business", found: "found", allWorldwide: "See all worldwide", regionalCategory: "You are viewing results from this category in your region.", locationRequired: "Enter a location or allow location access to use a radius.", locatingReference: "Locating reference...", businessSearch: "Search Brazilian businesses", slogan: "YOUR BRAZILIAN BUSINESS FINDER ABROAD",
+        searchPlaceholder: "Search for a product or service (e.g. coxinha)", locationPlaceholder: "Which city?", currentLocation: "My location", submit: "Search", filters: "Filters", map: "Map", list: "List", loading: "Loading results...", noResults: "No results found", clear: "Clear filters", backHome: "Back to home", loadingDescription: "Please wait while we prepare businesses for you.", country: "Country", allCountries: "All countries", region: "State / province", allRegions: "All states and provinces", city: "City", allCities: "All cities", distance: "Distance", within: "Within", business: "business", found: "found", allWorldwide: "See all worldwide", regionalCategory: "You are viewing results from this category in your region.", locationRequired: "Enter a location or allow location access to use a radius.", locatingReference: "Locating reference...", businessSearch: "Search Brazilian businesses", slogan: getSiteSlogan("en"),
       }
     : {
-        searchPlaceholder: "Buscar por produto ou serviço (Ex: coxinha)", locationPlaceholder: "Em qual cidade?", currentLocation: CURRENT_LOCATION_LABEL, submit: "Farejar", filters: "Filtros", map: "Mapa", list: "Lista", loading: "Carregando resultados...", noResults: "Nenhum resultado encontrado", clear: "Limpar filtros", backHome: "Voltar ao Início", loadingDescription: "Aguarde um instante enquanto preparamos os negócios para você.", country: "País", allCountries: "Todos os países", region: "Estado/Província", allRegions: "Todos os estados", city: "Cidade", allCities: "Todas as cidades", distance: "Distância", within: "Até", business: "negócio", found: "encontrado", allWorldwide: "Ver todos no mundo", regionalCategory: "Você está vendo resultados desta categoria na sua região.", locationRequired: "informe um local ou permita sua localização para usar raio", locatingReference: "localizando referência...", businessSearch: "Buscar negócios brasileiros", slogan: "O SEU FARO FORA DO BRASIL",
+        searchPlaceholder: "Buscar por produto ou serviço (Ex: coxinha)", locationPlaceholder: "Em qual cidade?", currentLocation: CURRENT_LOCATION_LABEL, submit: "Farejar", filters: "Filtros", map: "Mapa", list: "Lista", loading: "Carregando resultados...", noResults: "Nenhum resultado encontrado", clear: "Limpar filtros", backHome: "Voltar ao Início", loadingDescription: "Aguarde um instante enquanto preparamos os negócios para você.", country: "País", allCountries: "Todos os países", region: "Estado/Província", allRegions: "Todos os estados", city: "Cidade", allCities: "Todas as cidades", distance: "Distância", within: "Até", business: "negócio", found: "encontrado", allWorldwide: "Ver todos no mundo", regionalCategory: "Você está vendo resultados desta categoria na sua região.", locationRequired: "informe um local ou permita sua localização para usar raio", locatingReference: "localizando referência...", businessSearch: "Buscar negócios brasileiros", slogan: getSiteSlogan("pt-BR"),
       };
-  const categoryLabels = new Map(getHomeContent(locale).categories.map((category) => [category.id, category.name]));
+  const communityText = isEnglish
+    ? {
+        findsHeading: "Community finds",
+        findsDescription: "Temporary discoveries shared by people nearby.",
+        addFind: "Add community find",
+        close: "Close",
+        findPhoto: "Community find photo",
+        learnMore: "Learn more",
+        shareFind: "Share community find:",
+        shareWhatsApp: "Share on WhatsApp",
+        shareFacebook: "Share on Facebook",
+        copyLink: "Copy link",
+        noFinds: "There are no active community finds in your area yet.",
+        event: "Event",
+        noDescription: "No description provided.",
+        freeEntry: "Free entry",
+        paidEvent: "Paid event",
+        organizedBy: "Organized by",
+        communityMember: "Community member",
+        discussion: "Community find discussion",
+        spottedBy: "Spotted by",
+        location: "Location",
+        notProvided: "Not provided",
+        stillAvailable: "Is this item still available at this place?",
+        loadingMessages: "Loading messages...",
+        user: "User",
+        edited: "edited",
+        cancel: "Cancel",
+        save: "Save",
+        reply: "Reply",
+        report: "Report",
+        edit: "Edit",
+        delete: "Delete",
+        discussionDescription: "Talk with the community about availability, price and restocking for this product.",
+        replying: "Replying to a message",
+        cancelReply: "cancel reply",
+        messagePlaceholder: "Write your message...",
+        loginToDiscuss: "Sign in to join the discussion.",
+        reportFind: "Report community find",
+        sending: "Sending...",
+        sendMessage: "Send message",
+        reportContent: "Report content",
+        reportDescription: "Your report will be reviewed by the administration team.",
+        reason: "Reason",
+        abuse: "Abuse",
+        fraud: "Fraud",
+        offensive: "Offensive content",
+        misinformation: "Misinformation",
+        other: "Other",
+        details: "Details (optional)",
+        detailsPlaceholder: "Briefly describe the issue.",
+        sendReport: "Send report",
+        gotIt: "Got it",
+        allMapBusinessesLoading: "Loading all businesses found on the map...",
+        findsCount: (count: number) => `${count} community find${count !== 1 ? "s" : ""} found`,
+        eventsCount: (count: number) => `${count} event${count !== 1 ? "s" : ""} found`,
+        findCategories: { comida: "Food", beleza: "Beauty", casa: "Home", outros: "Other" },
+        messageSendError: "Could not send the message.",
+        messageEditError: "Could not edit the message.",
+        messageDeleteConfirm: "Are you sure you want to delete this message?",
+        messageDeleteError: "Could not delete the message.",
+        reportSendError: "Could not send the report.",
+      }
+    : {
+        findsHeading: "Achadinhos da comunidade",
+        findsDescription: "Descobertas temporárias publicadas por usuários próximos.",
+        addFind: "Adicionar achadinho",
+        close: "Fechar",
+        findPhoto: "Foto do achadinho",
+        learnMore: "Saiba mais",
+        shareFind: "Compartilhar achadinho:",
+        shareWhatsApp: "Compartilhar no WhatsApp",
+        shareFacebook: "Compartilhar no Facebook",
+        copyLink: "Copiar link",
+        noFinds: "Ainda não há achadinhos ativos na sua região.",
+        event: "Evento",
+        noDescription: "Sem descrição.",
+        freeEntry: "Entrada franca",
+        paidEvent: "Evento pago",
+        organizedBy: "Organizado por",
+        communityMember: "Membro da comunidade",
+        discussion: "Discussão do achadinho",
+        spottedBy: "Farejado por",
+        location: "Local",
+        notProvided: "Não informado",
+        stillAvailable: "Este item ainda está disponível neste local?",
+        loadingMessages: "Carregando mensagens...",
+        user: "Usuário",
+        edited: "editado",
+        cancel: "Cancelar",
+        save: "Salvar",
+        reply: "Responder",
+        report: "Denunciar",
+        edit: "Editar",
+        delete: "Apagar",
+        discussionDescription: "Converse com a comunidade sobre disponibilidade, preço e reposição deste produto.",
+        replying: "Respondendo uma mensagem",
+        cancelReply: "cancelar resposta",
+        messagePlaceholder: "Escreva sua mensagem...",
+        loginToDiscuss: "Faça login para participar da discussão.",
+        reportFind: "Denunciar achadinho",
+        sending: "Enviando...",
+        sendMessage: "Enviar mensagem",
+        reportContent: "Denunciar conteúdo",
+        reportDescription: "Sua denúncia será analisada pela equipe de administração.",
+        reason: "Motivo",
+        abuse: "Abuso",
+        fraud: "Fraude",
+        offensive: "Ofensivo",
+        misinformation: "Desinformação",
+        other: "Outro",
+        details: "Detalhes (opcional)",
+        detailsPlaceholder: "Descreva brevemente o problema.",
+        sendReport: "Enviar denúncia",
+        gotIt: "Entendi",
+        allMapBusinessesLoading: "Carregando todos os negócios encontrados no mapa...",
+        findsCount: (count: number) => `${count} achadinho${count !== 1 ? "s" : ""} encontrado${count !== 1 ? "s" : ""}`,
+        eventsCount: (count: number) => `${count} evento${count !== 1 ? "s" : ""} encontrado${count !== 1 ? "s" : ""}`,
+        findCategories: { comida: "Comida", beleza: "Beleza", casa: "Casa", outros: "Outros" },
+        messageSendError: "Não foi possível enviar a mensagem.",
+        messageEditError: "Não foi possível editar a mensagem.",
+        messageDeleteConfirm: "Tem certeza que deseja apagar esta mensagem?",
+        messageDeleteError: "Não foi possível apagar a mensagem.",
+        reportSendError: "Não foi possível enviar a denúncia.",
+      };
+  const displayLocale = isEnglish ? "en-US" : "pt-BR";
+  const homeContent = getHomeContent(locale);
+  const categoryLabels = new Map(homeContent.categories.map((category) => [category.id, category.name]));
+  const getCommunityFindCategoryLabel = (category: string) =>
+    communityText.findCategories[category as keyof typeof communityText.findCategories] || category;
   const getDisplayCategoryLabel = (categoryId: string, fallback = getCategoryLabel(categoryId)) => {
     if (!isEnglish) return fallback.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduções" : fallback.split("(")[0].trim();
     return categoryLabels.get(categoryId) || fallback.split("(")[0].trim();
@@ -309,8 +438,8 @@ export default function SearchResults({
   const communityFindIdParam = searchParams.get("achadinho") || "";
   const pageParam = Number(searchParams.get("pagina") || "1");
   const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
-  const isEventMode = !isEnglish && eventsFilter === "1";
-  const isCommunityFindsMode = !isEnglish && communityFindsFilter === "1";
+  const isEventMode = eventsFilter === "1";
+  const isCommunityFindsMode = communityFindsFilter === "1";
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
   const originLocalParam = searchParams.get("origem_local") || "";
@@ -477,7 +606,7 @@ export default function SearchResults({
       replyToMessageId
     );
     if (!result.ok) {
-      setCommunityFindMessageError(result.error || "Não foi possível enviar a mensagem.");
+      setCommunityFindMessageError(result.error || communityText.messageSendError);
       setCommunityFindMessageSubmitting(false);
       return;
     }
@@ -486,13 +615,13 @@ export default function SearchResults({
     const rows = await getCommunityFindMessages(selectedCommunityFind.id);
     setCommunityFindMessages(rows);
     setCommunityFindMessageSubmitting(false);
-  }, [selectedCommunityFind, communityFindMessageInput, replyToMessageId]);
+  }, [communityFindMessageInput, communityText.messageSendError, replyToMessageId, selectedCommunityFind]);
 
   const handleSaveEditCommunityFindMessage = useCallback(async () => {
     if (!editingMessageId) return;
     const result = await updateCommunityFindMessage(editingMessageId, editingMessageInput);
     if (!result.ok) {
-      setCommunityFindMessageError(result.error || "Não foi possível editar a mensagem.");
+      setCommunityFindMessageError(result.error || communityText.messageEditError);
       return;
     }
     if (selectedCommunityFind) {
@@ -501,20 +630,20 @@ export default function SearchResults({
     }
     setEditingMessageId(null);
     setEditingMessageInput("");
-  }, [editingMessageId, editingMessageInput, selectedCommunityFind]);
+  }, [communityText.messageEditError, editingMessageId, editingMessageInput, selectedCommunityFind]);
 
   const handleDeleteCommunityFindMessage = useCallback(async (messageId: string) => {
-    if (!window.confirm("Tem certeza que deseja apagar esta mensagem?")) return;
+    if (!window.confirm(communityText.messageDeleteConfirm)) return;
     const result = await deleteCommunityFindMessage(messageId);
     if (!result.ok) {
-      setCommunityFindMessageError(result.error || "Não foi possível apagar a mensagem.");
+      setCommunityFindMessageError(result.error || communityText.messageDeleteError);
       return;
     }
     if (selectedCommunityFind) {
       const rows = await getCommunityFindMessages(selectedCommunityFind.id);
       setCommunityFindMessages(rows);
     }
-  }, [selectedCommunityFind]);
+  }, [communityText.messageDeleteConfirm, communityText.messageDeleteError, selectedCommunityFind]);
 
   const threadedCommunityMessages = useMemo(() => {
     const byParent = new Map<string, CommunityFindMessage[]>();
@@ -551,24 +680,24 @@ export default function SearchResults({
     });
     setReportSubmitting(false);
     if (!result.ok) {
-      setCommunityFindMessageError(result.error || "Não foi possível enviar a denúncia.");
+      setCommunityFindMessageError(result.error || communityText.reportSendError);
       return;
     }
     setReportTargetMessageId(null);
     setReportDetails("");
     setReportReason("abuso");
-  }, [selectedCommunityFind, reportTargetMessageId, reportReason, reportDetails]);
+  }, [communityText.reportSendError, reportDetails, reportReason, reportTargetMessageId, selectedCommunityFind]);
 
   const shareCommunityFind = useCallback(async (
     find: CommunityFindWithVote,
     platform: "whatsapp" | "facebook" | "copy"
   ) => {
-    const title = `Achadinho: ${find.product_name}`;
-    const text = `${find.product_name} em ${find.location_name}`;
-    const url = `${window.location.origin}/buscar?achadinhos=1&achadinho=${encodeURIComponent(find.id)}`;
+    const title = `${isEnglish ? "Community find" : "Achadinho"}: ${find.product_name}`;
+    const sharedText = `${find.product_name} ${isEnglish ? "at" : "em"} ${find.location_name}`;
+    const url = `${window.location.origin}${toLocalePath(`/buscar?achadinhos=1&achadinho=${encodeURIComponent(find.id)}`)}`;
 
     if (platform === "copy") {
-      const content = `${title}\n${text}\n${url}`;
+      const content = `${title}\n${sharedText}\n${url}`;
       try {
         await navigator.clipboard.writeText(content);
       } catch {
@@ -578,18 +707,18 @@ export default function SearchResults({
     }
 
     if (platform === "whatsapp") {
-      const waText = encodeURIComponent(`${title}\n${text}\n${url}`);
+      const waText = encodeURIComponent(`${title}\n${sharedText}\n${url}`);
       window.open(`https://wa.me/?text=${waText}`, "_blank", "noopener,noreferrer");
       return;
     }
 
-    const fbQuote = encodeURIComponent(`${title} - ${text}`);
+    const fbQuote = encodeURIComponent(`${title} - ${sharedText}`);
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${fbQuote}`,
       "_blank",
       "noopener,noreferrer"
     );
-  }, []);
+  }, [isEnglish, toLocalePath]);
 
   const resultsRequestKey = publicSearchRequest.key;
   const getCachedBusinessPage = useCallback((request: PublicSearchPageRequest) => {
@@ -1702,13 +1831,13 @@ export default function SearchResults({
         </SelectContent>
       </Select>
       <div
-        className={`${isEnglish ? "hidden " : ""}h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
+        className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
           isCommunityFindsMode ? "bg-blue-100 border-blue-500" : "bg-blue-50 border-blue-300"
         }`}
       >
         <div className="inline-flex items-center gap-2 text-sm">
           <MapPin className={`w-3.5 h-3.5 ${isCommunityFindsMode ? "text-blue-700" : "text-blue-600"}`} />
-          <span>Achadinhos</span>
+          <span>{isEnglish ? "Community finds" : "Achadinhos"}</span>
         </div>
         <button
           type="button"
@@ -1718,7 +1847,7 @@ export default function SearchResults({
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
             isCommunityFindsMode ? "bg-blue-500" : "bg-muted"
           }`}
-          title={isCommunityFindsMode ? "Filtro de achadinhos ativo" : "Filtro de achadinhos desativado"}
+          title={isCommunityFindsMode ? (isEnglish ? "Community finds filter enabled" : "Filtro de achadinhos ativo") : (isEnglish ? "Community finds filter disabled" : "Filtro de achadinhos desativado")}
         >
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
@@ -1728,13 +1857,13 @@ export default function SearchResults({
         </button>
       </div>
       <div
-        className={`${isEnglish ? "hidden " : ""}h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
+        className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
           isEventMode ? "bg-amber-100 border-amber-500" : "bg-amber-50 border-amber-300"
         }`}
       >
         <div className="inline-flex items-center gap-2 text-sm">
           <PartyPopper className={`w-3.5 h-3.5 ${isEventMode ? "text-amber-700" : "text-amber-600"}`} />
-          <span>Festas e eventos</span>
+          <span>{isEnglish ? "Events" : "Festas e eventos"}</span>
         </div>
         <button
           type="button"
@@ -1744,7 +1873,7 @@ export default function SearchResults({
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
             isEventMode ? "bg-amber-500" : "bg-muted"
           }`}
-          title={isEventMode ? "Filtro de eventos ativo" : "Filtro de eventos desativado"}
+          title={isEventMode ? (isEnglish ? "Events filter enabled" : "Filtro de eventos ativo") : (isEnglish ? "Events filter disabled" : "Filtro de eventos desativado")}
         >
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
@@ -1939,9 +2068,9 @@ export default function SearchResults({
           {isResultsLoading || isResolvingDistanceOrigin
             ? text.loading
             : isCommunityFindsMode
-            ? `${filteredCommunityFinds.length} achadinho${filteredCommunityFinds.length !== 1 ? "s" : ""} encontrado${filteredCommunityFinds.length !== 1 ? "s" : ""}`
+            ? communityText.findsCount(filteredCommunityFinds.length)
             : isEventMode
-            ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
+            ? communityText.eventsCount(eventResults.length)
             : isEnglish ? `${totalResults} ${text.business}${totalResults !== 1 ? "es" : ""} ${text.found}` : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
           {query && <>{isEnglish ? " for " : " para "}<strong>{query}</strong></>}
           {categoryFilterId && <>{isEnglish ? " in " : " em "}<strong>{getDisplayCategoryLabel(categoryFilterId)}</strong></>}
@@ -2007,7 +2136,7 @@ export default function SearchResults({
               <div className="mb-8 rounded-xl overflow-hidden border border-border h-[400px]">
                 {fullMapSearchRequest && mapBusinessesLoading ? (
                   <div className="flex h-full items-center justify-center bg-secondary/30 p-6 text-center">
-                    <p className="text-sm text-muted-foreground">{"Carregando todos os neg\u00f3cios encontrados no mapa..."}</p>
+                    <p className="text-sm text-muted-foreground">{communityText.allMapBusinessesLoading}</p>
                   </div>
                 ) : fullMapSearchRequest && mapBusinessesError ? (
                   <div className="flex h-full items-center justify-center bg-destructive/5 p-6 text-center">
@@ -2027,9 +2156,9 @@ export default function SearchResults({
             <div className="mb-6 rounded-xl border border-border bg-card p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-semibold">Achadinhos da comunidade</h3>
+                  <h3 className="text-base font-semibold">{communityText.findsHeading}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Descobertas temporárias publicadas por usuários próximos.
+                    {communityText.findsDescription}
                   </p>
                 </div>
                 {session && (
@@ -2038,7 +2167,7 @@ export default function SearchResults({
                     variant={showCommunityFindForm ? "outline" : "default"}
                     onClick={() => setShowCommunityFindForm((prev) => !prev)}
                   >
-                    {showCommunityFindForm ? "Fechar" : "Adicionar achadinho"}
+                    {showCommunityFindForm ? communityText.close : communityText.addFind}
                   </Button>
                 )}
               </div>
@@ -2080,7 +2209,7 @@ export default function SearchResults({
                             src={findImageAssets.imageUrl}
                             srcSet={findImageAssets.srcSet}
                             sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 31vw"
-                            alt={`Foto do achadinho ${find.product_name}`}
+                            alt={`${communityText.findPhoto}: ${find.product_name}`}
                             onLoad={() => markCommunityFindImageLoaded(find.id)}
                             onError={() => markCommunityFindImageLoaded(find.id)}
                             className="w-full h-36 object-cover cursor-pointer transition-all duration-500 ease-out"
@@ -2136,10 +2265,10 @@ export default function SearchResults({
                             );
                           })()}
                           <p className="text-[11px] text-muted-foreground mt-1">
-                            {new Date(find.created_at).toLocaleDateString("pt-BR")}
+                            {new Date(find.created_at).toLocaleDateString(displayLocale)}
                           </p>
                         </div>
-                        <Badge variant="secondary">{find.category}</Badge>
+                        <Badge variant="secondary">{getCommunityFindCategoryLabel(find.category)}</Badge>
                       </div>
                       <div className="mt-3 space-y-2">
                         <Button
@@ -2155,10 +2284,10 @@ export default function SearchResults({
                             setSearchParams(params, { replace: true });
                           }}
                         >
-                          Saiba mais
+                          {communityText.learnMore}
                         </Button>
                         <div className="rounded-md border border-border bg-background/70 p-2">
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Compartilhar achadinho:</p>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">{communityText.shareFind}</p>
                         <div className="flex flex-wrap items-center gap-2">
                         <Button
                           type="button"
@@ -2166,8 +2295,8 @@ export default function SearchResults({
                           size="sm"
                           className="h-8 w-8 p-0"
                           onClick={() => void shareCommunityFind(find, "whatsapp")}
-                          title="Compartilhar no WhatsApp"
-                          aria-label="Compartilhar no WhatsApp"
+                          title={communityText.shareWhatsApp}
+                          aria-label={communityText.shareWhatsApp}
                         >
                           <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
                             <path
@@ -2182,8 +2311,8 @@ export default function SearchResults({
                           size="sm"
                           className="h-8 w-8 p-0"
                           onClick={() => void shareCommunityFind(find, "facebook")}
-                          title="Compartilhar no Facebook"
-                          aria-label="Compartilhar no Facebook"
+                          title={communityText.shareFacebook}
+                          aria-label={communityText.shareFacebook}
                         >
                           <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
                             <path
@@ -2198,8 +2327,8 @@ export default function SearchResults({
                           size="sm"
                           className="h-8 w-8 p-0"
                           onClick={() => void shareCommunityFind(find, "copy")}
-                          title="Copiar link"
-                          aria-label="Copiar link"
+                          title={communityText.copyLink}
+                          aria-label={communityText.copyLink}
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
@@ -2211,7 +2340,7 @@ export default function SearchResults({
                 </div>
               ) : (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Ainda não há achadinhos ativos na sua região.
+                  {communityText.noFinds}
                 </p>
               )}
             </div>
@@ -2232,10 +2361,10 @@ export default function SearchResults({
                     key={item.key}
                     to={
                       item.type === "business"
-                        ? `${buildBusinessUrl(item.biz)}?tab=events`
+                        ? `${buildBusinessUrlForLocale(item.biz, locale)}?tab=events`
                         : item.linkedBiz
-                          ? `${buildBusinessUrl(item.linkedBiz)}?tab=events`
-                          : `/eventos/${item.evt.id}`
+                          ? `${buildBusinessUrlForLocale(item.linkedBiz, locale)}?tab=events`
+                          : (isEnglish ? `/en/events/${item.evt.id}` : `/eventos/${item.evt.id}`)
                     }
                     onClick={(e) => {
                       if (item.type === "community" && !item.evt.id) e.preventDefault();
@@ -2269,18 +2398,18 @@ export default function SearchResults({
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                         <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
-                          Evento
+                          {communityText.event}
                         </Badge>
                       </div>
                       <div className="p-5">
                         <h3 className="font-bold text-foreground text-lg line-clamp-2 group-hover:text-primary transition-colors leading-tight">
                           {item.evt.title}
                         </h3>
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.evt.description || "Sem descrição."}</p>
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.evt.description || communityText.noDescription}</p>
                         <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
                           <p className="inline-flex items-center gap-1.5">
                             <CalendarDays className="w-4 h-4 text-amber-600" />
-                            {new Date(`${item.evt.date}T00:00:00`).toLocaleDateString("pt-BR")}
+                            {new Date(`${item.evt.date}T00:00:00`).toLocaleDateString(displayLocale)}
                           </p>
                           <p className="inline-flex items-center gap-1.5">
                             <MapPin className="w-4 h-4 text-amber-600" />
@@ -2289,13 +2418,13 @@ export default function SearchResults({
                           <p className="inline-flex items-center gap-1.5">
                             <Ticket className="w-4 h-4 text-amber-600" />
                             {item.type === "business"
-                              ? (item.evt.isFree ? "Entrada franca" : (item.evt.price || "Evento pago"))
-                              : (item.evt.is_free ? "Entrada franca" : (item.evt.price || "Evento pago"))}
+                              ? (item.evt.isFree ? communityText.freeEntry : (item.evt.price || communityText.paidEvent))
+                              : (item.evt.is_free ? communityText.freeEntry : (item.evt.price || communityText.paidEvent))}
                           </p>
                         </div>
                         <p className="mt-3 text-xs text-muted-foreground">
-                          Organizado por{" "}
-                          <strong>{item.type === "business" ? item.biz.name : "Membro da comunidade"}</strong>
+                          {communityText.organizedBy}{" "}
+                          <strong>{item.type === "business" ? item.biz.name : communityText.communityMember}</strong>
                         </p>
                       </div>
                     </Card>
@@ -2356,7 +2485,7 @@ export default function SearchResults({
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                       <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
-                        {biz.category.split("(")[0].trim()}
+                          {getDisplayCategoryLabel(biz.categoryId, biz.category)}
                       </Badge>
                       {biz.averageRating > 0 && (
                         <Badge className="absolute top-3 right-3 bg-amber-500 text-white border-0 gap-1">
@@ -2377,7 +2506,7 @@ export default function SearchResults({
                       {biz.ownerVerified ? (
                         <div className="absolute bottom-3 right-3 bg-emerald-600/95 text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
                           <Lock className="w-2.5 h-2.5" />
-                          Verificado
+                          {isEnglish ? "Verified" : "Verificado"}
                         </div>
                       ) : null}
                     </div>
@@ -2401,19 +2530,19 @@ export default function SearchResults({
                           {biz.isVeganFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                               <Leaf className="w-3 h-3" />
-                              Vegano
+                              {homeContent.veganLabel}
                             </span>
                           ) : null}
                           {biz.isVegetarianFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-lime-100 text-lime-800">
                               <Leaf className="w-3 h-3" />
-                              Vegetariano
+                              {homeContent.vegetarianLabel}
                             </span>
                           ) : null}
                           {biz.isGlutenFreeFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
                               <WheatOff className="w-3 h-3" />
-                              Sem Glúten
+                              {homeContent.glutenFreeLabel}
                             </span>
                           ) : null}
                         </div>
@@ -2481,10 +2610,10 @@ export default function SearchResults({
         >
             <DialogContent className="w-[calc(100vw-1rem)] max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
               <DialogHeader>
-                <DialogTitle>{selectedCommunityFind?.product_name || "Discussão do achadinho"}</DialogTitle>
+                <DialogTitle>{selectedCommunityFind?.product_name || communityText.discussion}</DialogTitle>
                 {selectedCommunityFind?.user_name ? (
                   <p className="text-sm text-muted-foreground">
-                    Farejado por <strong>{selectedCommunityFind.user_name}</strong>
+                    {communityText.spottedBy} <strong>{selectedCommunityFind.user_name}</strong>
                   </p>
                 ) : null}
               </DialogHeader>
@@ -2493,7 +2622,7 @@ export default function SearchResults({
               <div className="rounded-lg overflow-hidden border border-border">
                 <img
                   src={selectedCommunityFind.photo_url}
-                  alt={`Foto do achadinho ${selectedCommunityFind.product_name}`}
+                  alt={`${communityText.findPhoto}: ${selectedCommunityFind.product_name}`}
                   className="w-full h-48 sm:h-72 object-cover"
                 />
               </div>
@@ -2517,8 +2646,8 @@ export default function SearchResults({
                   return (
                     <>
                       <div>
-                        <p className="text-xs text-muted-foreground">Local</p>
-                        <p className="text-sm font-medium">{placeName || "Não informado"}</p>
+                        <p className="text-xs text-muted-foreground">{communityText.location}</p>
+                        <p className="text-sm font-medium">{placeName || communityText.notProvided}</p>
                         {address ? (
                           <a
                             href={mapsUrl}
@@ -2531,7 +2660,7 @@ export default function SearchResults({
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="w-full text-xs font-medium text-muted-foreground">
-                          Este item ainda está disponível neste local?
+                          {communityText.stillAvailable}
                         </p>
                         <Button
                           type="button"
@@ -2572,7 +2701,7 @@ export default function SearchResults({
 
             <div className="max-h-[300px] overflow-y-auto overflow-x-hidden space-y-3 pr-1">
               {communityFindMessagesLoading ? (
-                <p className="text-sm text-muted-foreground">Carregando mensagens...</p>
+                <p className="text-sm text-muted-foreground">{communityText.loadingMessages}</p>
               ) : threadedCommunityMessages.length === 0 ? null : (
                 threadedCommunityMessages.map(({ msg, depth }) => (
                   <div
@@ -2584,7 +2713,7 @@ export default function SearchResults({
                       {msg.user_avatar ? (
                         <img
                           src={msg.user_avatar}
-                          alt={`Avatar de ${msg.user_name || "Usuário"}`}
+                          alt={`Avatar ${isEnglish ? "of" : "de"} ${msg.user_name || communityText.user}`}
                           className="w-9 h-9 rounded-full object-cover border border-border shrink-0 mt-0.5"
                           loading="lazy"
                         />
@@ -2597,16 +2726,16 @@ export default function SearchResults({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <p className="text-sm font-semibold text-foreground truncate">
-                            {msg.user_name || "Usuário"}
+                            {msg.user_name || communityText.user}
                           </p>
                           <span className="text-xs text-muted-foreground">•</span>
                           <p className="text-xs text-muted-foreground whitespace-nowrap">
-                            {new Date(msg.created_at).toLocaleDateString("pt-BR")} às{" "}
-                            {new Date(msg.created_at).toLocaleTimeString("pt-BR", {
+                            {new Date(msg.created_at).toLocaleDateString(displayLocale)} {isEnglish ? "at" : "às"}{" "}
+                            {new Date(msg.created_at).toLocaleTimeString(displayLocale, {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
-                            {msg.updated_at && msg.updated_at !== msg.created_at ? " · editado" : ""}
+                            {msg.updated_at && msg.updated_at !== msg.created_at ? ` · ${communityText.edited}` : ""}
                           </p>
                         </div>
 
@@ -2627,7 +2756,7 @@ export default function SearchResults({
                                   setEditingMessageInput("");
                                 }}
                               >
-                                Cancelar
+                                {communityText.cancel}
                               </Button>
                               <Button
                                 type="button"
@@ -2635,7 +2764,7 @@ export default function SearchResults({
                                 onClick={() => void handleSaveEditCommunityFindMessage()}
                                 disabled={!editingMessageInput.trim()}
                               >
-                                Salvar
+                                {communityText.save}
                               </Button>
                             </div>
                           </div>
@@ -2656,11 +2785,11 @@ export default function SearchResults({
                               className="h-7 px-2 text-xs"
                               onClick={() => {
                                 setReplyToMessageId(msg.id);
-                                setCommunityFindMessageInput(`@${msg.user_name || "Usuário"} `);
+                                setCommunityFindMessageInput(`@${msg.user_name || communityText.user} `);
                               }}
                             >
                               <Reply className="w-3.5 h-3.5 mr-1" />
-                              Responder
+                              {communityText.reply}
                             </Button>
                           )}
                           {session && (
@@ -2676,7 +2805,7 @@ export default function SearchResults({
                                 setReportDialogOpen(true);
                               }}
                             >
-                              Denunciar
+                              {communityText.report}
                             </Button>
                           )}
                           {session?.userId === msg.user_id && (
@@ -2692,7 +2821,7 @@ export default function SearchResults({
                                 }}
                               >
                                 <Pencil className="w-3.5 h-3.5 mr-1" />
-                                Editar
+                                  {communityText.edit}
                               </Button>
                               <Button
                                 type="button"
@@ -2702,7 +2831,7 @@ export default function SearchResults({
                                 onClick={() => void handleDeleteCommunityFindMessage(msg.id)}
                               >
                                 <Trash2 className="w-3.5 h-3.5 mr-1" />
-                                Apagar
+                                  {communityText.delete}
                               </Button>
                             </>
                           )}
@@ -2716,24 +2845,24 @@ export default function SearchResults({
 
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Converse com a comunidade sobre disponibilidade, preço e reposição deste produto.
+                {communityText.discussionDescription}
               </p>
               {replyToMessageId ? (
                 <div className="text-xs text-muted-foreground flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <span>Respondendo uma mensagem</span>
+                  <span>{communityText.replying}</span>
                   <button
                     type="button"
                     className="text-primary hover:underline"
                     onClick={() => setReplyToMessageId(null)}
                   >
-                    cancelar resposta
+                    {communityText.cancelReply}
                   </button>
                 </div>
               ) : null}
               <Textarea
                 value={communityFindMessageInput}
                 onChange={(e) => setCommunityFindMessageInput(e.target.value)}
-                placeholder={session ? "Escreva sua mensagem..." : "Faça login para participar da discussão."}
+                placeholder={session ? communityText.messagePlaceholder : communityText.loginToDiscuss}
                 disabled={!session || communityFindMessageSubmitting}
                 rows={3}
               />
@@ -2754,7 +2883,7 @@ export default function SearchResults({
                     }}
                     className="w-full sm:w-auto text-amber-700 border-amber-300 hover:bg-amber-50"
                   >
-                    Denunciar achadinho
+                    {communityText.reportFind}
                   </Button>
                 ) : <span />}
                 <Button
@@ -2763,7 +2892,7 @@ export default function SearchResults({
                   disabled={!session || communityFindMessageSubmitting || !communityFindMessageInput.trim()}
                   className="w-full sm:w-auto"
                 >
-                  {communityFindMessageSubmitting ? "Enviando..." : "Enviar mensagem"}
+                  {communityFindMessageSubmitting ? communityText.sending : communityText.sendMessage}
                 </Button>
               </div>
             </div>
@@ -2778,32 +2907,32 @@ export default function SearchResults({
               }}>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
-                    <DialogTitle>Denunciar conteúdo</DialogTitle>
+                    <DialogTitle>{communityText.reportContent}</DialogTitle>
                     <DialogDescription>
-                      Sua denúncia será analisada pela equipe de administração.
+                      {communityText.reportDescription}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-3">
                     <div className="space-y-2">
-                      <Label>Motivo</Label>
+                      <Label>{communityText.reason}</Label>
                       <Select value={reportReason} onValueChange={(v) => setReportReason(v as any)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="abuso">Abuso</SelectItem>
+                          <SelectItem value="abuso">{communityText.abuse}</SelectItem>
                           <SelectItem value="spam">Spam</SelectItem>
-                          <SelectItem value="fraude">Fraude</SelectItem>
-                          <SelectItem value="ofensivo">Ofensivo</SelectItem>
-                          <SelectItem value="desinformacao">Desinformação</SelectItem>
-                          <SelectItem value="outro">Outro</SelectItem>
+                          <SelectItem value="fraude">{communityText.fraud}</SelectItem>
+                          <SelectItem value="ofensivo">{communityText.offensive}</SelectItem>
+                          <SelectItem value="desinformacao">{communityText.misinformation}</SelectItem>
+                          <SelectItem value="outro">{communityText.other}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Detalhes (opcional)</Label>
+                      <Label>{communityText.details}</Label>
                       <Textarea
                         value={reportDetails}
                         onChange={(e) => setReportDetails(e.target.value)}
-                        placeholder="Descreva brevemente o problema."
+                        placeholder={communityText.detailsPlaceholder}
                         rows={3}
                       />
                     </div>
@@ -2818,10 +2947,10 @@ export default function SearchResults({
                           setReportDialogOpen(false);
                         }}
                       >
-                        Cancelar
+                        {communityText.cancel}
                       </Button>
                       <Button type="button" onClick={() => void handleSubmitCommunityFindReport()} disabled={reportSubmitting}>
-                        {reportSubmitting ? "Enviando..." : "Enviar denúncia"}
+                        {reportSubmitting ? communityText.sending : communityText.sendReport}
                       </Button>
                     </div>
                   </div>
@@ -2840,7 +2969,7 @@ export default function SearchResults({
           </DialogHeader>
           <div className="flex justify-end">
             <Button type="button" onClick={() => setLocationNoticeOpen(false)}>
-              Entendi
+              {communityText.gotIt}
             </Button>
           </div>
         </DialogContent>
@@ -2849,4 +2978,3 @@ export default function SearchResults({
     </div>
   );
 }
-

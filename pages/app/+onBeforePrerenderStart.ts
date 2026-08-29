@@ -79,7 +79,10 @@ export async function onBeforePrerenderStart() {
     getPublishedCommunityEvents().catch(() => [] as CommunityEvent[]),
   ]);
 
-  const eventUrls = events.map((event) => `/eventos/${event.id}`);
+  const eventUrls = events.flatMap((event) => [
+    `/eventos/${event.id}`,
+    `/en/events/${event.id}`,
+  ]);
   const businessUrls = buildBusinessUrls(businesses);
 
   const baseUrl = "https://www.caramelinho.com";

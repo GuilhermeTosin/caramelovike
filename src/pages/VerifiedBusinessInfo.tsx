@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useSiteLocale } from "@/contexts/LocaleContext";
 import { BadgeCheck, CheckCircle2, ShieldCheck, Star, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 
 export default function VerifiedBusinessInfo() {
+  const { toLocalePath } = useSiteLocale();
   useEffect(() => {
     setSeoMeta(
       "Negócio Verificado | Caramelinho",
@@ -28,7 +30,7 @@ export default function VerifiedBusinessInfo() {
             </div>
           </Link>
           <Button asChild className="caramelo-gradient text-white border-0">
-            <Link to="/perfil?tab=negocios">Solicitar Verificação</Link>
+            <Link to={toLocalePath("/perfil?tab=negocios")}>Solicitar Verificação</Link>
           </Button>
         </div>
       </header>

@@ -56,7 +56,10 @@ function getCanonicalUrl(urlOriginal: string | undefined, isBusinessPage: boolea
 function getRobotsContent(urlOriginal?: string) {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
 
-  const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
+  const privatePaths = new Set([
+    "/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard",
+    "/en/register", "/en/login", "/en/reset-password", "/en/profile", "/en/business/wizard",
+  ]);
   if (privatePaths.has(pathname)) return "noindex,nofollow,noarchive";
   const searchRobots = getInternalSearchRobots(pathname);
   if (searchRobots) return searchRobots;
@@ -396,7 +399,7 @@ function getLocaleAlternateLinks(pathname: string, business?: BusinessFrontend |
   }
 
   const directoryRoute = parseDirectoryRoute(pathname);
-  const supportsAlternates = pathname === "/" || pathname === "/en" || ["/sobre", "/contato", "/privacidade", "/termos", "/en/about", "/en/contact", "/en/privacy", "/en/terms"].includes(pathname) || (!!directoryRoute && !directoryRoute.categorySlug);
+  const supportsAlternates = pathname === "/" || pathname === "/en" || pathname.startsWith("/eventos/") || pathname.startsWith("/en/events/") || ["/sobre", "/contato", "/privacidade", "/termos", "/en/about", "/en/contact", "/en/privacy", "/en/terms"].includes(pathname) || (!!directoryRoute && !directoryRoute.categorySlug);
   if (!supportsAlternates) return "";
 
   const portuguesePath = getPortuguesePath(pathname);
@@ -418,7 +421,7 @@ export function onRenderHtml(pageContext: PageContext) {
   const isEventPage = !!pageContext.isEventPage;
   const isDirectoryPage = !!parseDirectoryRoute(pathname);
   const canonicalUrl = isEventPage && event
-    ? buildEventCanonicalUrl(event.id)
+    ? buildEventCanonicalUrl(event.id, locale)
     : getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
   const isErrorPage = !!pageContext.is404;
   const businessHasData = !!business;
@@ -435,8 +438,10 @@ export function onRenderHtml(pageContext: PageContext) {
           : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || [], pageContext.initialDirectorySnapshot?.pageMeta);
   const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal);
   const eventMeta = event
-    ? { title: buildEventSeoTitle(event), description: buildEventSeoDescription(event) }
-    : { title: "Evento | Caramelinho.com", description: "Detalhes de evento da comunidade." };
+    ? { title: buildEventSeoTitle(event, locale), description: buildEventSeoDescription(event, locale) }
+    : locale === "en"
+      ? { title: "Event | Caramelinho.com", description: "Community event details." }
+      : { title: "Evento | Caramelinho.com", description: "Detalhes de evento da comunidade." };
   const businessHeroAssets =
     isBusinessPage && businessHasData
       ? buildBusinessHeroImageAssets(business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg")
@@ -471,8 +476,8 @@ export function onRenderHtml(pageContext: PageContext) {
     : isEventPage && event
       ? [
           { id: "website", data: buildWebsiteJsonLd(locale) },
-          { id: "event", data: buildEventStructuredData(event, canonicalUrl) },
-          { id: "event-breadcrumb", data: buildEventBreadcrumbStructuredData(event, canonicalUrl) },
+          { id: "event", data: buildEventStructuredData(event, canonicalUrl, locale) },
+          { id: "event-breadcrumb", data: buildEventBreadcrumbStructuredData(event, canonicalUrl, locale) },
         ]
       : isDirectoryPage
         ? [

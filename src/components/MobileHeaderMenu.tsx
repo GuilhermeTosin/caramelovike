@@ -12,7 +12,7 @@ type MobileHeaderMenuProps = {
 
 export default function MobileHeaderMenu({ showLanguage = true, showSearchLink = false }: MobileHeaderMenuProps) {
   const { session, unreadMessages, isLoading } = useAuth();
-  const { locale } = useSiteLocale();
+  const { locale, toLocalePath } = useSiteLocale();
   const { pathname, search } = useLocation();
   const menuRef = useRef<HTMLDetailsElement>(null);
   const isEnglish = locale === "en";
@@ -66,7 +66,7 @@ export default function MobileHeaderMenu({ showLanguage = true, showSearchLink =
         ) : session ? (
           <div className="space-y-1">
             <Link
-              to="/perfil"
+              to={toLocalePath("/perfil")}
               onClick={closeMenu}
               className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
             >
@@ -80,7 +80,7 @@ export default function MobileHeaderMenu({ showLanguage = true, showSearchLink =
               <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </Link>
             <Link
-              to="/perfil?tab=mensagens"
+              to={toLocalePath("/perfil?tab=mensagens")}
               onClick={closeMenu}
               className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
             >
@@ -99,7 +99,7 @@ export default function MobileHeaderMenu({ showLanguage = true, showSearchLink =
         ) : (
           <div className="space-y-1">
             <Link
-              to="/entrar"
+              to={toLocalePath("/entrar")}
               onClick={closeMenu}
               className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
             >
@@ -107,7 +107,7 @@ export default function MobileHeaderMenu({ showLanguage = true, showSearchLink =
               <span>{isEnglish ? "Sign in" : "Entrar"}</span>
             </Link>
             <Link
-              to="/cadastro"
+              to={toLocalePath("/cadastro")}
               onClick={closeMenu}
               className="flex items-center gap-3 rounded-lg bg-primary px-2.5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
             >

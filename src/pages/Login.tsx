@@ -6,10 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSiteLocale } from "@/contexts/LocaleContext";
+import { getSiteSlogan } from "@/lib/locales";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { locale, toLocalePath } = useSiteLocale();
+  const isEnglish = locale === "en";
+  const text = isEnglish ? {
+    required: "Enter your email and password.", invalid: "Incorrect email or password.", unconfirmed: "Your email has not been confirmed yet. Check your inbox or spam folder.",
+    title: "Sign in", welcome: "Welcome back to Caramelinho!", password: "Password", passwordPlaceholder: "Your password", forgot: "Forgot your password?", loading: "Signing in...", submit: "Sign in", noAccount: "Don't have an account?", register: "Create an account",
+  } : {
+    required: "Preencha email e senha.", invalid: "Email ou senha incorretos.", unconfirmed: "Seu email ainda não foi confirmado. Verifique sua caixa de entrada ou spam.",
+    title: "Entrar", welcome: "Bem-vindo de volta ao Caramelinho!", password: "Senha", passwordPlaceholder: "Sua senha", forgot: "Esqueci minha senha", loading: "Entrando...", submit: "Entrar", noAccount: "Ainda não tem conta?", register: "Cadastre-se",
+  };
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -20,7 +30,7 @@ export default function Login() {
     setError("");
 
     if (!email.trim() || !password.trim()) {
-      setError("Preencha email e senha.");
+      setError(text.required);
       return;
     }
 
@@ -35,9 +45,9 @@ export default function Login() {
 
     if (signInError) {
       if (signInError.message.includes("Invalid login credentials")) {
-        setError("Email ou senha incorretos.");
+        setError(text.invalid);
       } else if (signInError.message.includes("Email not confirmed")) {
-        setError("Seu email ainda não foi confirmado. Verifique sua caixa de entrada ou spam.");
+        setError(text.unconfirmed);
       } else {
         setError(signInError.message);
       }
@@ -46,29 +56,29 @@ export default function Login() {
 
     // O onAuthStateChange no AuthContext cuidará do redirecionamento e carregamento
     const params = new URLSearchParams(window.location.search);
-    const redirect = params.get("redirect") || "/perfil";
-    navigate(redirect);
+    const redirect = params.get("redirect") || toLocalePath("/perfil");
+    navigate(redirect.startsWith("/") ? redirect : toLocalePath("/perfil"));
   };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="mb-8">
-          <Link to="/" className="flex items-center gap-3 mb-4">
+          <Link to={toLocalePath("/")} className="flex items-center gap-3 mb-4">
             <div className="w-20 h-20 flex items-center justify-center">
                 <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
             <div className="leading-tight text-left">
                 <div className="font-extrabold text-[2rem] sm:text-[2.2rem] tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-base sm:text-lg font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
+                <div className="text-base sm:text-lg font-semibold text-foreground/75">{getSiteSlogan(locale)}</div>
               </div>
           </Link>
         </div>
 
         <Card className="p-6 sm:p-8 border-border">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-foreground">Entrar</h1>
-            <p className="text-muted-foreground mt-1">Bem-vindo de volta ao Caramelinho!</p>
+            <h1 className="text-2xl font-bold text-foreground">{text.title}</h1>
+            <p className="text-muted-foreground mt-1">{text.welcome}</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
@@ -94,7 +104,7 @@ export default function Login() {
             </div>
 
             <div>
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="password">{text.password}</Label>
               <div className="relative mt-1.5">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -102,28 +112,28 @@ export default function Login() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Sua senha"
+                  placeholder={text.passwordPlaceholder}
                   className="pl-10"
                   autoComplete="current-password"
                 />
               </div>
               <div className="mt-2 text-right">
-                <Link to="/redefinir-senha" className="text-xs text-amber-600 hover:text-amber-700 font-medium">
-                  Esqueci minha senha
+                <Link to={toLocalePath("/redefinir-senha")} className="text-xs text-amber-600 hover:text-amber-700 font-medium">
+                  {text.forgot}
                 </Link>
               </div>
             </div>
 
             <Button type="submit" className="w-full caramelo-gradient text-white" disabled={isLoading}>
-              {isLoading ? "Entrando..." : "Entrar"}
+              {isLoading ? text.loading : text.submit}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>
-              Ainda não tem conta?{" "}
-              <Link to="/cadastro" className="text-amber-600 hover:text-amber-700 font-medium">
-                Cadastre-se
+              {text.noAccount}{" "}
+              <Link to={toLocalePath("/cadastro")} className="text-amber-600 hover:text-amber-700 font-medium">
+                {text.register}
               </Link>
             </p>
           </div>
@@ -132,8 +142,6 @@ export default function Login() {
     </div>
   );
 }
-
-
 
 
 

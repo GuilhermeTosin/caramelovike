@@ -33,6 +33,7 @@ import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnapshot";
 import { useSiteLocale } from "@/contexts/LocaleContext";
+import { getSiteSlogan } from "@/lib/locales";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { buildPublicSearchPageRequest, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
 import { buildBusinessUrlForLocale } from "@/lib/businessEnglish";
@@ -503,7 +504,7 @@ export default function Home({
   }, [homeSnapshot, homeText.stats]);
 
   const activeSearchMode = homeText.searchModes[searchMode];
-  const visibleSearchModes = locale === "en" ? (["businesses"] as SearchMode[]) : HOME_SEARCH_MODE_ORDER;
+  const visibleSearchModes = HOME_SEARCH_MODE_ORDER;
 
   const popularCities = useMemo(
     () => homeSnapshot.popularCities.map((city) => ({ ...city, flag: countryCodeToFlag(city.countryCode) })),
@@ -533,7 +534,7 @@ export default function Home({
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
                 <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">
-                  {(locale === "en" ? "YOUR BRAZILIAN BUSINESS FINDER ABROAD" : "O SEU FARO FORA DO BRASIL").toUpperCase()}
+                  {getSiteSlogan(locale)}
                 </div>
               </div>
             </Link>
@@ -917,7 +918,7 @@ export default function Home({
           <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">{homeText.ctaDescription}</p>
           <div className="flex justify-center">
             <Button asChild size="lg" className="caramelo-gradient text-white border-0 font-bold">
-              <Link to="/cadastro">{homeText.ctaButton}</Link>
+              <Link to={toLocalePath("/cadastro")}>{homeText.ctaButton}</Link>
             </Button>
           </div>
         </div>
@@ -951,4 +952,3 @@ function formatBusinessCount(count: number, locale: "pt-BR" | "en" = "pt-BR"): s
   if (locale === "en") return String(count) + " " + (count === 1 ? "business" : "businesses");
   return String(count) + " " + (count === 1 ? "neg\u00f3cio" : "neg\u00f3cios");
 }
-

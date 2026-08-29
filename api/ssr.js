@@ -229,12 +229,18 @@ function isKnownAppPath(pathname) {
     "/en/contact",
     "/en/privacy",
     "/en/terms",
+    "/en/register",
+    "/en/login",
+    "/en/reset-password",
+    "/en/profile",
+    "/en/verified-business",
+    "/en/business/wizard",
   ]);
 
   if (exactPaths.has(pathname)) return true;
   if (pathname.startsWith("/negocios/")) return true;
   if (pathname.startsWith("/en/businesses/")) return true;
-  if (pathname.startsWith("/eventos/")) return true;
+  if (pathname.startsWith("/eventos/") || pathname.startsWith("/en/events/")) return true;
   if (pathname.startsWith("/preview/negocio/")) return true;
   if (pathname.startsWith("/go/")) return true;
   return !!parseBusinessPath(pathname);

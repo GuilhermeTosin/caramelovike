@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { MapPin, Store, LogIn, FileText, ScrollText, Info, Mail, Facebook } from "lucide-react";
 import { DEFAULT_GEO_FALLBACK, buildNearbyBusinessSearchPath, getApproxGeoByIp } from "@/lib/utils/geo";
 import { useSiteLocale } from "@/contexts/LocaleContext";
+import { getSiteSlogan } from "@/lib/locales";
 
 export default function SiteFooter() {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ export default function SiteFooter() {
               </div>
               <div className="leading-tight">
                 <div className="font-extrabold text-base tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-[11px] font-semibold tracking-wide text-amber-200">{isEnglish ? "YOUR BRAZILIAN BUSINESS FINDER ABROAD" : "O SEU FARO FORA DO BRASIL"}</div>
+                <div className="text-[11px] font-semibold tracking-wide text-amber-200">{getSiteSlogan(locale)}</div>
               </div>
             </div>
             <p className="mt-3 text-sm text-slate-300 max-w-md leading-relaxed">
@@ -69,11 +70,11 @@ export default function SiteFooter() {
                 <Store className="w-4 h-4" />
                 {isEnglish ? "All businesses" : "Todos os negócios"}
               </Link>
-              <Link to="/cadastro" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+              <Link to={toLocalePath("/cadastro")} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Store className="w-4 h-4" />
                 {isEnglish ? "List a business" : "Cadastrar negócio"}
               </Link>
-              <Link to="/entrar" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+              <Link to={toLocalePath("/entrar")} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <LogIn className="w-4 h-4" />
                 {isEnglish ? "Sign in" : "Entrar na conta"}
               </Link>

@@ -42,6 +42,7 @@ import BusinessModerationTab from "@/pages/user-profile/components/BusinessModer
 import OwnershipAdminTab from "@/pages/user-profile/components/OwnershipAdminTab";
 import ReportsAdminTab from "@/pages/user-profile/components/ReportsAdminTab";
 import FeaturedPlacementsTab from "@/pages/user-profile/components/FeaturedPlacementsTab";
+import BusinessQualityTab from "@/pages/user-profile/components/BusinessQualityTab";
 import UserProfileDialogs from "@/pages/user-profile/components/UserProfileDialogs";
 import { useAdminSearchSettings } from "@/pages/user-profile/hooks/useAdminSearchSettings";
 import { useAdminUsers, USER_MANAGEMENT_ADMIN_EMAIL } from "@/pages/user-profile/hooks/useAdminUsers";
@@ -52,9 +53,15 @@ import { useReportsAdmin } from "@/pages/user-profile/hooks/useReportsAdmin";
 import { useFeaturedAdmin } from "@/pages/user-profile/hooks/useFeaturedAdmin";
 import { useInboxAndReviews } from "@/pages/user-profile/hooks/useInboxAndReviews";
 import { useBusinessManagement } from "@/pages/user-profile/hooks/useBusinessManagement";
+import { useSiteLocale } from "@/contexts/LocaleContext";
+import { getSiteSlogan } from "@/lib/locales";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 
 export default function UserProfile() {
   const navigate = useNavigate();
+  const { locale, toLocalePath } = useSiteLocale();
+  const isEnglish = locale === "en";
   const { session, user, isLoading, logout, refreshUnread, unreadMessages, refreshSession } = useAuth();
   const isAdmin = session?.role === "admin" || user?.role === "admin";
   const canManageUsers = isAdmin && String(user?.email || session?.email || "").trim().toLowerCase() === USER_MANAGEMENT_ADMIN_EMAIL;
@@ -84,6 +91,8 @@ export default function UserProfile() {
   const [myBusinessesSearch, setMyBusinessesSearch] = useState("");
   const [moderationPreviewBusiness, setModerationPreviewBusiness] = useState<BusinessFrontend | null>(null);
   const [verificationAdminView, setVerificationAdminView] = useState<VerificationAdminView>("pendentes");
+  const [qualityLoading, setQualityLoading] = useState(false);
+  const [qualityError, setQualityError] = useState("");
 
   const mobileContentRef = useRef<HTMLDivElement>(null);
   const communityEventDatePickerRef = useRef<HTMLInputElement>(null);
@@ -420,7 +429,7 @@ export default function UserProfile() {
     const sessionUserId = session?.userId;
     if (!sessionUserId) {
       loadedMyBusinessesOwnerIdRef.current = null;
-      navigate("/entrar?redirect=/perfil");
+      navigate(toLocalePath("/entrar?redirect=/perfil"));
       return;
     }
 
@@ -436,7 +445,7 @@ export default function UserProfile() {
       .finally(() => {
         setLoadingMyBusinesses(false);
       });
-  }, [session?.userId, navigate, isLoading]);
+  }, [session?.userId, navigate, isLoading, toLocalePath]);
 
   useEffect(() => {
     setMyBusinessesPage(1);
@@ -445,6 +454,32 @@ export default function UserProfile() {
   useEffect(() => {
     setAllBusinessesPage(1);
   }, [allBusinessesSearch]);
+
+  useEffect(() => {
+    if (!isAdmin || activeTab !== "qualidade") return;
+    let cancelled = false;
+
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setQualityLoading(true);
+      setQualityError("");
+
+      return getAllBusinesses()
+        .then((businesses) => {
+          if (!cancelled) setAllBusinesses(businesses);
+        })
+        .catch(() => {
+          if (!cancelled) setQualityError("Não foi possível carregar os negócios para a auditoria.");
+        })
+        .finally(() => {
+          if (!cancelled) setQualityLoading(false);
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, isAdmin]);
 
 
   const handleMyBusinessesSearchChange = (value: string) => {
@@ -474,10 +509,10 @@ export default function UserProfile() {
     if (success) {
       setIsEditing(false);
       setAvatarFile(null);
-      toast.success("Perfil atualizado!");
+      toast.success(isEnglish ? "Profile updated!" : "Perfil atualizado!");
       await refreshSession();
     } else {
-      toast.error("Erro ao atualizar perfil.");
+      toast.error(isEnglish ? "Could not update profile." : "Erro ao atualizar perfil.");
     }
 
     setIsUploading(false);
@@ -486,19 +521,19 @@ export default function UserProfile() {
   const handleChangePassword = async () => {
     const email = user?.email || session?.email || "";
     if (!email) {
-      toast.error("Nao foi possivel identificar o e-mail da conta.");
+      toast.error(isEnglish ? "Could not identify the account email." : "Nao foi possivel identificar o e-mail da conta.");
       return;
     }
     if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
-      toast.error("Preencha a senha atual, a nova senha e a confirmacao.");
+      toast.error(isEnglish ? "Enter your current password, new password and confirmation." : "Preencha a senha atual, a nova senha e a confirmacao.");
       return;
     }
     if (newPassword.length < 6) {
-      toast.error("A nova senha deve ter pelo menos 6 caracteres.");
+      toast.error(isEnglish ? "Your new password must be at least 6 characters." : "A nova senha deve ter pelo menos 6 caracteres.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("A nova senha e a confirmacao nao conferem.");
+      toast.error(isEnglish ? "The new password and confirmation do not match." : "A nova senha e a confirmacao nao conferem.");
       return;
     }
 
@@ -510,7 +545,7 @@ export default function UserProfile() {
 
     if (signInError) {
       setIsChangingPassword(false);
-      toast.error("Senha atual incorreta.");
+      toast.error(isEnglish ? "Incorrect current password." : "Senha atual incorreta.");
       return;
     }
 
@@ -525,13 +560,13 @@ export default function UserProfile() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
-    toast.success("Senha atualizada com sucesso.");
+    toast.success(isEnglish ? "Password updated successfully." : "Senha atualizada com sucesso.");
   };
 
   const handleLogout = async () => {
     await logout();
-    navigate("/");
-    toast.success("Voce saiu da sua conta.");
+    navigate(toLocalePath("/"));
+    toast.success(isEnglish ? "You have signed out." : "Voce saiu da sua conta.");
   };
 
   const MY_BUSINESSES_PER_PAGE = 5;
@@ -586,7 +621,7 @@ export default function UserProfile() {
       <div className={centeredShellClassName}>
         <div className="text-center">
           <PawPrint className="mx-auto mb-4 h-16 w-16 animate-pulse text-muted-foreground/30" />
-          <p className="text-muted-foreground">Carregando seu perfil...</p>
+          <p className="text-muted-foreground">{isEnglish ? "Loading your profile..." : "Carregando seu perfil..."}</p>
         </div>
       </div>
     );
@@ -600,7 +635,7 @@ export default function UserProfile() {
         <div className={centeredShellClassName}>
           <div className="text-center">
             <PawPrint className="mx-auto mb-4 h-16 w-16 animate-pulse text-muted-foreground/30" />
-            <p className="text-muted-foreground">Carregando seu perfil...</p>
+            <p className="text-muted-foreground">{isEnglish ? "Loading your profile..." : "Carregando seu perfil..."}</p>
           </div>
         </div>
       );
@@ -612,9 +647,9 @@ export default function UserProfile() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
             <User className="h-8 w-8 text-amber-600" />
           </div>
-          <h1 className="mb-2 text-xl font-bold">Ops! Perfil nao encontrado</h1>
+          <h1 className="mb-2 text-xl font-bold">{isEnglish ? "Profile not found" : "Ops! Perfil nao encontrado"}</h1>
           <p className="mb-6 text-muted-foreground">
-            Nao conseguimos carregar suas informacoes. Isso pode acontecer se seu perfil ainda nao foi criado no banco de dados.
+            {isEnglish ? "We could not load your information. This can happen if your profile has not been created in the database yet." : "Nao conseguimos carregar suas informacoes. Isso pode acontecer se seu perfil ainda nao foi criado no banco de dados."}
           </p>
           <div className="flex flex-col gap-3">
             <Button
@@ -623,10 +658,10 @@ export default function UserProfile() {
               }}
               className="w-full border-0 caramelo-gradient text-white"
             >
-              Tentar novamente
+              {isEnglish ? "Try again" : "Tentar novamente"}
             </Button>
             <Button variant="ghost" onClick={logout} className="w-full">
-              Sair da conta
+              {isEnglish ? "Sign out" : "Sair da conta"}
             </Button>
           </div>
         </div>
@@ -639,21 +674,22 @@ export default function UserProfile() {
       <header className="sticky top-0 z-50 border-b border-border bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between sm:h-24">
-            <Link to="/" className="group flex items-center gap-3">
+            <Link to={toLocalePath("/")} className="group flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center sm:h-[5.5rem] sm:w-[5.5rem]">
                 <img src="/logo.webp" alt="Caramelinho logo" className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="min-w-0 leading-tight">
                 <div className="truncate text-lg font-extrabold tracking-tight caramelo-text-gradient sm:text-2xl">Caramelinho</div>
                 <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-foreground/75 sm:text-sm">
-                  {"O SEU FARO FORA DO BRASIL"}
+                  {getSiteSlogan(locale)}
                 </div>
               </div>
             </Link>
 
             <div className="flex items-center gap-1.5 sm:gap-4">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <Link to="/perfil?tab=mensagens" onClick={() => setActiveTab("mensagens")} className="group relative">
+              <div className="hidden sm:flex items-center gap-1.5 sm:gap-2">
+                <LanguageSwitcher />
+                <Link to={toLocalePath("/perfil?tab=mensagens")} onClick={() => setActiveTab("mensagens")} className="group relative">
                   <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-secondary sm:h-10 sm:w-10">
                     <MessageCircle className="h-5 w-5" />
                     {unreadMessages > 0 ? (
@@ -663,15 +699,16 @@ export default function UserProfile() {
                     ) : null}
                   </Button>
                 </Link>
-                <Link to="/perfil">
+                <Link to={toLocalePath("/perfil")}>
                   <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-full border-border px-2.5 hover:bg-secondary sm:h-10 sm:gap-2 sm:px-4">
                     <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
                       <User className="h-3 w-3 text-primary" />
                     </div>
-                    <span className="max-w-[90px] truncate font-medium sm:max-w-none">{session.name?.split(" ")[0] || "Perfil"}</span>
+                    <span className="max-w-[90px] truncate font-medium sm:max-w-none">{session.name?.split(" ")[0] || (isEnglish ? "Profile" : "Perfil")}</span>
                   </Button>
                 </Link>
               </div>
+              <MobileHeaderMenu showSearchLink />
             </div>
           </div>
         </div>
@@ -915,6 +952,22 @@ export default function UserProfile() {
                 onRefreshSitemap={handleRefreshSitemap}
                 onEnableBusinessFollowLinks={handleEnableBusinessFollowLinks}
                 onDisableBusinessFollowLinks={handleDisableBusinessFollowLinks}
+              />
+            ) : null}
+
+            {isAdmin ? (
+              <BusinessQualityTab
+                businesses={allBusinesses}
+                loading={qualityLoading}
+                error={qualityError}
+                onRefresh={() => {
+                  setQualityLoading(true);
+                  setQualityError("");
+                  void getAllBusinesses()
+                    .then(setAllBusinesses)
+                    .catch(() => setQualityError("Não foi possível carregar os negócios para a auditoria."))
+                    .finally(() => setQualityLoading(false));
+                }}
               />
             ) : null}
 

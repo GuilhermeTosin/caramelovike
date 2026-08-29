@@ -26,7 +26,7 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import { getLocalizedDirectoryIntro, getLocalizedDirectoryMeta } from "@/lib/directoryLocale";
 import { getHomeContent } from "@/data/homeContent";
-import { getCountryDisplayName } from "@/lib/locales";
+import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
 import { buildBusinessUrlForLocale } from "@/lib/businessEnglish";
 
 type BusinessDirectoryPageProps = {
@@ -57,7 +57,7 @@ function Header() {
             <div className="leading-tight min-w-0">
               <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
               <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">
-                {isEnglish ? "YOUR BRAZILIAN BUSINESS FINDER ABROAD" : "O SEU FARO FORA DO BRASIL"}
+                {getSiteSlogan(locale)}
               </div>
             </div>
           </Link>

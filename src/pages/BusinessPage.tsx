@@ -56,7 +56,7 @@ import { calculateDistance } from "@/lib/utils/geo";
 import NotFound from "@/pages/NotFound";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
 import { getCityDisplayName } from "@/lib/locationDisplay";
-import { getCountryDisplayName } from "@/lib/locales";
+import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { formatDatePtBr, getMeaningfulUpdatedAt } from "@/lib/dates";
 import {
@@ -878,7 +878,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               </div>
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{isEnglish ? "YOUR BRAZILIAN BUSINESS FINDER ABROAD" : "O SEU FARO FORA DO BRASIL"}</div>
+                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{getSiteSlogan(locale)}</div>
               </div>
             </Link>
             <div className="hidden items-center gap-3 sm:flex">

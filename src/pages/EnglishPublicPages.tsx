@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { setSeoMeta } from "@/lib/seo";
+import { getSiteSlogan } from "@/lib/locales";
 import { submitContactMessage } from "@/services/contact";
 
 type LegalSection = {
@@ -30,7 +31,7 @@ function EnglishHeader() {
             </div>
             <div className="leading-tight min-w-0">
               <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">YOUR BRAZILIAN BUSINESS FINDER ABROAD</div>
+              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{getSiteSlogan("en")}</div>
             </div>
           </Link>
           <div className="hidden items-center gap-3 sm:flex">

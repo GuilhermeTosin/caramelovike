@@ -63,7 +63,10 @@ function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
+    const privatePaths = new Set([
+      "/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard",
+      "/en/register", "/en/login", "/en/reset-password", "/en/profile", "/en/business/wizard",
+    ]);
     const isPrivatePreviewPath = pathname.startsWith("/preview/negocio/");
     const canonicalPathname = isBusinessPage ? pathname : getInternalSearchCanonicalPath(pathname);
     const canonicalSearch = isBusinessPage || getInternalSearchRobots(pathname) ? "" : search;
@@ -212,6 +215,11 @@ export default function App({
           <Route path="/redefinir-senha" element={<ResetPassword />} />
           <Route path="/perfil" element={<UserProfile />} />
           <Route path="/negocio-verificado" element={<VerifiedBusinessInfo />} />
+          <Route path="/en/register" element={<Register />} />
+          <Route path="/en/login" element={<Login />} />
+          <Route path="/en/reset-password" element={<ResetPassword />} />
+          <Route path="/en/profile" element={<UserProfile />} />
+          <Route path="/en/verified-business" element={<VerifiedBusinessInfo />} />
           <Route path="/en/about" element={<EnglishAboutPage />} />
           <Route path="/en/contact" element={<EnglishContactPage />} />
           <Route path="/en/privacy" element={<EnglishPrivacyPage />} />
@@ -221,7 +229,9 @@ export default function App({
           <Route path="/privacidade" element={<PrivacyPage />} />
           <Route path="/termos" element={<TermsPage />} />
           <Route path="/eventos/:eventId" element={<EventPage initialEvent={initialEvent} />} />
+          <Route path="/en/events/:eventId" element={<EventPage initialEvent={initialEvent} />} />
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
+          <Route path="/en/business/wizard" element={<BusinessWizardPage />} />
           <Route path="/preview/negocio/:businessId" element={<BusinessPageRoute previewMode />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
           <Route path="/en/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} locale="en" />} />
