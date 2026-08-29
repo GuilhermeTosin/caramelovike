@@ -1465,7 +1465,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
             )}
           </div>
 
-          <aside className="order-2 lg:order-none lg:col-span-1 lg:row-span-2">
+          <aside className="order-2 lg:order-none lg:col-start-3 lg:row-start-1 lg:col-span-1 lg:row-span-2">
             <div className="space-y-6 lg:sticky lg:top-24">
               <BusinessPrimaryInfo
                 business={business}
