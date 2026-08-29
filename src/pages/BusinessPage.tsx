@@ -942,8 +942,8 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 min-w-0">
-            <div className="w-full">
+          <div className="contents">
+            <div className="order-1 w-full min-w-0 lg:order-none lg:col-span-2">
               <div className="sticky top-16 z-30 sm:top-24 -mx-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:mx-0 sm:px-0">
                 <div className="overflow-x-auto scrollbar-hide">
               <nav aria-label={isEnglish ? "Business sections" : "Seções do negócio"} className="flex w-max min-w-full items-center justify-start bg-transparent">
@@ -1014,20 +1014,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(business.description) }}
                 />
 
-                <div className="mt-6 lg:hidden">
-                  <BusinessPrimaryInfo
-                    business={business}
-                    businessCityDisplayName={businessCityDisplayName}
-                    onWhatsApp={handleWhatsApp}
-                    onSendMessage={handleSendMessage}
-                    onRoute={handleRoute}
-                    onExternalClick={handleExternalClick}
-                    locale={locale}
-                  />
-                </div>
-
               </section>
+            </div>
 
+            <div className="order-3 w-full min-w-0 lg:order-none lg:col-span-2">
               <section id="fotos" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8">
                 <h2 className="mb-4 text-xl font-bold text-foreground">{isEnglish ? "Photos" : "Fotos"}</h2>
                 {galleryPhotos.length === 0 ? (
@@ -1475,19 +1465,17 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
             )}
           </div>
 
-          <aside className="lg:col-span-1">
+          <aside className="order-2 lg:order-none lg:col-span-1 lg:row-span-2">
             <div className="space-y-6 lg:sticky lg:top-24">
-              <div className="hidden lg:block">
-                <BusinessPrimaryInfo
-                  business={business}
-                  businessCityDisplayName={businessCityDisplayName}
-                  onWhatsApp={handleWhatsApp}
-                  onSendMessage={handleSendMessage}
-                  onRoute={handleRoute}
-                  onExternalClick={handleExternalClick}
-                  locale={locale}
-                />
-              </div>
+              <BusinessPrimaryInfo
+                business={business}
+                businessCityDisplayName={businessCityDisplayName}
+                onWhatsApp={handleWhatsApp}
+                onSendMessage={handleSendMessage}
+                onRoute={handleRoute}
+                onExternalClick={handleExternalClick}
+                locale={locale}
+              />
 
               {/* Social Media */}
               {(business.instagram || business.facebook) && (
