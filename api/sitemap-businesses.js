@@ -124,18 +124,24 @@ function buildDirectoryUrls(baseUrl, rows) {
   return Array.from(urls).sort();
 }
 
+function getLastmod(row) {
+  for (const value of [row.updated_at, row.created_at]) {
+    if (!value) continue;
+    const parsedDate = new Date(value);
+    if (!Number.isNaN(parsedDate.getTime())) return parsedDate.toISOString();
+  }
+  return null;
+}
+
 function buildXml(baseUrl, rows) {
   const businessBody = rows
     .flatMap((row) => {
-      const parsedDate = row.created_at ? new Date(row.created_at) : null;
-      const lastmod =
-        parsedDate && !Number.isNaN(parsedDate.getTime())
-          ? parsedDate.toISOString()
-          : new Date().toISOString();
+      const lastmod = getLastmod(row);
+      const lastmodTag = lastmod ? `<lastmod>${lastmod}</lastmod>` : "";
 
       return [buildBusinessUrl(baseUrl, row), buildEnglishBusinessUrl(baseUrl, row)]
         .filter(Boolean)
-        .map((url) => `<url><loc>${escapeXml(url)}</loc><lastmod>${lastmod}</lastmod><changefreq>weekly</changefreq></url>`);
+        .map((url) => `<url><loc>${escapeXml(url)}</loc>${lastmodTag}<changefreq>weekly</changefreq></url>`);
     })
     .join("\n");
   const directoryUrls = [
@@ -156,7 +162,7 @@ ${body}
 
 async function fetchPage(config, offset) {
   const params = new URLSearchParams({
-    select: "slug,country_code,state_code,city,city_slug,created_at,primary_activity,description_en",
+    select: "slug,country_code,state_code,city,city_slug,created_at,updated_at,primary_activity,description_en",
     or: "(moderation_status.eq.approved,moderation_status.is.null)",
     slug: "not.is.null",
     order: "created_at.desc",

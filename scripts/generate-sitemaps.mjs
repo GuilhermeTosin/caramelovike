@@ -34,7 +34,6 @@ function normalizePart(value) {
 }
 
 function buildStaticSitemapXml(baseUrl) {
-  const now = new Date().toISOString();
   const urls = [
     "/",
     "/en",
@@ -51,7 +50,7 @@ function buildStaticSitemapXml(baseUrl) {
     "/negocio-verificado",
   ];
   const body = urls
-    .map((path) => `<url><loc>${baseUrl}${path}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq></url>`)
+    .map((path) => `<url><loc>${baseUrl}${path}</loc><changefreq>weekly</changefreq></url>`)
     .join("");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  ${body}\n</urlset>\n`;
 }
@@ -67,7 +66,7 @@ async function ensureDirForFile(filePath) {
 async function main() {
   const baseUrl = getBaseUrl();
   const staticXml = buildStaticSitemapXml(baseUrl);
-  const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <sitemap><loc>${baseUrl}/sitemaps/static.xml</loc><lastmod>${new Date().toISOString()}</lastmod></sitemap>\n  <sitemap><loc>${baseUrl}/sitemaps/businesses.xml</loc><lastmod>${new Date().toISOString()}</lastmod></sitemap>\n</sitemapindex>\n`;
+  const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <sitemap><loc>${baseUrl}/sitemaps/static.xml</loc></sitemap>\n  <sitemap><loc>${baseUrl}/sitemaps/businesses.xml</loc></sitemap>\n</sitemapindex>\n`;
 
   const files = [
     { path: OUTPUTS[0], content: indexXml },

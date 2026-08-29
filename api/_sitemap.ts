@@ -6,6 +6,7 @@ type SitemapBusinessRow = {
   state_code: string | null;
   city: string | null;
   created_at: string | null;
+  updated_at: string | null;
   description_en?: string | null;
 };
 
@@ -82,7 +83,7 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
 function buildBusinessesUrl(offset: number): { url: string; headers: Record<string, string> } {
   const { url, key } = getSitemapSourceConfig();
   const params = new URLSearchParams();
-  params.set("select", "slug,country_code,state_code,city,created_at,description_en");
+  params.set("select", "slug,country_code,state_code,city,created_at,updated_at,description_en");
   params.set("or", "(moderation_status.eq.approved,moderation_status.is.null)");
   params.set("slug", "not.is.null");
   params.set("order", "created_at.desc");
@@ -133,9 +134,8 @@ export async function getSitemapRows(forceRefresh = false): Promise<SitemapBusin
 }
 
 export function buildSitemapIndexXml(baseUrl: string): string {
-  const now = new Date().toISOString();
   const urls = [`${baseUrl}/sitemaps/static.xml`, `${baseUrl}/sitemaps/businesses.xml`];
-  const body = urls.map((loc) => `<sitemap><loc>${loc}</loc><lastmod>${now}</lastmod></sitemap>`).join("");
+  const body = urls.map((loc) => `<sitemap><loc>${loc}</loc></sitemap>`).join("");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -159,9 +159,8 @@ export function buildStaticSitemapXml(baseUrl: string): string {
     "/en/terms",
     "/negocio-verificado",
   ];
-  const now = new Date().toISOString();
   const body = urls
-    .map((path) => `<url><loc>${baseUrl}${path}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq></url>`)
+    .map((path) => `<url><loc>${baseUrl}${path}</loc><changefreq>weekly</changefreq></url>`)
     .join("");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -201,10 +200,13 @@ function buildEnglishBusinessUrl(baseUrl: string, row: SitemapBusinessRow): stri
 export function buildBusinessSitemapXml(baseUrl: string, rows: SitemapBusinessRow[]): string {
   const body = rows
     .flatMap((row) => {
-      const lastmod = row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString();
+      const lastmod = [row.updated_at, row.created_at]
+        .map((value) => (value ? new Date(value) : null))
+        .find((value): value is Date => !!value && !Number.isNaN(value.getTime()));
+      const lastmodTag = lastmod ? `<lastmod>${lastmod.toISOString()}</lastmod>` : "";
       return [buildBusinessUrl(baseUrl, row), buildEnglishBusinessUrl(baseUrl, row)]
         .filter((loc): loc is string => Boolean(loc))
-        .map((loc) => `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>weekly</changefreq></url>`);
+        .map((loc) => `<url><loc>${loc}</loc>${lastmodTag}<changefreq>weekly</changefreq></url>`);
     })
     .join("");
 

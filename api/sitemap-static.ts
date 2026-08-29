@@ -11,9 +11,8 @@ function getBaseUrl(req: VercelRequest) {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const base = getBaseUrl(req);
-  const now = new Date().toISOString();
   const body = PUBLIC_PAGE_PATHS
-    .map((path) => `<url><loc>${base}${path}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq></url>`)
+    .map((path) => `<url><loc>${base}${path}</loc><changefreq>weekly</changefreq></url>`)
     .join("");
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
