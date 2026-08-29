@@ -1,5 +1,20 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildSitemapIndexXml, getBaseUrl } from "./_sitemap";
+
+function getBaseUrl(req: VercelRequest): string {
+  const proto = String(req.headers["x-forwarded-proto"] || "https");
+  const host = String(req.headers["x-forwarded-host"] || req.headers.host || "www.caramelinho.com");
+  return `${proto}://${host}`;
+}
+
+export function buildSitemapIndexXml(baseUrl: string): string {
+  const sitemapUrls = [`${baseUrl}/sitemaps/static.xml`, `${baseUrl}/sitemaps/businesses.xml`];
+  const body = sitemapUrls.map((url) => `<sitemap><loc>${url}</loc></sitemap>`).join("");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  ${body}
+</sitemapindex>`;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
