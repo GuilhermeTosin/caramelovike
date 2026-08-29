@@ -60,6 +60,8 @@
       },
       "dest": "/api/sitemap-businesses"
     },
+    { "src": "/", "dest": "/api/ssr" },
+    { "src": "/en", "dest": "/api/ssr" },
 
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api/ssr" }

@@ -9,8 +9,6 @@ import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import { buildEnglishBusinessUrl, hasEnglishBusinessTranslation } from "@/lib/businessEnglish";
 
 const STATIC_PUBLIC_URLS = [
-  "/",
-  "/en",
   "/en/businesses",
   "/sobre",
   "/contato",
