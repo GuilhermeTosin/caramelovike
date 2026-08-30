@@ -11,6 +11,8 @@ type PaginationProps = {
   onPageChange?: (page: number) => void;
   previousLabel?: string;
   nextLabel?: string;
+  navigationLabel?: string;
+  pageLabel?: string;
   className?: string;
 };
 
@@ -37,6 +39,8 @@ export default function Pagination({
   onPageChange,
   previousLabel = "Anterior",
   nextLabel = "Próxima",
+  navigationLabel = "Paginação",
+  pageLabel = "Página",
   className = "",
 }: PaginationProps) {
   const page = Math.max(1, Math.min(currentPage, totalPages));
@@ -101,10 +105,10 @@ export default function Pagination({
   };
 
   return (
-    <nav className={`flex flex-nowrap items-center justify-center gap-2 sm:flex-wrap ${className}`} aria-label="Paginação">
+    <nav className={`flex flex-nowrap items-center justify-center gap-2 sm:flex-wrap ${className}`} aria-label={navigationLabel}>
       {renderNavigationButton("previous")}
       <span className="sm:hidden text-xs font-medium text-muted-foreground whitespace-nowrap">
-        Página {page} de {totalPages}
+        {pageLabel} {page} de {totalPages}
       </span>
       {items.map((item) =>
         typeof item === "number" ? renderPageButton(item) : (

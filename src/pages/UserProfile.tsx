@@ -154,15 +154,15 @@ export default function UserProfile() {
 
   const handleTransferBusinessToAdmin = async (businessId: string) => {
     if (!canManageUsers) {
-      throw new Error("Ação não autorizada.");
+      throw new Error(isEnglish ? "Unauthorized action." : "Ação não autorizada.");
     }
 
     const result = await transferBusinessOwnershipByEmail(businessId, USER_MANAGEMENT_ADMIN_EMAIL);
     if (!result.ok) {
-      throw new Error(result.error || "Não foi possível transferir o negócio.");
+      throw new Error(result.error || (isEnglish ? "Could not transfer the business." : "Não foi possível transferir o negócio."));
     }
 
-    toast.success("Negócio transferido para sua conta.");
+    toast.success(isEnglish ? "Business transferred to your account." : "Negócio transferido para sua conta.");
     await Promise.allSettled([
       refreshAdminUsers(),
       refreshAllBusinesses(),
@@ -207,7 +207,6 @@ export default function UserProfile() {
     instagramPostUrl,
     verificationRequests,
     verificationLoading,
-    myVerificationRequests,
     pendingModerationBusinesses,
     moderationLoading,
     setVerificationBusiness,
@@ -469,7 +468,7 @@ export default function UserProfile() {
           if (!cancelled) setAllBusinesses(businesses);
         })
         .catch(() => {
-          if (!cancelled) setQualityError("Não foi possível carregar os negócios para a auditoria.");
+          if (!cancelled) setQualityError(isEnglish ? "Could not load businesses for the audit." : "Não foi possível carregar os negócios para a auditoria.");
         })
         .finally(() => {
           if (!cancelled) setQualityLoading(false);
@@ -479,7 +478,7 @@ export default function UserProfile() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, isAdmin]);
+  }, [activeTab, isAdmin, isEnglish]);
 
 
   const handleMyBusinessesSearchChange = (value: string) => {
@@ -686,27 +685,36 @@ export default function UserProfile() {
               </div>
             </Link>
 
-            <div className="flex items-center gap-1.5 sm:gap-4">
-              <div className="hidden sm:flex items-center gap-1.5 sm:gap-2">
+            <div className="flex shrink-0 items-center">
+              <div className="hidden items-center gap-3 sm:flex">
                 <LanguageSwitcher />
-                <Link to={toLocalePath("/perfil?tab=mensagens")} onClick={() => setActiveTab("mensagens")} className="group relative">
-                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-secondary sm:h-10 sm:w-10">
-                    <MessageCircle className="h-5 w-5" />
-                    {unreadMessages > 0 ? (
-                      <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-primary text-[10px] font-bold text-white">
-                        {unreadMessages > 9 ? "9+" : unreadMessages}
-                      </span>
-                    ) : null}
-                  </Button>
-                </Link>
-                <Link to={toLocalePath("/perfil")}>
-                  <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-full border-border px-2.5 hover:bg-secondary sm:h-10 sm:gap-2 sm:px-4">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
-                      <User className="h-3 w-3 text-primary" />
-                    </div>
-                    <span className="max-w-[90px] truncate font-medium sm:max-w-none">{session.name?.split(" ")[0] || (isEnglish ? "Profile" : "Perfil")}</span>
-                  </Button>
-                </Link>
+                {isLoading ? (
+                  <div className="flex w-48 items-center justify-end gap-1.5" aria-label={isEnglish ? "Loading account actions" : "Carregando ações da conta"}>
+                    <div className="h-10 w-10 animate-pulse rounded-full bg-muted/70" />
+                    <div className="h-10 w-28 animate-pulse rounded-full bg-muted/70" />
+                  </div>
+                ) : (
+                  <div className="flex w-48 items-center justify-end gap-1.5">
+                    <Link to={toLocalePath("/perfil?tab=mensagens")} onClick={() => setActiveTab("mensagens")} className="group relative">
+                      <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-secondary sm:h-10 sm:w-10">
+                        <MessageCircle className="h-5 w-5" />
+                        {unreadMessages > 0 ? (
+                          <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-primary text-[10px] font-bold text-white">
+                            {unreadMessages > 9 ? "9+" : unreadMessages}
+                          </span>
+                        ) : null}
+                      </Button>
+                    </Link>
+                    <Link to={toLocalePath("/perfil")}>
+                      <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-full border-border px-3 hover:bg-secondary sm:h-10 sm:gap-2">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                          <User className="h-3 w-3 text-primary" />
+                        </div>
+                        <span className="max-w-[90px] truncate font-medium">{session.name?.split(" ")[0] || (isEnglish ? "Profile" : "Perfil")}</span>
+                      </Button>
+                    </Link>
+                  </div>
+                )}
               </div>
               <MobileHeaderMenu showSearchLink />
             </div>
@@ -965,7 +973,7 @@ export default function UserProfile() {
                   setQualityError("");
                   void getAllBusinesses()
                     .then(setAllBusinesses)
-                    .catch(() => setQualityError("Não foi possível carregar os negócios para a auditoria."))
+                    .catch(() => setQualityError(isEnglish ? "Could not load businesses for the audit." : "Não foi possível carregar os negócios para a auditoria."))
                     .finally(() => setQualityLoading(false));
                 }}
               />

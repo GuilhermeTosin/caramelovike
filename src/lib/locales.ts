@@ -76,7 +76,7 @@ export function getLocaleOgCode(locale: SiteLocale): string {
 }
 
 export function getSiteSlogan(locale: SiteLocale): string {
-  return locale === "en" ? "YOUR NOSE OUTSIDE BRAZIL" : "O SEU FARO FORA DO BRASIL";
+  return locale === "en" ? "FIND BRAZILIAN BUSINESSES ABROAD" : "O SEU FARO FORA DO BRASIL";
 }
 
 export function getCountryDisplayName(countryCode: string, fallback: string, locale: SiteLocale): string {

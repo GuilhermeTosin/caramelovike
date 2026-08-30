@@ -28,6 +28,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
   const markersRef = useRef<GoogleMapMarker[]>([]);
   const navigate = useNavigate();
   const { locale } = useSiteLocale();
+  const isEnglish = locale === "en";
   const { maps, loading, error, available } = useGoogleMaps();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedApproximateGroupKey, setSelectedApproximateGroupKey] = useState<string | null>(null);
@@ -121,7 +122,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
         const marker = new maps.Marker({
           position: group.position,
           map,
-          title: getApproximateGroupTitle(group),
+          title: getApproximateGroupTitle(group, isEnglish),
           icon: {
             url: svgToDataUrl(getApproximateGroupPinSvg(group.businesses.length)),
             scaledSize: new google.maps.Size(48, 54),
@@ -188,14 +189,14 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       const pinElement = document.createElement("button");
       pinElement.type = "button";
       pinElement.className = "cursor-pointer rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2";
-      pinElement.setAttribute("aria-label", getApproximateGroupTitle(group));
+      pinElement.setAttribute("aria-label", getApproximateGroupTitle(group, isEnglish));
       pinElement.innerHTML = getApproximateGroupPinSvg(group.businesses.length);
 
       const marker = new maps.marker.AdvancedMarkerElement({
         position: group.position,
         map,
         content: pinElement,
-        title: getApproximateGroupTitle(group),
+        title: getApproximateGroupTitle(group, isEnglish),
       });
       addMarkerClickListeners(marker, pinElement, () => setSelectedApproximateGroupKey(group.key));
       markersRef.current.push(marker);
@@ -237,9 +238,9 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       <div className="w-full h-full min-h-[400px] rounded-xl border-2 border-dashed border-muted-foreground/30 flex items-center justify-center p-8">
         <div className="text-center">
           <MapPin className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-muted-foreground font-medium">{"Mapa indispon\u00edvel"}</p>
+          <p className="text-muted-foreground font-medium">{isEnglish ? "Map unavailable" : "Mapa indisponível"}</p>
           <p className="text-sm text-muted-foreground/60 mt-1">
-            {"Configure a chave da API Google Maps nas vari\u00e1veis de ambiente para ativar o mapa."}
+            {isEnglish ? "Configure the Google Maps API key in the environment variables to enable the map." : "Configure a chave da API Google Maps nas variáveis de ambiente para ativar o mapa."}
           </p>
         </div>
       </div>
@@ -251,7 +252,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       <div className="w-full h-full min-h-[400px] rounded-xl bg-secondary/30 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">{"Carregando mapa\u2026"}</p>
+          <p className="text-sm text-muted-foreground">{isEnglish ? "Loading map…" : "Carregando mapa…"}</p>
         </div>
       </div>
     );
@@ -262,7 +263,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       <div className="w-full h-full min-h-[400px] rounded-xl bg-destructive/5 border border-destructive/20 flex items-center justify-center p-8">
         <div className="text-center">
           <AlertCircle className="w-10 h-10 text-destructive/60 mx-auto mb-3" />
-          <p className="text-destructive font-medium">Erro ao carregar mapa</p>
+          <p className="text-destructive font-medium">{isEnglish ? "Could not load map" : "Erro ao carregar mapa"}</p>
           <p className="text-sm text-muted-foreground mt-1">{error}</p>
         </div>
       </div>
@@ -275,11 +276,17 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       {businesses.length > 0 && (
         <div className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-border bg-background/95 px-3 py-2 shadow-md backdrop-blur">
           <p className="text-xs font-semibold text-foreground">
-            {mappableBusinessCount} {mappableBusinessCount === 1 ? "negócio representado" : "negócios representados"} em {businessPointCount} {businessPointCount === 1 ? "ponto" : "pontos"}
+            {mappableBusinessCount} {isEnglish
+              ? (mappableBusinessCount === 1 ? "business shown" : "businesses shown")
+              : (mappableBusinessCount === 1 ? "negócio representado" : "negócios representados")} {isEnglish ? "at" : "em"} {businessPointCount} {isEnglish
+              ? (businessPointCount === 1 ? "point" : "points")
+              : (businessPointCount === 1 ? "ponto" : "pontos")}
           </p>
           {unmappableBusinessCount > 0 && (
             <p className="mt-0.5 text-[11px] text-amber-800">
-              {unmappableBusinessCount} {unmappableBusinessCount === 1 ? "negócio não pôde ser posicionado" : "negócios não puderam ser posicionados"} por falta de localização.
+              {unmappableBusinessCount} {isEnglish
+                ? (unmappableBusinessCount === 1 ? "business could not be placed" : "businesses could not be placed")
+                : (unmappableBusinessCount === 1 ? "negócio não pôde ser posicionado" : "negócios não puderam ser posicionados")} {isEnglish ? "because location data is missing." : "por falta de localização."}
             </p>
           )}
         </div>
@@ -287,7 +294,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       {selectedApproximateGroup && (
         <aside
           className="absolute inset-x-3 top-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-amber-200 bg-background/95 p-4 shadow-xl backdrop-blur sm:left-3 sm:right-auto sm:w-80"
-          aria-label={`Neg\u00f3cios sem endere\u00e7o f\u00edsico em ${selectedApproximateGroup.city}`}
+          aria-label={`${isEnglish ? "Businesses without a physical address in" : "Negócios sem endereço físico em"} ${selectedApproximateGroup.city}`}
         >
           <div className="flex items-start gap-3">
             <div className="rounded-full bg-amber-100 p-2 text-amber-800">
@@ -296,18 +303,21 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">
                 {selectedApproximateGroup.businesses.length}{" "}
-                {selectedApproximateGroup.businesses.length === 1 ? "neg\u00f3cio atende" : "neg\u00f3cios atendem"}{" "}
-                em {selectedApproximateGroup.city}
+                {selectedApproximateGroup.businesses.length === 1
+                  ? (isEnglish ? "business serves" : "negócio atende")
+                  : (isEnglish ? "businesses serve" : "negócios atendem")} {isEnglish ? "in" : "em"} {selectedApproximateGroup.city}
               </p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {"Localiza\u00e7\u00e3o aproximada: estes neg\u00f3cios informaram a cidade de atendimento, mas n\u00e3o um endere\u00e7o f\u00edsico."}
+                {isEnglish
+                  ? "Approximate location: these businesses provided a service city but not a physical address."
+                  : "Localização aproximada: estes negócios informaram a cidade de atendimento, mas não um endereço físico."}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setSelectedApproximateGroupKey(null)}
               className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              aria-label={"Fechar lista de neg\u00f3cios"}
+              aria-label={isEnglish ? "Close business list" : "Fechar lista de negócios"}
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -387,9 +397,11 @@ function fitMapToPoints(map: google.maps.Map, maps: typeof google.maps, points: 
   map.fitBounds(bounds, 50);
 }
 
-function getApproximateGroupTitle(group: ApproximateBusinessGroup): string {
+function getApproximateGroupTitle(group: ApproximateBusinessGroup, isEnglish = false): string {
   const count = group.businesses.length;
-  return `${count} ${count === 1 ? "neg\u00f3cio atende" : "neg\u00f3cios atendem"} em ${group.city} sem endere\u00e7o f\u00edsico`;
+  return isEnglish
+    ? `${count} ${count === 1 ? "business serves" : "businesses serve"} ${group.city} without a physical address`
+    : `${count} ${count === 1 ? "neg\u00f3cio atende" : "neg\u00f3cios atendem"} em ${group.city} sem endere\u00e7o f\u00edsico`;
 }
 
 function addMarkerClickListeners(

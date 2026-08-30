@@ -84,7 +84,7 @@ import {
 } from "@/services/communityFinds";
 import { createCommunityFindReport } from "@/services/communityFindReports";
 import { getCityDisplayName } from "@/lib/locationDisplay";
-import { buildBusinessUrlForLocale } from "@/lib/businessEnglish";
+import { buildBusinessUrlForLocale, getBusinessDescriptionForLocale } from "@/lib/businessEnglish";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
   dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
@@ -795,7 +795,7 @@ export default function SearchResults({
         const businesses = await getAllBusinessesByPublicSearchRpc(fullMapSearchRequest);
         if (active) setMapBusinesses(businesses);
       } catch {
-        if (active) setMapBusinessesError("Não foi possível carregar todos os negócios no mapa.");
+        if (active) setMapBusinessesError(isEnglish ? "Could not load all businesses for the map." : "Não foi possível carregar todos os negócios no mapa.");
       } finally {
         if (active) setMapBusinessesLoading(false);
       }
@@ -1466,8 +1466,10 @@ export default function SearchResults({
         else params.delete("origem_pais");
       } else {
         showLocationNotice(
-          "Localiza\u00e7\u00e3o n\u00e3o encontrada",
-          "N\u00e3o foi poss\u00edvel localizar essa cidade. Escolha uma sugest\u00e3o do Google ou tente informar tamb\u00e9m o pa\u00eds."
+          isEnglish ? "Location not found" : "Localização não encontrada",
+          isEnglish
+            ? "We could not locate this city. Choose a Google suggestion or include the country."
+            : "Não foi possível localizar essa cidade. Escolha uma sugestão do Google ou tente informar também o país."
         );
         return;
       }
@@ -1529,8 +1531,8 @@ export default function SearchResults({
     );
     if (!hasQuery && !hasLocationContext) {
       showLocationNotice(
-        "Busca incompleta",
-        "Digite o que você procura ou informe sua cidade para iniciar a busca."
+        isEnglish ? "Incomplete search" : "Busca incompleta",
+        isEnglish ? "Search for something or enter your city to start." : "Digite o que você procura ou informe sua cidade para iniciar a busca."
       );
       return;
     }
@@ -1552,7 +1554,10 @@ export default function SearchResults({
 
       if (!coords) {
         if (requireExactGps) {
-          showLocationNotice("Localização necessária", "Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
+          showLocationNotice(
+            isEnglish ? "Location required" : "Localização necessária",
+            isEnglish ? "Enable location in your browser or device to use this feature." : "Para usar esta funcionalidade, habilite a localização no navegador/dispositivo."
+          );
           return;
         }
         const approxGeo = await getApproxGeoByIp();
@@ -1578,15 +1583,17 @@ export default function SearchResults({
           setSearchParams(params);
           setShowMap(true);
           showLocationNotice(
-            "Usando localização aproximada",
-            "Não consegui acessar sua localização exata. O mapa foi centralizado usando uma localização aproximada por IP."
+            isEnglish ? "Using approximate location" : "Usando localização aproximada",
+            isEnglish
+              ? "We could not access your exact location. The map was centered using an approximate IP-based location."
+              : "Não consegui acessar sua localização exata. O mapa foi centralizado usando uma localização aproximada por IP."
           );
           return;
         }
 
         showLocationNotice(
-          "Não foi possível localizar",
-          "Não consegui acessar sua localização e o fallback por IP também falhou."
+          isEnglish ? "Unable to locate you" : "Não foi possível localizar",
+          isEnglish ? "We could not access your location, and the IP fallback also failed." : "Não consegui acessar sua localização e o fallback por IP também falhou."
         );
         return;
       }
@@ -2520,11 +2527,11 @@ export default function SearchResults({
                             <span className="truncate">{biz.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
+                            {`${isEnglish ? (biz.address.cityDisplayName || biz.address.city) : getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryDisplayName(biz.address.countryCode || biz.address.country, getCountryName(biz.address.countryCode || biz.address.country), locale)}`}
                           </p>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(biz.description)}</p>
+                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(getBusinessDescriptionForLocale(biz, locale))}</p>
                       {biz.categoryId === "food" && (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
                         <div className="flex flex-wrap gap-2 mt-3">
                           {biz.isVeganFriendly ? (
@@ -2571,6 +2578,10 @@ export default function SearchResults({
                 currentPage={safeCurrentPage}
                 totalPages={totalPages}
                 getPageHref={getPageHref}
+                previousLabel={isEnglish ? "Previous" : undefined}
+                nextLabel={isEnglish ? "Next" : undefined}
+                navigationLabel={isEnglish ? "Pagination" : undefined}
+                pageLabel={isEnglish ? "Page" : undefined}
                 className="mt-8"
               />
             )}

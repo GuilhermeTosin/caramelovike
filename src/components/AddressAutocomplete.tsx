@@ -3,6 +3,7 @@ import { Loader2, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { COUNTRIES, getCountryName } from "@/services/businesses";
 import { getMapsApiKey, isMapsApiAvailable, loadGoogleMapsApi, resolveCityPlaceId } from "@/lib/google-maps";
+import { useSiteLocale } from "@/contexts/LocaleContext";
 
 export interface AddressResult {
   formattedAddress: string;
@@ -209,10 +210,13 @@ export default function AddressAutocomplete({
   value,
   onChange,
   onPlaceSelected,
-  placeholder = "Digite o endereço...",
+  placeholder,
   disabled = false,
   mode = "address",
 }: AddressAutocompleteProps) {
+  const { locale } = useSiteLocale();
+  const isEnglish = locale === "en";
+  const inputPlaceholder = placeholder || (isEnglish ? "Enter an address..." : "Digite o endereço...");
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -275,7 +279,7 @@ export default function AddressAutocomplete({
             {
               input: query,
               types: mode === "city" ? ["(cities)"] : ["geocode"],
-              language: "pt-BR",
+              language: isEnglish ? "en" : "pt-BR",
             },
             (predictions, status) => {
               if (requestId !== requestSeqRef.current) return;
@@ -328,7 +332,7 @@ export default function AddressAutocomplete({
       window.clearTimeout(timer);
       requestSeqRef.current += 1;
     };
-  }, [value, canAutocomplete, key, mode, hasInteracted]);
+  }, [value, canAutocomplete, key, mode, hasInteracted, isEnglish]);
 
   const handleSelectPrediction = async (prediction: PlacesPrediction) => {
     const label = [prediction.text, prediction.secondaryText].filter(Boolean).join(", ");
@@ -350,7 +354,7 @@ export default function AddressAutocomplete({
           {
             placeId: prediction.place,
             fields: ["formatted_address", "geometry", "address_components", "place_id", "name"],
-            language: "pt-BR",
+            language: isEnglish ? "en" : "pt-BR",
           },
           (place, status) => {
             if (status === maps.places.PlacesServiceStatus.OK && place) {
@@ -409,7 +413,7 @@ export default function AddressAutocomplete({
             void handleSelectPrediction(suggestions[0]);
           }
         }}
-        placeholder={placeholder}
+        placeholder={inputPlaceholder}
         disabled={disabled || !apiAvailable}
         className="pl-10"
       />
@@ -441,7 +445,7 @@ export default function AddressAutocomplete({
 
       {!apiAvailable ? (
         <p className="text-xs text-muted-foreground mt-1">
-          Configure a chave Google Maps para ativar o autocomplete de endereço.
+          {isEnglish ? "Configure the Google Maps key to enable address autocomplete." : "Configure a chave Google Maps para ativar o autocomplete de endereço."}
         </p>
       ) : null}
     </div>

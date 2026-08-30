@@ -104,7 +104,7 @@ export function getSiteContent(): SiteContent {
 
 export const siteContent = SITE_CONTENT_BY_LOCALE["pt-BR"];
 
-const MASCOT_PHRASES_BY_LOCALE: Record<"pt-BR", readonly string[]> = {
+const MASCOT_PHRASES_BY_LOCALE: Record<"pt-BR" | "en", readonly string[]> = {
   "pt-BR": [
     "O farejador de negócios brasileiros",
     "Achamos tudo! Até pastel na neve 🐶",
@@ -112,10 +112,17 @@ const MASCOT_PHRASES_BY_LOCALE: Record<"pt-BR", readonly string[]> = {
     "Brasileiro no exterior? A gente acha!",
     "Farejando brasilidade pelo mundo",
   ] as const,
+  en: [
+    "The Brazilian business finder",
+    "We find everything, even pastel in the snow",
+    "Caramelinho found another business",
+    "Brazilian abroad? We will find it",
+    "Sniffing out Brazilian spirit around the world",
+  ] as const,
 };
 
-export function getMascotPhrases() {
-  return MASCOT_PHRASES_BY_LOCALE["pt-BR"];
+export function getMascotPhrases(locale: "pt-BR" | "en" = "pt-BR") {
+  return MASCOT_PHRASES_BY_LOCALE[locale];
 }
 
 export const MASCOT_PHRASES = MASCOT_PHRASES_BY_LOCALE["pt-BR"];

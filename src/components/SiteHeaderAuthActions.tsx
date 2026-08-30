@@ -29,12 +29,12 @@ export default function SiteHeaderAuthActions({
   return (
     <div className={className}>
       {isLoading ? (
-        <div className="flex items-center gap-2 min-h-9">
-          <div className="h-9 w-20 rounded-full bg-muted/70 animate-pulse" />
-          <div className="h-9 w-24 rounded-full bg-muted/70 animate-pulse" />
+        <div className="flex min-h-10 w-48 items-center justify-end gap-1.5" aria-label={isEnglish ? "Loading account actions" : "Carregando ações da conta"}>
+          <div className="h-10 w-10 animate-pulse rounded-full bg-muted/70" />
+          <div className="h-10 w-28 animate-pulse rounded-full bg-muted/70" />
         </div>
       ) : session ? (
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex w-48 items-center justify-end gap-1.5">
           <Link to={toLocalePath("/perfil?tab=mensagens")} className="relative group">
             <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10">
               <MessageCircle className={messageIconClassName} />
@@ -48,11 +48,11 @@ export default function SiteHeaderAuthActions({
             </Button>
           </Link>
           <Link to={toLocalePath("/perfil")}>
-            <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-10">
-              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-full border-border px-3 hover:bg-secondary sm:h-10 sm:gap-2">
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
                 <User className="w-3 h-3 text-primary" />
               </div>
-              <span className="font-medium max-w-[90px] sm:max-w-none truncate">{session.name.split(" ")[0]}</span>
+              <span className="max-w-[90px] truncate font-medium">{session.name.split(" ")[0]}</span>
             </Button>
           </Link>
         </div>

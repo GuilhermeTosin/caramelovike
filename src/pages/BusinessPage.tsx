@@ -35,7 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { getSimilarBusinessesForBusiness, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateDisplayName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
-import { getEnglishBusinessContent, hasEnglishBusinessTranslation } from "@/lib/businessEnglish";
+import { getBusinessDescriptionForLocale, getEnglishBusinessContent, hasEnglishBusinessTranslation } from "@/lib/businessEnglish";
 import { getOrCreateConversation } from "@/services/messages";
 import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
@@ -1686,7 +1686,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                           </p>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(item.description)}</p>
+                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(getBusinessDescriptionForLocale(item, locale))}</p>
                       {item.categoryId === "food" && (item.isVeganFriendly || item.isVegetarianFriendly || item.isGlutenFreeFriendly) ? (
                         <div className="flex flex-wrap gap-2 mt-3">
                           {item.isVeganFriendly ? (

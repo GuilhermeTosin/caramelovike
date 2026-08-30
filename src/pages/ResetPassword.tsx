@@ -132,7 +132,7 @@ export default function ResetPassword() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
+                    placeholder={isEnglish ? "you@example.com" : "seu@email.com"}
                     className="pl-10"
                     autoComplete="email"
                   />

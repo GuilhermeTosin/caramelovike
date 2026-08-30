@@ -33,10 +33,10 @@ import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnapshot";
 import { useSiteLocale } from "@/contexts/LocaleContext";
-import { getSiteSlogan } from "@/lib/locales";
+import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { buildPublicSearchPageRequest, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
-import { buildBusinessUrlForLocale } from "@/lib/businessEnglish";
+import { buildBusinessUrlForLocale, getBusinessDescriptionForLocale } from "@/lib/businessEnglish";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
 
@@ -773,7 +773,7 @@ export default function Home({
                       decoding="async"
                     />
                     <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
-                      {biz.category.split("(")[0].trim()}
+                      {homeText.categories.find((category) => category.id === biz.categoryId)?.name || biz.category.split("(")[0].trim()}
                     </Badge>
                     {biz.averageRating > 0 && (
                       <Badge className="absolute top-3 right-3 bg-amber-500 text-white border-0 gap-1">
@@ -804,12 +804,12 @@ export default function Home({
                           <span className="truncate">{biz.name}</span>
                         </h3>
                         <p className="text-sm text-muted-foreground truncate">
-                          {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
+                          {`${locale === "en" ? (biz.address.cityDisplayName || biz.address.city) : getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryDisplayName(biz.address.countryCode || biz.address.country, getCountryName(biz.address.countryCode || biz.address.country), locale)}`}
                         </p>
                       </div>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">
-                      {stripRichTextHtml(biz.description)}
+                      {stripRichTextHtml(getBusinessDescriptionForLocale(biz, locale))}
                     </p>
                     {biz.categoryId === "food" && (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
                       <div className="flex flex-wrap gap-1.5 mt-3">
@@ -879,7 +879,7 @@ export default function Home({
             >
               <img
                 src={`https://flagcdn.com/w40/${city.countryCode.toLowerCase()}.png`}
-                alt={`Bandeira de ${city.countryCode.toUpperCase()}`}
+                alt={locale === "en" ? `Flag of ${city.countryCode.toUpperCase()}` : `Bandeira de ${city.countryCode.toUpperCase()}`}
                 className="h-5 w-7 object-cover"
                 loading="lazy"
                 onError={(e) => {

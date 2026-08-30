@@ -218,7 +218,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
             id="find-product-name"
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
-            placeholder="Ex.: Guaraná Antarctica"
+            placeholder={isEnglish ? "For example: Guaraná Antarctica" : "Ex.: Guaraná Antarctica"}
             maxLength={140}
             required
           />
@@ -230,7 +230,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
             id="find-place-name"
             value={placeName}
             onChange={(e) => setPlaceName(e.target.value)}
-            placeholder="Ex.: Walmart Downtown Montreal"
+            placeholder={isEnglish ? "For example: Walmart Downtown Montreal" : "Ex.: Walmart Downtown Montreal"}
             maxLength={180}
             required
           />
@@ -248,7 +248,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
               setSelectedPlace(place);
               setLocationAddress(place.formattedAddress || `${place.city}, ${place.country}`);
             }}
-            placeholder="Ex.: Walmart, 123 Main St, Montreal"
+            placeholder={isEnglish ? "For example: Walmart, 123 Main St, Montreal" : "Ex.: Walmart, 123 Main St, Montreal"}
           />
           <p className="text-xs text-muted-foreground">
             {text.exactLocationHint}

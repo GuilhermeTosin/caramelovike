@@ -35,7 +35,9 @@ type BusinessDirectoryPageProps = {
 
 function getLocationLabel(business: BusinessFrontend, locale: "pt-BR" | "en" = "pt-BR") {
   const parts = [
-    getCityDisplayName(business.address.cityDisplayName || business.address.city, business.address.countryCode || business.address.country),
+    locale === "en"
+      ? business.address.cityDisplayName || business.address.city
+      : getCityDisplayName(business.address.cityDisplayName || business.address.city, business.address.countryCode || business.address.country),
     getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode, business.address.state),
     getCountryDisplayName(business.address.countryCode || business.address.country, getCountryName(business.address.countryCode || business.address.country), locale),
   ].filter(Boolean);
@@ -298,6 +300,8 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
                   getPageHref={(pageNumber) => buildDirectoryPagePath(snapshot.route, pageNumber)}
                   previousLabel={isEnglish ? "Previous" : undefined}
                   nextLabel={isEnglish ? "Next" : undefined}
+                  navigationLabel={isEnglish ? "Pagination" : undefined}
+                  pageLabel={isEnglish ? "Page" : undefined}
                 />
               </div>
             )}

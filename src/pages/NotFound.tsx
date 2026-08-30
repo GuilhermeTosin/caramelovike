@@ -1,4 +1,5 @@
 import { Compass, Home, Search } from "lucide-react";
+import { useSiteLocale } from "@/contexts/LocaleContext";
 
 function ActionLink({
   href,
@@ -24,6 +25,9 @@ function ActionLink({
 }
 
 export default function NotFound() {
+  const { locale, toLocalePath } = useSiteLocale();
+  const isEnglish = locale === "en";
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background to-muted/30 text-foreground">
       <div className="pointer-events-none absolute inset-0">
@@ -36,25 +40,26 @@ export default function NotFound() {
           <section className="order-2 md:order-1">
             <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-50/70 px-3 py-1 text-xs font-semibold text-amber-900">
               <Compass className="h-3.5 w-3.5" />
-              Erro 404
+              {isEnglish ? "Error 404" : "Erro 404"}
             </p>
             <h1 className="text-3xl font-extrabold leading-[1.2] tracking-tight sm:text-4xl">
-              O Caramelinho farejou...
-              <span className="block text-primary">mas não encontrou essa página</span>
+              {isEnglish ? "Caramelinho sniffed around..." : "O Caramelinho farejou..."}
+              <span className="block text-primary">{isEnglish ? "but could not find this page" : "mas não encontrou essa página"}</span>
             </h1>
             <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Essa página não está disponível no momento. Mas você pode continuar explorando os melhores negócios
-              brasileiros por aqui.
+              {isEnglish
+                ? "This page is not available right now. You can keep exploring the best Brazilian businesses here."
+                : "Essa página não está disponível no momento. Mas você pode continuar explorando os melhores negócios brasileiros por aqui."}
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <ActionLink href="/">
+              <ActionLink href={toLocalePath("/")}>
                 <Home className="mr-2 h-4 w-4" />
-                Voltar para a inicial
+                {isEnglish ? "Back to home" : "Voltar para a inicial"}
               </ActionLink>
-              <ActionLink href="/buscar" variant="outline">
+              <ActionLink href={toLocalePath("/buscar")} variant="outline">
                 <Search className="mr-2 h-4 w-4" />
-                Ir para buscar
+                {isEnglish ? "Go to search" : "Ir para buscar"}
               </ActionLink>
             </div>
           </section>
@@ -64,7 +69,7 @@ export default function NotFound() {
               <div className="absolute inset-0 rounded-full bg-amber-200/20 blur-2xl" />
               <img
                 src="/logo.webp"
-                alt="Caramelinho com lupa procurando páginas"
+                alt={isEnglish ? "Caramelinho with a magnifying glass looking for pages" : "Caramelinho com lupa procurando páginas"}
                 width={420}
                 height={382}
                 loading="eager"

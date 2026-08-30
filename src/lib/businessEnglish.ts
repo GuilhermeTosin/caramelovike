@@ -22,3 +22,14 @@ export function getEnglishBusinessContent(business: BusinessFrontend): BusinessF
     description: business.descriptionEn || business.description,
   };
 }
+
+export function getBusinessDescriptionForLocale(
+  business: Pick<BusinessFrontend, "description" | "descriptionEn">,
+  locale: "pt-BR" | "en",
+): string {
+  if (locale === "en") {
+    // Use the optional translation when present; otherwise preserve the original user content.
+    return business.descriptionEn || business.description || "";
+  }
+  return business.description || "";
+}

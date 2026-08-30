@@ -14,6 +14,9 @@ import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import { getBusinessProfileCompletionData, getBusinessProfileScore } from "@/lib/profileCompleteness";
 import type { BusinessFrontend } from "@/types/database";
 import { useSiteLocale } from "@/contexts/LocaleContext";
+import { getHomeContent } from "@/data/homeContent";
+import { buildBusinessUrlForLocale } from "@/lib/businessEnglish";
+import { getCountryDisplayName } from "@/lib/locales";
 
 type BusinessesTabProps = {
   loadingMyBusinesses: boolean;
@@ -36,20 +39,22 @@ type BusinessesTabProps = {
 };
 
 function BusinessProfileScoreBadge({ business }: { business: BusinessFrontend }) {
+  const { locale } = useSiteLocale();
+  const isEnglish = locale === "en";
   const profileScore = getBusinessProfileScore(getBusinessProfileCompletionData(business));
 
   if (profileScore === 100) {
     return (
-      <Badge className="inline-flex items-center gap-1 border-amber-300 bg-amber-100 text-amber-900" title="Perfil completo">
+      <Badge className="inline-flex items-center gap-1 border-amber-300 bg-amber-100 text-amber-900" title={isEnglish ? "Complete profile" : "Perfil completo"}>
         <Crown className="h-3.5 w-3.5 fill-amber-500 text-amber-600" />
-        100% completo
+        {isEnglish ? "100% complete" : "100% completo"}
       </Badge>
     );
   }
 
   return (
-    <Badge variant="outline" className="border-amber-300/70 text-amber-800" title="Completude do perfil">
-      Perfil {profileScore}% completo
+    <Badge variant="outline" className="border-amber-300/70 text-amber-800" title={isEnglish ? "Profile completeness" : "Completude do perfil"}>
+      {isEnglish ? "Profile" : "Perfil"} {profileScore}% {isEnglish ? "complete" : "completo"}
     </Badge>
   );
 }
@@ -67,14 +72,20 @@ function BusinessContentButton({
   onOpenMenu: (business: BusinessFrontend) => void;
   onOpenServices: (business: BusinessFrontend) => void;
 }) {
+  const { locale } = useSiteLocale();
+  const isEnglish = locale === "en";
   const isFoodBusiness = getCategoryId(business.category) === "food";
   const hasContent = isFoodBusiness
     ? hasNamedItems(business.menu) || Boolean(business.menuPdfUrl?.trim())
     : hasNamedItems(business.serviceItems) || business.services.some((service) => service.trim());
-  const label = isFoodBusiness ? "Card\u00e1pio" : "Servi\u00e7os";
+  const label = isFoodBusiness ? (isEnglish ? "Menu" : "Card\u00e1pio") : (isEnglish ? "Services" : "Servi\u00e7os");
   const explanation = isFoodBusiness
-    ? "Adicione pratos, produtos, pre\u00e7os e, se quiser, envie tamb\u00e9m um PDF do seu card\u00e1pio. Essas informa\u00e7\u00f5es aparecer\u00e3o na p\u00e1gina p\u00fablica do neg\u00f3cio para que os clientes conhe\u00e7am suas op\u00e7\u00f5es antes de entrar em contato, decidam com mais seguran\u00e7a e encontrem rapidamente o que procuram. Um card\u00e1pio completo tamb\u00e9m deixa seu perfil mais profissional."
-    : "Adicione os servi\u00e7os que voc\u00ea oferece e, quando poss\u00edvel, inclua detalhes, pre\u00e7os e condi\u00e7\u00f5es. Essa se\u00e7\u00e3o aparecer\u00e1 na p\u00e1gina p\u00fablica do neg\u00f3cio e ajuda os clientes a entender rapidamente se voc\u00ea atende \u00e0s necessidades deles, comparar op\u00e7\u00f5es e entrar em contato com mais confian\u00e7a. Manter os servi\u00e7os atualizados deixa seu perfil mais completo e profissional.";
+    ? (isEnglish
+      ? "Add dishes, products and prices, and optionally upload a PDF of your menu. This information will appear on your public business page so customers can understand your options before contacting you and decide with confidence."
+      : "Adicione pratos, produtos, pre\u00e7os e, se quiser, envie tamb\u00e9m um PDF do seu card\u00e1pio. Essas informa\u00e7\u00f5es aparecer\u00e3o na p\u00e1gina p\u00fablica do neg\u00f3cio para que os clientes conhe\u00e7am suas op\u00e7\u00f5es antes de entrar em contato, decidam com mais seguran\u00e7a e encontrem rapidamente o que procuram. Um card\u00e1pio completo tamb\u00e9m deixa seu perfil mais profissional.")
+    : (isEnglish
+      ? "Add the services you offer and, when possible, include details, prices and conditions. This section appears on your public business page and helps customers quickly understand whether you can meet their needs and contact you with confidence."
+      : "Adicione os servi\u00e7os que voc\u00ea oferece e, quando poss\u00edvel, inclua detalhes, pre\u00e7os e condi\u00e7\u00f5es. Essa se\u00e7\u00e3o aparecer\u00e1 na p\u00e1gina p\u00fablica do neg\u00f3cio e ajuda os clientes a entender rapidamente se voc\u00ea atende \u00e0s necessidades deles, comparar op\u00e7\u00f5es e entrar em contato com mais confian\u00e7a. Manter os servi\u00e7os atualizados deixa seu perfil mais completo e profissional.");
   const onClick = () => (isFoodBusiness ? onOpenMenu(business) : onOpenServices(business));
   const button = (
     <Button
@@ -122,6 +133,7 @@ export default function BusinessesTab({
 }: BusinessesTabProps) {
   const { locale, toLocalePath } = useSiteLocale();
   const isEnglish = locale === "en";
+  const homeText = getHomeContent(locale);
   return (
     <TabsContent value="negocios" className="mt-0">
       <div className="mb-8 rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm sm:p-5">
@@ -231,7 +243,7 @@ export default function BusinessesTab({
                   </div>
                 </div>
                 <Badge variant="secondary" className="flex-shrink-0">
-                  {getCategoryLabel(biz.category).split(" (")[0]}
+                  {homeText.categories.find((category) => category.id === biz.categoryId)?.name || getCategoryLabel(biz.category).split(" (")[0]}
                 </Badge>
               </div>
 
@@ -239,7 +251,9 @@ export default function BusinessesTab({
                 <span className="flex min-w-0 items-center gap-1 leading-tight">
                   <MapPin className="h-3 w-3 shrink-0" />
                   <span className="truncate">
-                    {getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, {getCountryName(biz.address.countryCode || biz.address.country)}
+                    {isEnglish
+                      ? (biz.address.cityDisplayName || biz.address.city)
+                      : getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, {getCountryDisplayName(biz.address.countryCode || biz.address.country, getCountryName(biz.address.countryCode || biz.address.country), locale)}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1 whitespace-nowrap leading-tight">
@@ -297,11 +311,11 @@ export default function BusinessesTab({
                       size="sm"
                       variant="outline"
                       asChild
-                      aria-label={`Ver ${biz.name}`}
-                    title={biz.moderationStatus === "approved" ? "Ver negócio" : "Pré-visualizar negócio em análise"}
+                      aria-label={`${isEnglish ? "View" : "Ver"} ${biz.name}`}
+                    title={biz.moderationStatus === "approved" ? (isEnglish ? "View business" : "Ver negócio") : (isEnglish ? "Preview business under review" : "Pré-visualizar negócio em análise")}
                     >
                     <Link
-                      to={biz.moderationStatus === "approved" ? buildBusinessUrl(biz) : `/preview/negocio/${biz.id}`}
+                      to={biz.moderationStatus === "approved" ? buildBusinessUrlForLocale(biz, locale) : `/preview/negocio/${biz.id}`}
                       state={{ preloadedBusiness: biz }}
                       onMouseEnter={() => preloadBusinessPageAssets(biz)}
                       onFocus={() => preloadBusinessPageAssets(biz)}
@@ -318,8 +332,8 @@ export default function BusinessesTab({
                       variant="outline"
                       className="border-destructive/30 text-destructive hover:bg-destructive/10"
                       onClick={() => onDeleteMyBusiness(biz)}
-                      aria-label={`Excluir ${biz.name}`}
-                      title="Excluir negócio"
+                      aria-label={`${isEnglish ? "Delete" : "Excluir"} ${biz.name}`}
+                      title={isEnglish ? "Delete business" : "Excluir negócio"}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -334,6 +348,10 @@ export default function BusinessesTab({
               currentPage={safeMyBusinessesPage}
               totalPages={myBusinessesTotalPages}
               onPageChange={onPageChange}
+              previousLabel={isEnglish ? "Previous" : undefined}
+              nextLabel={isEnglish ? "Next" : undefined}
+              navigationLabel={isEnglish ? "Pagination" : undefined}
+              pageLabel={isEnglish ? "Page" : undefined}
               className="pt-2"
             />
           ) : null}
