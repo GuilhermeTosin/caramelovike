@@ -449,12 +449,13 @@ export default function Home({
     setIsSubmittingSearch(false);
   };
 
-  const handleQuickTagSearch = async (tag: string) => {
+  const handleQuickTagSearch = async (tag: { label: string; query: string }) => {
     setIsSubmittingSearch(true);
     const params = new URLSearchParams();
     const modeParam = HOME_SEARCH_MODE_STYLES[searchMode].modeParam;
     if (modeParam) params.set(modeParam, "1");
-    params.set("q", tag.trim());
+    params.set("q", tag.query.trim());
+    params.set("q_label", tag.label.trim());
     await appendLocationContext(params, locationQuery);
     const state = searchMode === "businesses"
       ? await getBusinessSearchNavigationState(params)
@@ -665,10 +666,10 @@ export default function Home({
             <div className="mt-6 flex flex-wrap gap-2 justify-center">
               {activeSearchMode.quickTags.map((tag) => (
                 <button
-                  key={tag}
+                  key={tag.query}
                   type="button"
                   onClick={() => {
-                    setSearchQuery(tag);
+                    setSearchQuery(tag.label);
                     void handleQuickTagSearch(tag);
                   }}
                   className={`px-3 py-1.5 text-xs sm:text-sm rounded-full transition-colors ${
@@ -679,7 +680,7 @@ export default function Home({
                         : "bg-sky-50 text-sky-800 hover:bg-sky-100"
                   }`}
                 >
-                  {tag}
+                  {tag.label}
                 </button>
               ))}
             </div>

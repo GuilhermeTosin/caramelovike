@@ -425,6 +425,7 @@ export default function SearchResults({
   };
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
+  const queryLabel = searchParams.get("q_label") || query;
   const categoryFilter = searchParams.get("categoria") || "";
   const categoryFilterId = categoryFilter.trim() ? getCategoryId(categoryFilter) : "";
   const cityFilter = searchParams.get("cidade") || "";
@@ -477,7 +478,7 @@ export default function SearchResults({
           initialBusinessesAreSearchReady,
         });
   const hasSeededBusinessPool = initialBusinessPool.length > 0;
-  const [searchInput, setSearchInput] = useState(query);
+  const [searchInput, setSearchInput] = useState(queryLabel);
   const [locationInput, setLocationInput] = useState(locationFilter);
   const [showMap, setShowMap] = useState(false);
   const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinessPool);
@@ -1029,8 +1030,8 @@ export default function SearchResults({
   }, []);
 
   useEffect(() => {
-    Promise.resolve().then(() => setSearchInput(query));
-  }, [query]);
+    Promise.resolve().then(() => setSearchInput(queryLabel));
+  }, [queryLabel]);
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -1200,13 +1201,13 @@ export default function SearchResults({
     const baseTitle = text.businessSearch;
     const cityText = cityFilter ? `${isEnglish ? " in " : " em "}${cityFilter}` : "";
     const categoryText = categoryFilterId ? (isEnglish ? getDisplayCategoryLabel(categoryFilterId).toLowerCase() : (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase())) : (isEnglish ? "businesses and services" : "negócios e serviços");
-    const queryPart = query ? `${isEnglish ? " for " : " para "}${query}` : "";
+    const queryPart = queryLabel ? `${isEnglish ? " for " : " para "}${queryLabel}` : "";
 
     setSeoMeta(
       `${baseTitle}${cityText} | Caramelinho.com`,
       isEnglish ? `Find ${categoryText}${cityText}${queryPart}. Compare options near you and contact businesses directly.` : `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
     );
-  }, [query, categoryFilter, cityFilter, isEnglish, text.businessSearch]);
+  }, [queryLabel, categoryFilter, cityFilter, isEnglish, text.businessSearch]);
 
   const results = useMemo(() => {
     // The server search RPC applies every business filter before pagination.
@@ -1933,6 +1934,7 @@ export default function SearchResults({
                 const nextValue = selectedValue ?? searchInput;
                 const params = new URLSearchParams(searchParams);
                 params.delete("pagina");
+                params.delete("q_label");
                 if (nextValue.trim()) params.set("q", nextValue.trim());
                 else params.delete("q");
                 setSearchParams(params);
@@ -2079,7 +2081,7 @@ export default function SearchResults({
             : isEventMode
             ? communityText.eventsCount(eventResults.length)
             : isEnglish ? `${totalResults} ${text.business}${totalResults !== 1 ? "es" : ""} ${text.found}` : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
-          {query && <>{isEnglish ? " for " : " para "}<strong>{query}</strong></>}
+          {queryLabel && <>{isEnglish ? " for " : " para "}<strong>{queryLabel}</strong></>}
           {categoryFilterId && <>{isEnglish ? " in " : " em "}<strong>{getDisplayCategoryLabel(categoryFilterId)}</strong></>}
           {locationFilter && <>{isEnglish ? " near " : " perto de "}<strong>{locationFilter}</strong></>}
           {effectiveRadiusKm && <>{isEnglish ? " within " : " em até "}<strong>{effectiveRadiusKm} km</strong></>}

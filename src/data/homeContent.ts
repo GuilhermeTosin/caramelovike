@@ -2,12 +2,17 @@ import type { SiteLocale } from "@/lib/locales";
 
 export type HomeSearchMode = "businesses" | "events" | "achadinhos";
 
+export type HomeQuickTag = {
+  label: string;
+  query: string;
+};
+
 export type HomeSearchModeText = {
   label: string;
   description: string;
   placeholder: string;
   ctaLabel: string;
-  quickTags: string[];
+  quickTags: HomeQuickTag[];
 };
 
 export type HomeCategoryText = {
@@ -95,21 +100,42 @@ const HOME_CONTENT_BY_LOCALE: Record<SiteLocale, HomeContent> = {
         description: "Procure negócios brasileiros, serviços, lojas e profissionais perto de você.",
         placeholder: "Buscar por produto ou serviço (Ex: coxinha)",
         ctaLabel: "Farejar negócios",
-        quickTags: ["Padaria", "Mecânico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"],
+        quickTags: [
+          { label: "Padaria", query: "Padaria" },
+          { label: "Mecânico", query: "Mecânico" },
+          { label: "Dentista", query: "Dentista" },
+          { label: "Advogado", query: "Advogado" },
+          { label: "Restaurante", query: "Restaurante" },
+          { label: "Cabeleireiro", query: "Cabeleireiro" },
+        ],
       },
       events: {
         label: "Eventos",
         description: "Encontre festas, feiras, encontros e inaugurações da comunidade brasileira.",
         placeholder: "Buscar por festa, feira ou encontro",
         ctaLabel: "Farejar eventos",
-        quickTags: ["Festa", "Show", "Feira", "Inauguração", "Encontro", "Samba"],
+        quickTags: [
+          { label: "Festa", query: "Festa" },
+          { label: "Show", query: "Show" },
+          { label: "Feira", query: "Feira" },
+          { label: "Inauguração", query: "Inauguração" },
+          { label: "Encontro", query: "Encontro" },
+          { label: "Samba", query: "Samba" },
+        ],
       },
       achadinhos: {
         label: "Achadinhos",
         description: "Descubra promoções, ofertas e novidades compartilhadas pela comunidade.",
         placeholder: "Buscar por promoção, desconto ou novidade",
         ctaLabel: "Farejar achadinhos",
-        quickTags: ["Promoção", "Desconto", "Oferta", "Outlet", "Novidade", "Cupom"],
+        quickTags: [
+          { label: "Promoção", query: "Promoção" },
+          { label: "Desconto", query: "Desconto" },
+          { label: "Oferta", query: "Oferta" },
+          { label: "Outlet", query: "Outlet" },
+          { label: "Novidade", query: "Novidade" },
+          { label: "Cupom", query: "Cupom" },
+        ],
       },
     },
     categories: [
@@ -160,9 +186,30 @@ const HOME_CONTENT_BY_LOCALE: Record<SiteLocale, HomeContent> = {
     ctaDescription: "List your business on Caramelinho and help Brazilians around the world find you.",
     ctaButton: "Create a free account",
     searchModes: {
-      businesses: { label: "Businesses", description: "Search Brazilian businesses, services, shops and professionals near you.", placeholder: "Search for a product or service (e.g. coxinha)", ctaLabel: "Find businesses", quickTags: ["Bakery", "Mechanic", "Dentist", "Lawyer", "Restaurant", "Hairdresser"] },
-      events: { label: "Events", description: "Find parties, fairs, meetups and openings from the Brazilian community.", placeholder: "Search for a party, fair or meetup", ctaLabel: "Find events", quickTags: ["Party", "Show", "Fair", "Opening", "Meetup", "Samba"] },
-      achadinhos: { label: "Community finds", description: "Discover products, offers and news shared by the community.", placeholder: "Search for a community find, product or offer", ctaLabel: "Find community finds", quickTags: ["Product", "Deal", "Discount", "Offer", "Outlet", "Coupon"] },
+      businesses: { label: "Businesses", description: "Search Brazilian businesses, services, shops and professionals near you.", placeholder: "Search for a product or service (e.g. coxinha)", ctaLabel: "Find businesses", quickTags: [
+        { label: "Bakery", query: "Padaria" },
+        { label: "Mechanic", query: "Mecânico" },
+        { label: "Dentist", query: "Dentista" },
+        { label: "Lawyer", query: "Advogado" },
+        { label: "Restaurant", query: "Restaurante" },
+        { label: "Hairdresser", query: "Cabeleireiro" },
+      ] },
+      events: { label: "Events", description: "Find parties, fairs, meetups and openings from the Brazilian community.", placeholder: "Search for a party, fair or meetup", ctaLabel: "Find events", quickTags: [
+        { label: "Party", query: "Festa" },
+        { label: "Show", query: "Show" },
+        { label: "Fair", query: "Feira" },
+        { label: "Opening", query: "Inauguração" },
+        { label: "Meetup", query: "Encontro" },
+        { label: "Samba", query: "Samba" },
+      ] },
+      achadinhos: { label: "Community finds", description: "Discover products, offers and news shared by the community.", placeholder: "Search for a community find, product or offer", ctaLabel: "Find community finds", quickTags: [
+        { label: "Product", query: "Produto" },
+        { label: "Deal", query: "Promoção" },
+        { label: "Discount", query: "Desconto" },
+        { label: "Offer", query: "Oferta" },
+        { label: "Outlet", query: "Outlet" },
+        { label: "Coupon", query: "Cupom" },
+      ] },
     },
     categories: [
       { id: "food", name: "Restaurants & Food" }, { id: "health_beauty", name: "Health & Beauty" }, { id: "auto", name: "Automotive" }, { id: "construction", name: "Construction" }, { id: "legal_consulting", name: "Legal & Consulting" }, { id: "education", name: "Education" }, { id: "accounting_finance", name: "Accounting & Finance" }, { id: "retail", name: "Retail" }, { id: "transport_moving", name: "Transport & Moving" }, { id: "real_estate", name: "Real Estate" }, { id: "tourism", name: "Tourism & Travel" }, { id: "artists", name: "Artists" }, { id: "pets", name: "Pet Services" }, { id: "child_elder_care", name: "Child & Elder Care" }, { id: "cleaning", name: "Cleaning" }, { id: "other", name: "Other" },
