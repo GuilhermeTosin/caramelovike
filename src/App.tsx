@@ -9,6 +9,7 @@ import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import type { HomePublicSnapshot } from "@/lib/homeSnapshot";
 import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import type { PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
+import { DEFAULT_CATEGORY_SYNONYMS } from "@/services/searchPreferences";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
 import BusinessDirectoryPage from "@/pages/BusinessDirectoryPage";
@@ -107,6 +108,7 @@ type AppProps = {
     states: { code: string; name: string; cities: string[] }[];
   }>;
   initialSearchSuggestions?: string[];
+  initialSearchSynonyms?: Record<string, string[]>;
   initialSearchSnapshot?: PublicSearchPageSnapshot;
   initialHomeSnapshot?: HomePublicSnapshot;
   initialDirectorySnapshot?: DirectoryPageSnapshot;
@@ -132,6 +134,7 @@ export default function App({
   initialFeaturedBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
+  initialSearchSynonyms = DEFAULT_CATEGORY_SYNONYMS,
   initialSearchSnapshot,
   initialHomeSnapshot,
   initialDirectorySnapshot,
@@ -155,6 +158,7 @@ export default function App({
                 initialFeaturedBusinesses={initialFeaturedBusinesses}
                 initialAvailableLocations={initialAvailableLocations}
                 initialSearchSuggestions={initialSearchSuggestions}
+                initialSearchSynonyms={initialSearchSynonyms}
                 initialSearchSnapshot={initialSearchSnapshot}
                 initialHomeSnapshot={initialHomeSnapshot}
               />
@@ -169,6 +173,7 @@ export default function App({
                 initialFeaturedBusinesses={initialFeaturedBusinesses}
                 initialAvailableLocations={initialAvailableLocations}
                 initialSearchSuggestions={initialSearchSuggestions}
+                initialSearchSynonyms={initialSearchSynonyms}
                 initialSearchSnapshot={initialSearchSnapshot}
                 initialHomeSnapshot={initialHomeSnapshot}
               />
@@ -182,6 +187,7 @@ export default function App({
                 initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
                 initialAvailableLocations={initialAvailableLocations}
                 initialSearchSuggestions={initialSearchSuggestions}
+                initialSearchSynonyms={initialSearchSynonyms}
                 initialSearchSnapshot={initialSearchSnapshot}
               />
             }
@@ -194,6 +200,7 @@ export default function App({
                 initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
                 initialAvailableLocations={initialAvailableLocations}
                 initialSearchSuggestions={initialSearchSuggestions}
+                initialSearchSynonyms={initialSearchSynonyms}
                 initialSearchSnapshot={initialSearchSnapshot}
               />
             }

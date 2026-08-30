@@ -14,19 +14,28 @@ const CATEGORY_ID_BY_INPUT: Record<string, string> = {
   health_beauty: "health_beauty",
   "construcao e reformas": "construction",
   "construcao & reformas": "construction",
+  construcao: "construction",
   construction: "construction",
+  advocacia: "legal_consulting",
   "advocacia e consultoria": "legal_consulting",
   "advocacia & consultoria": "legal_consulting",
+  "advocacia & traducoes": "legal_consulting",
+  juridico: "legal_consulting",
   legal_consulting: "legal_consulting",
+  contabilidade: "accounting_finance",
   "contabilidade e financas": "accounting_finance",
   "contabilidade & financas": "accounting_finance",
+  financas: "accounting_finance",
   accounting_finance: "accounting_finance",
+  educacao: "education",
   "educacao e idiomas": "education",
   "educacao & idiomas": "education",
   education: "education",
+  comercio: "retail",
   "comercio e varejo": "retail",
   "comercio & varejo": "retail",
   retail: "retail",
+  transporte: "transport_moving",
   "transporte e mudanca": "transport_moving",
   "transporte & mudanca": "transport_moving",
   transport_moving: "transport_moving",
@@ -56,6 +65,36 @@ function normalizeText(value: string) {
 
 function getCategoryId(value: string) {
   return CATEGORY_ID_BY_INPUT[normalizeText(value)] || "";
+}
+
+function matchesQueryTerm(term: string, query: string) {
+  const normalizedTerm = normalizeText(term || "");
+  const normalizedQuery = normalizeText(query || "");
+  if (!normalizedTerm || !normalizedQuery) return false;
+  if (normalizedTerm === normalizedQuery) return true;
+
+  const termTokens = normalizedTerm.split(/\s+/).filter(Boolean);
+  const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
+  return termTokens.length > 1 && queryTokens.length > 1
+    ? queryTokens.every((token) => termTokens.includes(token)) || termTokens.every((token) => queryTokens.includes(token))
+    : false;
+}
+
+export function resolveQueryCategoryIds(
+  query: string,
+  categorySynonymsMap: Record<string, string[]> = {},
+): string[] {
+  const normalizedQuery = normalizeText(query || "");
+  if (!normalizedQuery) return [];
+
+  const categoryIds = new Set<string>();
+  for (const [categoryLabel, synonyms] of Object.entries(categorySynonymsMap)) {
+    if ([categoryLabel, ...(synonyms || [])].some((term) => matchesQueryTerm(term, normalizedQuery))) {
+      const categoryId = getCategoryId(categoryLabel);
+      if (categoryId && categoryId !== "other") categoryIds.add(categoryId);
+    }
+  }
+  return Array.from(categoryIds);
 }
 export const PUBLIC_SEARCH_PAGE_SIZE = 6;
 
@@ -110,6 +149,7 @@ export function isPublicBusinessSearch(params: URLSearchParams) {
 export function buildPublicSearchPageRequest(
   params: URLSearchParams,
   limit = PUBLIC_SEARCH_PAGE_SIZE,
+  categorySynonymsMap: Record<string, string[]> = {},
 ): PublicSearchPageRequest {
   const page = parsePositiveInteger(params.get("pagina"), 1);
   const categoryValue = normalizeOptional(params.get("categoria"));
@@ -124,7 +164,7 @@ export function buildPublicSearchPageRequest(
     limit,
     query: normalizeOptional(params.get("q")) || "",
     categoryId: resolvedCategoryId || null,
-    queryCategoryIds: [],
+    queryCategoryIds: resolveQueryCategoryIds(normalizeOptional(params.get("q")) || "", categorySynonymsMap),
     city: radiusKm && originLat !== null && originLng !== null ? null : city,
     cityAliases: radiusKm && originLat !== null && originLng !== null ? [] : cityAliases,
     location: radiusKm && originLat !== null && originLng !== null ? null : (city ? null : normalizeOptional(params.get("local"))),

@@ -14,6 +14,7 @@ export default {
     "initialFeaturedBusinesses",
     "initialAvailableLocations",
     "initialSearchSuggestions",
+    "initialSearchSynonyms",
     "initialSearchSnapshot",
     "initialHomeSnapshot",
     "initialDirectorySnapshot",

@@ -29,6 +29,7 @@ import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnap
 import { buildEnglishBusinessUrl, hasEnglishBusinessTranslation } from "@/lib/businessEnglish";
 import { buildPublicSearchPageRequest, isPublicBusinessSearch, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
 import { buildDirectoryPagePath, buildDirectoryPageSnapshot, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
+import { DEFAULT_CATEGORY_SYNONYMS, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 
 type AvailableLocation = {
   countryCode: string;
@@ -45,6 +46,7 @@ type PageContext = PageContextServer & {
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: AvailableLocation[];
   initialSearchSuggestions?: string[];
+  initialSearchSynonyms?: Record<string, string[]>;
   initialSearchSnapshot?: PublicSearchPageSnapshot;
   initialHomeSnapshot?: HomePublicSnapshot;
   initialDirectorySnapshot?: DirectoryPageSnapshot;
@@ -136,16 +138,21 @@ async function getPublicBusinessesForSsr(): Promise<BusinessFrontend[]> {
 }
 async function getPublicSearchData(urlOriginal?: string) {
   const params = new URL(urlOriginal || "/buscar", "https://www.caramelinho.com").searchParams;
-  const [availableLocations, searchSuggestions] = await Promise.all([
+  const [availableLocations, searchSuggestions, searchSynonyms] = await Promise.all([
     getAvailableLocations().catch(() => [] as AvailableLocation[]),
     getSearchSuggestions().catch(() => [] as string[]),
+    getGlobalCategorySynonymsConfig().catch(() => DEFAULT_CATEGORY_SYNONYMS),
   ]);
 
   if (!isPublicBusinessSearch(params)) {
-    return { initialAvailableLocations: availableLocations, initialSearchSuggestions: searchSuggestions };
+    return {
+      initialAvailableLocations: availableLocations,
+      initialSearchSuggestions: searchSuggestions,
+      initialSearchSynonyms: searchSynonyms,
+    };
   }
 
-  const request = buildPublicSearchPageRequest(params);
+  const request = buildPublicSearchPageRequest(params, undefined, searchSynonyms);
   try {
     const page = await getBusinessesByPublicSearchRpc(request);
     return {
@@ -157,6 +164,7 @@ async function getPublicSearchData(urlOriginal?: string) {
       },
       initialAvailableLocations: availableLocations,
       initialSearchSuggestions: searchSuggestions,
+      initialSearchSynonyms: searchSynonyms,
     };
   } catch (error) {
     // The full index fallback prevents an outage while a newly deployed RPC is
@@ -168,16 +176,18 @@ async function getPublicSearchData(urlOriginal?: string) {
       initialBusinessesAreSearchReady: true,
       initialAvailableLocations: availableLocations,
       initialSearchSuggestions: searchSuggestions,
+      initialSearchSynonyms: searchSynonyms,
     };
   }
 }
 
 async function getPublicHomeData() {
   const businesses = await getPublicBusinessesForSsr();
-  const [featuredBusinesses, availableLocations, searchSuggestions] = await Promise.all([
+  const [featuredBusinesses, availableLocations, searchSuggestions, searchSynonyms] = await Promise.all([
     getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[]),
     getAvailableLocations().catch(() => [] as AvailableLocation[]),
     getSearchSuggestions().catch(() => [] as string[]),
+    getGlobalCategorySynonymsConfig().catch(() => DEFAULT_CATEGORY_SYNONYMS),
   ]);
 
   return {
@@ -185,6 +195,7 @@ async function getPublicHomeData() {
     initialFeaturedBusinesses: featuredBusinesses,
     initialAvailableLocations: availableLocations,
     initialSearchSuggestions: searchSuggestions,
+    initialSearchSynonyms: searchSynonyms,
   };
 }
 export async function onBeforeRender(pageContext: PageContext) {

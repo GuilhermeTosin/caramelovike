@@ -245,6 +245,7 @@ type SearchResultsProps = {
   initialBusinessesAreSearchReady?: boolean;
   initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
   initialSearchSuggestions?: string[];
+  initialSearchSynonyms?: Record<string, string[]>;
   initialSearchSnapshot?: PublicSearchPageSnapshot;
 };
 
@@ -275,6 +276,7 @@ export default function SearchResults({
   initialBusinessesAreSearchReady = false,
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
+  initialSearchSynonyms = DEFAULT_CATEGORY_SYNONYMS,
   initialSearchSnapshot,
 }: SearchResultsProps = {}) {
   const navigate = useNavigate();
@@ -450,10 +452,13 @@ export default function SearchResults({
   const isAutoRadiusMode = autoRadiusFilter === "1";
   const hasLocationContext = !!(cityFilter.trim() || locationFilter.trim());
   const effectiveRadiusKm = radiusKm;
+  const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
+    initialSearchSynonyms
+  );
 
   const publicSearchRequest = useMemo(
-    () => buildPublicSearchPageRequest(searchParams),
-    [searchParams]
+    () => buildPublicSearchPageRequest(searchParams, undefined, categorySynonymsMap),
+    [searchParams, categorySynonymsMap]
   );
   const isBusinessSearchMode = isPublicBusinessSearch(searchParams);
   const navigationState = location.state as SearchResultsLocationState | null;
@@ -494,9 +499,6 @@ export default function SearchResults({
   const [geoLookupComplete, setGeoLookupComplete] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>([]);
-  const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
-    DEFAULT_CATEGORY_SYNONYMS
-  );
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const businessPageCacheRef = useRef(new Map<string, Promise<PublicSearchPageResult>>());
   const resolvedBusinessPageCacheRef = useRef(new Map<string, PublicSearchPageResult>());
@@ -755,13 +757,14 @@ export default function SearchResults({
 
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("pagina", String(publicSearchRequest.page + 1));
-    return buildPublicSearchPageRequest(nextParams);
+    return buildPublicSearchPageRequest(nextParams, undefined, categorySynonymsMap);
   }, [
     isResultsLoading,
     publicSearchRequest.limit,
     publicSearchRequest.page,
     rpcTotalCount,
     searchParams,
+    categorySynonymsMap,
     usesPagedBusinessSearch,
   ]);
 

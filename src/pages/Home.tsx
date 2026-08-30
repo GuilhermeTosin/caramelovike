@@ -36,6 +36,7 @@ import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { buildPublicSearchPageRequest, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
+import { DEFAULT_CATEGORY_SYNONYMS } from "@/services/searchPreferences";
 import { buildBusinessUrlForLocale, getBusinessDescriptionForLocale } from "@/lib/businessEnglish";
 
 type SearchMode = "businesses" | "events" | "achadinhos";
@@ -121,6 +122,7 @@ type HomeProps = {
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
   initialSearchSuggestions?: string[];
+  initialSearchSynonyms?: Record<string, string[]>;
   initialHomeSnapshot?: HomePublicSnapshot;
 };
 
@@ -130,6 +132,7 @@ export default function Home({
   initialFeaturedBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
+  initialSearchSynonyms = DEFAULT_CATEGORY_SYNONYMS,
   initialHomeSnapshot,
 }: HomeProps = {}) {
   const { locale, toLocalePath } = useSiteLocale();
@@ -147,6 +150,7 @@ export default function Home({
   const [hasCompleteSearchData, setHasCompleteSearchData] = useState(initialBusinessesAreSearchReady);
   const [featuredBusinesses, setFeaturedBusinesses] = useState<BusinessFrontend[]>(initialFeaturedBusinesses);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>(initialSearchSuggestions);
+  const [searchSynonymsMap] = useState<Record<string, string[]>>(initialSearchSynonyms);
   const [citySuggestions, setCitySuggestions] = useState<string[]>(() => extractCities(initialAvailableLocations));
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCountryCode, setApproxCountryCode] = useState("");
@@ -402,7 +406,7 @@ export default function Home({
   };
 
   const getBusinessSearchNavigationState = async (params: URLSearchParams) => {
-    const request = buildPublicSearchPageRequest(params);
+    const request = buildPublicSearchPageRequest(params, undefined, searchSynonymsMap);
 
     try {
       const page = await getBusinessesByPublicSearchRpc(request);

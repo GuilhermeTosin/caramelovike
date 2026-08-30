@@ -7,21 +7,21 @@ const DB_KEY = "category_synonyms";
 const FOLLOW_LINKS_BUSINESS_IDS_KEY = "follow_links_business_ids";
 
 export const DEFAULT_CATEGORY_SYNONYMS: CategorySynonymsMap = {
-  "Restaurantes e Alimentação": ["restaurante", "lanchonete", "lanches", "padaria", "comida", "gastronomia", "café", "almoço", "jantar", "marmita"],
-  "Alimentação": ["restaurante", "lanchonete", "lanches", "padaria", "comida", "gastronomia", "café", "almoço", "jantar", "marmita"],
-  "Automotivo": ["mecânico", "oficina", "carro", "conserto", "pneu", "óleo", "auto", "manutenção", "reparo"],
-  "Saúde & Beleza": ["dentista", "médico", "clínica", "estética", "salão", "cabelo", "unha", "manicure", "pedicure", "terapia", "psicólogo"],
-  "Construção": ["obra", "reforma", "pintor", "pedreiro", "eletricista", "encanador", "casa", "apartamento", "telhado"],
-  "Advocacia & Traduções": ["advogado", "jurídico", "lei", "visto", "imigração", "consultoria", "tradutor", "tradução", "documentos"],
-  "Contabilidade": ["contador", "imposto", "finanças", "investimento", "empresa"],
-  "Educação": ["escola", "curso", "professor", "aula", "idiomas", "inglês", "francês", "português"],
-  "Comércio": ["loja", "venda", "produto", "mercado", "roupa", "acessórios"],
-  "Transporte & Mudança": ["mudança", "frete", "entrega", "logística", "caminhão", "envio"],
-  "Serviços para Pets": ["pet", "pets", "cachorro", "gato", "banho", "tosa", "veterinário"],
-  "Imobiliária": ["casa", "apartamento", "aluguel", "venda", "imóvel", "corretor"],
-  "Cuidados Infantis e de Idosos": ["babá", "babysitter", "acompanhante", "cuidadora", "cuidador", "criança", "idosos"],
-  "Diaristas": ["diarista", "faxina", "limpeza", "limpar", "casa"],
-  "Artistas": ["música", "musical", "show", "banda", "cantor", "evento"],
+  "Restaurantes e Alimentação": ["restaurante", "restaurantes", "lanchonete", "lanchonetes", "lanches", "padaria", "padarias", "pizzaria", "pizzarias", "churrascaria", "churrascarias", "confeitaria", "confeitarias", "café", "cafés", "comida", "gastronomia", "almoço", "jantar", "marmita"],
+  "Alimentação": ["restaurante", "restaurantes", "lanchonete", "lanchonetes", "lanches", "padaria", "padarias", "pizzaria", "pizzarias", "churrascaria", "churrascarias", "confeitaria", "confeitarias", "café", "cafés", "comida", "gastronomia", "almoço", "jantar", "marmita"],
+  "Automotivo": ["mecânico", "mecânica", "mecânicos", "mecânicas", "oficina", "oficinas", "carro", "carros", "conserto", "pneu", "pneus", "óleo", "auto", "manutenção", "reparo"],
+  "Saúde & Beleza": ["dentista", "dentistas", "médico", "médica", "médicos", "médicas", "clínica", "clínicas", "estética", "salão", "cabelo", "unha", "manicure", "pedicure", "terapia", "psicólogo", "psicóloga", "psicólogos", "psicólogas"],
+  "Construção": ["obra", "obras", "reforma", "reformas", "pintor", "pintora", "pintores", "pintoras", "pedreiro", "pedreira", "eletricista", "eletricistas", "encanador", "encanadora", "casa", "apartamento", "telhado"],
+  "Advocacia & Traduções": ["advogado", "advogada", "advogados", "advogadas", "jurídico", "lei", "visto", "imigração", "consultoria", "tradutor", "tradutora", "tradutores", "tradutoras", "tradução", "documentos"],
+  "Contabilidade": ["contador", "contadora", "contadores", "contadoras", "imposto", "finanças", "investimento", "empresa"],
+  "Educação": ["escola", "escolas", "curso", "cursos", "professor", "professora", "professores", "professoras", "aula", "idiomas", "inglês", "francês", "português"],
+  "Comércio": ["loja", "lojas", "venda", "produto", "produtos", "mercado", "mercados", "supermercado", "roupa", "acessórios"],
+  "Transporte & Mudança": ["mudança", "mudanças", "frete", "entrega", "logística", "caminhão", "envio"],
+  "Serviços para Pets": ["pet", "pets", "cachorro", "cães", "gato", "gatos", "banho", "tosa", "veterinário", "veterinária"],
+  "Imobiliária": ["casa", "apartamento", "aluguel", "venda", "imóvel", "imóveis", "corretor", "corretora", "corretores", "corretoras"],
+  "Cuidados Infantis e de Idosos": ["babá", "babás", "babysitter", "acompanhante", "cuidadora", "cuidador", "cuidadores", "criança", "crianças", "idosos"],
+  "Diaristas": ["diarista", "diaristas", "faxina", "limpeza", "limpar", "casa"],
+  "Artistas": ["música", "musical", "show", "shows", "banda", "bandas", "cantor", "cantora", "evento", "eventos"],
   "Outros": [],
 };
 
@@ -31,7 +31,7 @@ export function getCategorySynonymsConfig(): CategorySynonymsMap {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_CATEGORY_SYNONYMS;
     const parsed = JSON.parse(raw) as CategorySynonymsMap;
-    return { ...DEFAULT_CATEGORY_SYNONYMS, ...parsed };
+    return normalizeConfig(parsed);
   } catch {
     return DEFAULT_CATEGORY_SYNONYMS;
   }
@@ -47,7 +47,12 @@ function normalizeConfig(input: unknown): CategorySynonymsMap {
   if (!input || typeof input !== "object") return merged;
   for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
     if (!Array.isArray(value)) continue;
-    merged[key] = value.map((v) => String(v).trim()).filter(Boolean);
+    merged[key] = Array.from(
+      new Set([
+        ...(merged[key] || []),
+        ...value.map((v) => String(v).trim()).filter(Boolean),
+      ])
+    );
   }
   return merged;
 }

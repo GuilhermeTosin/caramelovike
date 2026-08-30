@@ -18,6 +18,7 @@ type PageContext = {
     states: { code: string; name: string; cities: string[] }[];
   }>;
   initialSearchSuggestions?: string[];
+  initialSearchSynonyms?: Record<string, string[]>;
   initialSearchSnapshot?: PublicSearchPageSnapshot;
   initialHomeSnapshot?: HomePublicSnapshot;
   initialDirectorySnapshot?: DirectoryPageSnapshot;
@@ -40,6 +41,7 @@ export function Page({ pageContext }: { pageContext?: PageContext }) {
       initialFeaturedBusinesses={pageContext?.initialFeaturedBusinesses || []}
       initialAvailableLocations={pageContext?.initialAvailableLocations || []}
       initialSearchSuggestions={pageContext?.initialSearchSuggestions || []}
+      initialSearchSynonyms={pageContext?.initialSearchSynonyms}
       initialSearchSnapshot={pageContext?.initialSearchSnapshot}
       initialHomeSnapshot={pageContext?.initialHomeSnapshot}
       initialDirectorySnapshot={pageContext?.initialDirectorySnapshot}
