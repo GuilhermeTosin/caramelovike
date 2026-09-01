@@ -17,7 +17,6 @@ import RichTextEditor from "@/components/RichTextEditor";
 import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import { getPrimaryActivityCustomPlaceholder, getPrimaryActivityLabel, getPrimaryActivityOptions, OTHER_PRIMARY_ACTIVITY_ID } from "@/lib/businessActivities";
 import { getHomeContent } from "@/data/homeContent";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 import type { AddressResult } from "@/components/AddressAutocomplete";
 import type { BusinessFrontend, BusinessEvent, Promotion } from "@/types/database";
 import type { BusinessHour } from "@/pages/user-profile/types";
@@ -220,9 +219,9 @@ export default function UserProfileDialogs({
   handleConfirmDeleteMyBusiness,
 }: UserProfileDialogsProps) {
   const businessCouponDatePickerRef = useRef<HTMLInputElement>(null);
-  const { locale } = useSiteLocale();
-  const isEnglish = locale === "en";
-  const ui = (english: string, portuguese: string) => (isEnglish ? english : portuguese);
+  const locale = "pt-BR";
+
+  const ui = (portuguese: string) => portuguese;
   const editProfileCompletionData = {
     name: editFormData.name,
     category: editFormData.category,
@@ -272,7 +271,7 @@ export default function UserProfileDialogs({
         >
           <DialogHeader>
             <DialogTitle>
-              {creatingBusiness ? ui("Add a new business", "Adicionar novo negócio") : `${ui("Edit", "Editar")} ${editFormData.name || ui("business", "negócio")}`}
+              {creatingBusiness ? ui("Adicionar novo negócio") : `${ui("Editar")} ${editFormData.name || ui("negócio")}`}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
@@ -281,10 +280,10 @@ export default function UserProfileDialogs({
                 <ProfileCompletionCard data={editProfileCompletionData} compact />
               </div>
               <div className="sm:col-span-2 border-b border-border pb-2">
-                <h3 className="text-base font-semibold">{ui("Basic information", "Dados principais")}</h3>
+                <h3 className="text-base font-semibold">{ui("Dados principais")}</h3>
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="edit-name">{ui("Business name *", "Nome do negócio *")}</Label>
+                <Label htmlFor="edit-name">{ui("Nome do negócio *")}</Label>
                 <Input
                   id="edit-name"
                   value={editFormData.name}
@@ -295,7 +294,7 @@ export default function UserProfileDialogs({
               </div>
 
               <div className="sm:col-span-2">
-                <Label htmlFor="edit-short-slug">{ui("Business short link", "Link curto do negócio")}</Label>
+                <Label htmlFor="edit-short-slug">{ui("Link curto do negócio")}</Label>
                 <div className="mt-1.5 flex items-center overflow-hidden rounded-md border border-input bg-background">
                   <span className="whitespace-nowrap border-r border-input bg-secondary/50 px-3 py-2 text-sm text-muted-foreground">
                     caramelinho.com/go/
@@ -310,10 +309,10 @@ export default function UserProfileDialogs({
                   />
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {ui("This is the simple link for sharing your business on social media, WhatsApp and business cards.", "Este é o link simples para compartilhar seu negócio em redes sociais, WhatsApp e cartões.")}
+                  {ui("Este é o link simples para compartilhar seu negócio em redes sociais, WhatsApp e cartões.")}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {ui("Example", "Exemplo")}: caramelinho.com/go/{editFormData.shortSlug || "pizzaria-do-ze"}
+                  {ui("Exemplo")}: caramelinho.com/go/{editFormData.shortSlug || "pizzaria-do-ze"}
                 </p>
                 <p
                   className={`mt-1 text-xs ${
@@ -329,15 +328,15 @@ export default function UserProfileDialogs({
               </div>
 
               <div className="sm:col-span-2">
-                <Label htmlFor="edit-category">{ui("Category *", "Categoria *")}</Label>
+                <Label htmlFor="edit-category">{ui("Categoria *")}</Label>
                 <Select value={editFormData.category} onValueChange={(value) => handleEditInputChange("category", value)}>
                   <SelectTrigger id="edit-category" className="mt-1.5 w-full">
-                    <SelectValue placeholder={ui("Select", "Selecione")} />
+                    <SelectValue placeholder={ui("Selecione")} />
                   </SelectTrigger>
                   <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]">
                     {businessCategoryOptions.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
-                        {isEnglish ? getHomeContent("en").categories.find((item) => item.id === category.id)?.name || category.label : category.label}
+                        {category.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -346,40 +345,40 @@ export default function UserProfileDialogs({
 
               {editFormData.category ? (
                 <div className="sm:col-span-2 rounded-md border border-amber-200 bg-amber-50/60 p-4">
-                  <Label>{ui("Primary business type", "Tipo principal de negócio") + (creatingBusiness ? " *" : "")}</Label>
-                  <p className="mt-1 text-sm text-muted-foreground">{ui("Choose the activity that best represents your business. Other services can be added in the description and keywords.", "Define a atividade que melhor representa seu negócio. Os demais serviços podem ser informados na descrição e nas palavras-chave.")}</p>
+                  <Label>{ui("Tipo principal de negócio") + (creatingBusiness ? " *" : "")}</Label>
+                  <p className="mt-1 text-sm text-muted-foreground">{ui("Define a atividade que melhor representa seu negócio. Os demais serviços podem ser informados na descrição e nas palavras-chave.")}</p>
                   <Select value={editFormData.primaryActivity} onValueChange={(value) => handleEditInputChange("primaryActivity", value)}>
-                    <SelectTrigger className="mt-2 w-full bg-background"><SelectValue placeholder={creatingBusiness ? ui("Select the primary type", "Selecione o tipo principal") : ui("Select the primary type (optional)", "Selecione o tipo principal (opcional)" )} /></SelectTrigger>
-                    <SelectContent>{getPrimaryActivityOptions(editFormData.category).map((activity) => (<SelectItem key={activity.id} value={activity.id}>{isEnglish ? getPrimaryActivityLabel(editFormData.category, activity.id, undefined, "en") || activity.label : activity.label}</SelectItem>))}</SelectContent>
+                    <SelectTrigger className="mt-2 w-full bg-background"><SelectValue placeholder={creatingBusiness ? ui("Selecione o tipo principal") : ui("Selecione o tipo principal (opcional)")} /></SelectTrigger>
+                    <SelectContent>{getPrimaryActivityOptions(editFormData.category).map((activity) => (<SelectItem key={activity.id} value={activity.id}>{activity.label}</SelectItem>))}</SelectContent>
                   </Select>
                   {editFormData.primaryActivity === OTHER_PRIMARY_ACTIVITY_ID ? (
-                    <Input value={editFormData.primaryActivityCustom} onChange={(event) => handleEditInputChange("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={isEnglish ? "Ex: Specialized local service" : getPrimaryActivityCustomPlaceholder(editFormData.category)} className="mt-2 bg-background" maxLength={80} />
+                    <Input value={editFormData.primaryActivityCustom} onChange={(event) => handleEditInputChange("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={getPrimaryActivityCustomPlaceholder(editFormData.category)} className="mt-2 bg-background" maxLength={80} />
                   ) : null}
-                  <p className="mt-2 text-xs text-muted-foreground">{creatingBusiness ? ui("Required for new businesses. If no option fits, choose Other type and describe the activity.", "Obrigatório para novos negócios. Se não encontrar uma opção adequada, escolha Outro tipo e descreva a atividade.") : ui("This helps create a more accurate page title for searches without replacing your category.", "Isso ajuda a construir um título de página mais fiel para buscas, sem substituir sua categoria.")}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{creatingBusiness ? ui("Obrigatório para novos negócios. Se não encontrar uma opção adequada, escolha Outro tipo e descreva a atividade.") : ui("Isso ajuda a construir um título de página mais fiel para buscas, sem substituir sua categoria.")}</p>
                 </div>
               ) : null}
 
               <div className="sm:col-span-2">
-                <Label htmlFor="edit-description">{ui("Description *", "Descrição *")}</Label>
+                <Label htmlFor="edit-description">{ui("Descrição *")}</Label>
                 <div className="mt-1 rounded-md border border-amber-300/70 bg-amber-50/70 px-3 py-2">
                   <p className="text-sm leading-relaxed text-amber-900/90">
-                    {ui("This is the most important information on your business page. Clearly explain what you offer, your differentiators, audience and service area.", "Esta é a informação mais importante da página do seu negócio. Explique com clareza o que você oferece, seus diferenciais, público atendido e região de atuação.")}
+                    {ui("Esta é a informação mais importante da página do seu negócio. Explique com clareza o que você oferece, seus diferenciais, público atendido e região de atuação.")}
                   </p>
                 </div>
                 <RichTextEditor
                   id="edit-description"
                   value={editFormData.description}
                   onChange={(value) => handleEditInputChange("description", value)}
-                  placeholder={ui("Describe your business...", "Descreva seu negocio...")}
+                  placeholder={ui("Descreva seu negocio...")}
                   className="mt-1.5"
                 />
               </div>
 
               {getCategoryId(editFormData.category) === "food" ? (
                 <div className="sm:col-span-2 rounded-lg border border-emerald-300/70 bg-emerald-50/70 p-4">
-                  <h3 className="text-base font-semibold text-emerald-900">{ui("Additional audiences served", "Públicos também atendidos")}</h3>
+                  <h3 className="text-base font-semibold text-emerald-900">{ui("Públicos também atendidos")}</h3>
                   <p className="mt-1 text-sm text-emerald-900/80">
-                    {ui("Select the badges your business supports. They appear on the card and business page and are also used in search.", "Marque os selos que seu negócio atende. Isso aparece no card, na página do negócio e também entra como critério de busca.")}
+                    {ui("Marque os selos que seu negócio atende. Isso aparece no card, na página do negócio e também entra como critério de busca.")}
                   </p>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <label className="inline-flex items-center gap-2 text-sm text-foreground">
@@ -390,7 +389,7 @@ export default function UserProfileDialogs({
                           setEditFormData((prev) => ({ ...prev, isVeganFriendly: event.target.checked }))
                         }
                       />
-                      {ui("Vegan", "Vegano")}
+                      {ui("Vegano")}
                     </label>
                     <label className="inline-flex items-center gap-2 text-sm text-foreground">
                       <input
@@ -400,7 +399,7 @@ export default function UserProfileDialogs({
                           setEditFormData((prev) => ({ ...prev, isVegetarianFriendly: event.target.checked }))
                         }
                       />
-                      {ui("Vegetarian", "Vegetariano")}
+                      {ui("Vegetariano")}
                     </label>
                     <label className="inline-flex items-center gap-2 text-sm text-foreground">
                       <input
@@ -410,23 +409,23 @@ export default function UserProfileDialogs({
                           setEditFormData((prev) => ({ ...prev, isGlutenFreeFriendly: event.target.checked }))
                         }
                       />
-                      {ui("Gluten-free", "Sem glúten")}
+                      {ui("Sem glúten")}
                     </label>
                   </div>
                 </div>
               ) : null}
 
               <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                <h3 className="text-base font-semibold">{ui("Offer and content", "Oferta e conteúdo")}</h3>
+                <h3 className="text-base font-semibold">{ui("Oferta e conteúdo")}</h3>
               </div>
 
               <div className="sm:col-span-2 rounded-lg border border-amber-300/70 bg-amber-50/70 p-4">
-                <h3 className="text-base font-semibold text-amber-900">{ui("Search keywords", "Palavras-chave para busca")}</h3>
+                <h3 className="text-base font-semibold text-amber-900">{ui("Palavras-chave para busca")}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-amber-900/80">
-                  {ui("Use real terms your customers search for, including variations and synonyms. Separate them with commas and avoid overly generic terms.", "Use termos reais que seus clientes digitam, incluindo variações e sinônimos. Separe por vírgula e evite termos muito genéricos.")}
+                  {ui("Use termos reais que seus clientes digitam, incluindo variações e sinônimos. Separe por vírgula e evite termos muito genéricos.")}
                 </p>
                 <Label htmlFor="edit-keywords" className="mt-3 block">
-                  {ui("Keywords (comma-separated)", "Palavras-chave (separadas por vírgula)")}
+                  {ui("Palavras-chave (separadas por vírgula)")}
                 </Label>
                 <Textarea
                   id="edit-keywords"
@@ -439,11 +438,11 @@ export default function UserProfileDialogs({
               </div>
 
               <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                <h3 className="text-base font-semibold">{ui("Contact and social media", "Contato e redes")}</h3>
+                <h3 className="text-base font-semibold">{ui("Contato e redes")}</h3>
               </div>
 
               <div>
-                <Label htmlFor="edit-phone">{ui("Phone (optional)", "Telefone (opcional)")}</Label>
+                <Label htmlFor="edit-phone">{ui("Telefone (opcional)")}</Label>
                 <Input
                   id="edit-phone"
                   value={editFormData.phone}
@@ -452,7 +451,7 @@ export default function UserProfileDialogs({
                 />
               </div>
               <div>
-                <Label htmlFor="edit-email">{ui("Email (optional)", "Email (opcional)")}</Label>
+                <Label htmlFor="edit-email">{ui("Email (opcional)")}</Label>
                 <Input
                   id="edit-email"
                   value={editFormData.email}
@@ -500,11 +499,11 @@ export default function UserProfileDialogs({
               </div>
 
               <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                <h3 className="text-base font-semibold">{ui("Hours", "Horários")}</h3>
+                <h3 className="text-base font-semibold">{ui("Horários")}</h3>
               </div>
 
               <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
-                <Label>{ui("Opening hours", "Horários de funcionamento")}</Label>
+                <Label>{ui("Horários de funcionamento")}</Label>
                 <div className="mt-3 space-y-2">
                   {editBusinessHours.map((hour) => (
                     <div key={hour.day} className="grid grid-cols-[120px_90px_1fr_1fr] items-center gap-2">
@@ -515,7 +514,7 @@ export default function UserProfileDialogs({
                         variant={hour.enabled ? "default" : "outline"}
                         onClick={() => updateBusinessHour(hour.day, { enabled: !hour.enabled })}
                       >
-                        {hour.enabled ? ui("Open", "Aberto") : ui("Closed", "Fechado")}
+                        {hour.enabled ? ui("Aberto") : ui("Fechado")}
                       </Button>
                       <Input
                         type="time"
@@ -535,61 +534,61 @@ export default function UserProfileDialogs({
               </div>
 
               <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                <h3 className="text-base font-semibold">{ui("Media", "Mídia")}</h3>
+                <h3 className="text-base font-semibold">{ui("Mídia")}</h3>
               </div>
 
               <div>
-                <Label htmlFor="edit-logo">{ui("Change logo", "Alterar logo")}</Label>
+                <Label htmlFor="edit-logo">{ui("Alterar logo")}</Label>
                 <div className="mt-1.5">
                   <label
                     htmlFor="edit-logo"
                     className="inline-flex h-9 cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"
                   >
-                    {ui("Choose image", "Escolher imagem")}
+                    {ui("Escolher imagem")}
                   </label>
                 </div>
                 <Input id="edit-logo" type="file" accept="image/*" onChange={(event) => handleFileChange(event, "logo", true)} className="hidden" />
                 {editingBusiness?.logoUrl ? (
                   <div className="mt-2">
                     <div className="relative h-20 w-20 overflow-hidden rounded-md border border-border">
-                      <img src={editingBusiness.logoUrl} alt={ui("Current logo", "Logo atual")} className="h-full w-full object-cover" />
+                      <img src={editingBusiness.logoUrl} alt={ui("Logo atual")} className="h-full w-full object-cover" />
                     </div>
                   </div>
                 ) : null}
               </div>
 
               <div>
-                <Label htmlFor="edit-hero">{ui("Change cover image", "Alterar capa")}</Label>
+                <Label htmlFor="edit-hero">{ui("Alterar capa")}</Label>
                 <div className="mt-1.5">
                   <label
                     htmlFor="edit-hero"
                     className="inline-flex h-9 cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"
                   >
-                    {ui("Choose image", "Escolher imagem")}
+                    {ui("Escolher imagem")}
                   </label>
                 </div>
                 <Input id="edit-hero" type="file" accept="image/*" onChange={(event) => handleFileChange(event, "hero", true)} className="hidden" />
                 {editingBusiness?.heroImage ? (
                   <div className="mt-2">
                     <div className="relative h-20 w-32 overflow-hidden rounded-md border border-border">
-                      <img src={editingBusiness.heroImage} alt={ui("Current cover image", "Capa atual")} className="h-full w-full object-cover" />
+                      <img src={editingBusiness.heroImage} alt={ui("Capa atual")} className="h-full w-full object-cover" />
                     </div>
                   </div>
                 ) : null}
               </div>
 
               <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                <h3 className="text-base font-semibold">{ui("Gallery", "Galeria")}</h3>
+                <h3 className="text-base font-semibold">{ui("Galeria")}</h3>
               </div>
 
               <div className="sm:col-span-2">
-                <Label htmlFor="edit-photos">{ui("Add new gallery photos", "Adicionar novas fotos na galeria")}</Label>
+                <Label htmlFor="edit-photos">{ui("Adicionar novas fotos na galeria")}</Label>
                 <div className="mt-1.5">
                   <label
                     htmlFor="edit-photos"
                     className="inline-flex h-9 cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"
                   >
-                    {ui("Choose files", "Escolher arquivos")}
+                    {ui("Escolher arquivos")}
                   </label>
                 </div>
                 <Input
@@ -601,13 +600,13 @@ export default function UserProfileDialogs({
                   className="hidden"
                 />
                 <div className="mb-2 mt-1 text-xs text-muted-foreground">
-                  {ui("Existing", "Existentes")}: {existingPhotos.length}/8 | {ui("New selected", "Novas selecionadas")}: {editPhotoFiles.length}
+                  {ui("Existentes")}: {existingPhotos.length}/8 | {ui("Novas selecionadas")}: {editPhotoFiles.length}
                 </div>
                 {existingPhotos.length > 0 || editPhotoFiles.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {existingPhotos.map((url, index) => (
                       <div key={`existing-${index}`} className="group relative h-20 w-20 overflow-hidden rounded-md border border-border">
-                        <img src={url} alt={ui("Preview", "Prévia")} className="h-full w-full object-cover" />
+                        <img src={url} alt={ui("Prévia")} className="h-full w-full object-cover" />
                         <button
                           type="button"
                           onClick={() => handleRemoveExistingPhoto(index)}
@@ -620,9 +619,9 @@ export default function UserProfileDialogs({
                     {editPhotoFiles.map((file, index) => (
                       <div key={`new-${index}`} className="group relative h-20 w-20 overflow-hidden rounded-md border border-primary/50">
                         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-primary/10 opacity-0 transition-opacity group-hover:opacity-100">
-                          <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">{ui("NEW", "NOVA")}</span>
+                          <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">{ui("NOVA")}</span>
                         </div>
-                        <img src={URL.createObjectURL(file)} alt={ui("Preview", "Prévia")} className="h-full w-full object-cover" />
+                        <img src={URL.createObjectURL(file)} alt={ui("Prévia")} className="h-full w-full object-cover" />
                         <button
                           type="button"
                           onClick={() => handleRemoveNewPhoto(index, true)}
@@ -637,10 +636,10 @@ export default function UserProfileDialogs({
               </div>
 
               <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                <h3 className="text-base font-semibold">{ui("Location", "Localização")}</h3>
+                <h3 className="text-base font-semibold">{ui("Localização")}</h3>
               </div>
               <div className="sm:col-span-2">
-                <Label>{ui("Address", "Endereço")}</Label>
+                <Label>{ui("Endereço")}</Label>
                 <div className="mt-1.5">
                   <AddressAutocomplete
                     key={creatingBusiness ? "new-business-address" : editingBusiness?.id}
@@ -659,14 +658,14 @@ export default function UserProfileDialogs({
           </div>
           <div className="flex justify-end gap-3 border-t border-border bg-white px-1 pb-1 pt-3">
             <Button variant="outline" onClick={closeBusinessEditor} disabled={savingBusiness}>
-              {ui("Cancel", "Cancelar")}
+              {ui("Cancelar")}
             </Button>
             <Button
               className="border-0 bg-emerald-600 text-white hover:bg-emerald-700"
               onClick={handleSaveBusiness}
               disabled={savingBusiness}
             >
-              {savingBusiness ? ui("Uploading images...", "Enviando imagens...") : creatingBusiness ? ui("Create business", "Criar negócio") : ui("Save changes", "Salvar alterações")}
+              {savingBusiness ? ui("Enviando imagens...") : creatingBusiness ? ui("Criar negócio") : ui("Salvar alterações")}
             </Button>
           </div>
         </DialogContent>
@@ -675,14 +674,14 @@ export default function UserProfileDialogs({
       <Dialog open={!!couponBusiness} onOpenChange={(open) => !open && setCouponBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>{ui("Promotions", "Promoções")} - {couponBusiness?.name || ui("business", "negócio")}</DialogTitle>
+            <DialogTitle>{ui("Promoções")} - {couponBusiness?.name || ui("negócio")}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
               <div className="space-y-3">
-                <Label>{ui("Saved promotions", "Cupons cadastrados")}</Label>
+                <Label>{ui("Cupons cadastrados")}</Label>
                 {couponItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{ui("No promotions saved yet.", "Nenhuma promoção cadastrada ainda.")}</p>
+                  <p className="text-sm text-muted-foreground">{ui("Nenhuma promoção cadastrada ainda.")}</p>
                 ) : (
                   <div className="space-y-2">
                     {couponItems.map((item, index) => (
@@ -694,9 +693,9 @@ export default function UserProfileDialogs({
                           <p className="text-sm font-semibold">{item.title}</p>
                           <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
                           <p className="mt-1 text-xs">
-                            <span className="font-medium">{ui("Code:", "Cupom:")}</span> {item.code} ·{" "}
-                            <span className="font-medium">{ui("Expires:", "Validade:")}</span>{" "}
-                            {new Date(`${item.expiresAt}T00:00:00`).toLocaleDateString(isEnglish ? "en-US" : "pt-BR")}
+                            <span className="font-medium">{ui("Cupom:")}</span> {item.code} ·{" "}
+                            <span className="font-medium">{ui("Validade:")}</span>{" "}
+                            {new Date(`${item.expiresAt}T00:00:00`).toLocaleDateString("pt-BR")}
                           </p>
                         </div>
                         <Button
@@ -707,7 +706,7 @@ export default function UserProfileDialogs({
                           onClick={() => handleRemoveCoupon(index)}
                         >
                           <Trash2 className="mr-1 h-3.5 w-3.5" />
-                          {ui("Delete", "Excluir")}
+                          {ui("Excluir")}
                         </Button>
                       </div>
                     ))}
@@ -715,7 +714,7 @@ export default function UserProfileDialogs({
                 )}
               </div>
               <div>
-                <Label htmlFor="profile-coupon-title">{ui("Promotion title", "Título da promoção")}</Label>
+                <Label htmlFor="profile-coupon-title">{ui("Título da promoção")}</Label>
                 <Input
                   id="profile-coupon-title"
                   className="mt-1.5"
@@ -724,7 +723,7 @@ export default function UserProfileDialogs({
                 />
               </div>
               <div>
-                <Label htmlFor="profile-coupon-description">{ui("Promotion description", "Descrição da promoção")}</Label>
+                <Label htmlFor="profile-coupon-description">{ui("Descrição da promoção")}</Label>
                 <Textarea
                   id="profile-coupon-description"
                   className="mt-1.5 min-h-[120px]"
@@ -733,7 +732,7 @@ export default function UserProfileDialogs({
                 />
               </div>
               <div>
-                <Label htmlFor="profile-coupon-code">{ui("Promotion code", "Código promocional")}</Label>
+                <Label htmlFor="profile-coupon-code">{ui("Código promocional")}</Label>
                 <Input
                   id="profile-coupon-code"
                   className="mt-1.5"
@@ -742,7 +741,7 @@ export default function UserProfileDialogs({
                 />
               </div>
               <div>
-                <Label htmlFor="profile-coupon-expiry">{ui("Promotion expiration date", "Data limite da promoção")}</Label>
+                <Label htmlFor="profile-coupon-expiry">{ui("Data limite da promoção")}</Label>
                 <div className="mt-1.5 flex items-center gap-2">
                   <Input
                     id="profile-coupon-expiry"
@@ -782,17 +781,17 @@ export default function UserProfileDialogs({
               <div>
                 <Button type="button" variant="outline" onClick={handleAddCoupon}>
                   <Plus className="mr-2 h-4 w-4" />
-                  {ui("Add promotion", "Adicionar promoção")}
+                  {ui("Adicionar promoção")}
                 </Button>
               </div>
             </div>
           </div>
           <DialogFooter className="border-t border-border bg-white px-1 pb-1 pt-3">
             <Button variant="outline" onClick={() => setCouponBusiness(null)} disabled={savingCoupon}>
-              {ui("Cancel", "Cancelar")}
+              {ui("Cancelar")}
             </Button>
             <Button className="border-0 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleSaveCoupon} disabled={savingCoupon}>
-              {savingCoupon ? ui("Saving...", "Salvando...") : ui("Save promotion", "Salvar promoção")}
+              {savingCoupon ? ui("Salvando...") : ui("Salvar promoção")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -801,16 +800,16 @@ export default function UserProfileDialogs({
       <Dialog open={!!menuBusiness} onOpenChange={(open) => !open && setMenuBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>{ui("Menu", "Cardápio")} - {menuBusiness?.name || ui("business", "negócio")}</DialogTitle>
+            <DialogTitle>{ui("Cardápio")} - {menuBusiness?.name || ui("negócio")}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
               <div className="space-y-4 rounded-lg border border-emerald-300/70 bg-emerald-50/60 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-emerald-900">{ui("Menu items", "Itens do cardápio")}</Label>
+                    <Label className="text-emerald-900">{ui("Itens do cardápio")}</Label>
                     <p className="mt-1 text-sm text-emerald-900/80">
-                      {ui("Add items with a name, description and price to make your business easier to find and choose.", "Adicione itens com nome, descrição e preço para facilitar a busca e conversão.")}
+                      {ui("Adicione itens com nome, descrição e preço para facilitar a busca e conversão.")}
                     </p>
                   </div>
                   <Button
@@ -830,7 +829,7 @@ export default function UserProfileDialogs({
                     }
                   >
                     <Plus className="mr-1 h-3.5 w-3.5" />
-                    {ui("Add item", "Adicionar item")}
+                    {ui("Adicionar item")}
                   </Button>
                 </div>
                 <div className="space-y-3">
@@ -847,7 +846,7 @@ export default function UserProfileDialogs({
                       </Button>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="sm:col-span-2">
-                          <Label className="text-xs">{ui("Item name", "Nome do item")}</Label>
+                          <Label className="text-xs">{ui("Nome do item")}</Label>
                           <Input
                             value={item.name}
                             onChange={(event) =>
@@ -861,7 +860,7 @@ export default function UserProfileDialogs({
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">{ui("Price (optional)", "Preço (opcional)")}</Label>
+                          <Label className="text-xs">{ui("Preço (opcional)")}</Label>
                           <Input
                             value={item.price}
                             onChange={(event) =>
@@ -876,7 +875,7 @@ export default function UserProfileDialogs({
                         </div>
                       </div>
                       <div>
-                        <Label className="text-xs">{ui("Description", "Descrição")}</Label>
+                        <Label className="text-xs">{ui("Descrição")}</Label>
                         <Input
                           value={item.description}
                           onChange={(event) =>
@@ -893,20 +892,20 @@ export default function UserProfileDialogs({
                   ))}
                   {menuItems.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-border bg-white py-6 text-center">
-                      <p className="text-xs text-muted-foreground">{ui("No menu items yet. Add the first one.", "Nenhum item no cardápio. Adicione o primeiro.")}</p>
+                      <p className="text-xs text-muted-foreground">{ui("Nenhum item no cardápio. Adicione o primeiro.")}</p>
                     </div>
                   ) : null}
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="menu-modal-pdf">{ui("Full menu (PDF, optional)", "Cardápio completo (PDF, opcional)")}</Label>
+                <Label htmlFor="menu-modal-pdf">{ui("Cardápio completo (PDF, opcional)")}</Label>
                 <div className="mt-1.5">
                   <label
                     htmlFor="menu-modal-pdf"
                     className="inline-flex h-9 cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"
                   >
-                    {ui("Choose PDF file", "Escolher arquivo PDF")}
+                    {ui("Escolher arquivo PDF")}
                   </label>
                 </div>
                 <Input
@@ -928,13 +927,13 @@ export default function UserProfileDialogs({
                 />
                 {menuPdfFile ? (
                   <p className="text-xs text-emerald-700">
-                    {ui("Selected file:", "Arquivo selecionado:")} <strong>{menuPdfFile.name}</strong> ({(menuPdfFile.size / 1024 / 1024).toFixed(2)} MB)
+                    {ui("Arquivo selecionado:")} <strong>{menuPdfFile.name}</strong> ({(menuPdfFile.size / 1024 / 1024).toFixed(2)} MB)
                   </p>
                 ) : null}
                 {menuPdfUrl ? (
                   <div className="flex items-center gap-3">
                     <button type="button" className="text-xs text-primary underline" onClick={() => void handleOpenPdfPrivately(menuPdfUrl)}>
-                      {ui("View current PDF", "Ver PDF atual")}
+                      {ui("Ver PDF atual")}
                     </button>
                     <Button
                       type="button"
@@ -946,7 +945,7 @@ export default function UserProfileDialogs({
                         setMenuPdfFile(null);
                       }}
                     >
-                      {ui("Remove PDF", "Remover PDF")}
+                      {ui("Remover PDF")}
                     </Button>
                   </div>
                 ) : null}
@@ -955,10 +954,10 @@ export default function UserProfileDialogs({
           </div>
           <DialogFooter className="border-t border-border bg-white px-1 pb-1 pt-3">
             <Button variant="outline" onClick={() => setMenuBusiness(null)} disabled={savingMenu}>
-              {ui("Cancel", "Cancelar")}
+              {ui("Cancelar")}
             </Button>
             <Button className="border-0 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleSaveMenu} disabled={savingMenu}>
-              {savingMenu ? ui("Saving...", "Salvando...") : ui("Save menu", "Salvar cardápio")}
+              {savingMenu ? ui("Salvando...") : ui("Salvar cardápio")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -967,16 +966,16 @@ export default function UserProfileDialogs({
       <Dialog open={!!serviceBusiness} onOpenChange={(open) => !open && setServiceBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>{ui("Services", "Serviços")} - {serviceBusiness?.name || ui("business", "negócio")}</DialogTitle>
+            <DialogTitle>{ui("Serviços")} - {serviceBusiness?.name || ui("negócio")}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
               <div className="space-y-4 rounded-lg border border-sky-300/70 bg-sky-50/60 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-sky-900">{ui("Service items", "Itens de serviço")}</Label>
+                    <Label className="text-sky-900">{ui("Itens de serviço")}</Label>
                     <p className="mt-1 text-sm text-sky-900/80">
-                      {ui("Add the name, description and optional price for each service.", "Cadastre nome, descrição e preço opcional de cada serviço.")}
+                      {ui("Cadastre nome, descrição e preço opcional de cada serviço.")}
                     </p>
                   </div>
                   <Button
@@ -996,7 +995,7 @@ export default function UserProfileDialogs({
                     }
                   >
                     <Plus className="mr-1 h-3.5 w-3.5" />
-                    {ui("Add service", "Adicionar serviço")}
+                    {ui("Adicionar serviço")}
                   </Button>
                 </div>
                 <div className="space-y-3">
@@ -1013,7 +1012,7 @@ export default function UserProfileDialogs({
                       </Button>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="sm:col-span-2">
-                          <Label className="text-xs">{ui("Service name", "Nome do serviço")}</Label>
+                          <Label className="text-xs">{ui("Nome do serviço")}</Label>
                           <Input
                             value={item.name}
                             onChange={(event) =>
@@ -1027,7 +1026,7 @@ export default function UserProfileDialogs({
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">{ui("Price (optional)", "Preço (opcional)")}</Label>
+                          <Label className="text-xs">{ui("Preço (opcional)")}</Label>
                           <Input
                             value={item.price}
                             onChange={(event) =>
@@ -1042,7 +1041,7 @@ export default function UserProfileDialogs({
                         </div>
                       </div>
                       <div>
-                        <Label className="text-xs">{ui("Description", "Descrição")}</Label>
+                        <Label className="text-xs">{ui("Descrição")}</Label>
                         <Input
                           value={item.description}
                           onChange={(event) =>
@@ -1059,7 +1058,7 @@ export default function UserProfileDialogs({
                   ))}
                   {serviceItems.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-border bg-white py-6 text-center">
-                      <p className="text-xs text-muted-foreground">{ui("No services saved yet.", "Nenhum serviço cadastrado ainda.")}</p>
+                      <p className="text-xs text-muted-foreground">{ui("Nenhum serviço cadastrado ainda.")}</p>
                     </div>
                   ) : null}
                 </div>
@@ -1068,10 +1067,10 @@ export default function UserProfileDialogs({
           </div>
           <DialogFooter className="border-t border-border bg-white px-1 pb-1 pt-3">
             <Button variant="outline" onClick={() => setServiceBusiness(null)} disabled={savingServices}>
-              {ui("Cancel", "Cancelar")}
+              {ui("Cancelar")}
             </Button>
             <Button className="border-0 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleSaveServices} disabled={savingServices}>
-              {savingServices ? ui("Saving...", "Salvando...") : ui("Save services", "Salvar serviços")}
+              {savingServices ? ui("Salvando...") : ui("Salvar serviços")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1080,16 +1079,16 @@ export default function UserProfileDialogs({
       <Dialog open={!!eventsBusiness} onOpenChange={(open) => !open && setEventsBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>{ui("Events", "Eventos")} - {eventsBusiness?.name || ui("business", "negócio")}</DialogTitle>
+            <DialogTitle>{ui("Eventos")} - {eventsBusiness?.name || ui("negócio")}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
               <div className="space-y-4 rounded-lg border border-violet-300/70 bg-violet-50/70 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-base font-semibold text-violet-900">{ui("Event calendar", "Agenda de eventos")}</h3>
+                    <h3 className="text-base font-semibold text-violet-900">{ui("Agenda de eventos")}</h3>
                     <p className="mt-1 text-sm text-violet-900/80">
-                      {ui("Share dates, location, flyer and price to attract more people.", "Divulgue datas, local, flyer e preço para atrair mais público.")}
+                      {ui("Divulgue datas, local, flyer e preço para atrair mais público.")}
                     </p>
                   </div>
                   <Button
@@ -1100,12 +1099,12 @@ export default function UserProfileDialogs({
                     onClick={handleAddEvent}
                   >
                     <Plus className="mr-1 h-3.5 w-3.5" />
-                    {ui("Add event", "Adicionar evento")}
+                    {ui("Adicionar evento")}
                   </Button>
                 </div>
                 {eventItems.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-violet-300 bg-white/70 py-6 text-center">
-                    <p className="text-sm text-muted-foreground">{ui("No events saved.", "Nenhum evento cadastrado.")}</p>
+                    <p className="text-sm text-muted-foreground">{ui("Nenhum evento cadastrado.")}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1131,7 +1130,7 @@ export default function UserProfileDialogs({
                           </Button>
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
-                              <Label className="text-xs">{ui("Event title *", "Título do evento *")}</Label>
+                              <Label className="text-xs">{ui("Título do evento *")}</Label>
                               <Input
                                 className="mt-1"
                                 value={event.title}
@@ -1145,7 +1144,7 @@ export default function UserProfileDialogs({
                               />
                             </div>
                             <div>
-                              <Label className="text-xs">{ui("Date *", "Data *")}</Label>
+                              <Label className="text-xs">{ui("Data *")}</Label>
                               <div className="mt-1 flex items-center gap-2">
                                 <Input
                                   type="text"
@@ -1195,7 +1194,7 @@ export default function UserProfileDialogs({
                             </div>
                           </div>
                           <div>
-                            <Label className="text-xs">{ui("Location *", "Local *")}</Label>
+                            <Label className="text-xs">{ui("Local *")}</Label>
                             {businessAddress ? (
                               <div className="mb-1 mt-1">
                                 <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
@@ -1213,7 +1212,7 @@ export default function UserProfileDialogs({
                                       })
                                     }
                                   />
-                                  {ui("At the business location", "No próprio estabelecimento")}
+                                  {ui("No próprio estabelecimento")}
                                 </label>
                               </div>
                             ) : null}
@@ -1230,7 +1229,7 @@ export default function UserProfileDialogs({
                             />
                           </div>
                           <div>
-                            <Label className="text-xs">{ui("Description", "Descrição")}</Label>
+                            <Label className="text-xs">{ui("Descrição")}</Label>
                             <Textarea
                               className="mt-1"
                               rows={2}
@@ -1246,7 +1245,7 @@ export default function UserProfileDialogs({
                           </div>
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5">
-                              <Label className="text-xs">{ui("Ticket type", "Entrada")}</Label>
+                              <Label className="text-xs">{ui("Entrada")}</Label>
                               <Select
                                 value={event.isFree ? "free" : "paid"}
                                 onValueChange={(value) =>
@@ -1272,14 +1271,14 @@ export default function UserProfileDialogs({
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="free">{ui("Free entry", "Entrada franca")}</SelectItem>
-                                  <SelectItem value="paid">{ui("Paid event", "Evento pago")}</SelectItem>
+                                  <SelectItem value="free">{ui("Entrada franca")}</SelectItem>
+                                  <SelectItem value="paid">{ui("Evento pago")}</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
                             {!event.isFree ? (
                               <div>
-                              <Label className="text-xs">{ui("Price", "Preço")}</Label>
+                              <Label className="text-xs">{ui("Preço")}</Label>
                                 <Input
                                   className="mt-1"
                                   value={event.price}
@@ -1296,13 +1295,13 @@ export default function UserProfileDialogs({
                             ) : null}
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-xs">{ui("Event flyer", "Flyer do evento")}</Label>
+                            <Label className="text-xs">{ui("Flyer do evento")}</Label>
                             <div className="mt-1">
                               <label
                                 htmlFor={`events-flyer-${index}`}
                                 className="inline-flex h-9 cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"
                               >
-                                {ui("Choose flyer image", "Escolher imagem do flyer")}
+                                {ui("Escolher imagem do flyer")}
                               </label>
                             </div>
                             <Input
@@ -1321,13 +1320,13 @@ export default function UserProfileDialogs({
                             {event.flyerUrl || eventFlyerFiles[index] ? (
                               <img
                                 src={eventFlyerFiles[index] ? URL.createObjectURL(eventFlyerFiles[index]) : event.flyerUrl || ""}
-                                alt={ui("Flyer preview", "Preview do flyer")}
+                                alt={ui("Preview do flyer")}
                                 className="mt-2 h-24 w-24 rounded-md border border-border object-cover"
                               />
                             ) : null}
                           </div>
                           <div>
-                            <Label className="text-xs">{ui("Ticket purchase link (optional)", "Link para compra de ingressos (opcional)")}</Label>
+                            <Label className="text-xs">{ui("Link para compra de ingressos (opcional)")}</Label>
                             <Input
                               className="mt-1"
                               value={event.ticketUrl || ""}
@@ -1351,10 +1350,10 @@ export default function UserProfileDialogs({
           </div>
           <DialogFooter className="border-t border-border bg-white px-1 pb-1 pt-3">
             <Button variant="outline" onClick={() => setEventsBusiness(null)} disabled={savingEvents}>
-              {ui("Cancel", "Cancelar")}
+              {ui("Cancelar")}
             </Button>
             <Button className="border-0 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleSaveEvents} disabled={savingEvents}>
-              {savingEvents ? ui("Saving...", "Salvando...") : ui("Save events", "Salvar eventos")}
+              {savingEvents ? ui("Salvando...") : ui("Salvar eventos")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1363,32 +1362,32 @@ export default function UserProfileDialogs({
       <Dialog open={!!verificationBusiness} onOpenChange={(open) => !open && setVerificationBusiness(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{ui("Request business verification", "Solicitar verificação do negócio")}</DialogTitle>
+            <DialogTitle>{ui("Solicitar verificação do negócio")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              <p className="font-semibold">{ui("Before sending your request", "Antes de enviar sua solicitação")}</p>
+              <p className="font-semibold">{ui("Antes de enviar sua solicitação")}</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
-                <li>{ui("Have at least 5 reviews and the business Instagram configured.", "Tenha pelo menos 5 avaliações e o Instagram do negócio cadastrado.")}</li>
-                <li>{ui("Post about Caramelinho on Instagram and tag our profile.", "Publique sobre o Caramelinho no Instagram e marque nosso perfil.")}</li>
+                <li>{ui("Tenha pelo menos 5 avaliações e o Instagram do negócio cadastrado.")}</li>
+                <li>{ui("Publique sobre o Caramelinho no Instagram e marque nosso perfil.")}</li>
               </ul>
-              <p className="mt-2 text-xs leading-relaxed">{ui("Our team reviews the criteria and submitted post before activating the badge.", "A equipe analisa os critérios e o post enviado antes de ativar o selo.")}</p>
+              <p className="mt-2 text-xs leading-relaxed">{ui("A equipe analisa os critérios e o post enviado antes de ativar o selo.")}</p>
             </div>
             <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
-              <p className="font-semibold">{ui("Badge validity", "Validade do selo")}</p>
+              <p className="font-semibold">{ui("Validade do selo")}</p>
               <p className="mt-1 leading-relaxed">
-                {ui("Once approved, the badge is valid for 12 months. After that, we ask for a new confirmation so the directory contains only active businesses with up-to-date service and contact information.", "Após aprovado, o selo é válido por 12 meses. Depois desse período, pedimos uma nova confirmação para manter no diretório apenas negócios ativos, com atendimento e informações de contato atualizados.")}
+                {ui("Após aprovado, o selo é válido por 12 meses. Depois desse período, pedimos uma nova confirmação para manter no diretório apenas negócios ativos, com atendimento e informações de contato atualizados.")}
               </p>
             </div>
             <div className="text-sm text-muted-foreground">
-              {ui("Business:", "Negócio:")} <strong>{verificationBusiness?.name}</strong>
+              {ui("Negócio:")} <strong>{verificationBusiness?.name}</strong>
               <br />
-              {ui("Current reviews:", "Avaliações atuais:")} <strong>{verificationBusiness?.reviews.length || 0}</strong>
+              {ui("Avaliações atuais:")} <strong>{verificationBusiness?.reviews.length || 0}</strong>
               <br />
-              {ui("Instagram configured:", "Instagram cadastrado:")} <strong>{verificationBusiness?.instagram ? ui("Yes", "Sim") : ui("No", "Não")}</strong>
+              {ui("Instagram cadastrado:")} <strong>{verificationBusiness?.instagram ? ui("Sim") : ui("Não")}</strong>
             </div>
             <div>
-              <Label htmlFor="verification-instagram-post">{ui("Public Instagram post link tagging Caramelinho *", "Link do post público no Instagram marcando o Caramelinho *")}</Label>
+              <Label htmlFor="verification-instagram-post">{ui("Link do post público no Instagram marcando o Caramelinho *")}</Label>
               <Input
                 id="verification-instagram-post"
                 className="mt-1.5"
@@ -1397,16 +1396,16 @@ export default function UserProfileDialogs({
                 placeholder="https://www.instagram.com/p/..."
               />
               <p className="mt-1.5 text-xs text-muted-foreground">
-                {ui("Share the link to the post used to request verification.", "Envie o link da publicação usada para solicitar a verificação.")}
+                {ui("Envie o link da publicação usada para solicitar a verificação.")}
               </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setVerificationBusiness(null)} disabled={verificationSubmitting}>
-              {ui("Cancel", "Cancelar")}
+              {ui("Cancelar")}
             </Button>
             <Button onClick={handleSubmitVerificationRequest} disabled={verificationSubmitting}>
-              {verificationSubmitting ? ui("Sending...", "Enviando...") : ui("Submit for review", "Enviar para análise")}
+              {verificationSubmitting ? ui("Enviando...") : ui("Enviar para análise")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1417,24 +1416,24 @@ export default function UserProfileDialogs({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
-              {ui("WARNING", "ATENÇÃO")}
+              {ui("ATENÇÃO")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <p>
-              {ui("You are about to", "Você está prestes a")} <strong>{ui("PERMANENTLY DELETE", "APAGAR DEFINITIVAMENTE")}</strong> {ui("the business", "o negócio")} <strong>"{deleteTarget?.name}"</strong>.
+              {ui("Você está prestes a")} <strong>{ui("APAGAR DEFINITIVAMENTE")}</strong> {ui("o negócio")} <strong>"{deleteTarget?.name}"</strong>.
             </p>
             <p className="font-semibold text-red-600">
-              {ui("This action cannot be undone and all related data will be lost.", "Esta ação é irreversível e todos os dados relacionados serão perdidos.")}
+              {ui("Esta ação é irreversível e todos os dados relacionados serão perdidos.")}
             </p>
-            <p>{ui("Do you want to continue?", "Deseja continuar mesmo assim?")}</p>
+            <p>{ui("Deseja continuar mesmo assim?")}</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              {ui("Cancel", "Cancelar")}
+              {ui("Cancelar")}
             </Button>
             <Button className="bg-red-600 text-white hover:bg-red-700" onClick={handleConfirmDeleteMyBusiness}>
-              {ui("Yes, delete business", "Sim, apagar negócio")}
+              {ui("Sim, apagar negócio")}
             </Button>
           </DialogFooter>
         </DialogContent>

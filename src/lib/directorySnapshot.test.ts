@@ -39,17 +39,8 @@ describe("directory page snapshot", () => {
     expect(snapshot?.pageBusinesses[0]?.description).toBe("");
     expect(snapshot?.pageBusinesses[0]?.photos).toEqual([]);
   });
-  it("parses and builds English directory paths without changing Portuguese paths", () => {
-    const route = parseDirectoryRoute("/en/businesses/ca/qc/montreal/pagina/2");
-
-    expect(route).toMatchObject({
-      locale: "en",
-      countryCode: "ca",
-      stateCode: "qc",
-      citySlug: "montreal",
-      page: 2,
-    });
-    expect(route && buildDirectoryPagePath(route)).toBe("/en/businesses/ca/qc/montreal/pagina/2");
-    expect(buildDirectoryPagePath({ locale: "pt-BR", countryCode: "ca", stateCode: "qc", citySlug: "montreal", categorySlug: "", page: 1 })).toBe("/negocios/ca/qc/montreal");
+  it("rejects paths outside the public directory", () => {
+    expect(parseDirectoryRoute("/diretorio/ca/qc/montreal/pagina/2")).toBeNull();
+    expect(buildDirectoryPagePath({ countryCode: "ca", stateCode: "qc", citySlug: "montreal", categorySlug: "", page: 1 })).toBe("/negocios/ca/qc/montreal");
   });
 });

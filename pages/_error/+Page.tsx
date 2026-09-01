@@ -67,7 +67,6 @@ function GenericErrorPage() {
 
 function Page({ pageContext }: { pageContext: RendererPageContext }) {
   const { is404, abortStatusCode, abortReason } = pageContext;
-
   if (is404 || abortStatusCode === 404 || abortReason === "not-found") {
     return <NotFound />;
   }

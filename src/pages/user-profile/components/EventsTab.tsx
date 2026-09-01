@@ -13,7 +13,6 @@ import { getCountryName, getStateDisplayName } from "@/services/businesses";
 import { formatIsoToBr, normalizeDateForInput } from "@/pages/user-profile/utils";
 import type { CommunityEvent, BusinessFrontend } from "@/types/database";
 import type { CommunityEventForm } from "@/pages/user-profile/types";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getCountryDisplayName } from "@/lib/locales";
 
 type EventsTabProps = {
@@ -47,47 +46,9 @@ export default function EventsTab({
   onStartEditCommunityEvent,
   onDeleteCommunityEvent,
 }: EventsTabProps) {
-  const { locale } = useSiteLocale();
-  const isEnglish = locale === "en";
-  const text = isEnglish
-    ? {
-        title: "My events",
-        edit: "Edit event",
-        create: "Create a new event",
-        eventTitle: "Event title *",
-        titlePlaceholder: "Ex: Brazilian Samba Night",
-        description: "Description",
-        descriptionPlaceholder: "Event details, attractions and important information.",
-        date: "Date *",
-        location: "Location *",
-        linkedBusiness: "Link to a business (optional)",
-        selectBusiness: "Select a business",
-        noBusiness: "No linked business",
-        ticketType: "Ticket type",
-        free: "Free entry",
-        paid: "Paid event",
-        price: "Price",
-        ticketUrl: "Ticket link (optional)",
-        flyer: "Event flyer (optional)",
-        chooseImage: "Choose image",
-        selectedFile: "Selected file:",
-        flyerPreview: "Flyer preview",
-        removeSelected: "Remove selected file",
-        removeCurrent: "Remove current flyer",
-        saving: "Saving...",
-        publishing: "Publishing...",
-        saveChanges: "Save changes",
-        publish: "Publish event",
-        cancelEdit: "Cancel editing",
-        published: "Published events",
-        empty: "You have not published any events yet.",
-        linked: "Linked business:",
-        notFound: "business not found",
-        notLinked: "Not linked",
-        editAction: "Edit",
-        delete: "Delete",
-      }
-    : {
+  const locale = "pt-BR";
+
+  const text = {
         title: "Meus Eventos",
         edit: "Editar evento",
         create: "Criar novo evento",
@@ -215,9 +176,7 @@ export default function EventsTab({
                           selectedBusiness.address.stateCode || selectedBusiness.address.state
                             ? getStateDisplayName(selectedBusiness.address.countryCode || selectedBusiness.address.country, selectedBusiness.address.stateCode || selectedBusiness.address.state, selectedBusiness.address.state)
                             : "",
-                          isEnglish
-                            ? getCountryDisplayName(selectedBusiness.address.countryCode || selectedBusiness.address.country, selectedBusiness.address.country, "en")
-                            : getCountryName(selectedBusiness.address.countryCode || selectedBusiness.address.country),
+                          getCountryName(selectedBusiness.address.countryCode || selectedBusiness.address.country),
                         ]
                           .filter(Boolean)
                           .join(", ")
@@ -385,7 +344,7 @@ export default function EventsTab({
                   <div className="flex-1 min-w-0">
                     <h4 className="font-semibold">{event.title}</h4>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {new Date(`${event.date}T00:00:00`).toLocaleDateString(isEnglish ? "en-US" : "pt-BR")} · {event.location}
+                      {new Date(`${event.date}T00:00:00`).toLocaleDateString("pt-BR")} · {event.location}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {text.linked}{" "}

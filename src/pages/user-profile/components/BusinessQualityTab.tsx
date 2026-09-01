@@ -8,7 +8,6 @@ import { getBusinessQualityAudit, SHORT_DESCRIPTION_MIN_LENGTH } from "@/lib/bus
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { buildBusinessUrl, getCountryName } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 
 type BusinessQualityTabProps = {
   businesses: BusinessFrontend[];
@@ -24,7 +23,7 @@ function BusinessIssueRow({
   business: BusinessFrontend;
   detail: React.ReactNode;
 }) {
-  const { toLocalePath } = useSiteLocale();
+
   const city = getCityDisplayName(business.address.cityDisplayName || business.address.city, business.address.countryCode || business.address.country);
   const country = getCountryName(business.address.countryCode || business.address.country);
 
@@ -39,7 +38,7 @@ function BusinessIssueRow({
         </p>
         <div className="mt-2">{detail}</div>
       </div>
-      <Link to={toLocalePath(`/negocio/wizard?editBusinessId=${business.id}`)}>
+      <Link to={`/negocio/wizard?editBusinessId=${business.id}`}>
         <Button size="sm" variant="outline">
           <Pencil className="mr-1.5 h-3.5 w-3.5" />
           Editar

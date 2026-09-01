@@ -469,7 +469,7 @@ function getBusinessSearchBlob(b: BusinessFrontend): string {
     b.primaryActivity,
     b.primaryActivityCustom,
   );
-  const seoTitle = buildBusinessSeoTitle(b, "pt-BR");
+  const seoTitle = buildBusinessSeoTitle(b);
 
   return normalizeText(
     [

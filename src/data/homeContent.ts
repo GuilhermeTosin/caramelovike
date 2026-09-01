@@ -1,5 +1,3 @@
-import type { SiteLocale } from "@/lib/locales";
-
 export type HomeSearchMode = "businesses" | "events" | "achadinhos";
 
 export type HomeQuickTag = {
@@ -57,8 +55,7 @@ export type HomeContent = {
   categories: HomeCategoryText[];
 };
 
-const HOME_CONTENT_BY_LOCALE: Record<SiteLocale, HomeContent> = {
-  "pt-BR": {
+const HOME_CONTENT: HomeContent = {
     heroEyebrow: "O farejador de negócios brasileiros",
     heroTitle: "Encontre negócios brasileiros no mundo todo",
     heroSubtitle:
@@ -156,67 +153,8 @@ const HOME_CONTENT_BY_LOCALE: Record<SiteLocale, HomeContent> = {
       { id: "cleaning", name: "Diaristas" },
       { id: "other", name: "Outros" },
     ],
-  },
-  en: {
-    heroEyebrow: "Brazilian business finder abroad",
-    heroTitle: "Find Brazilian businesses around the world",
-    heroSubtitle: "From bakeries to clinics, from Montreal to Tokyo.\nCaramelinho helps you find Brazilian services close to you.",
-    searchIntroduction: "Search for Brazilian businesses, services, shops and professionals near you.",
-    currentLocationLabel: "My location",
-    locationPlaceholder: "Which city?",
-    locationUnavailableTitle: "Location unavailable",
-    locationUnavailableMessage: "Enable location access in your browser or device to use this feature.",
-    locationNoticeButton: "Got it",
-    searchRequiresQueryOrLocationMessage: "Enter what you are looking for or choose a city to start searching.",
-    searchingLabel: "Sniffing out results...",
-    featuredEmptyTitle: "No businesses found yet.",
-    featuredEmptyDescription: "Be the first to add one!",
-    verifiedLabel: "Verified",
-    veganLabel: "Vegan",
-    vegetarianLabel: "Vegetarian",
-    glutenFreeLabel: "Gluten-free",
-    stats: { businesses: "Listed businesses", cities: "Cities covered", countries: "Countries", categories: "Categories to explore" },
-    categoriesHeading: "Categories",
-    categoriesDescription: "Browse categories to find what you need",
-    featuredHeading: "Featured businesses",
-    featuredDescription: "Recommended by Caramelinho",
-    citiesHeading: "Popular cities",
-    citiesDescription: "Discover Brazilian businesses around the world",
-    ctaHeading: "Do you run a Brazilian business abroad?",
-    ctaDescription: "List your business on Caramelinho and help Brazilians around the world find you.",
-    ctaButton: "Create a free account",
-    searchModes: {
-      businesses: { label: "Businesses", description: "Search Brazilian businesses, services, shops and professionals near you.", placeholder: "Search for a product or service (e.g. coxinha)", ctaLabel: "Find businesses", quickTags: [
-        { label: "Bakery", query: "Padaria" },
-        { label: "Mechanic", query: "Mecânico" },
-        { label: "Dentist", query: "Dentista" },
-        { label: "Lawyer", query: "Advogado" },
-        { label: "Restaurant", query: "Restaurante" },
-        { label: "Hairdresser", query: "Cabeleireiro" },
-      ] },
-      events: { label: "Events", description: "Find parties, fairs, meetups and openings from the Brazilian community.", placeholder: "Search for a party, fair or meetup", ctaLabel: "Find events", quickTags: [
-        { label: "Party", query: "Festa" },
-        { label: "Show", query: "Show" },
-        { label: "Fair", query: "Feira" },
-        { label: "Opening", query: "Inauguração" },
-        { label: "Meetup", query: "Encontro" },
-        { label: "Samba", query: "Samba" },
-      ] },
-      achadinhos: { label: "Community finds", description: "Discover products, offers and news shared by the community.", placeholder: "Search for a community find, product or offer", ctaLabel: "Find community finds", quickTags: [
-        { label: "Product", query: "Produto" },
-        { label: "Deal", query: "Promoção" },
-        { label: "Discount", query: "Desconto" },
-        { label: "Offer", query: "Oferta" },
-        { label: "Outlet", query: "Outlet" },
-        { label: "Coupon", query: "Cupom" },
-      ] },
-    },
-    categories: [
-      { id: "food", name: "Restaurants & Food" }, { id: "health_beauty", name: "Health & Beauty" }, { id: "auto", name: "Automotive" }, { id: "construction", name: "Construction" }, { id: "legal_consulting", name: "Legal & Consulting" }, { id: "education", name: "Education" }, { id: "accounting_finance", name: "Accounting & Finance" }, { id: "retail", name: "Retail" }, { id: "transport_moving", name: "Transport & Moving" }, { id: "real_estate", name: "Real Estate" }, { id: "tourism", name: "Tourism & Travel" }, { id: "artists", name: "Artists" }, { id: "pets", name: "Pet Services" }, { id: "child_elder_care", name: "Child & Elder Care" }, { id: "cleaning", name: "Cleaning" }, { id: "other", name: "Other" },
-    ],
-  },
 };
 
-export function getHomeContent(locale: SiteLocale = "pt-BR"): HomeContent {
-  return HOME_CONTENT_BY_LOCALE[locale];
+export function getHomeContent(): HomeContent {
+  return HOME_CONTENT;
 }

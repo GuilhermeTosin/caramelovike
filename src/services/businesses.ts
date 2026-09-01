@@ -365,7 +365,6 @@ export function toFrontend(
     primaryActivity: b.primary_activity || "",
     primaryActivityCustom: b.primary_activity_custom || "",
     description: b.description,
-    descriptionEn: b.description_en || "",
     heroImage: b.hero_image || "",
     logoUrl: b.logo_url || "",
     address: {
@@ -475,7 +474,7 @@ function mergeBusinessEvents(
 
 export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFrontend[]> {
   const columns = [
-    "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "description_en", "logo_url", "hero_image",
+    "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "logo_url", "hero_image",
     "street", "city", "city_slug", "state", "country", "country_code", "state_code",
     "lat", "lng", "attendance_type", "average_rating", "owner_verified", "owner_verified_until",
     "moderation_status", "moderation_reviewed_at", "moderation_reviewed_by", "created_at", "updated_at",
@@ -507,7 +506,7 @@ export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFronten
 export async function getPublicBusinessSearchIndex(): Promise<BusinessFrontend[]> {
   const columns = [
     "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom",
-    "description", "description_en", "hero_image", "logo_url", "street", "city", "city_slug", "state",
+    "description", "hero_image", "logo_url", "street", "city", "city_slug", "state",
     "country", "country_code", "state_code", "postal_code", "lat", "lng", "attendance_type",
     "services", "service_items", "keywords", "menu", "is_vegan_friendly",
     "is_vegetarian_friendly", "is_gluten_free_friendly", "average_rating", "owner_verified",
@@ -1446,7 +1445,6 @@ export async function createBusiness(
     primaryActivity: string;
     primaryActivityCustom?: string;
     description: string;
-    descriptionEn?: string;
     heroImage?: string;
     logoUrl?: string;
     street?: string;
@@ -1503,7 +1501,6 @@ export async function createBusiness(
       primary_activity: data.primaryActivity || null,
       primary_activity_custom: data.primaryActivityCustom || null,
       description: data.description,
-      description_en: data.descriptionEn?.trim() || null,
       hero_image: data.heroImage || null,
       logo_url: data.logoUrl || null,
       street: data.street || null,
@@ -1759,7 +1756,7 @@ export function slugify(text: string): string {
 export function buildBusinessUrl(biz: BusinessFrontend): string {
   const countryCode = (biz.address.countryCode || "").toLowerCase();
   const stateSlug = (biz.address.stateCode || "").toLowerCase();
-  // Stored slugs can be legacy English/local names. The city label is the canonical source.
+  // Stored slugs can contain legacy location variants. The city label is canonical.
   const citySlug = getCanonicalCitySlug(biz.address.city, biz.address.countryCode) || biz.address.citySlug;
 
   // Regra única para todos os negócios:

@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CommunityFind } from "@/types/database";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 
 type UserProfileNavigationProps = {
   activeTab: string;
@@ -25,11 +24,9 @@ export default function UserProfileNavigation({
   onTabChange,
   onLogout,
 }: UserProfileNavigationProps) {
-  const { locale } = useSiteLocale();
-  const isEnglish = locale === "en";
-  const text = isEnglish ? {
-    navigation: "Profile navigation", select: "Select a section", profile: "My profile", businesses: "My businesses", events: "My events", finds: "Community finds", verifications: "Verifications", businessReview: "Business review", allBusinesses: "All businesses", users: "Users", reports: "Reports", highlights: "Featured placements", search: "Search", quality: "Quality", reviews: "Reviews", messages: "Messages", signOut: "Sign out",
-  } : {
+  const locale = "pt-BR";
+
+  const text = {
     navigation: "Navegação do perfil", select: "Selecione uma seção", profile: "Meu Perfil", businesses: "Meus negócios", events: "Meus Eventos", finds: "Achadinhos", verifications: "Verificações", businessReview: "Análise de negócios", allBusinesses: "Todos os negócios", users: "Usuários", reports: "Denúncias", highlights: "Destaques", search: "Busca", quality: "Qualidade", reviews: "Avaliações", messages: "Mensagens", signOut: "Sair",
   };
   const hasCommunityFindAlerts = myCommunityFinds.some((find) => (find.upvotes || 0) - (find.downvotes || 0) <= -2);

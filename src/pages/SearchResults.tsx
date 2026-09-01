@@ -27,8 +27,6 @@ import MapView from "@/components/MapView";
 import { useAuth } from "@/contexts/AuthContext";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import MobileHeaderMenu from "@/components/MobileHeaderMenu";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getHomeContent } from "@/data/homeContent";
 import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
 import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
@@ -84,7 +82,6 @@ import {
 } from "@/services/communityFinds";
 import { createCommunityFindReport } from "@/services/communityFindReports";
 import { getCityDisplayName } from "@/lib/locationDisplay";
-import { buildBusinessUrlForLocale, getBusinessDescriptionForLocale } from "@/lib/businessEnglish";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
   dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
@@ -282,79 +279,10 @@ export default function SearchResults({
   const navigate = useNavigate();
   const location = useLocation();
   const { session } = useAuth();
-  const { locale, toLocalePath } = useSiteLocale();
-  const isEnglish = locale === "en";
-  const text = isEnglish
-    ? {
-        searchPlaceholder: "Search for a product or service (e.g. coxinha)", locationPlaceholder: "Which city?", currentLocation: "My location", submit: "Search", filters: "Filters", map: "Map", list: "List", loading: "Loading results...", noResults: "No results found", clear: "Clear filters", backHome: "Back to home", loadingDescription: "Please wait while we prepare businesses for you.", country: "Country", allCountries: "All countries", region: "State / province", allRegions: "All states and provinces", city: "City", allCities: "All cities", distance: "Distance", within: "Within", business: "business", found: "found", allWorldwide: "See all worldwide", regionalCategory: "You are viewing results from this category in your region.", locationRequired: "Enter a location or allow location access to use a radius.", locatingReference: "Locating reference...", businessSearch: "Search Brazilian businesses", slogan: getSiteSlogan("en"),
-      }
-    : {
-        searchPlaceholder: "Buscar por produto ou serviço (Ex: coxinha)", locationPlaceholder: "Em qual cidade?", currentLocation: CURRENT_LOCATION_LABEL, submit: "Farejar", filters: "Filtros", map: "Mapa", list: "Lista", loading: "Carregando resultados...", noResults: "Nenhum resultado encontrado", clear: "Limpar filtros", backHome: "Voltar ao Início", loadingDescription: "Aguarde um instante enquanto preparamos os negócios para você.", country: "País", allCountries: "Todos os países", region: "Estado/Província", allRegions: "Todos os estados", city: "Cidade", allCities: "Todas as cidades", distance: "Distância", within: "Até", business: "negócio", found: "encontrado", allWorldwide: "Ver todos no mundo", regionalCategory: "Você está vendo resultados desta categoria na sua região.", locationRequired: "informe um local ou permita sua localização para usar raio", locatingReference: "localizando referência...", businessSearch: "Buscar negócios brasileiros", slogan: getSiteSlogan("pt-BR"),
+  const text = {
+        searchPlaceholder: "Buscar por produto ou serviço (Ex: coxinha)", locationPlaceholder: "Em qual cidade?", currentLocation: CURRENT_LOCATION_LABEL, submit: "Farejar", filters: "Filtros", map: "Mapa", list: "Lista", loading: "Carregando resultados...", noResults: "Nenhum resultado encontrado", clear: "Limpar filtros", backHome: "Voltar ao Início", loadingDescription: "Aguarde um instante enquanto preparamos os negócios para você.", country: "País", allCountries: "Todos os países", region: "Estado/Província", allRegions: "Todos os estados", city: "Cidade", allCities: "Todas as cidades", distance: "Distância", within: "Até", business: "negócio", found: "encontrado", allWorldwide: "Ver todos no mundo", regionalCategory: "Você está vendo resultados desta categoria na sua região.", locationRequired: "informe um local ou permita sua localização para usar raio", locatingReference: "localizando referência...", businessSearch: "Buscar negócios brasileiros", slogan: getSiteSlogan(),
       };
-  const communityText = isEnglish
-    ? {
-        findsHeading: "Community finds",
-        findsDescription: "Temporary discoveries shared by people nearby.",
-        addFind: "Add community find",
-        close: "Close",
-        findPhoto: "Community find photo",
-        learnMore: "Learn more",
-        shareFind: "Share community find:",
-        shareWhatsApp: "Share on WhatsApp",
-        shareFacebook: "Share on Facebook",
-        copyLink: "Copy link",
-        noFinds: "There are no active community finds in your area yet.",
-        event: "Event",
-        noDescription: "No description provided.",
-        freeEntry: "Free entry",
-        paidEvent: "Paid event",
-        organizedBy: "Organized by",
-        communityMember: "Community member",
-        discussion: "Community find discussion",
-        spottedBy: "Spotted by",
-        location: "Location",
-        notProvided: "Not provided",
-        stillAvailable: "Is this item still available at this place?",
-        loadingMessages: "Loading messages...",
-        user: "User",
-        edited: "edited",
-        cancel: "Cancel",
-        save: "Save",
-        reply: "Reply",
-        report: "Report",
-        edit: "Edit",
-        delete: "Delete",
-        discussionDescription: "Talk with the community about availability, price and restocking for this product.",
-        replying: "Replying to a message",
-        cancelReply: "cancel reply",
-        messagePlaceholder: "Write your message...",
-        loginToDiscuss: "Sign in to join the discussion.",
-        reportFind: "Report community find",
-        sending: "Sending...",
-        sendMessage: "Send message",
-        reportContent: "Report content",
-        reportDescription: "Your report will be reviewed by the administration team.",
-        reason: "Reason",
-        abuse: "Abuse",
-        fraud: "Fraud",
-        offensive: "Offensive content",
-        misinformation: "Misinformation",
-        other: "Other",
-        details: "Details (optional)",
-        detailsPlaceholder: "Briefly describe the issue.",
-        sendReport: "Send report",
-        gotIt: "Got it",
-        allMapBusinessesLoading: "Loading all businesses found on the map...",
-        findsCount: (count: number) => `${count} community find${count !== 1 ? "s" : ""} found`,
-        eventsCount: (count: number) => `${count} event${count !== 1 ? "s" : ""} found`,
-        findCategories: { comida: "Food", beleza: "Beauty", casa: "Home", outros: "Other" },
-        messageSendError: "Could not send the message.",
-        messageEditError: "Could not edit the message.",
-        messageDeleteConfirm: "Are you sure you want to delete this message?",
-        messageDeleteError: "Could not delete the message.",
-        reportSendError: "Could not send the report.",
-      }
-    : {
+  const communityText = {
         findsHeading: "Achadinhos da comunidade",
         findsDescription: "Descobertas temporárias publicadas por usuários próximos.",
         addFind: "Adicionar achadinho",
@@ -416,13 +344,13 @@ export default function SearchResults({
         messageDeleteError: "Não foi possível apagar a mensagem.",
         reportSendError: "Não foi possível enviar a denúncia.",
       };
-  const displayLocale = isEnglish ? "en-US" : "pt-BR";
-  const homeContent = getHomeContent(locale);
+  const displayLocale = "pt-BR";
+  const homeContent = getHomeContent();
   const categoryLabels = new Map(homeContent.categories.map((category) => [category.id, category.name]));
   const getCommunityFindCategoryLabel = (category: string) =>
     communityText.findCategories[category as keyof typeof communityText.findCategories] || category;
   const getDisplayCategoryLabel = (categoryId: string, fallback = getCategoryLabel(categoryId)) => {
-    if (!isEnglish) return fallback.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduções" : fallback.split("(")[0].trim();
+    return fallback.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduções" : fallback.split("(")[0].trim();
     return categoryLabels.get(categoryId) || fallback.split("(")[0].trim();
   };
   const [searchParams, setSearchParams] = useSearchParams();
@@ -695,9 +623,9 @@ export default function SearchResults({
     find: CommunityFindWithVote,
     platform: "whatsapp" | "facebook" | "copy"
   ) => {
-    const title = `${isEnglish ? "Community find" : "Achadinho"}: ${find.product_name}`;
-    const sharedText = `${find.product_name} ${isEnglish ? "at" : "em"} ${find.location_name}`;
-    const url = `${window.location.origin}${toLocalePath(`/buscar?achadinhos=1&achadinho=${encodeURIComponent(find.id)}`)}`;
+    const title = `${"Achadinho"}: ${find.product_name}`;
+    const sharedText = `${find.product_name} ${"em"} ${find.location_name}`;
+    const url = `${window.location.origin}${`/buscar?achadinhos=1&achadinho=${encodeURIComponent(find.id)}`}`;
 
     if (platform === "copy") {
       const content = `${title}\n${sharedText}\n${url}`;
@@ -721,7 +649,7 @@ export default function SearchResults({
       "_blank",
       "noopener,noreferrer"
     );
-  }, [isEnglish, toLocalePath]);
+  }, []);
 
   const resultsRequestKey = publicSearchRequest.key;
   const getCachedBusinessPage = useCallback((request: PublicSearchPageRequest) => {
@@ -799,7 +727,7 @@ export default function SearchResults({
         const businesses = await getAllBusinessesByPublicSearchRpc(fullMapSearchRequest);
         if (active) setMapBusinesses(businesses);
       } catch {
-        if (active) setMapBusinessesError(isEnglish ? "Could not load all businesses for the map." : "Não foi possível carregar todos os negócios no mapa.");
+        if (active) setMapBusinessesError("Não foi possível carregar todos os negócios no mapa.");
       } finally {
         if (active) setMapBusinessesLoading(false);
       }
@@ -1185,32 +1113,32 @@ export default function SearchResults({
   const emptyStateMessage = useMemo(() => {
     const parts: string[] = [];
     if (categoryFilterId) {
-      parts.push(`${isEnglish ? "for" : "para"} ${getDisplayCategoryLabel(categoryFilterId).toLowerCase()}`);
+      parts.push(`${"para"} ${getDisplayCategoryLabel(categoryFilterId).toLowerCase()}`);
     }
     const cityOrLocal = cityFilter.trim() || locationFilter.trim();
     if (cityOrLocal) {
-      parts.push(`${isEnglish ? "in" : "em"} ${cityOrLocal}`);
+      parts.push(`${"em"} ${cityOrLocal}`);
     }
 
     if (parts.length > 0) {
-      return isEnglish ? `No results found ${parts.join(" ")}.` : `Não encontramos resultados ${parts.join(" ")}.`;
+      return `Não encontramos resultados ${parts.join(" ")}.`;
     }
 
-    return isEnglish ? "Caramelinho could not find anything with these criteria." : "O Caramelinho não achou nada com esses critérios.";
-  }, [categoryFilterId, cityFilter, locationFilter, isEnglish]);
+    return "O Caramelinho não achou nada com esses critérios.";
+  }, [categoryFilterId, cityFilter, locationFilter, false]);
 
 
   useEffect(() => {
     const baseTitle = text.businessSearch;
-    const cityText = cityFilter ? `${isEnglish ? " in " : " em "}${cityFilter}` : "";
-    const categoryText = categoryFilterId ? (isEnglish ? getDisplayCategoryLabel(categoryFilterId).toLowerCase() : (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase())) : (isEnglish ? "businesses and services" : "negócios e serviços");
-    const queryPart = queryLabel ? `${isEnglish ? " for " : " para "}${queryLabel}` : "";
+    const cityText = cityFilter ? `${" em "}${cityFilter}` : "";
+    const categoryText = categoryFilterId ? (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase()) : ("negócios e serviços");
+    const queryPart = queryLabel ? `${" para "}${queryLabel}` : "";
 
     setSeoMeta(
       `${baseTitle}${cityText} | Caramelinho.com`,
-      isEnglish ? `Find ${categoryText}${cityText}${queryPart}. Compare options near you and contact businesses directly.` : `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
+      `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
     );
-  }, [queryLabel, categoryFilter, cityFilter, isEnglish, text.businessSearch]);
+  }, [queryLabel, categoryFilter, cityFilter, false, text.businessSearch]);
 
   const results = useMemo(() => {
     // The server search RPC applies every business filter before pagination.
@@ -1394,8 +1322,8 @@ export default function SearchResults({
       "pagina",
     ].forEach((key) => params.delete(key));
     const nextQuery = params.toString();
-    return toLocalePath(nextQuery ? "/buscar?" + nextQuery : "/buscar");
-  }, [hasCategoryLocationScope, searchParams, toLocalePath]);
+    return nextQuery ? "/buscar?" + nextQuery : "/buscar";
+  }, [hasCategoryLocationScope, searchParams]);
 
   useEffect(() => {
     if (isResultsLoading) return;
@@ -1418,8 +1346,8 @@ export default function SearchResults({
     if (nextPage <= 1) params.delete("pagina");
     else params.set("pagina", String(nextPage));
     const query = params.toString();
-    return toLocalePath(query ? `/buscar?${query}` : "/buscar");
-  }, [searchParams, toLocalePath]);
+    return query ? `/buscar?${query}` : "/buscar";
+  }, [searchParams]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1470,10 +1398,8 @@ export default function SearchResults({
         else params.delete("origem_pais");
       } else {
         showLocationNotice(
-          isEnglish ? "Location not found" : "Localização não encontrada",
-          isEnglish
-            ? "We could not locate this city. Choose a Google suggestion or include the country."
-            : "Não foi possível localizar essa cidade. Escolha uma sugestão do Google ou tente informar também o país."
+          "Localização não encontrada",
+          "Não foi possível localizar essa cidade. Escolha uma sugestão do Google ou tente informar também o país."
         );
         return;
       }
@@ -1535,8 +1461,8 @@ export default function SearchResults({
     );
     if (!hasQuery && !hasLocationContext) {
       showLocationNotice(
-        isEnglish ? "Incomplete search" : "Busca incompleta",
-        isEnglish ? "Search for something or enter your city to start." : "Digite o que você procura ou informe sua cidade para iniciar a busca."
+        "Busca incompleta",
+        "Digite o que você procura ou informe sua cidade para iniciar a busca."
       );
       return;
     }
@@ -1547,7 +1473,7 @@ export default function SearchResults({
   const handleClearFilters = () => {
     setSearchInput("");
     setLocationInput("");
-    navigate(toLocalePath("/buscar"));
+    navigate("/buscar");
   };
 
   const handleLocateMe = async (requireExactGps = false) => {
@@ -1559,8 +1485,8 @@ export default function SearchResults({
       if (!coords) {
         if (requireExactGps) {
           showLocationNotice(
-            isEnglish ? "Location required" : "Localização necessária",
-            isEnglish ? "Enable location in your browser or device to use this feature." : "Para usar esta funcionalidade, habilite a localização no navegador/dispositivo."
+            "Localização necessária",
+            "Para usar esta funcionalidade, habilite a localização no navegador/dispositivo."
           );
           return;
         }
@@ -1587,17 +1513,15 @@ export default function SearchResults({
           setSearchParams(params);
           setShowMap(true);
           showLocationNotice(
-            isEnglish ? "Using approximate location" : "Usando localização aproximada",
-            isEnglish
-              ? "We could not access your exact location. The map was centered using an approximate IP-based location."
-              : "Não consegui acessar sua localização exata. O mapa foi centralizado usando uma localização aproximada por IP."
+            "Usando localização aproximada",
+            "Não consegui acessar sua localização exata. O mapa foi centralizado usando uma localização aproximada por IP."
           );
           return;
         }
 
         showLocationNotice(
-          isEnglish ? "Unable to locate you" : "Não foi possível localizar",
-          isEnglish ? "We could not access your location, and the IP fallback also failed." : "Não consegui acessar sua localização e o fallback por IP também falhou."
+          "Não foi possível localizar",
+          "Não consegui acessar sua localização e o fallback por IP também falhou."
         );
         return;
       }
@@ -1719,10 +1643,10 @@ export default function SearchResults({
         }}
       >
         <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder={isEnglish ? "All categories" : "Todas as categorias"} />
+          <SelectValue placeholder={"Todas as categorias"} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">{isEnglish ? "All categories" : "Todas as categorias"}</SelectItem>
+          <SelectItem value="all">{"Todas as categorias"}</SelectItem>
           {BUSINESS_CATEGORY_OPTIONS.filter((cat) => cat.id !== "tourism").map((cat) => (
               <SelectItem key={cat.id} value={cat.id}>
                {getDisplayCategoryLabel(cat.id, cat.label)}
@@ -1756,7 +1680,7 @@ export default function SearchResults({
             .filter((loc) => typeof loc?.countryCode === "string" && loc.countryCode.trim().length > 0)
             .map((loc) => (
               <SelectItem key={loc.countryCode} value={loc.countryCode}>
-                {getCountryDisplayName(loc.countryCode, loc.countryName, locale)}
+                {getCountryDisplayName(loc.countryCode, loc.countryName)}
               </SelectItem>
             ))}
         </SelectContent>
@@ -1848,7 +1772,7 @@ export default function SearchResults({
       >
         <div className="inline-flex items-center gap-2 text-sm">
           <MapPin className={`w-3.5 h-3.5 ${isCommunityFindsMode ? "text-blue-700" : "text-blue-600"}`} />
-          <span>{isEnglish ? "Community finds" : "Achadinhos"}</span>
+          <span>{"Achadinhos"}</span>
         </div>
         <button
           type="button"
@@ -1858,7 +1782,7 @@ export default function SearchResults({
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
             isCommunityFindsMode ? "bg-blue-500" : "bg-muted"
           }`}
-          title={isCommunityFindsMode ? (isEnglish ? "Community finds filter enabled" : "Filtro de achadinhos ativo") : (isEnglish ? "Community finds filter disabled" : "Filtro de achadinhos desativado")}
+          title={isCommunityFindsMode ? ("Filtro de achadinhos ativo") : ("Filtro de achadinhos desativado")}
         >
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
@@ -1874,7 +1798,7 @@ export default function SearchResults({
       >
         <div className="inline-flex items-center gap-2 text-sm">
           <PartyPopper className={`w-3.5 h-3.5 ${isEventMode ? "text-amber-700" : "text-amber-600"}`} />
-          <span>{isEnglish ? "Events" : "Festas e eventos"}</span>
+          <span>{"Festas e eventos"}</span>
         </div>
         <button
           type="button"
@@ -1884,7 +1808,7 @@ export default function SearchResults({
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
             isEventMode ? "bg-amber-500" : "bg-muted"
           }`}
-          title={isEventMode ? (isEnglish ? "Events filter enabled" : "Filtro de eventos ativo") : (isEnglish ? "Events filter disabled" : "Filtro de eventos desativado")}
+          title={isEventMode ? ("Filtro de eventos ativo") : ("Filtro de eventos desativado")}
         >
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
@@ -1907,7 +1831,7 @@ export default function SearchResults({
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-24">
-            <Link to={toLocalePath("/")} className="flex items-center gap-3 group">
+            <Link to={"/"} className="flex items-center gap-3 group">
               <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
                 <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
@@ -1917,7 +1841,7 @@ export default function SearchResults({
               </div>
             </Link>
 
-            <div className="hidden items-center gap-3 sm:flex"><LanguageSwitcher /><SiteHeaderAuthActions className="flex items-center gap-3" compact /></div>
+            <div className="hidden items-center gap-3 sm:flex"><SiteHeaderAuthActions className="flex items-center gap-3" compact /></div>
             <MobileHeaderMenu />
           </div>
         </div>
@@ -2053,7 +1977,7 @@ export default function SearchResults({
           <div className="w-full sm:w-auto sm:ml-auto flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleLocateMe} className="h-9 flex-1 sm:flex-none" disabled={locatingMe}>
               <Navigation className="w-4 h-4 mr-1" />
-              {locatingMe ? (isEnglish ? "Locating..." : "Localizando...") : (isEnglish ? "Use my location" : "Me localizar")}
+              {locatingMe ? ("Localizando...") : ("Me localizar")}
             </Button>
             <Button
               variant={showMap ? "default" : "outline"}
@@ -2083,11 +2007,11 @@ export default function SearchResults({
             ? communityText.findsCount(filteredCommunityFinds.length)
             : isEventMode
             ? communityText.eventsCount(eventResults.length)
-            : isEnglish ? `${totalResults} ${text.business}${totalResults !== 1 ? "es" : ""} ${text.found}` : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
-          {queryLabel && <>{isEnglish ? " for " : " para "}<strong>{queryLabel}</strong></>}
-          {categoryFilterId && <>{isEnglish ? " in " : " em "}<strong>{getDisplayCategoryLabel(categoryFilterId)}</strong></>}
-          {locationFilter && <>{isEnglish ? " near " : " perto de "}<strong>{locationFilter}</strong></>}
-          {effectiveRadiusKm && <>{isEnglish ? " within " : " em até "}<strong>{effectiveRadiusKm} km</strong></>}
+            : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
+          {queryLabel && <>{" para "}<strong>{queryLabel}</strong></>}
+          {categoryFilterId && <>{" em "}<strong>{getDisplayCategoryLabel(categoryFilterId)}</strong></>}
+          {locationFilter && <>{" perto de "}<strong>{locationFilter}</strong></>}
+          {effectiveRadiusKm && <>{" em até "}<strong>{effectiveRadiusKm} km</strong></>}
           {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && !isResolvingDistanceOrigin && <> {text.locationRequired}</>}
           {resolvingLocation && <> {text.locatingReference}</>}
         </p>
@@ -2124,7 +2048,7 @@ export default function SearchResults({
                           {text.clear}
                         </Button>
                       )}
-                      <Button onClick={() => navigate(toLocalePath("/"))}>
+                      <Button onClick={() => navigate("/")}>
                         <PawPrint className="w-4 h-4 mr-2" />
                         {text.backHome}
                       </Button>
@@ -2373,10 +2297,10 @@ export default function SearchResults({
                     key={item.key}
                     to={
                       item.type === "business"
-                        ? `${buildBusinessUrlForLocale(item.biz, locale)}?tab=events`
+                        ? `${buildBusinessUrl(item.biz)}?tab=events`
                         : item.linkedBiz
-                          ? `${buildBusinessUrlForLocale(item.linkedBiz, locale)}?tab=events`
-                          : (isEnglish ? `/en/events/${item.evt.id}` : `/eventos/${item.evt.id}`)
+                          ? `${buildBusinessUrl(item.linkedBiz)}?tab=events`
+                          : `/eventos/${item.evt.id}`
                     }
                     onClick={(e) => {
                       if (item.type === "community" && !item.evt.id) e.preventDefault();
@@ -2466,7 +2390,7 @@ export default function SearchResults({
                 return (
                 <Link
                   key={biz.id}
-                  to={buildBusinessUrlForLocale(biz, locale)}
+                  to={buildBusinessUrl(biz)}
                   state={{ preloadedBusiness: biz }}
                   onMouseEnter={() => preloadBusinessPageAssets(biz)}
                   onFocus={() => preloadBusinessPageAssets(biz)}
@@ -2518,7 +2442,7 @@ export default function SearchResults({
                       {biz.ownerVerified ? (
                         <div className="absolute bottom-3 right-3 bg-emerald-600/95 text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
                           <Lock className="w-2.5 h-2.5" />
-                          {isEnglish ? "Verified" : "Verificado"}
+                          {"Verificado"}
                         </div>
                       ) : null}
                     </div>
@@ -2532,11 +2456,11 @@ export default function SearchResults({
                             <span className="truncate">{biz.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${isEnglish ? (biz.address.cityDisplayName || biz.address.city) : getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryDisplayName(biz.address.countryCode || biz.address.country, getCountryName(biz.address.countryCode || biz.address.country), locale)}`}
+                            {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryDisplayName(biz.address.countryCode || biz.address.country, getCountryName(biz.address.countryCode || biz.address.country))}`}
                           </p>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(getBusinessDescriptionForLocale(biz, locale))}</p>
+                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(biz.description || "")}</p>
                       {biz.categoryId === "food" && (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
                         <div className="flex flex-wrap gap-2 mt-3">
                           {biz.isVeganFriendly ? (
@@ -2583,10 +2507,11 @@ export default function SearchResults({
                 currentPage={safeCurrentPage}
                 totalPages={totalPages}
                 getPageHref={getPageHref}
-                previousLabel={isEnglish ? "Previous" : undefined}
-                nextLabel={isEnglish ? "Next" : undefined}
-                navigationLabel={isEnglish ? "Pagination" : undefined}
-                pageLabel={isEnglish ? "Page" : undefined}
+                previousLabel={undefined}
+                nextLabel={undefined}
+                navigationLabel={undefined}
+                pageLabel={undefined}
+                ofLabel={undefined}
                 className="mt-8"
               />
             )}
@@ -2607,7 +2532,7 @@ export default function SearchResults({
                 className="w-full"
                 onClick={() => setFiltersOpen(false)}
               >
-                {isEnglish ? "Apply filters" : "Aplicar filtros"}
+                {"Aplicar filtros"}
               </Button>
             </div>
           </DialogContent>
@@ -2729,7 +2654,7 @@ export default function SearchResults({
                       {msg.user_avatar ? (
                         <img
                           src={msg.user_avatar}
-                          alt={`Avatar ${isEnglish ? "of" : "de"} ${msg.user_name || communityText.user}`}
+                          alt={`Avatar ${"de"} ${msg.user_name || communityText.user}`}
                           className="w-9 h-9 rounded-full object-cover border border-border shrink-0 mt-0.5"
                           loading="lazy"
                         />
@@ -2746,7 +2671,7 @@ export default function SearchResults({
                           </p>
                           <span className="text-xs text-muted-foreground">•</span>
                           <p className="text-xs text-muted-foreground whitespace-nowrap">
-                            {new Date(msg.created_at).toLocaleDateString(displayLocale)} {isEnglish ? "at" : "às"}{" "}
+                            {new Date(msg.created_at).toLocaleDateString(displayLocale)} {"às"}{" "}
                             {new Date(msg.created_at).toLocaleTimeString(displayLocale, {
                               hour: "2-digit",
                               minute: "2-digit",

@@ -6,18 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getSiteSlogan } from "@/lib/locales";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { locale, toLocalePath } = useSiteLocale();
-  const isEnglish = locale === "en";
-  const text = isEnglish ? {
-    required: "Complete all fields.", passwordLength: "Your password must be at least 6 characters.", mismatch: "Passwords do not match.", emailExists: "This email is already registered.",
-    confirmed: "Account created!", confirmationSent: "We sent a confirmation email to", confirmationHint: "Click the link in the email to activate your account and start using Caramelinho.", login: "Go to sign in", home: "Back to home",
-    title: "Create an account", welcome: "Join Caramelinho!", name: "Name", namePlaceholder: "Your full name", password: "Password", passwordPlaceholder: "At least 6 characters", confirmPassword: "Confirm password", confirmPlaceholder: "Repeat your password", loading: "Creating account...", submit: "Create account", hasAccount: "Already have an account?", signIn: "Sign in",
-  } : {
+  const locale = "pt-BR";
+
+  const text = {
     required: "Preencha todos os campos.", passwordLength: "A senha deve ter pelo menos 6 caracteres.", mismatch: "As senhas não conferem.", emailExists: "Este email já está cadastrado.",
     confirmed: "Cadastro realizado!", confirmationSent: "Enviamos um email de confirmação para", confirmationHint: "Clique no link enviado para ativar sua conta e começar a usar o Caramelinho.", login: "Ir para o Login", home: "Voltar ao Início",
     title: "Criar Conta", welcome: "Junte-se ao Caramelinho!", name: "Nome", namePlaceholder: "Seu nome completo", password: "Senha", passwordPlaceholder: "Mínimo 6 caracteres", confirmPassword: "Confirmar Senha", confirmPlaceholder: "Repita a senha", loading: "Cadastrando...", submit: "Criar Conta", hasAccount: "Já tem conta?", signIn: "Faça login",
@@ -88,11 +83,11 @@ export default function Register() {
             {text.confirmationHint}
           </p>
           <div className="flex flex-col gap-3">
-            <Button onClick={() => navigate(toLocalePath("/entrar"))}>
+            <Button onClick={() => navigate("/entrar")}>
               {text.login}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
-            <Button variant="outline" onClick={() => navigate(toLocalePath("/"))}>
+            <Button variant="outline" onClick={() => navigate("/")}>
               {text.home}
             </Button>
           </div>
@@ -105,7 +100,7 @@ export default function Register() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="mb-8">
-          <Link to={toLocalePath("/")} className="flex items-center gap-3 mb-4">
+          <Link to={"/"} className="flex items-center gap-3 mb-4">
             <div className="w-20 h-20 flex items-center justify-center">
                 <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
@@ -152,7 +147,7 @@ export default function Register() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={isEnglish ? "you@example.com" : "seu@email.com"}
+                  placeholder={"seu@email.com"}
                   className="pl-10"
                   autoComplete="email"
                 />
@@ -199,7 +194,7 @@ export default function Register() {
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>
               {text.hasAccount}{" "}
-              <Link to={toLocalePath("/entrar")} className="text-amber-600 hover:text-amber-700 font-medium">
+              <Link to={"/entrar"} className="text-amber-600 hover:text-amber-700 font-medium">
                 {text.signIn}
               </Link>
             </p>

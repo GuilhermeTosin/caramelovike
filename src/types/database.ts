@@ -131,7 +131,6 @@ export interface Business {
   primary_activity?: string | null;
   primary_activity_custom?: string | null;
   description: string;
-  description_en?: string | null;
   hero_image: string | null;
   logo_url: string | null;
   street: string | null;
@@ -213,7 +212,6 @@ export interface BusinessFrontend {
   primaryActivity?: string;
   primaryActivityCustom?: string;
   description: string;
-  descriptionEn?: string;
   heroImage: string;
   logoUrl: string;
   address: {

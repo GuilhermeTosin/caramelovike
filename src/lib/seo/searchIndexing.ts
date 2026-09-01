@@ -1,4 +1,4 @@
-const INTERNAL_SEARCH_PATHS = new Set(["/buscar", "/en/search"]);
+const INTERNAL_SEARCH_PATHS = new Set(["/buscar"]);
 
 export function isInternalSearchPath(pathname: string): boolean {
   return INTERNAL_SEARCH_PATHS.has(pathname);

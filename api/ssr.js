@@ -193,16 +193,15 @@ function render500Html() {
 
 function parseBusinessPath(pathname) {
   const pathParts = pathname.split("/").filter(Boolean);
-  const locale = pathParts[0] === "en" ? "en" : "pt-BR";
-  const parts = locale === "en" ? pathParts.slice(1) : pathParts;
+  const parts = pathParts;
 
   if (parts.length === 4) {
     const [countryCode, stateCode, city, businessName] = parts;
-    return { kind: "full", countryCode, stateCode, city, businessName, locale };
+    return { kind: "full", countryCode, stateCode, city, businessName };
   }
-  if (locale === "pt-BR" && parts.length === 2) {
+  if (parts.length === 2) {
     const [countryCode, businessName] = parts;
-    return { kind: "country", countryCode, businessName, locale };
+    return { kind: "country", countryCode, businessName };
   }
   return null;
 }
@@ -210,8 +209,6 @@ function parseBusinessPath(pathname) {
 function isKnownAppPath(pathname) {
   const exactPaths = new Set([
     "/",
-    "/en",
-    "/en/businesses",
     "/buscar",
     "/negocios",
     "/cadastro",
@@ -224,23 +221,11 @@ function isKnownAppPath(pathname) {
     "/privacidade",
     "/termos",
     "/negocio/wizard",
-    "/en/search",
-    "/en/about",
-    "/en/contact",
-    "/en/privacy",
-    "/en/terms",
-    "/en/register",
-    "/en/login",
-    "/en/reset-password",
-    "/en/profile",
-    "/en/verified-business",
-    "/en/business/wizard",
   ]);
 
   if (exactPaths.has(pathname)) return true;
   if (pathname.startsWith("/negocios/")) return true;
-  if (pathname.startsWith("/en/businesses/")) return true;
-  if (pathname.startsWith("/eventos/") || pathname.startsWith("/en/events/")) return true;
+  if (pathname.startsWith("/eventos/")) return true;
   if (pathname.startsWith("/preview/negocio/")) return true;
   if (pathname.startsWith("/go/")) return true;
   return !!parseBusinessPath(pathname);
@@ -256,10 +241,10 @@ function applyPublicPageCacheHeaders(res, pathname, statusCode) {
 
   const normalizedPathname = normalizePathname(pathname);
   let cacheHeader = "";
-  if (normalizedPathname === "/" || normalizedPathname === "/en") {
+  if (normalizedPathname === "/") {
     // Keep the homepage snapshot consistent for crawlers without serving stale business counts.
     cacheHeader = "s-maxage=60, must-revalidate";
-  } else if (normalizedPathname === "/negocios" || normalizedPathname.startsWith("/negocios/") || normalizedPathname === "/en/businesses" || normalizedPathname.startsWith("/en/businesses/")) {
+  } else if (normalizedPathname === "/negocios" || normalizedPathname.startsWith("/negocios/")) {
     cacheHeader = "s-maxage=900, stale-while-revalidate=86400";
   }
   if (!cacheHeader) return;
@@ -272,6 +257,8 @@ function applyPublicPageCacheHeaders(res, pathname, statusCode) {
 export default async function handler(req, res) {
   const { url } = req;
   if (url === undefined) throw new Error("req.url is undefined");
+
+  const requestedUrl = new URL(url, "http://localhost");
 
   let pageContext;
   try {
@@ -305,7 +292,7 @@ export default async function handler(req, res) {
   const { body, statusCode, headers } = httpResponse;
   res.statusCode = statusCode;
   headers.forEach(([name, value]) => res.setHeader(name, value));
-  applyPublicPageCacheHeaders(res, new URL(url, "http://localhost").pathname, statusCode);
+  applyPublicPageCacheHeaders(res, requestedUrl.pathname, statusCode);
   if (statusCode === 404) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(render404Html());

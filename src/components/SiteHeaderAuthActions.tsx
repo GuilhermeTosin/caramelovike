@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { MessageCircle, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 type SiteHeaderAuthActionsProps = {
   className?: string;
   compact?: boolean;
@@ -13,8 +12,8 @@ export default function SiteHeaderAuthActions({
   compact = false,
 }: SiteHeaderAuthActionsProps) {
   const { session, unreadMessages, isLoading } = useAuth();
-  const { locale, toLocalePath } = useSiteLocale();
-  const isEnglish = locale === "en";
+  const locale = "pt-BR";
+
 
   const messageIconClassName = compact ? "w-4 h-4" : "w-5 h-5";
   const unreadBadgeClassName = compact ? "w-3.5 h-3.5 bg-primary text-[9px]" : "w-4 h-4 bg-primary text-[10px]";
@@ -29,13 +28,13 @@ export default function SiteHeaderAuthActions({
   return (
     <div className={className}>
       {isLoading ? (
-        <div className="flex min-h-10 w-48 items-center justify-end gap-1.5" aria-label={isEnglish ? "Loading account actions" : "Carregando ações da conta"}>
+        <div className="flex min-h-10 w-48 items-center justify-end gap-1.5" aria-label={"Carregando ações da conta"}>
           <div className="h-10 w-10 animate-pulse rounded-full bg-muted/70" />
           <div className="h-10 w-28 animate-pulse rounded-full bg-muted/70" />
         </div>
       ) : session ? (
         <div className="flex w-48 items-center justify-end gap-1.5">
-          <Link to={toLocalePath("/perfil?tab=mensagens")} className="relative group">
+          <Link to={"/perfil?tab=mensagens"} className="relative group">
             <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10">
               <MessageCircle className={messageIconClassName} />
               {unreadMessages > 0 && (
@@ -47,7 +46,7 @@ export default function SiteHeaderAuthActions({
               )}
             </Button>
           </Link>
-          <Link to={toLocalePath("/perfil")}>
+          <Link to={"/perfil"}>
             <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-full border-border px-3 hover:bg-secondary sm:h-10 sm:gap-2">
               <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
                 <User className="w-3 h-3 text-primary" />
@@ -58,14 +57,14 @@ export default function SiteHeaderAuthActions({
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <Link to={toLocalePath("/entrar")}>
+          <Link to={"/entrar"}>
             <Button variant="ghost" size="sm" className={loginButtonClassName}>
-              {isEnglish ? "Sign in" : "Entrar"}
+              {"Entrar"}
             </Button>
           </Link>
-          <Link to={toLocalePath("/cadastro")}>
+          <Link to={"/cadastro"}>
             <Button size="sm" className={signupButtonClassName} style={signupButtonStyle}>
-              {isEnglish ? "List your business" : "Cadastrar"}
+              {"Cadastrar"}
             </Button>
           </Link>
         </div>

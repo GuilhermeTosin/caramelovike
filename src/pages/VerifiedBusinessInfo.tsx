@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 import { BadgeCheck, CheckCircle2, ShieldCheck, Star, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,38 +8,9 @@ import { setSeoMeta } from "@/lib/seo";
 import { getSiteSlogan } from "@/lib/locales";
 
 export default function VerifiedBusinessInfo() {
-  const { locale, toLocalePath } = useSiteLocale();
-  const isEnglish = locale === "en";
-  const text = isEnglish ? {
-    title: "Verified Business | Caramelinho",
-    description: "Learn how to earn the Verified Business badge on Caramelinho, understand its 12-month validity and renewal criteria.",
-    request: "Request verification",
-    program: "Verified Business program",
-    hero: "Earn a trust badge on Caramelinho",
-    heroDescription: <>The <strong>Verified Business</strong> badge shows the community that your profile has gone through validation. Result: more trust, more clicks and more conversations with customers.</>,
-    benefits: "Benefits of verification",
-    searchPriority: "Priority in searches",
-    searchPriorityDescription: "Verified profiles receive higher display priority in search results.",
-    highlights: "Eligible for Featured placements",
-    highlightsDescription: "Only verified businesses can appear in the featured business section.",
-    trust: "More customer trust",
-    trustDescription: "The verification badge improves credibility and increases contact rates.",
-    requirements: "Current requirements",
-    requirementOne: <>Have at least <strong>5 reviews</strong> on the business page.</>,
-    requirementTwo: <>Have the business's <strong>Instagram</strong> listed on the profile.</>,
-    requirementThree: <>Make a post about Caramelinho and send the <strong>post link tagging our profile</strong>.</>,
-    validity: "Verification validity",
-    validityOne: <>Verification is valid for <strong>12 months</strong>. After that period, we request a new confirmation to ensure the business remains active, operating normally and genuinely serving the public.</>,
-    validityTwo: "We also revalidate the contact details, location and official channels. This reduces outdated profiles and protects the community from misleading information.",
-    validityThree: "In short, annual renewal keeps the badge trustworthy, improves the quality of search results and reinforces the safety of people using Caramelinho to find services.",
-    howItWorks: "How the review works",
-    stepOne: "Request",
-    stepOneDescription: <>Send the post link through the <strong>My Businesses</strong> panel.</>,
-    stepTwo: "Review",
-    stepTwoDescription: "Our team checks the criteria and the submitted content.",
-    stepThree: "Result",
-    stepThreeDescription: "Approved: badge active for 12 months. Rejected: you can make adjustments and resubmit.",
-  } : {
+  const locale = "pt-BR";
+
+  const text = {
     title: "Negócio Verificado | Caramelinho",
     description: "Saiba como conquistar o selo Negócio Verificado no Caramelinho, entender a validade de 12 meses e os critérios de renovação.",
     request: "Solicitar verificação",
@@ -63,6 +33,7 @@ export default function VerifiedBusinessInfo() {
     validityTwo: "Também revalidamos para confirmar que os dados de contato, localização e canais oficiais continuam corretos. Isso reduz perfis desatualizados e protege a comunidade contra informações enganosas.",
     validityThree: "Em resumo, a renovação anual mantém o selo confiável, melhora a qualidade dos resultados de busca e reforça a segurança de quem usa o Caramelinho para encontrar serviços.",
     howItWorks: "Como funciona a análise",
+    stepLabel: "PASSO",
     stepOne: "Solicitação",
     stepOneDescription: <>Você envia o link do post no painel <strong>Meus Negócios</strong>.</>,
     stepTwo: "Revisão",
@@ -79,7 +50,7 @@ export default function VerifiedBusinessInfo() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-24 flex items-center justify-between">
-          <Link to={toLocalePath("/")} className="flex items-center gap-3 group">
+          <Link to={"/"} className="flex items-center gap-3 group">
             <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
               <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
             </div>
@@ -89,7 +60,7 @@ export default function VerifiedBusinessInfo() {
             </div>
           </Link>
           <Button asChild className="caramelo-gradient text-white border-0">
-            <Link to={toLocalePath("/perfil?tab=negocios")}>{text.request}</Link>
+            <Link to={"/perfil?tab=negocios"}>{text.request}</Link>
           </Button>
         </div>
       </header>
@@ -167,17 +138,17 @@ export default function VerifiedBusinessInfo() {
           <h2 className="text-2xl font-bold mb-4">{text.howItWorks}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-5 border-border">
-              <p className="text-xs font-bold text-muted-foreground">PASSO 1</p>
+              <p className="text-xs font-bold text-muted-foreground">{text.stepLabel} 1</p>
               <p className="font-semibold mt-1">{text.stepOne}</p>
               <p className="text-sm text-muted-foreground mt-2">{text.stepOneDescription}</p>
             </Card>
             <Card className="p-5 border-border">
-              <p className="text-xs font-bold text-muted-foreground">PASSO 2</p>
+              <p className="text-xs font-bold text-muted-foreground">{text.stepLabel} 2</p>
               <p className="font-semibold mt-1">{text.stepTwo}</p>
               <p className="text-sm text-muted-foreground mt-2">{text.stepTwoDescription}</p>
             </Card>
             <Card className="p-5 border-border">
-              <p className="text-xs font-bold text-muted-foreground">PASSO 3</p>
+              <p className="text-xs font-bold text-muted-foreground">{text.stepLabel} 3</p>
               <p className="font-semibold mt-1">{text.stepThree}</p>
               <p className="text-sm text-muted-foreground mt-2">{text.stepThreeDescription}</p>
             </Card>

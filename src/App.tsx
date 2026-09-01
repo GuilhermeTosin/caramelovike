@@ -1,8 +1,7 @@
-import { BrowserRouter, Route, Routes, StaticRouter, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, StaticRouter, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { LocaleProvider } from "@/contexts/LocaleContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
@@ -25,7 +24,6 @@ import AboutPage from "@/pages/AboutPage";
 import ContactPage from "@/pages/ContactPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
-import { EnglishAboutPage, EnglishContactPage, EnglishPrivacyPage, EnglishTermsPage } from "@/pages/EnglishPublicPages";
 import NotFound from "@/pages/NotFound";
 import BusinessPageRoute from "@/pages/BusinessPageRoute";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
@@ -66,7 +64,6 @@ function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean
     if (typeof window === "undefined") return;
     const privatePaths = new Set([
       "/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard",
-      "/en/register", "/en/login", "/en/reset-password", "/en/profile", "/en/business/wizard",
     ]);
     const isPrivatePreviewPath = pathname.startsWith("/preview/negocio/");
     const canonicalPathname = isBusinessPage ? pathname : getInternalSearchCanonicalPath(pathname);
@@ -144,7 +141,6 @@ export default function App({
   return (
     <AuthProvider>
       <AppRouter router={router} location={location}>
-        <LocaleProvider>
         <ScrollToTop />
         <CanonicalManager isBusinessPage={isBusinessPage} />
         <GoogleAnalytics />
@@ -161,34 +157,6 @@ export default function App({
                 initialSearchSynonyms={initialSearchSynonyms}
                 initialSearchSnapshot={initialSearchSnapshot}
                 initialHomeSnapshot={initialHomeSnapshot}
-              />
-            }
-          />
-          <Route
-            path="/en"
-            element={
-              <Home
-                initialBusinesses={initialBusinesses}
-                initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
-                initialFeaturedBusinesses={initialFeaturedBusinesses}
-                initialAvailableLocations={initialAvailableLocations}
-                initialSearchSuggestions={initialSearchSuggestions}
-                initialSearchSynonyms={initialSearchSynonyms}
-                initialSearchSnapshot={initialSearchSnapshot}
-                initialHomeSnapshot={initialHomeSnapshot}
-              />
-            }
-          />
-                    <Route
-            path="/en/search"
-            element={
-              <SearchResults
-                initialBusinesses={initialBusinesses}
-                initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
-                initialAvailableLocations={initialAvailableLocations}
-                initialSearchSuggestions={initialSearchSuggestions}
-                initialSearchSynonyms={initialSearchSynonyms}
-                initialSearchSnapshot={initialSearchSnapshot}
               />
             }
           />
@@ -212,41 +180,24 @@ export default function App({
           <Route path="/negocios/:countryCode/:stateCode/:citySlug/:categorySlug" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
           <Route path="/negocios/:countryCode/:stateCode/:citySlug" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
           <Route path="/negocios/:countryCode/:stateCode/:citySlug/pagina/:page" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
-          <Route path="/en/businesses" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
-          <Route path="/en/businesses/:countryCode" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
-          <Route path="/en/businesses/:countryCode/:stateCode" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
-          <Route path="/en/businesses/:countryCode/:stateCode/:citySlug/pagina/:page" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
-          <Route path="/en/businesses/:countryCode/:stateCode/:citySlug" element={<BusinessDirectoryPage initialDirectorySnapshot={initialDirectorySnapshot} />} />
           <Route path="/cadastro" element={<Register />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/redefinir-senha" element={<ResetPassword />} />
           <Route path="/perfil" element={<UserProfile />} />
           <Route path="/negocio-verificado" element={<VerifiedBusinessInfo />} />
-          <Route path="/en/register" element={<Register />} />
-          <Route path="/en/login" element={<Login />} />
-          <Route path="/en/reset-password" element={<ResetPassword />} />
-          <Route path="/en/profile" element={<UserProfile />} />
-          <Route path="/en/verified-business" element={<VerifiedBusinessInfo />} />
-          <Route path="/en/about" element={<EnglishAboutPage />} />
-          <Route path="/en/contact" element={<EnglishContactPage />} />
-          <Route path="/en/privacy" element={<EnglishPrivacyPage />} />
-          <Route path="/en/terms" element={<EnglishTermsPage />} />
           <Route path="/sobre" element={<AboutPage />} />
           <Route path="/contato" element={<ContactPage />} />
           <Route path="/privacidade" element={<PrivacyPage />} />
           <Route path="/termos" element={<TermsPage />} />
+          <Route path="/eventos" element={<Navigate to="/buscar?eventos=1" replace />} />
           <Route path="/eventos/:eventId" element={<EventPage initialEvent={initialEvent} />} />
-          <Route path="/en/events/:eventId" element={<EventPage initialEvent={initialEvent} />} />
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
-          <Route path="/en/business/wizard" element={<BusinessWizardPage />} />
           <Route path="/preview/negocio/:businessId" element={<BusinessPageRoute previewMode />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
-          <Route path="/en/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} locale="en" />} />
           <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="/:countryCode/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-        </LocaleProvider>
       </AppRouter>
       <Toaster richColors position="top-center" />
       <DeferredAnalytics />

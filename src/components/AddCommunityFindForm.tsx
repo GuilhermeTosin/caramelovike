@@ -17,7 +17,6 @@ import { getApproxGeoByIp } from "@/lib/utils/geo";
 import { uploadImage, generateImagePath } from "@/services/storage";
 import { supabase } from "@/lib/supabase";
 import AddressAutocomplete, { type AddressResult } from "@/components/AddressAutocomplete";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 
 const CATEGORY_OPTIONS: Array<{ value: CommunityFindCategory; label: string }> = [
   { value: "comida", label: "Comida" },
@@ -38,33 +37,9 @@ type Props = {
 };
 
 export default function AddCommunityFindForm({ onCreated }: Props) {
-  const { locale } = useSiteLocale();
-  const isEnglish = locale === "en";
-  const text = isEnglish
-    ? {
-        required: "Enter the product name, place name and address.",
-        uploadError: "Could not upload the community find photo.",
-        publishError: "Could not publish this community find.",
-        publishedWithPlace: "Community find published with the selected place location.",
-        published: "Community find published successfully.",
-        publishedWithIp: "Community find published with approximate location from your IP address.",
-        geolocationError: "Could not determine your location using GPS or IP.",
-        title: "Add a community find",
-        description: "Share a community discovery with the place's precise location.",
-        productName: "Product name",
-        placeName: "Place name",
-        address: "Address / place",
-        exactLocationHint: "Choose an option from the list to use the place's exact location.",
-        category: "Category",
-        selectCategory: "Select a category",
-        photo: "Community find photo (optional)",
-        formats: "Accepted formats: JPG, PNG and WEBP. Recommended size: up to 5 MB.",
-        preview: "Community find preview",
-        remove: "Remove",
-        publishing: "Publishing...",
-        publish: "Publish community find",
-      }
-    : {
+  const locale = "pt-BR";
+
+  const text = {
         required: "Preencha o nome do produto, o nome do local e o endereço.",
         uploadError: "Não foi possível enviar a foto do achadinho.",
         publishError: "Não foi possível publicar o achadinho.",
@@ -218,7 +193,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
             id="find-product-name"
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
-            placeholder={isEnglish ? "For example: Guaraná Antarctica" : "Ex.: Guaraná Antarctica"}
+            placeholder={"Ex.: Guaraná Antarctica"}
             maxLength={140}
             required
           />
@@ -230,7 +205,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
             id="find-place-name"
             value={placeName}
             onChange={(e) => setPlaceName(e.target.value)}
-            placeholder={isEnglish ? "For example: Walmart Downtown Montreal" : "Ex.: Walmart Downtown Montreal"}
+            placeholder={"Ex.: Walmart Downtown Montreal"}
             maxLength={180}
             required
           />
@@ -248,7 +223,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
               setSelectedPlace(place);
               setLocationAddress(place.formattedAddress || `${place.city}, ${place.country}`);
             }}
-            placeholder={isEnglish ? "For example: Walmart, 123 Main St, Montreal" : "Ex.: Walmart, 123 Main St, Montreal"}
+            placeholder={"Ex.: Walmart, 123 Main St, Montreal"}
           />
           <p className="text-xs text-muted-foreground">
             {text.exactLocationHint}
@@ -264,7 +239,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
             <SelectContent>
               {CATEGORY_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {isEnglish ? CATEGORY_LABELS_EN[option.value] : option.label}
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>

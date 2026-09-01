@@ -13,6 +13,7 @@ type PaginationProps = {
   nextLabel?: string;
   navigationLabel?: string;
   pageLabel?: string;
+  ofLabel?: string;
   className?: string;
 };
 
@@ -41,6 +42,7 @@ export default function Pagination({
   nextLabel = "Próxima",
   navigationLabel = "Paginação",
   pageLabel = "Página",
+  ofLabel = "de",
   className = "",
 }: PaginationProps) {
   const page = Math.max(1, Math.min(currentPage, totalPages));
@@ -108,7 +110,7 @@ export default function Pagination({
     <nav className={`flex flex-nowrap items-center justify-center gap-2 sm:flex-wrap ${className}`} aria-label={navigationLabel}>
       {renderNavigationButton("previous")}
       <span className="sm:hidden text-xs font-medium text-muted-foreground whitespace-nowrap">
-        {pageLabel} {page} de {totalPages}
+        {pageLabel} {page} {ofLabel} {totalPages}
       </span>
       {items.map((item) =>
         typeof item === "number" ? renderPageButton(item) : (

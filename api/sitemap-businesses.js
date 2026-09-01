@@ -81,16 +81,6 @@ export function buildBusinessUrl(baseUrl, row) {
   return `${baseUrl}/go/${slug}`;
 }
 
-function buildEnglishBusinessUrl(baseUrl, row) {
-  const slug = normalizePart(row.slug);
-  const country = normalizePart(row.country_code);
-  const state = normalizePart(row.state_code);
-  const city = normalizePart(getCanonicalCitySlug(row));
-  const description = String(row.description_en || "").replace(/<[^>]*>/g, "").trim();
-  if (!description || !slug || !country || !state || !city) return null;
-  return `${baseUrl}/en/${country}/${state}/${city}/${slug}`;
-}
-
 function buildDirectoryCategoryUrls(baseUrl, rows) {
   const counts = new Map();
   for (const row of rows) {
@@ -139,7 +129,7 @@ function buildXml(baseUrl, rows) {
       const lastmod = getLastmod(row);
       const lastmodTag = lastmod ? `<lastmod>${lastmod}</lastmod>` : "";
 
-      return [buildBusinessUrl(baseUrl, row), buildEnglishBusinessUrl(baseUrl, row)]
+      return [buildBusinessUrl(baseUrl, row)]
         .filter(Boolean)
         .map((url) => `<url><loc>${escapeXml(url)}</loc>${lastmodTag}<changefreq>weekly</changefreq></url>`);
     })
@@ -162,7 +152,7 @@ ${body}
 
 async function fetchPage(config, offset) {
   const params = new URLSearchParams({
-    select: "slug,country_code,state_code,city,city_slug,created_at,updated_at,primary_activity,description_en",
+    select: "slug,country_code,state_code,city,city_slug,created_at,updated_at,primary_activity",
     or: "(moderation_status.eq.approved,moderation_status.is.null)",
     slug: "not.is.null",
     order: "created_at.desc",
@@ -233,7 +223,7 @@ export async function getBusinessSitemapData(req) {
 
   try {
     const rows = await fetchBusinesses(config);
-    const urls = rows.flatMap((row) => [buildBusinessUrl(baseUrl, row), buildEnglishBusinessUrl(baseUrl, row)].filter(Boolean));
+    const urls = rows.flatMap((row) => [buildBusinessUrl(baseUrl, row)].filter(Boolean));
     const directoryUrls = [
       ...buildDirectoryUrls(baseUrl, rows),
       ...buildDirectoryCategoryUrls(baseUrl, rows),

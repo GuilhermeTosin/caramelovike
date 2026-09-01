@@ -11,7 +11,6 @@ import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import type { BusinessFrontend } from "@/types/database";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 
 type AllBusinessesTabProps = {
   filteredAllBusinesses: BusinessFrontend[];
@@ -36,7 +35,7 @@ export default function AllBusinessesTab({
   onPageChange,
   onDeleteBusiness,
 }: AllBusinessesTabProps) {
-  const { toLocalePath } = useSiteLocale();
+
   return (
     <TabsContent value="todos-negocios" className="mt-0">
       <div className="space-y-4">
@@ -89,7 +88,7 @@ export default function AllBusinessesTab({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Link to={toLocalePath(`/negocio/wizard?editBusinessId=${biz.id}`)}>
+                    <Link to={`/negocio/wizard?editBusinessId=${biz.id}`}>
                       <Button size="sm" variant="outline">
                         <Edit3 className="w-3.5 h-3.5 mr-1.5" />
                         Editar

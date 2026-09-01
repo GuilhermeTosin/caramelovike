@@ -58,7 +58,7 @@ describe("business SEO metadata", () => {
       },
     };
 
-    expect(buildBusinessSeoTitle(onlineBusiness, "pt-BR")).toContain("em Montreal, Quebec");
+    expect(buildBusinessSeoTitle(onlineBusiness)).toContain("em Montreal, Quebec");
   });
   it("uses Portuguese display names for known city exonyms without changing unknown cities", () => {
     expect(getCityDisplayName("London", "gb")).toBe("Londres");
@@ -81,7 +81,7 @@ describe("business SEO metadata", () => {
       },
     };
 
-    expect(buildBusinessSeoTitle(londonBusiness, "pt-BR")).toContain("em Londres, Inglaterra");
+    expect(buildBusinessSeoTitle(londonBusiness)).toContain("em Londres, Inglaterra");
   });
   it("exposes exactly the curated food activities", () => {
     expect(getPrimaryActivityOptions("food").map((activity) => activity.id)).toEqual([
@@ -284,8 +284,8 @@ describe("business SEO metadata", () => {
     ]);
   });
   it("uses Brazilian descriptors only in titles for selected activities", () => {
-    expect(getBusinessSeoDescriptor(baseBusiness, "pt-BR")).toBe("Restaurante");
-    expect(buildBusinessSeoTitle(baseBusiness, "pt-BR")).toBe(
+    expect(getBusinessSeoDescriptor(baseBusiness)).toBe("Restaurante");
+    expect(buildBusinessSeoTitle(baseBusiness)).toBe(
       "Sabor Carioca | Restaurante brasileiro em Toronto, Ontario",
     );
 
@@ -295,7 +295,7 @@ describe("business SEO metadata", () => {
       category: "Saude e Beleza",
       primaryActivity: "dentist",
     };
-    expect(buildBusinessSeoTitle(dentistBusiness, "pt-BR")).toBe(
+    expect(buildBusinessSeoTitle(dentistBusiness)).toBe(
       "Sabor Carioca | Dentista brasileiro em Toronto, Ontario",
     );
   });
@@ -308,7 +308,7 @@ describe("business SEO metadata", () => {
       primaryActivity: "pet_hotel",
     };
 
-    expect(getBusinessSeoDescriptor(petBusiness, "pt-BR")).toBe("Hotel para c\u00e3es e gatos");
+    expect(getBusinessSeoDescriptor(petBusiness)).toBe("Hotel para c\u00e3es e gatos");
   });
 
   it("does not apply the override when no primary activity was selected", () => {
@@ -317,29 +317,6 @@ describe("business SEO metadata", () => {
       primaryActivity: "",
     };
 
-    expect(getBusinessSeoDescriptor(legacyBusiness, "pt-BR")).toBe("Restaurantes e Alimentacao");
-  });
-});
-describe("English business SEO metadata", () => {
-  it("uses the curated English primary activity in the title and description", () => {
-    expect(buildBusinessSeoTitle(baseBusiness, "en")).toBe(
-      "Sabor Carioca | Brazilian restaurant in Toronto, Ontario",
-    );
-    expect(buildBusinessSeoDescription(baseBusiness, "en")).toContain("Sabor Carioca: Restaurant in Toronto, Ontario.");
-    expect(buildBusinessSeoDescription(baseBusiness, "en")).toContain("See services, reviews, photos, and contact details.");
-  });
-
-  it("does not expose an untranslated custom activity in English metadata", () => {
-    const customPetBusiness = {
-      ...baseBusiness,
-      categoryId: "pets",
-      category: "Serviços para Pets",
-      primaryActivity: "other",
-      primaryActivityCustom: "Hospedagem especial para cães",
-    };
-
-    expect(buildBusinessSeoTitle(customPetBusiness, "en")).toBe(
-      "Sabor Carioca | Brazilian pet services in Toronto, Ontario",
-    );
+    expect(getBusinessSeoDescriptor(legacyBusiness)).toBe("Restaurantes e Alimentacao");
   });
 });

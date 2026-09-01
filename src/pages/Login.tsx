@@ -6,17 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getSiteSlogan } from "@/lib/locales";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { locale, toLocalePath } = useSiteLocale();
-  const isEnglish = locale === "en";
-  const text = isEnglish ? {
-    required: "Enter your email and password.", invalid: "Incorrect email or password.", unconfirmed: "Your email has not been confirmed yet. Check your inbox or spam folder.",
-    title: "Sign in", welcome: "Welcome back to Caramelinho!", password: "Password", passwordPlaceholder: "Your password", forgot: "Forgot your password?", loading: "Signing in...", submit: "Sign in", noAccount: "Don't have an account?", register: "Create an account",
-  } : {
+  const locale = "pt-BR";
+
+  const text = {
     required: "Preencha email e senha.", invalid: "Email ou senha incorretos.", unconfirmed: "Seu email ainda não foi confirmado. Verifique sua caixa de entrada ou spam.",
     title: "Entrar", welcome: "Bem-vindo de volta ao Caramelinho!", password: "Senha", passwordPlaceholder: "Sua senha", forgot: "Esqueci minha senha", loading: "Entrando...", submit: "Entrar", noAccount: "Ainda não tem conta?", register: "Cadastre-se",
   };
@@ -56,15 +52,15 @@ export default function Login() {
 
     // O onAuthStateChange no AuthContext cuidará do redirecionamento e carregamento
     const params = new URLSearchParams(window.location.search);
-    const redirect = params.get("redirect") || toLocalePath("/perfil");
-    navigate(redirect.startsWith("/") ? redirect : toLocalePath("/perfil"));
+    const redirect = params.get("redirect") || "/perfil";
+    navigate(redirect.startsWith("/") ? redirect : "/perfil");
   };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="mb-8">
-          <Link to={toLocalePath("/")} className="flex items-center gap-3 mb-4">
+          <Link to={"/"} className="flex items-center gap-3 mb-4">
             <div className="w-20 h-20 flex items-center justify-center">
                 <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
@@ -96,7 +92,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={isEnglish ? "you@example.com" : "seu@email.com"}
+                  placeholder={"seu@email.com"}
                   className="pl-10"
                   autoComplete="email"
                 />
@@ -118,7 +114,7 @@ export default function Login() {
                 />
               </div>
               <div className="mt-2 text-right">
-                <Link to={toLocalePath("/redefinir-senha")} className="text-xs text-amber-600 hover:text-amber-700 font-medium">
+                <Link to={"/redefinir-senha"} className="text-xs text-amber-600 hover:text-amber-700 font-medium">
                   {text.forgot}
                 </Link>
               </div>
@@ -132,7 +128,7 @@ export default function Login() {
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>
               {text.noAccount}{" "}
-              <Link to={toLocalePath("/cadastro")} className="text-amber-600 hover:text-amber-700 font-medium">
+              <Link to={"/cadastro"} className="text-amber-600 hover:text-amber-700 font-medium">
                 {text.register}
               </Link>
             </p>

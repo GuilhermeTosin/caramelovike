@@ -9,7 +9,6 @@ type BusinessPageProps = {
   initialBusinesses?: BusinessFrontend[];
   initialSimilarBusinesses?: BusinessFrontend[];
   previewMode?: boolean;
-  locale?: "pt-BR" | "en";
 };
 
 type BusinessPageModule = typeof import("@/pages/BusinessPage");

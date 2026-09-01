@@ -53,15 +53,13 @@ import { useReportsAdmin } from "@/pages/user-profile/hooks/useReportsAdmin";
 import { useFeaturedAdmin } from "@/pages/user-profile/hooks/useFeaturedAdmin";
 import { useInboxAndReviews } from "@/pages/user-profile/hooks/useInboxAndReviews";
 import { useBusinessManagement } from "@/pages/user-profile/hooks/useBusinessManagement";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getSiteSlogan } from "@/lib/locales";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
 import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 
 export default function UserProfile() {
   const navigate = useNavigate();
-  const { locale, toLocalePath } = useSiteLocale();
-  const isEnglish = locale === "en";
+  const locale = "pt-BR";
+
   const { session, user, isLoading, logout, refreshUnread, unreadMessages, refreshSession } = useAuth();
   const isAdmin = session?.role === "admin" || user?.role === "admin";
   const canManageUsers = isAdmin && String(user?.email || session?.email || "").trim().toLowerCase() === USER_MANAGEMENT_ADMIN_EMAIL;
@@ -154,15 +152,15 @@ export default function UserProfile() {
 
   const handleTransferBusinessToAdmin = async (businessId: string) => {
     if (!canManageUsers) {
-      throw new Error(isEnglish ? "Unauthorized action." : "Ação não autorizada.");
+      throw new Error("Ação não autorizada.");
     }
 
     const result = await transferBusinessOwnershipByEmail(businessId, USER_MANAGEMENT_ADMIN_EMAIL);
     if (!result.ok) {
-      throw new Error(result.error || (isEnglish ? "Could not transfer the business." : "Não foi possível transferir o negócio."));
+      throw new Error(result.error || ("Não foi possível transferir o negócio."));
     }
 
-    toast.success(isEnglish ? "Business transferred to your account." : "Negócio transferido para sua conta.");
+    toast.success("Negócio transferido para sua conta.");
     await Promise.allSettled([
       refreshAdminUsers(),
       refreshAllBusinesses(),
@@ -428,7 +426,7 @@ export default function UserProfile() {
     const sessionUserId = session?.userId;
     if (!sessionUserId) {
       loadedMyBusinessesOwnerIdRef.current = null;
-      navigate(toLocalePath("/entrar?redirect=/perfil"));
+      navigate("/entrar?redirect=/perfil");
       return;
     }
 
@@ -444,7 +442,7 @@ export default function UserProfile() {
       .finally(() => {
         setLoadingMyBusinesses(false);
       });
-  }, [session?.userId, navigate, isLoading, toLocalePath]);
+  }, [session?.userId, navigate, isLoading]);
 
   useEffect(() => {
     setMyBusinessesPage(1);
@@ -468,7 +466,7 @@ export default function UserProfile() {
           if (!cancelled) setAllBusinesses(businesses);
         })
         .catch(() => {
-          if (!cancelled) setQualityError(isEnglish ? "Could not load businesses for the audit." : "Não foi possível carregar os negócios para a auditoria.");
+          if (!cancelled) setQualityError("Não foi possível carregar os negócios para a auditoria.");
         })
         .finally(() => {
           if (!cancelled) setQualityLoading(false);
@@ -478,7 +476,7 @@ export default function UserProfile() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, isAdmin, isEnglish]);
+  }, [activeTab, isAdmin, false]);
 
 
   const handleMyBusinessesSearchChange = (value: string) => {
@@ -508,10 +506,10 @@ export default function UserProfile() {
     if (success) {
       setIsEditing(false);
       setAvatarFile(null);
-      toast.success(isEnglish ? "Profile updated!" : "Perfil atualizado!");
+      toast.success("Perfil atualizado!");
       await refreshSession();
     } else {
-      toast.error(isEnglish ? "Could not update profile." : "Erro ao atualizar perfil.");
+      toast.error("Erro ao atualizar perfil.");
     }
 
     setIsUploading(false);
@@ -520,19 +518,19 @@ export default function UserProfile() {
   const handleChangePassword = async () => {
     const email = user?.email || session?.email || "";
     if (!email) {
-      toast.error(isEnglish ? "Could not identify the account email." : "Nao foi possivel identificar o e-mail da conta.");
+      toast.error("Nao foi possivel identificar o e-mail da conta.");
       return;
     }
     if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
-      toast.error(isEnglish ? "Enter your current password, new password and confirmation." : "Preencha a senha atual, a nova senha e a confirmacao.");
+      toast.error("Preencha a senha atual, a nova senha e a confirmacao.");
       return;
     }
     if (newPassword.length < 6) {
-      toast.error(isEnglish ? "Your new password must be at least 6 characters." : "A nova senha deve ter pelo menos 6 caracteres.");
+      toast.error("A nova senha deve ter pelo menos 6 caracteres.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error(isEnglish ? "The new password and confirmation do not match." : "A nova senha e a confirmacao nao conferem.");
+      toast.error("A nova senha e a confirmacao nao conferem.");
       return;
     }
 
@@ -544,7 +542,7 @@ export default function UserProfile() {
 
     if (signInError) {
       setIsChangingPassword(false);
-      toast.error(isEnglish ? "Incorrect current password." : "Senha atual incorreta.");
+      toast.error("Senha atual incorreta.");
       return;
     }
 
@@ -559,13 +557,13 @@ export default function UserProfile() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
-    toast.success(isEnglish ? "Password updated successfully." : "Senha atualizada com sucesso.");
+    toast.success("Senha atualizada com sucesso.");
   };
 
   const handleLogout = async () => {
     await logout();
-    navigate(toLocalePath("/"));
-    toast.success(isEnglish ? "You have signed out." : "Voce saiu da sua conta.");
+    navigate("/");
+    toast.success("Voce saiu da sua conta.");
   };
 
   const MY_BUSINESSES_PER_PAGE = 5;
@@ -620,7 +618,7 @@ export default function UserProfile() {
       <div className={centeredShellClassName}>
         <div className="text-center">
           <PawPrint className="mx-auto mb-4 h-16 w-16 animate-pulse text-muted-foreground/30" />
-          <p className="text-muted-foreground">{isEnglish ? "Loading your profile..." : "Carregando seu perfil..."}</p>
+          <p className="text-muted-foreground">{"Carregando seu perfil..."}</p>
         </div>
       </div>
     );
@@ -634,7 +632,7 @@ export default function UserProfile() {
         <div className={centeredShellClassName}>
           <div className="text-center">
             <PawPrint className="mx-auto mb-4 h-16 w-16 animate-pulse text-muted-foreground/30" />
-            <p className="text-muted-foreground">{isEnglish ? "Loading your profile..." : "Carregando seu perfil..."}</p>
+            <p className="text-muted-foreground">{"Carregando seu perfil..."}</p>
           </div>
         </div>
       );
@@ -646,9 +644,9 @@ export default function UserProfile() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
             <User className="h-8 w-8 text-amber-600" />
           </div>
-          <h1 className="mb-2 text-xl font-bold">{isEnglish ? "Profile not found" : "Ops! Perfil nao encontrado"}</h1>
+          <h1 className="mb-2 text-xl font-bold">{"Ops! Perfil nao encontrado"}</h1>
           <p className="mb-6 text-muted-foreground">
-            {isEnglish ? "We could not load your information. This can happen if your profile has not been created in the database yet." : "Nao conseguimos carregar suas informacoes. Isso pode acontecer se seu perfil ainda nao foi criado no banco de dados."}
+            {"Nao conseguimos carregar suas informacoes. Isso pode acontecer se seu perfil ainda nao foi criado no banco de dados."}
           </p>
           <div className="flex flex-col gap-3">
             <Button
@@ -657,10 +655,10 @@ export default function UserProfile() {
               }}
               className="w-full border-0 caramelo-gradient text-white"
             >
-              {isEnglish ? "Try again" : "Tentar novamente"}
+              {"Tentar novamente"}
             </Button>
             <Button variant="ghost" onClick={logout} className="w-full">
-              {isEnglish ? "Sign out" : "Sair da conta"}
+              {"Sair da conta"}
             </Button>
           </div>
         </div>
@@ -673,7 +671,7 @@ export default function UserProfile() {
       <header className="sticky top-0 z-50 border-b border-border bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between sm:h-24">
-            <Link to={toLocalePath("/")} className="group flex items-center gap-3">
+            <Link to={"/"} className="group flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center sm:h-[5.5rem] sm:w-[5.5rem]">
                 <img src="/logo.webp" alt="Caramelinho logo" className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
@@ -687,15 +685,14 @@ export default function UserProfile() {
 
             <div className="flex shrink-0 items-center">
               <div className="hidden items-center gap-3 sm:flex">
-                <LanguageSwitcher />
                 {isLoading ? (
-                  <div className="flex w-48 items-center justify-end gap-1.5" aria-label={isEnglish ? "Loading account actions" : "Carregando ações da conta"}>
+                  <div className="flex w-48 items-center justify-end gap-1.5" aria-label={"Carregando ações da conta"}>
                     <div className="h-10 w-10 animate-pulse rounded-full bg-muted/70" />
                     <div className="h-10 w-28 animate-pulse rounded-full bg-muted/70" />
                   </div>
                 ) : (
                   <div className="flex w-48 items-center justify-end gap-1.5">
-                    <Link to={toLocalePath("/perfil?tab=mensagens")} onClick={() => setActiveTab("mensagens")} className="group relative">
+                    <Link to={"/perfil?tab=mensagens"} onClick={() => setActiveTab("mensagens")} className="group relative">
                       <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-secondary sm:h-10 sm:w-10">
                         <MessageCircle className="h-5 w-5" />
                         {unreadMessages > 0 ? (
@@ -705,12 +702,12 @@ export default function UserProfile() {
                         ) : null}
                       </Button>
                     </Link>
-                    <Link to={toLocalePath("/perfil")}>
+                    <Link to={"/perfil"}>
                       <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-full border-border px-3 hover:bg-secondary sm:h-10 sm:gap-2">
                         <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
                           <User className="h-3 w-3 text-primary" />
                         </div>
-                        <span className="max-w-[90px] truncate font-medium">{session.name?.split(" ")[0] || (isEnglish ? "Profile" : "Perfil")}</span>
+                        <span className="max-w-[90px] truncate font-medium">{session.name?.split(" ")[0] || ("Perfil")}</span>
                       </Button>
                     </Link>
                   </div>
@@ -973,7 +970,7 @@ export default function UserProfile() {
                   setQualityError("");
                   void getAllBusinesses()
                     .then(setAllBusinesses)
-                    .catch(() => setQualityError(isEnglish ? "Could not load businesses for the audit." : "Não foi possível carregar os negócios para a auditoria."))
+                    .catch(() => setQualityError("Não foi possível carregar os negócios para a auditoria."))
                     .finally(() => setQualityLoading(false));
                 }}
               />

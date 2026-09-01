@@ -9,7 +9,6 @@ import type {
   MessagesTabConversation,
   MessagesTabMessage,
 } from "@/pages/user-profile/types";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 
 type MessagesTabProps = {
   conversations: MessagesTabConversation[];
@@ -42,17 +41,17 @@ export default function MessagesTab({
   onMessageTextChange,
   onSendMessage,
 }: MessagesTabProps) {
-  const { locale } = useSiteLocale();
-  const isEnglish = locale === "en";
+  const locale = "pt-BR";
+
   return (
     <TabsContent value="mensagens" className="mt-0">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
-          <h2 className="text-2xl font-bold text-foreground mb-4">{isEnglish ? "Messages" : "Mensagens"}</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4">{"Mensagens"}</h2>
           {conversations.length === 0 ? (
             <Card className="p-6 text-center border-border">
               <MessageCircle className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">{isEnglish ? "No conversations yet." : "Nenhuma conversa ainda."}</p>
+              <p className="text-sm text-muted-foreground">{"Nenhuma conversa ainda."}</p>
             </Card>
           ) : (
             <div className="space-y-2">
@@ -72,7 +71,7 @@ export default function MessagesTab({
                       {conversationPartners[conv.id]?.avatar ? (
                         <img
                           src={conversationPartners[conv.id].avatar}
-                            alt={conversationPartners[conv.id]?.name || (isEnglish ? "Contact" : "Contato")}
+                            alt={conversationPartners[conv.id]?.name || ("Contato")}
                           className="w-full h-full object-cover"
                           loading="lazy"
                         />
@@ -85,7 +84,7 @@ export default function MessagesTab({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-semibold text-sm truncate">
-                          {conversationPartners[conv.id]?.name || conv.businessName || (isEnglish ? "Conversation" : "Conversa")}
+                          {conversationPartners[conv.id]?.name || conv.businessName || ("Conversa")}
                         </p>
                         {conv.lastMessageAt ? (
                           <span className="text-[11px] text-muted-foreground whitespace-nowrap">
@@ -102,7 +101,7 @@ export default function MessagesTab({
                         </p>
                       ) : null}
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {conv.lastMessage || (isEnglish ? "Click to view messages" : "Clique para ver mensagens")}
+                          {conv.lastMessage || ("Clique para ver mensagens")}
                       </p>
                     </div>
                   </div>
@@ -117,7 +116,7 @@ export default function MessagesTab({
             <Card className="border-border h-[500px] flex flex-col">
               <div className="p-4 border-b border-border flex items-center justify-between">
                 <p className="font-semibold text-sm">
-                  {selectedConv.businessName || (isEnglish ? "Conversation" : "Conversa")}
+                  {selectedConv.businessName || ("Conversa")}
                 </p>
                 <Button
                   variant="ghost"
@@ -150,7 +149,7 @@ export default function MessagesTab({
                 ))}
                 {messages.length === 0 && (
                   <div className="text-center text-sm text-muted-foreground py-8">
-                    {isEnglish ? "No messages yet. Send the first one!" : "Nenhuma mensagem ainda. Envie a primeira!"}
+                    {"Nenhuma mensagem ainda. Envie a primeira!"}
                   </div>
                 )}
                 <div ref={messagesEndRef} />
@@ -166,7 +165,7 @@ export default function MessagesTab({
                   <Input
                     value={messageText}
                     onChange={(e) => onMessageTextChange(e.target.value)}
-                    placeholder={isEnglish ? "Type your message..." : "Digite sua mensagem..."}
+                    placeholder={"Digite sua mensagem..."}
                     className="flex-1"
                   />
                   <Button type="submit" size="icon" disabled={!messageText.trim() || sendingMsg}>
@@ -179,7 +178,7 @@ export default function MessagesTab({
             <Card className="border-border h-[500px] flex items-center justify-center">
               <div className="text-center">
                 <MessageCircle className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground">{isEnglish ? "Select a conversation" : "Selecione uma conversa"}</p>
+                <p className="text-muted-foreground">{"Selecione uma conversa"}</p>
               </div>
             </Card>
           )}

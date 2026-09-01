@@ -7,7 +7,6 @@ type SitemapBusinessRow = {
   city: string | null;
   created_at: string | null;
   updated_at: string | null;
-  description_en?: string | null;
 };
 
 type CachedSitemapData = {
@@ -83,7 +82,7 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
 function buildBusinessesUrl(offset: number): { url: string; headers: Record<string, string> } {
   const { url, key } = getSitemapSourceConfig();
   const params = new URLSearchParams();
-  params.set("select", "slug,country_code,state_code,city,created_at,updated_at,description_en");
+  params.set("select", "slug,country_code,state_code,city,created_at,updated_at");
   params.set("or", "(moderation_status.eq.approved,moderation_status.is.null)");
   params.set("slug", "not.is.null");
   params.set("order", "created_at.desc");
@@ -146,17 +145,11 @@ export function buildSitemapIndexXml(baseUrl: string): string {
 export function buildStaticSitemapXml(baseUrl: string): string {
   const urls = [
     "/",
-    "/en",
     "/negocios",
-    "/en/businesses",
     "/sobre",
     "/contato",
     "/privacidade",
     "/termos",
-    "/en/about",
-    "/en/contact",
-    "/en/privacy",
-    "/en/terms",
     "/negocio-verificado",
   ];
   const body = urls
@@ -187,16 +180,6 @@ function buildBusinessUrl(baseUrl: string, row: SitemapBusinessRow): string | nu
   return `${baseUrl}/go/${slug}`;
 }
 
-function buildEnglishBusinessUrl(baseUrl: string, row: SitemapBusinessRow): string | null {
-  const slug = normalizePart(String(row.slug || ""));
-  const country = normalizePart(String(row.country_code || ""));
-  const state = normalizePart(String(row.state_code || ""));
-  const city = normalizePart(String(row.city || ""));
-  const description = String(row.description_en || "").replace(/<[^>]*>/g, "").trim();
-  if (!description || !slug || !country || !state || !city) return null;
-  return `${baseUrl}/en/${country}/${state}/${city}/${slug}`;
-}
-
 export function buildBusinessSitemapXml(baseUrl: string, rows: SitemapBusinessRow[]): string {
   const body = rows
     .flatMap((row) => {
@@ -204,7 +187,7 @@ export function buildBusinessSitemapXml(baseUrl: string, rows: SitemapBusinessRo
         .map((value) => (value ? new Date(value) : null))
         .find((value): value is Date => !!value && !Number.isNaN(value.getTime()));
       const lastmodTag = lastmod ? `<lastmod>${lastmod.toISOString()}</lastmod>` : "";
-      return [buildBusinessUrl(baseUrl, row), buildEnglishBusinessUrl(baseUrl, row)]
+      return [buildBusinessUrl(baseUrl, row)]
         .filter((loc): loc is string => Boolean(loc))
         .map((loc) => `<url><loc>${loc}</loc>${lastmodTag}<changefreq>weekly</changefreq></url>`);
     })

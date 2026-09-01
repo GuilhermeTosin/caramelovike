@@ -6,43 +6,27 @@ import { getPublishedCommunityEvents } from "@/services/events";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
-import { buildEnglishBusinessUrl, hasEnglishBusinessTranslation } from "@/lib/businessEnglish";
 
 const STATIC_PUBLIC_URLS = [
-  "/en/businesses",
   "/sobre",
   "/contato",
   "/privacidade",
   "/termos",
-  "/en/about",
-  "/en/contact",
-  "/en/privacy",
-  "/en/terms",
   "/negocio-verificado",
 ];
 
 function buildBusinessUrls(businesses: BusinessFrontend[]) {
-  return businesses.flatMap((business) => {
-    const portugueseUrl = buildBusinessUrl(business);
-    const englishUrl = hasEnglishBusinessTranslation(business) ? buildEnglishBusinessUrl(business) : null;
-    return [portugueseUrl, englishUrl].filter((url): url is string => !!url);
-  });
+  return businesses.map((business) => buildBusinessUrl(business));
 }
 
 function buildStaticSitemapXml(baseUrl: string) {
   const urls = [
     "/",
-    "/en",
     "/negocios",
-    "/en/businesses",
     "/sobre",
     "/contato",
     "/privacidade",
     "/termos",
-    "/en/about",
-    "/en/contact",
-    "/en/privacy",
-    "/en/terms",
     "/negocio-verificado",
   ];
   const body = urls
@@ -79,10 +63,7 @@ export async function onBeforePrerenderStart() {
     getPublishedCommunityEvents().catch(() => [] as CommunityEvent[]),
   ]);
 
-  const eventUrls = events.flatMap((event) => [
-    `/eventos/${event.id}`,
-    `/en/events/${event.id}`,
-  ]);
+  const eventUrls = events.map((event) => `/eventos/${event.id}`);
   const businessUrls = buildBusinessUrls(businesses);
 
   const baseUrl = "https://www.caramelinho.com";

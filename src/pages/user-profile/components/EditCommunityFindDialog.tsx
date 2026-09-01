@@ -5,7 +5,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CommunityFind } from "@/types/database";
 import type { CommunityFindEditForm } from "@/pages/user-profile/types";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 
 type EditCommunityFindDialogProps = {
   editingCommunityFind: CommunityFind | null;
@@ -24,17 +23,17 @@ export default function EditCommunityFindDialog({
   onFormChange,
   onSave,
 }: EditCommunityFindDialogProps) {
-  const { locale } = useSiteLocale();
-  const isEnglish = locale === "en";
+  const locale = "pt-BR";
+
   return (
     <Dialog open={!!editingCommunityFind} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEnglish ? "Edit community find" : "Editar achadinho"}</DialogTitle>
+          <DialogTitle>{"Editar achadinho"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label htmlFor="edit-find-product">{isEnglish ? "Product name" : "Nome do produto"}</Label>
+            <Label htmlFor="edit-find-product">{"Nome do produto"}</Label>
             <Input
               id="edit-find-product"
               className="mt-1.5"
@@ -44,7 +43,7 @@ export default function EditCommunityFindDialog({
             />
           </div>
           <div>
-            <Label htmlFor="edit-find-location">{isEnglish ? "Place name" : "Nome do local"}</Label>
+            <Label htmlFor="edit-find-location">{"Nome do local"}</Label>
             <Input
               id="edit-find-location"
               className="mt-1.5"
@@ -54,7 +53,7 @@ export default function EditCommunityFindDialog({
             />
           </div>
           <div>
-            <Label>{isEnglish ? "Category" : "Categoria"}</Label>
+            <Label>{"Categoria"}</Label>
             <Select
               value={editingCommunityFindForm.category}
               onValueChange={(value) =>
@@ -68,17 +67,17 @@ export default function EditCommunityFindDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="comida">{isEnglish ? "Food" : "Comida"}</SelectItem>
-                <SelectItem value="beleza">{isEnglish ? "Beauty" : "Beleza"}</SelectItem>
-                <SelectItem value="casa">{isEnglish ? "Home" : "Casa"}</SelectItem>
-                <SelectItem value="outros">{isEnglish ? "Other" : "Outros"}</SelectItem>
+                <SelectItem value="comida">{"Comida"}</SelectItem>
+                <SelectItem value="beleza">{"Beleza"}</SelectItem>
+                <SelectItem value="casa">{"Casa"}</SelectItem>
+                <SelectItem value="outros">{"Outros"}</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
-            {isEnglish ? "Cancel" : "Cancelar"}
+            {"Cancelar"}
           </Button>
           <Button
             type="button"
@@ -86,7 +85,7 @@ export default function EditCommunityFindDialog({
             onClick={onSave}
             disabled={editingCommunityFindSubmitting}
           >
-            {editingCommunityFindSubmitting ? (isEnglish ? "Saving..." : "Salvando...") : (isEnglish ? "Save changes" : "Salvar alterações")}
+            {editingCommunityFindSubmitting ? ("Salvando...") : ("Salvar alterações")}
           </Button>
         </DialogFooter>
       </DialogContent>

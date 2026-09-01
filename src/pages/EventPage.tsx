@@ -6,8 +6,6 @@ import { Card } from "@/components/ui/card";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import MobileHeaderMenu from "@/components/MobileHeaderMenu";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getSiteSlogan } from "@/lib/locales";
 import { getCommunityEventById } from "@/services/events";
 import type { CommunityEvent } from "@/types/database";
@@ -28,22 +26,7 @@ type EventPageProps = {
 export default function EventPage({ initialEvent = null }: EventPageProps) {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { locale, toLocalePath } = useSiteLocale();
-  const isEnglish = locale === "en";
-  const text = isEnglish
-    ? {
-        loading: "Loading event...",
-        notFound: "Event not found",
-        unavailable: "This event is not available right now.",
-        backToSearch: "Back to search",
-        back: "Back",
-        noDescription: "No description provided.",
-        freeEntry: "Free entry",
-        paidEvent: "Paid event",
-        publishedBy: "Published by a community member",
-        buyTickets: "Buy tickets",
-      }
-    : {
+  const text = {
         loading: "Carregando evento...",
         notFound: "Evento não encontrado",
         unavailable: "Esse evento não está disponível no momento.",
@@ -86,15 +69,15 @@ export default function EventPage({ initialEvent = null }: EventPageProps) {
 
   useEffect(() => {
     if (!event) {
-      if (!loading) setSeoMeta(isEnglish ? "Event | Caramelinho.com" : "Evento | Caramelinho.com", isEnglish ? "Community event details." : "Detalhes de evento da comunidade.");
+      if (!loading) setSeoMeta("Evento | Caramelinho.com", "Detalhes de evento da comunidade.");
       return;
     }
 
-    const canonicalUrl = buildEventCanonicalUrl(event.id, locale);
-    setSeoMeta(buildEventSeoTitle(event, locale), buildEventSeoDescription(event, locale));
-    setJsonLd("event", buildEventStructuredData(event, canonicalUrl, locale));
-    setJsonLd("event-breadcrumb", buildEventBreadcrumbStructuredData(event, canonicalUrl, locale));
-  }, [event, isEnglish, loading, locale]);
+    const canonicalUrl = buildEventCanonicalUrl(event.id);
+    setSeoMeta(buildEventSeoTitle(event), buildEventSeoDescription(event));
+    setJsonLd("event", buildEventStructuredData(event, canonicalUrl));
+    setJsonLd("event-breadcrumb", buildEventBreadcrumbStructuredData(event, canonicalUrl));
+  }, [event, loading]);
 
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">{text.loading}</div>;
@@ -106,7 +89,7 @@ export default function EventPage({ initialEvent = null }: EventPageProps) {
         <main className="flex-1 max-w-3xl mx-auto px-4 py-16 text-center">
           <h1 className="text-2xl font-bold">{text.notFound}</h1>
           <p className="text-muted-foreground mt-2">{text.unavailable}</p>
-          <Button className="mt-6" onClick={() => navigate(toLocalePath("/buscar"))}>{text.backToSearch}</Button>
+          <Button className="mt-6" onClick={() => navigate("/buscar")}>{text.backToSearch}</Button>
         </main>
         <SiteFooter />
       </div>
@@ -117,17 +100,16 @@ export default function EventPage({ initialEvent = null }: EventPageProps) {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-24 flex items-center justify-between">
-          <Link to={toLocalePath("/")} className="flex items-center gap-3 group">
+          <Link to={"/"} className="flex items-center gap-3 group">
             <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
               <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
             </div>
             <div className="leading-tight min-w-0">
               <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{getSiteSlogan(locale)}</div>
+              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{getSiteSlogan()}</div>
             </div>
           </Link>
           <div className="hidden items-center gap-3 sm:flex">
-            <LanguageSwitcher />
             <SiteHeaderAuthActions className="flex items-center gap-3" compact />
           </div>
           <MobileHeaderMenu />
@@ -150,7 +132,7 @@ export default function EventPage({ initialEvent = null }: EventPageProps) {
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div className="inline-flex items-center gap-2 rounded-md bg-secondary px-3 py-2">
                 <CalendarDays className="w-4 h-4 text-amber-600" />
-                {new Date(`${event.date}T00:00:00`).toLocaleDateString(isEnglish ? "en-US" : "pt-BR")}
+                {new Date(`${event.date}T00:00:00`).toLocaleDateString("pt-BR")}
               </div>
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}

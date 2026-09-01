@@ -1,5 +1,4 @@
 import type { BusinessFrontend } from "@/types/database";
-import type { SiteLocale } from "@/lib/locales";
 import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getDirectoryInsights, type DirectoryInsights } from "@/lib/directoryInsights";
@@ -21,7 +20,6 @@ export type DirectoryNavigationItem = {
 };
 
 export type DirectoryRoute = {
-  locale?: SiteLocale;
   countryCode: string;
   stateCode: string;
   citySlug: string;
@@ -93,14 +91,11 @@ function countBy(values: string[]) {
 
 export function parseDirectoryRoute(pathname: string): DirectoryRoute | null {
   const parts = pathname.split("/").filter(Boolean);
-  const locale: SiteLocale = parts[0] === "en" && parts[1] === "businesses" ? "en" : "pt-BR";
-  const routeParts = locale === "en" ? parts.slice(2) : parts.slice(1);
+  const routeParts = parts.slice(1);
 
-  if (locale === "pt-BR" && parts[0] !== "negocios") return null;
-  if (locale === "en" && (parts[0] !== "en" || parts[1] !== "businesses")) return null;
+  if (parts[0] !== "negocios") return null;
 
   const route: DirectoryRoute = {
-    locale,
     countryCode: normalizeCode(routeParts[0]),
     stateCode: normalizeCode(routeParts[1]),
     citySlug: slugify(routeParts[2] || ""),
@@ -126,7 +121,7 @@ export function parseDirectoryRoute(pathname: string): DirectoryRoute | null {
 }
 
 export function buildDirectoryPagePath(route: DirectoryRoute, page = route.page) {
-  const prefix = route.locale === "en" ? ["en", "businesses"] : ["negocios"];
+  const prefix = ["negocios"];
   const parts = [...prefix, route.countryCode, route.stateCode, route.citySlug, route.categorySlug].filter(Boolean);
   const base = `/${parts.join("/")}`;
   return page <= 1 ? base : `${base}/pagina/${page}`;

@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getSiteSlogan } from "@/lib/locales";
 
 function getAppOrigin(): string {
@@ -22,12 +21,9 @@ export default function ResetPassword() {
   const [info, setInfo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRecoverySession, setIsRecoverySession] = useState(false);
-  const { locale, toLocalePath } = useSiteLocale();
-  const isEnglish = locale === "en";
-  const text = isEnglish ? {
-    saving: "Saving...", savePassword: "Save new password", sendLink: "Send reset link", emailRequired: "Enter your email.", linkSent: "We sent a reset link to your email.", passwordsRequired: "Complete both password fields.", passwordLength: "Your new password must be at least 6 characters.", mismatch: "Passwords do not match.", updated: "Password updated successfully. You can now sign in.",
-    titleRecovery: "Set a new password", titleRequest: "Forgot your password?", recoveryDescription: "Enter your new password to complete recovery.", requestDescription: "Enter your email to receive a reset link.", newPassword: "New password", newPlaceholder: "Enter your new password", confirmPassword: "Confirm new password", confirmPlaceholder: "Repeat your new password", back: "Back to sign in",
-  } : {
+  const locale = "pt-BR";
+
+  const text = {
     saving: "Salvando...", savePassword: "Salvar nova senha", sendLink: "Enviar link de redefinição", emailRequired: "Informe seu e-mail.", linkSent: "Enviamos o link de redefinição para seu e-mail.", passwordsRequired: "Preencha os dois campos de senha.", passwordLength: "A nova senha deve ter pelo menos 6 caracteres.", mismatch: "As senhas não conferem.", updated: "Senha atualizada com sucesso. Você já pode entrar.",
     titleRecovery: "Definir nova senha", titleRequest: "Esqueci minha senha", recoveryDescription: "Digite sua nova senha para concluir a recuperação.", requestDescription: "Informe seu e-mail para receber o link de redefinição.", newPassword: "Nova senha", newPlaceholder: "Digite a nova senha", confirmPassword: "Confirmar nova senha", confirmPlaceholder: "Repita a nova senha", back: "Voltar para entrar",
   };
@@ -53,7 +49,7 @@ export default function ResetPassword() {
     }
     setIsLoading(true);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${getAppOrigin()}${toLocalePath("/redefinir-senha")}`,
+      redirectTo: `${getAppOrigin()}${"/redefinir-senha"}`,
     });
     setIsLoading(false);
     if (resetError) {
@@ -95,7 +91,7 @@ export default function ResetPassword() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="mb-8">
-          <Link to={toLocalePath("/")} className="flex items-center gap-3 mb-4">
+          <Link to={"/"} className="flex items-center gap-3 mb-4">
             <div className="w-20 h-20 flex items-center justify-center">
               <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain" />
             </div>
@@ -132,7 +128,7 @@ export default function ResetPassword() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={isEnglish ? "you@example.com" : "seu@email.com"}
+                    placeholder={"seu@email.com"}
                     className="pl-10"
                     autoComplete="email"
                   />
@@ -181,7 +177,7 @@ export default function ResetPassword() {
           )}
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <Link to={toLocalePath("/entrar")} className="text-amber-600 hover:text-amber-700 font-medium">
+            <Link to={"/entrar"} className="text-amber-600 hover:text-amber-700 font-medium">
               {text.back}
             </Link>
           </div>

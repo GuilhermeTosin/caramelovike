@@ -35,7 +35,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { getSimilarBusinessesForBusiness, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateDisplayName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
-import { getBusinessDescriptionForLocale, getEnglishBusinessContent, hasEnglishBusinessTranslation } from "@/lib/businessEnglish";
 import { getOrCreateConversation } from "@/services/messages";
 import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
@@ -45,7 +44,6 @@ import { getRichTextBlockClassName, sanitizeRichTextHtml, stripRichTextHtml } fr
 import { useAuth } from "@/contexts/AuthContext";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import MobileHeaderMenu from "@/components/MobileHeaderMenu";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setJsonLd, setRobots } from "@/lib/seo";
@@ -72,7 +70,6 @@ type BusinessPageProps = {
   initialBusinesses?: BusinessFrontend[];
   initialSimilarBusinesses?: BusinessFrontend[];
   previewMode?: boolean;
-  locale?: "pt-BR" | "en";
 };
 
 const SERVICE_PREVIEW_LIMIT = 6;
@@ -112,62 +109,13 @@ type BusinessPrimaryInfoProps = {
   onSendMessage: () => void;
   onRoute: () => void;
   onExternalClick: (type: "phone" | "email" | "website") => void;
-  locale?: "pt-BR" | "en";
 };
 
-const ENGLISH_CATEGORY_LABELS: Record<string, string> = {
-  food: "Restaurants & Food",
-  auto: "Automotive",
-  health_beauty: "Health & Beauty",
-  construction: "Construction & Renovations",
-  legal_consulting: "Legal & Consulting",
-  accounting_finance: "Accounting & Finance",
-  education: "Education & Languages",
-  retail: "Retail",
-  transport_moving: "Transport & Moving",
-  pets: "Pet Services",
-  child_elder_care: "Child & Elder Care",
-  cleaning: "Cleaning",
-  real_estate: "Real Estate",
-  tourism: "Tourism & Travel",
-  artists: "Artists",
-  other: "Other",
-};
-
-function getCategoryLabelForLocale(value: string, locale: "pt-BR" | "en"): string {
-  if (locale !== "en") return getCategoryLabel(value);
-  return ENGLISH_CATEGORY_LABELS[getCategoryId(value)] || getCategoryLabel(value);
+function getCategoryLabelForLocale(value: string): string {
+  return getCategoryLabel(value);
 }
-const ENGLISH_OPENING_HOUR_LABELS: Array<[RegExp, string]> = [
-  [/^\s*segunda-feira\b/i, "Monday"],
-  [/^\s*segunda\b/i, "Monday"],
-  [/^\s*terca-feira\b/i, "Tuesday"],
-  [/^\s*terça-feira\b/i, "Tuesday"],
-  [/^\s*terca\b/i, "Tuesday"],
-  [/^\s*terça\b/i, "Tuesday"],
-  [/^\s*quarta-feira\b/i, "Wednesday"],
-  [/^\s*quarta\b/i, "Wednesday"],
-  [/^\s*quinta-feira\b/i, "Thursday"],
-  [/^\s*quinta\b/i, "Thursday"],
-  [/^\s*sexta-feira\b/i, "Friday"],
-  [/^\s*sexta\b/i, "Friday"],
-  [/^\s*sabado\b/i, "Saturday"],
-  [/^\s*sábado\b/i, "Saturday"],
-  [/^\s*domingo\b/i, "Sunday"],
-];
-
-function formatOpeningHoursForLocale(line: string, locale: "pt-BR" | "en"): string {
-  if (locale !== "en") return line;
-
-  const withEnglishDay = ENGLISH_OPENING_HOUR_LABELS.reduce(
-    (formatted, [pattern, replacement]) => formatted.replace(pattern, replacement),
-    line,
-  );
-
-  return withEnglishDay
-    .replace(/\bfechado\b/gi, "Closed")
-    .replace(/\bnão informado\b/gi, "Not provided")
-    .replace(/\bnao informado\b/gi, "Not provided");
+function formatOpeningHoursForLocale(line: string): string {
+  return line;
 }
 function BusinessPrimaryInfo({
   business,
@@ -176,15 +124,10 @@ function BusinessPrimaryInfo({
   onSendMessage,
   onRoute,
   onExternalClick,
-  locale = "pt-BR",
 }: BusinessPrimaryInfoProps) {
-  const isEnglish = locale === "en";
-  const country = isEnglish
-    ? getCountryDisplayName(business.address.countryCode || business.address.country, business.address.country, "en")
-    : getCountryName(business.address.countryCode || business.address.country);
-  const state = isEnglish
-    ? business.address.state || business.address.stateCode || ""
-    : business.address.stateCode || business.address.state
+
+  const country = getCountryName(business.address.countryCode || business.address.country);
+  const state = business.address.stateCode || business.address.state
       ? getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode || business.address.state, business.address.state)
       : "";
 
@@ -199,13 +142,11 @@ function BusinessPrimaryInfo({
                   <div className="rounded-full bg-emerald-100 p-1.5">
                     <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden="true" />
                   </div>
-                  <h3 className="text-sm font-semibold text-emerald-900">{isEnglish ? "Verified business" : "Negócio verificado"}</h3>
+                  <h3 className="text-sm font-semibold text-emerald-900">{"Negócio verificado"}</h3>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs text-sm leading-relaxed">
-                {isEnglish
-                  ? "Authenticity badge: this business has been reviewed by the Caramelinho team. We validate its presence and information to help people make safer choices."
-                  : "Selo de autenticidade: este negócio foi validado pela equipe Caramelinho. Verificamos sua presença real e suas informações para oferecer uma experiência mais segura."}
+                {"Selo de autenticidade: este negócio foi validado pela equipe Caramelinho. Verificamos sua presença real e suas informações para oferecer uma experiência mais segura."}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -213,7 +154,7 @@ function BusinessPrimaryInfo({
       ) : null}
 
       <Card className="border-border p-5">
-        <h3 className="mb-4 font-semibold">{isEnglish ? "Contact information" : "Informações de contato"}</h3>
+        <h3 className="mb-4 font-semibold">{"Informações de contato"}</h3>
         <div className="space-y-2">
           <div className="flex items-start gap-3">
             <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -231,7 +172,7 @@ function BusinessPrimaryInfo({
           ) : (
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <Phone className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{isEnglish ? "Phone not provided." : "Telefone não informado."}</span>
+              <span>{"Telefone não informado."}</span>
             </div>
           )}
           {business.email ? (
@@ -242,7 +183,7 @@ function BusinessPrimaryInfo({
           ) : (
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <Mail className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{isEnglish ? "Email not provided." : "E-mail não informado."}</span>
+              <span>{"E-mail não informado."}</span>
             </div>
           )}
           {business.website ? (
@@ -269,11 +210,11 @@ function BusinessPrimaryInfo({
           ) : null}
           <Button onClick={onSendMessage} className="h-11 w-full gap-2 border-0 bg-amber-500 font-bold text-white hover:bg-amber-400">
             <Send className="h-4 w-4" />
-            {isEnglish ? "Send message" : "Enviar mensagem"}
+            {"Enviar mensagem"}
           </Button>
           <Button onClick={onRoute} variant="outline" className="h-11 w-full gap-2 border-border hover:bg-secondary">
             <Car className="h-4 w-4" />
-            {isEnglish ? "View directions" : "Ver rota"}
+            {"Ver rota"}
           </Button>
         </div>
       </Card>
@@ -281,14 +222,14 @@ function BusinessPrimaryInfo({
       <Card className="border-border p-5">
         <h3 className="mb-4 flex items-center gap-2 font-semibold">
           <Clock className="h-4 w-4 text-primary" aria-hidden="true" />
-          {isEnglish ? "Opening hours" : "Horários"}
+          {"Horários"}
         </h3>
         {business.openingHours.length > 0 ? (
           <div className="space-y-2">
-            {business.openingHours.map((line) => <p key={line} className="text-sm text-muted-foreground">{formatOpeningHoursForLocale(line, locale)}</p>)}
+            {business.openingHours.map((line) => <p key={line} className="text-sm text-muted-foreground">{formatOpeningHoursForLocale(line)}</p>)}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">{isEnglish ? "Opening hours not provided." : "Horários ainda não informados."}</p>
+          <p className="text-sm text-muted-foreground">{"Horários ainda não informados."}</p>
         )}
       </Card>
 
@@ -296,11 +237,11 @@ function BusinessPrimaryInfo({
   );
 }
 
-export default function BusinessPage({ initialBusiness = null, initialBusinesses = [], initialSimilarBusinesses, previewMode = false, locale = "pt-BR" }: BusinessPageProps = {}) {
+export default function BusinessPage({ initialBusiness = null, initialBusinesses = [], initialSimilarBusinesses, previewMode = false }: BusinessPageProps = {}) {
   const { countryCode, stateCode, city, businessName, businessId } = useParams();
-  const isEnglish = locale === "en";
-  const localizeBusiness = (item: BusinessFrontend | null): BusinessFrontend | null => item && isEnglish ? getEnglishBusinessContent(item) : item;
-  const buildLocalizedBusinessUrl = (item: BusinessFrontend): string => `${isEnglish ? "/en" : ""}${buildBusinessUrl(item)}`;
+
+  const localizeBusiness = (item: BusinessFrontend | null): BusinessFrontend | null => item;
+  const buildLocalizedBusinessUrl = (item: BusinessFrontend): string => buildBusinessUrl(item);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -331,7 +272,6 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       : hasUsableBusinessPool
         ? pooledSimilarBusinesses
         : [])
-    .filter((item) => !isEnglish || hasEnglishBusinessTranslation(item))
     .map((item) => localizeBusiness(item) as BusinessFrontend);
 
   const [business, setBusiness] = useState<BusinessFrontend | null>(seededBusiness);
@@ -351,16 +291,12 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [reviewPage, setReviewPage] = useState(1);
 
-  const businessCityDisplayName = isEnglish
-    ? business?.address.cityDisplayName || business?.address.city || ""
-    : getCityDisplayName(
+  const businessCityDisplayName = getCityDisplayName(
       business?.address.cityDisplayName || business?.address.city,
       business?.address.countryCode || business?.address.country,
     );
   const businessCountryName = business
-    ? (isEnglish
-      ? getCountryDisplayName(business.address.countryCode || business.address.country, business.address.country, "en")
-      : getCountryName(business.address.countryCode || business.address.country))
+    ? (getCountryName(business.address.countryCode || business.address.country))
     : "";
   const isOnlineOnly = business?.attendanceType === "online";
   const [requestingOwnership, setRequestingOwnership] = useState(false);
@@ -432,7 +368,6 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     if (biz && !hasInitialSimilarBusinesses) {
       setSimilarBusinesses(
         (await getSimilarBusinessesForBusiness(biz))
-          .filter((item) => !isEnglish || hasEnglishBusinessTranslation(item))
           .map((item) => localizeBusiness(item) as BusinessFrontend),
       );
     }
@@ -483,21 +418,21 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     if (location.pathname !== canonicalPath) {
       navigate(`${canonicalPath}${location.search}`, { replace: true });
     }
-  }, [business, previewMode, location.pathname, location.search, navigate, isEnglish]);
+  }, [business, previewMode, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (!business) {
       setSeoMeta(
-        isEnglish ? "Brazilian business" : "Negócio brasileiro",
-        isEnglish ? "Find Brazilian businesses near you." : "Encontre negócios perto de você."
+        "Negócio brasileiro",
+        "Encontre negócios perto de você."
       );
       return;
     }
     setSeoMeta(
-      buildBusinessSeoTitle(business, locale),
-      buildBusinessSeoDescription(business, locale)
+      buildBusinessSeoTitle(business),
+      buildBusinessSeoDescription(business)
     );
-  }, [business, isOnlineOnly, locale]);
+  }, [business, isOnlineOnly]);
 
   useEffect(() => {
     if (!selectedPhoto || !business) return;
@@ -574,9 +509,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       areaServed: business.address.countryCode || business.address.country
         ? {
             "@type": "Country",
-            name: isEnglish
-              ? getCountryDisplayName(business.address.countryCode || business.address.country, business.address.country, "en")
-              : getCountryName(business.address.countryCode || business.address.country),
+            name: getCountryName(business.address.countryCode || business.address.country),
           }
         : undefined,
     };
@@ -588,14 +521,14 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
         {
           "@type": "ListItem",
           position: 1,
-          name: isEnglish ? "Home" : "Início",
-          item: `${window.location.origin}${isEnglish ? "/en" : "/"}`,
+          name: "Início",
+          item: `${window.location.origin}/`,
         },
         {
           "@type": "ListItem",
           position: 2,
-          name: isEnglish ? "Search" : "Buscar",
-          item: `${window.location.origin}${isEnglish ? "/en/search" : "/buscar"}`,
+          name: "Buscar",
+          item: `${window.location.origin}/buscar`,
         },
         {
           "@type": "ListItem",
@@ -608,7 +541,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
     setJsonLd("business-local", localBusinessJsonLd);
     setJsonLd("business-breadcrumb", breadcrumbJsonLd);
-  }, [business, location.pathname, isEnglish]);
+  }, [business, location.pathname]);
 
   useEffect(() => {
     if (!previewMode) return;
@@ -629,16 +562,16 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (reviewRating === 0) {
-      toast.error(isEnglish ? "Choose a rating from 1 to 5 stars." : "Selecione uma avaliação de 1 a 5 estrelas");
+      toast.error("Selecione uma avaliação de 1 a 5 estrelas");
       return;
     }
     if (!business || !session) {
-      toast.error(isEnglish ? "Sign in to leave a review." : "Faça login para avaliar");
+      toast.error("Faça login para avaliar");
       navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`);
       return;
     }
     if ((business.reviews || []).some((review) => review.user_id === session.userId)) {
-      toast.error(isEnglish ? "You have already reviewed this business. Edit your existing review." : "Você já avaliou este negócio. Edite sua avaliação existente.");
+      toast.error("Você já avaliou este negócio. Edite sua avaliação existente.");
       return;
     }
 
@@ -652,9 +585,9 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
     if (success) {
       await loadBusiness();
-      toast.success(isEnglish ? "Review submitted successfully." : "Avaliação enviada com sucesso!");
+      toast.success("Avaliação enviada com sucesso!");
     } else {
-      toast.error(isEnglish ? "Unable to submit your review." : "Erro ao enviar avaliação.");
+      toast.error("Erro ao enviar avaliação.");
     }
 
     setSendingReview(false);
@@ -664,7 +597,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   const handleSendMessage = async () => {
     if (!session) {
-      toast.info(isEnglish ? "Sign in to send a message." : "Faça login para enviar mensagem");
+      toast.info("Faça login para enviar mensagem");
       navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`);
       return;
     }
@@ -672,7 +605,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     trackBusinessClick(business.id, "internal_message", session.userId);
 
     if (session.userId === business.ownerId) {
-      toast.info(isEnglish ? "This is your own business." : "Este é o seu próprio negócio!");
+      toast.info("Este é o seu próprio negócio!");
       navigate("/perfil?tab=mensagens");
       return;
     }
@@ -681,9 +614,9 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     if (conversation) {
       refreshUnread();
       navigate("/perfil?tab=mensagens");
-      toast.success(isEnglish ? `Conversation with ${business.ownerName} started.` : `Conversa com ${business.ownerName} iniciada!`);
+      toast.success(`Conversa com ${business.ownerName} iniciada!`);
     } else {
-      toast.error(isEnglish ? "Unable to start the conversation." : "Erro ao iniciar conversa.");
+      toast.error("Erro ao iniciar conversa.");
     }
   };
 
@@ -702,30 +635,30 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const handleSaveEditReview = async () => {
     if (!editingReviewId) return;
     if (editRating === 0) {
-      toast.error(isEnglish ? "Choose a rating from 1 to 5 stars." : "Selecione uma avaliação de 1 a 5 estrelas");
+      toast.error("Selecione uma avaliação de 1 a 5 estrelas");
       return;
     }
     setSavingEditReview(true);
     const ok = await updateReview(editingReviewId, { rating: editRating as 1 | 2 | 3 | 4 | 5, comment: editComment });
     if (ok) {
       await loadBusiness();
-      toast.success(isEnglish ? "Review updated." : "Avaliação atualizada!");
+      toast.success("Avaliação atualizada!");
       cancelEditReview();
     } else {
-      toast.error(isEnglish ? "Unable to update your review." : "Erro ao atualizar avaliação.");
+      toast.error("Erro ao atualizar avaliação.");
     }
     setSavingEditReview(false);
   };
 
   const handleDeleteOwnReview = async (reviewId: string) => {
-    if (!confirm(isEnglish ? "Are you sure you want to remove your review?" : "Tem certeza que deseja remover sua avaliação?")) return;
+    if (!confirm("Tem certeza que deseja remover sua avaliação?")) return;
     const ok = await deleteReview(reviewId);
     if (ok) {
       await loadBusiness();
-      toast.success(isEnglish ? "Review removed." : "Avaliação removida!");
+      toast.success("Avaliação removida!");
       if (editingReviewId === reviewId) cancelEditReview();
     } else {
-      toast.error(isEnglish ? "Unable to remove your review." : "Erro ao remover avaliação.");
+      toast.error("Erro ao remover avaliação.");
     }
   };
 
@@ -733,14 +666,14 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     if (!business?.whatsapp) return;
     trackBusinessClick(business.id, "whatsapp", session?.userId);
     const wpp = business.whatsapp.replace(/\s+/g, "").replace(/[^0-9]/g, "");
-    const text = encodeURIComponent(isEnglish ? `Hello! I found ${business.name} on Caramelinho.com.` : `Olá! Vi seu negócio no Caramelinho.com: ${business.name}`);
+    const text = encodeURIComponent(`Olá! Vi seu negócio no Caramelinho.com: ${business.name}`);
     window.open(`https://wa.me/${wpp}?text=${text}`, "_blank", "noopener,noreferrer");
   };
 
   const handleRoute = () => {
     if (!business) return;
     if (isOnlineOnly) {
-      toast.info(isEnglish ? "This business provides online services only." : "Este negócio atende somente online.");
+      toast.info("Este negócio atende somente online.");
       return;
     }
     trackBusinessClick(business.id, "route", session?.userId);
@@ -749,9 +682,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       : [
         business.address.street,
         business.address.city,
-        isEnglish
-          ? getCountryDisplayName(business.address.countryCode || business.address.country, business.address.country, "en")
-          : getCountryName(business.address.countryCode || business.address.country),
+        getCountryName(business.address.countryCode || business.address.country),
       ].filter(Boolean).join(", ");
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`, "_blank", "noopener,noreferrer");
   };
@@ -771,13 +702,13 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (error) {
       console.error("Unable to open private PDF:", error);
-      toast.error(isEnglish ? "Unable to open the PDF right now." : "Não foi possível abrir o PDF agora.");
+      toast.error("Não foi possível abrir o PDF agora.");
     }
   };
 
   const handleRequestOwnership = async () => {
     if (!session) {
-      toast.info(isEnglish ? "Create an account or sign in to claim this business." : "Crie uma conta ou entre para reivindicar este negócio.");
+      toast.info("Crie uma conta ou entre para reivindicar este negócio.");
       navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`);
       return;
     }
@@ -786,15 +717,15 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     setRequestingOwnership(true);
     const result = await requestBusinessOwnership(
       business.id,
-      isEnglish ? `Ownership request sent from the public page for ${business.name}.` : `Solicitação enviada pela página pública do negócio ${business.name}.`,
+      `Solicitação enviada pela página pública do negócio ${business.name}.`,
     );
     setRequestingOwnership(false);
 
     if (result.ok) {
       setHasPendingOwnershipRequest(true);
-      toast.success(isEnglish ? "Request sent. We will review and transfer the business once confirmed." : "Solicitação enviada. Vamos revisar e transferir o negócio quando confirmado.");
+      toast.success("Solicitação enviada. Vamos revisar e transferir o negócio quando confirmado.");
     } else {
-      toast.error(result.error || (isEnglish ? "Unable to send the request." : "Não foi possível enviar a solicitação."));
+      toast.error(result.error || ("Não foi possível enviar a solicitação."));
     }
   };
 
@@ -805,9 +736,9 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     if (!business) return;
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success(isEnglish ? "Link copied." : "Link copiado!");
+      toast.success("Link copiado!");
     } catch {
-      toast.error(isEnglish ? "Unable to copy the link." : "Não foi possível copiar o link.");
+      toast.error("Não foi possível copiar o link.");
     }
   };
 
@@ -816,7 +747,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     try {
       await navigator.share({
         title: business.name,
-        text: isEnglish ? `See ${business.name} on Caramelinho.` : `Confira este negócio no Caramelinho: ${business.name}`,
+        text: `Confira este negócio no Caramelinho: ${business.name}`,
         url: shareUrl,
       });
     } catch {
@@ -830,10 +761,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     const result = await createBusinessReport({ businessId: business.id, reason: reportReason, details: reportDetails });
     setReporting(false);
     if (!result.ok) {
-      toast.error(result.error || (isEnglish ? "Unable to submit the report." : "Não foi possível enviar denúncia."));
+      toast.error(result.error || ("Não foi possível enviar denúncia."));
       return;
     }
-    toast.success(isEnglish ? "Report submitted for review." : "Denúncia enviada para análise.");
+    toast.success("Denúncia enviada para análise.");
     setReportDetails("");
     setReportReason("fake");
     setReportOpen(false);
@@ -852,7 +783,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <PawPrint className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4 animate-pulse" />
-          <p className="text-muted-foreground">{isEnglish ? "Loading..." : "Carregando..."}</p>
+          <p className="text-muted-foreground">{"Carregando..."}</p>
         </div>
       </div>
     );
@@ -864,7 +795,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   const meaningfulUpdatedAt = getMeaningfulUpdatedAt(business.updatedAt, business.createdAt);
   const businessActivityDate = meaningfulUpdatedAt || business.createdAt;
-  const businessActivityLabel = meaningfulUpdatedAt ? (isEnglish ? "Information updated on" : "Informações atualizadas em") : (isEnglish ? "Profile published on" : "Perfil publicado em");
+  const businessActivityLabel = meaningfulUpdatedAt ? ("Informações atualizadas em") : ("Perfil publicado em");
 
 
   return (
@@ -872,20 +803,19 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-24">
-            <Link to={isEnglish ? "/en" : "/"} className="flex items-center gap-3 group">
+            <Link to="/" className="flex items-center gap-3 group">
               <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
                 <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{getSiteSlogan(locale)}</div>
+                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{getSiteSlogan()}</div>
               </div>
             </Link>
             <div className="hidden items-center gap-3 sm:flex">
-              {hasEnglishBusinessTranslation(business) ? <LanguageSwitcher /> : null}
               <SiteHeaderAuthActions className="flex items-center gap-3" compact />
             </div>
-            <MobileHeaderMenu showLanguage={hasEnglishBusinessTranslation(business)} />
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>
@@ -919,7 +849,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
             </div>
             <div className="flex-1 text-white mb-2">
               <Badge className="mb-3 bg-white/20 text-white border-0 hover:bg-white/30 rounded-lg px-3 py-1">
-                {getCategoryLabelForLocale(business.category, locale)}
+                {getCategoryLabelForLocale(business.category)}
               </Badge>
               <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-2">{business.name}</h1>
               <div className="flex flex-wrap items-center gap-4 text-sm sm:text-base text-white/90">
@@ -931,7 +861,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   <div className="flex items-center gap-1.5 bg-amber-500 px-3 py-1 rounded-full">
                     <Star className="w-4 h-4 fill-current" />
                     <span className="font-bold">{business.averageRating.toFixed(1)}</span>
-                    <span className="text-white/80 font-normal">({business.reviews.length} {business.reviews.length === 1 ? (isEnglish ? "review" : "avaliação") : (isEnglish ? "reviews" : "avaliações")})</span>
+                    <span className="text-white/80 font-normal">({business.reviews.length} {business.reviews.length === 1 ? ("avaliação") : ("avaliações")})</span>
                   </div>
                 )}
               </div>
@@ -946,62 +876,62 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
             <div className="order-1 w-full min-w-0 lg:order-none lg:col-span-2">
               <div className="sticky top-16 z-30 sm:top-24 -mx-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:mx-0 sm:px-0">
                 <div className="overflow-x-auto scrollbar-hide">
-              <nav aria-label={isEnglish ? "Business sections" : "Seções do negócio"} className="flex w-max min-w-full items-center justify-start bg-transparent">
+              <nav aria-label={"Seções do negócio"} className="flex w-max min-w-full items-center justify-start bg-transparent">
                 <a href="#sobre" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
-                  {isEnglish ? "About" : "Sobre"}</a>
+                  {"Sobre"}</a>
                 <a href="#fotos" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
-                  {isEnglish ? "Photos" : "Fotos"}</a>
+                  {"Fotos"}</a>
 
 
               {getCategoryId(business.category) !== "food" && hasServiceItems && (
                   <a href="#servicos" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
-                    {isEnglish ? "Services" : "Serviços"}</a>
+                    {"Serviços"}</a>
                 )}
                 {(business.menu && business.menu.length > 0) || !!business.menuPdfUrl ? (
                   <a href="#cardapio" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
-                    {isEnglish ? "Menu" : "Cardápio"}</a>
+                    {"Cardápio"}</a>
                 ) : null}
 
                 {activePromotions.length > 0 && (
                   <a href="#promocoes" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
-                    {isEnglish ? "Promotions" : "Promoções"}</a>
+                    {"Promoções"}</a>
                 )}
                 {upcomingEvents.length > 0 && (
                   <a href="#eventos" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
                     <span className="inline-flex items-center gap-2">
                       <CalendarDays className="w-4 h-4 text-amber-600" />
-                      {isEnglish ? "Events" : "Eventos"}<span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
-                        {isEnglish ? "New" : "Novo"}</span>
+                      {"Eventos"}<span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
+                        {"Novo"}</span>
                     </span>
                   </a>
                 )}
                 <a href="#avaliacoes" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
-                  {isEnglish ? "Reviews" : "Avaliações"}</a>
+                  {"Avaliações"}</a>
               </nav>
                 </div>
                 <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
               </div>
 
               <section id="sobre" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
-                <h2 className="text-xl font-bold text-foreground mb-3">{isEnglish ? "About" : "Sobre"} {business.name}</h2>
+                <h2 className="text-xl font-bold text-foreground mb-3">{"Sobre"} {business.name}</h2>
                 {business.categoryId === "food" && (business.isVeganFriendly || business.isVegetarianFriendly || business.isGlutenFreeFriendly) ? (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {business.isVeganFriendly ? (
                       <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">
                         <Leaf className="w-3.5 h-3.5" />
-                        {isEnglish ? "Vegan" : "Vegano"}
+                        {"Vegano"}
                       </span>
                     ) : null}
                     {business.isVegetarianFriendly ? (
                       <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-lime-100 text-lime-800">
                         <Leaf className="w-3.5 h-3.5" />
-                        {isEnglish ? "Vegetarian" : "Vegetariano"}
+                        {"Vegetariano"}
                       </span>
                     ) : null}
                     {business.isGlutenFreeFriendly ? (
                       <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">
                         <WheatOff className="w-3.5 h-3.5" />
-                        {isEnglish ? "Gluten-free" : "Sem Glúten"}
+                        {"Sem Glúten"}
                       </span>
                     ) : null}
                   </div>
@@ -1019,9 +949,9 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
             <div className="order-3 w-full min-w-0 lg:order-none lg:col-span-2">
               <section id="fotos" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8">
-                <h2 className="mb-4 text-xl font-bold text-foreground">{isEnglish ? "Photos" : "Fotos"}</h2>
+                <h2 className="mb-4 text-xl font-bold text-foreground">{"Fotos"}</h2>
                 {galleryPhotos.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{isEnglish ? "No photos available." : "Nenhuma foto disponível."}</p>
+                  <p className="text-sm text-muted-foreground">{"Nenhuma foto disponível."}</p>
                 ) : (
                   <>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -1037,7 +967,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                         >
                           <img
                             src={photo}
-                            alt={`${isEnglish ? "Photo of" : "Foto de"} ${business.name}`}
+                            alt={`${"Foto de"} ${business.name}`}
                             width={640}
                             height={640}
                             loading="lazy"
@@ -1057,13 +987,13 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                         </div>
                         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-background/20 via-background/65 to-background/95">
                           <Button type="button" size="sm" variant="secondary" className="shadow-sm" onClick={() => setShowAllPhotos(true)}>
-                            {isEnglish ? `View all ${galleryPhotos.length} photos` : `Ver todas as ${galleryPhotos.length} fotos`}
+                            {`Ver todas as ${galleryPhotos.length} fotos`}
                           </Button>
                         </div>
                       </div>
                     ) : galleryPhotos.length > PHOTO_PREVIEW_LIMIT ? (
                       <Button type="button" size="sm" variant="outline" className="mt-4" onClick={() => setShowAllPhotos(false)}>
-                        {isEnglish ? "Show fewer photos" : "Mostrar menos fotos"}
+                        {"Mostrar menos fotos"}
                       </Button>
                     ) : null}
                   </>
@@ -1072,7 +1002,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
               {getCategoryId(business.category) !== "food" && hasServiceItems && (
                 <section id="servicos" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
-                  <h2 className="text-xl font-bold text-foreground mb-4">{isEnglish ? "Services" : "Serviços"}</h2>
+                  <h2 className="text-xl font-bold text-foreground mb-4">{"Serviços"}</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {serviceEntries.map((service, idx) => (
                       <div key={`${service.name}-${idx}`} className={`${!showAllServices && idx >= SERVICE_PREVIEW_LIMIT ? "hidden" : ""} p-3 rounded-lg bg-secondary/50 border border-border`}>
@@ -1095,7 +1025,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   </div>
                   {serviceEntries.length > SERVICE_PREVIEW_LIMIT ? (
                     <Button type="button" variant="outline" size="sm" className="mt-4" aria-expanded={showAllServices} onClick={() => setShowAllServices((current) => !current)}>
-                      {showAllServices ? (isEnglish ? "Show less" : "Mostrar menos") : (isEnglish ? `View all ${serviceEntries.length} services` : `Ver todos os ${serviceEntries.length} serviços`)}
+                      {showAllServices ? ("Mostrar menos") : (`Ver todos os ${serviceEntries.length} serviços`)}
                     </Button>
                   ) : null}
                 </section>
@@ -1103,14 +1033,14 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
               {(business.menu && business.menu.length > 0) || !!business.menuPdfUrl ? (
                 <section id="cardapio" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
-                  <h2 className="text-xl font-bold text-foreground mb-4">{isEnglish ? "Menu" : "Cardápio"}</h2>
+                  <h2 className="text-xl font-bold text-foreground mb-4">{"Cardápio"}</h2>
                   {business.menuPdfUrl && (
                     <div className="mb-4">
                       <Button
                         variant="outline"
                         onClick={() => handleOpenPdfPrivately(business.menuPdfUrl!)}
                       >
-                        {isEnglish ? "View full menu" : "Acessar cardápio completo"}
+                        {"Acessar cardápio completo"}
                       </Button>
                     </div>
                   )}
@@ -1131,7 +1061,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   ) : null}
                   {menuEntries.length > MENU_PREVIEW_LIMIT ? (
                     <Button type="button" variant="outline" size="sm" className="mt-4" aria-expanded={showAllMenuItems} onClick={() => setShowAllMenuItems((current) => !current)}>
-                      {showAllMenuItems ? (isEnglish ? "Show less" : "Mostrar menos") : (isEnglish ? `View all ${menuEntries.length} items` : `Ver todos os ${menuEntries.length} itens`)}
+                      {showAllMenuItems ? ("Mostrar menos") : (`Ver todos os ${menuEntries.length} itens`)}
                     </Button>
                   ) : null}
                 </section>
@@ -1139,7 +1069,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
               {activePromotions.length > 0 && (
                 <section id="promocoes" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
-                  <h2 className="text-xl font-bold text-foreground mb-4">{isEnglish ? "Promotions" : "Promoções"}</h2>
+                  <h2 className="text-xl font-bold text-foreground mb-4">{"Promoções"}</h2>
                   <div className="space-y-2">
                     {activePromotions.map((promotion, idx) => (
                       <Card key={`${promotion.code}-${idx}`} className="p-5 border-border">
@@ -1148,11 +1078,11 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                         <div className="mt-4 flex flex-wrap items-center gap-3">
                           {promotion.code?.trim() ? (
                             <span className="inline-flex items-center rounded-md bg-amber-100 text-amber-900 px-3 py-1 text-sm font-bold">
-                              {isEnglish ? "Coupon" : "Cupom"}: {promotion.code}
+                              {"Cupom"}: {promotion.code}
                             </span>
                           ) : null}
                           <span className="text-sm text-muted-foreground">
-                            {isEnglish ? "Valid until" : "Válido até"}: {formatDatePtBr(promotion.expiresAt)}
+                            {"Válido até"}: {formatDatePtBr(promotion.expiresAt)}
                           </span>
                         </div>
                       </Card>
@@ -1163,7 +1093,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
               {upcomingEvents.length > 0 && (
                 <section id="eventos" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
-                  <h2 className="text-xl font-bold text-foreground mb-4">{isEnglish ? "Upcoming events" : "Próximos eventos"}</h2>
+                  <h2 className="text-xl font-bold text-foreground mb-4">{"Próximos eventos"}</h2>
                   <div className="space-y-4">
                     {upcomingEvents.map((event, idx) => (
                       <Card key={`${event.title}-${event.date}-${idx}`} className="p-5 border-border">
@@ -1172,12 +1102,12 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                             <button
                               type="button"
                               onClick={() => setSelectedPhoto(event.flyerUrl || null)}
-                              title={isEnglish ? "Open flyer in full size" : "Abrir flyer em tamanho real"}
+                              title={"Abrir flyer em tamanho real"}
                               className="block"
                             >
                               <img
                                 src={event.flyerUrl}
-                                alt={`${isEnglish ? "Event flyer" : "Flyer do evento"} ${event.title}`}
+                                alt={`${"Flyer do evento"} ${event.title}`}
                                 className="w-full sm:w-40 h-32 rounded-lg object-cover border border-border cursor-zoom-in"
                               />
                             </button>
@@ -1196,14 +1126,14 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
                                 {...getExternalLinkProps()}
                                 className="inline-flex items-center gap-1.5 rounded-md bg-secondary px-2.5 py-1 hover:bg-secondary/80"
-                                title={isEnglish ? "Open in Google Maps" : "Abrir no Google Maps"}
+                                title={"Abrir no Google Maps"}
                               >
                                 <MapPin className="w-4 h-4" />
                                 {event.location}
                               </a>
                               <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100 text-emerald-900 px-2.5 py-1 font-medium">
                                 <Ticket className="w-4 h-4" />
-                                {event.isFree ? (isEnglish ? "Free entry" : "Entrada franca") : (event.price || (isEnglish ? "Paid event" : "Evento pago"))}
+                                {event.isFree ? ("Entrada franca") : (event.price || ("Evento pago"))}
                               </span>
                               {event.ticketUrl?.trim() ? (
                                 <a
@@ -1212,7 +1142,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                                   className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-2.5 py-1 font-medium hover:opacity-90"
                                 >
                                   <Ticket className="w-4 h-4" />
-                                  {isEnglish ? "Buy tickets" : "Comprar ingressos"}
+                                  {"Comprar ingressos"}
                                 </a>
                               ) : null}
                             </div>
@@ -1225,7 +1155,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               )}
 
               <section id="avaliacoes" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
-                <h2 className="text-xl font-bold text-foreground mb-6">{isEnglish ? "Reviews" : "Avaliações"}</h2>
+                <h2 className="text-xl font-bold text-foreground mb-6">{"Avaliações"}</h2>
                 <Card className="p-5 mb-6 border-border">
                   <div className="flex flex-col sm:flex-row gap-6 sm:items-center">
                     <div className="text-center sm:w-32">
@@ -1235,7 +1165,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                           <Star key={i} className={`w-4 h-4 ${i < Math.round(business.averageRating) ? "fill-current" : "text-muted-foreground/20"}`} />
                         ))}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{business.reviews.length} {business.reviews.length === 1 ? (isEnglish ? "review" : "avaliação") : (isEnglish ? "reviews" : "avaliações")}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{business.reviews.length} {business.reviews.length === 1 ? ("avaliação") : ("avaliações")}</p>
                     </div>
                     <div className="flex-1 space-y-2">
                       {[5, 4, 3, 2, 1].map((rating) => (
@@ -1259,12 +1189,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
                 <ClientOnly>
                   <Card className="p-5 mb-6 border-border bg-secondary/30">
-                  <h3 className="font-semibold text-sm mb-3">{isEnglish ? "Leave a review" : "Deixe sua avaliação"}</h3>
+                  <h3 className="font-semibold text-sm mb-3">{"Deixe sua avaliação"}</h3>
                   {hasUserReview && (
                     <p className="text-sm text-muted-foreground mb-3">
-                      {isEnglish
-                        ? "You have already reviewed this business. Use Edit my review below to make changes."
-                        : "Você já avaliou este negócio. Para alterar, use Editar minha avaliação na sua avaliação abaixo."}
+                      {"Você já avaliou este negócio. Para alterar, use Editar minha avaliação na sua avaliação abaixo."}
                     </p>
                   )}
                   <form onSubmit={handleReviewSubmit}>
@@ -1278,26 +1206,26 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                           className={`p-1 transition-colors ${
                             star <= reviewRating ? "text-amber-500" : "text-muted-foreground/30"
                           } hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed`}
-                          aria-label={`${star} ${isEnglish ? "stars" : "estrelas"}`}
+                          aria-label={`${star} ${"estrelas"}`}
                         >
                           <Star className="w-6 h-6 fill-current" />
                         </button>
                       ))}
                       {reviewRating > 0 && (
                         <span className="ml-2 text-sm text-muted-foreground">
-                          {isEnglish ? `${reviewRating} of 5 stars` : `${reviewRating} de 5 estrelas`}
+                          {`${reviewRating} de 5 estrelas`}
                         </span>
                       )}
                     </div>
                     <Textarea
-                      placeholder={isEnglish ? "Tell us about your experience..." : "Conte sua experiência..."}
+                      placeholder={"Conte sua experiência..."}
                       value={reviewComment}
                       onChange={(e) => setReviewComment(e.target.value)}
                       className="mb-3 min-h-[80px]"
                       disabled={hasUserReview}
                     />
                     <Button type="submit" size="sm" className="caramelo-gradient text-white border-0" disabled={sendingReview || hasUserReview}>
-                      {sendingReview ? (isEnglish ? "Submitting..." : "Enviando...") : (isEnglish ? "Submit review" : "Enviar Avaliação")}
+                      {sendingReview ? ("Enviando...") : ("Enviar Avaliação")}
                     </Button>
                     </form>
                   </Card>
@@ -1305,7 +1233,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
                 <div className="space-y-4">
                   {business.reviews.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">{isEnglish ? "No reviews yet. Be the first!" : "Nenhuma avaliação ainda. Seja o primeiro!"}</p>
+                    <p className="text-muted-foreground text-sm">{"Nenhuma avaliação ainda. Seja o primeiro!"}</p>
                   ) : (
                     visibleReviews.map((review) => (
                       <div key={review.id} className="p-4 rounded-lg border border-border bg-card">
@@ -1353,7 +1281,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                                   className={`p-1 transition-colors ${
                                     star <= editRating ? "text-amber-500" : "text-muted-foreground/30"
                                   } hover:text-amber-400`}
-                                  aria-label={`${star} ${isEnglish ? "stars" : "estrelas"}`}
+                                  aria-label={`${star} ${"estrelas"}`}
                                 >
                                   <Star className="w-5 h-5 fill-current" />
                                 </button>
@@ -1366,10 +1294,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                             />
                             <div className="flex gap-2">
                               <Button size="sm" onClick={handleSaveEditReview} disabled={savingEditReview}>
-                                {savingEditReview ? (isEnglish ? "Saving..." : "Salvando...") : (isEnglish ? "Save" : "Salvar")}
+                                {savingEditReview ? ("Salvando...") : ("Salvar")}
                               </Button>
                               <Button size="sm" variant="outline" onClick={cancelEditReview} disabled={savingEditReview}>
-                                {isEnglish ? "Cancel" : "Cancelar"}
+                                {"Cancelar"}
                               </Button>
                             </div>
                           </div>
@@ -1379,7 +1307,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                             {session?.userId && review.user_id === session.userId && (
                               <div className="mt-3 flex gap-2">
                                 <Button size="sm" variant="outline" onClick={() => startEditReview(review)}>
-                                  {isEnglish ? "Edit my review" : "Editar minha avaliação"}
+                                  {"Editar minha avaliação"}
                                 </Button>
                                 <Button
                                   size="sm"
@@ -1387,7 +1315,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                                   className="text-destructive border-destructive/30 hover:bg-destructive/10"
                                   onClick={() => handleDeleteOwnReview(review.id)}
                                 >
-                                  {isEnglish ? "Remove my review" : "Remover minha avaliação"}
+                                  {"Remover minha avaliação"}
                                 </Button>
                               </div>
                             )}
@@ -1398,15 +1326,15 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   )}
                 </div>
                 {reviewPageCount > 1 ? (
-                  <nav aria-label={isEnglish ? "Business sections" : "Seções do negócio"} className="mt-5 flex items-center justify-center gap-3">
+                  <nav aria-label={"Seções do negócio"} className="mt-5 flex items-center justify-center gap-3">
                     <Button type="button" variant="outline" size="sm" disabled={currentReviewPage === 1} onClick={() => setReviewPage((page) => Math.max(1, page - 1))}>
-                      {isEnglish ? "Previous" : "Anterior"}
+                      {"Anterior"}
                     </Button>
                     <span className="text-sm text-muted-foreground" aria-live="polite">
-                      {isEnglish ? `Page ${currentReviewPage} of ${reviewPageCount}` : `Página ${currentReviewPage} de ${reviewPageCount}`}
+                      {`Página ${currentReviewPage} de ${reviewPageCount}`}
                     </span>
                     <Button type="button" variant="outline" size="sm" disabled={currentReviewPage === reviewPageCount} onClick={() => setReviewPage((page) => Math.min(reviewPageCount, page + 1))}>
-                      {isEnglish ? "Next" : "Próxima"}
+                      {"Próxima"}
                     </Button>
                   </nav>
                 ) : null}
@@ -1433,7 +1361,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       setSelectedPhoto(galleryPhotos[nextIndex]);
                     }}
                     className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/70 border border-white/35 hover:bg-black/85 hover:border-white/70 hover:scale-110 text-white p-3 shadow-lg transition-all duration-200"
-                    aria-label={isEnglish ? "Previous photo" : "Foto anterior"}
+                    aria-label={"Foto anterior"}
                   >
                     <ChevronLeft className="w-7 h-7" />
                   </button>
@@ -1456,7 +1384,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       setSelectedPhoto(galleryPhotos[nextIndex]);
                     }}
                     className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/70 border border-white/35 hover:bg-black/85 hover:border-white/70 hover:scale-110 text-white p-3 shadow-lg transition-all duration-200"
-                    aria-label={isEnglish ? "Next photo" : "Próxima foto"}
+                    aria-label={"Próxima foto"}
                   >
                     <ChevronRight className="w-7 h-7" />
                   </button>
@@ -1474,13 +1402,12 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                 onSendMessage={handleSendMessage}
                 onRoute={handleRoute}
                 onExternalClick={handleExternalClick}
-                locale={locale}
               />
 
               {/* Social Media */}
               {(business.instagram || business.facebook) && (
                 <Card className="p-5 border-border">
-                  <h3 className="font-semibold mb-4">{isEnglish ? "Social media" : "Redes Sociais"}</h3>
+                  <h3 className="font-semibold mb-4">{"Redes Sociais"}</h3>
                   <div className="space-y-2">
                     {business.instagram && (
                       <a
@@ -1510,7 +1437,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               <Card className="p-5 border-border">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Share2 className="w-4 h-4 text-primary" />
-                  {isEnglish ? "Share page" : "Compartilhar página"}
+                  {"Compartilhar página"}
                 </h3>
                 <div className="grid grid-cols-1 gap-2">
                   <Button
@@ -1518,9 +1445,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                     className="justify-start"
                     onClick={() => {
                       const text = encodeURIComponent(
-                        isEnglish
-                          ? `See ${business.name} on Caramelinho: ${shareUrl}`
-                          : `Confira ${business.name} no Caramelinho: ${shareUrl}`,
+                        `Confira ${business.name} no Caramelinho: ${shareUrl}`,
                       );
                       window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
                     }}
@@ -1545,12 +1470,12 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   </Button>
                   <Button variant="outline" className="justify-start" onClick={handleCopyLink}>
                     <Link2 className="w-4 h-4 mr-2" />
-                    {isEnglish ? "Copy link" : "Copiar link"}
+                    {"Copiar link"}
                   </Button>
                   {canUseNativeShare && (
                     <Button variant="ghost" className="justify-start text-muted-foreground" onClick={handleNativeShare}>
                       <Share2 className="w-4 h-4 mr-2" />
-                      {isEnglish ? "More options" : "Mais opções"}
+                      {"Mais opções"}
                     </Button>
                   )}
                 </div>
@@ -1566,10 +1491,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   >
                     <Store className="w-4 h-4 mr-2" />
                     {hasPendingOwnershipRequest
-                      ? (isEnglish ? "Ownership request sent" : "Solicitação de ownership enviada")
+                      ? ("Solicitação de ownership enviada")
                       : requestingOwnership
-                        ? (isEnglish ? "Sending request..." : "Enviando solicitação...")
-                        : (isEnglish ? "I own this business" : "Sou dono deste negócio")}
+                        ? ("Enviando solicitação...")
+                        : ("Sou dono deste negócio")}
                   </Button>
                 </div>
               )}
@@ -1578,7 +1503,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                 className="w-full"
                 onClick={() => setReportOpen(true)}
               >
-                {isEnglish ? "Report listing" : "Denunciar anúncio"}
+                {"Denunciar anúncio"}
               </Button>
               <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground/80">
                 <Clock className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1592,8 +1517,8 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
           <section className="mt-14">
             <h2 className="text-2xl font-bold mb-6">
               {businessCityDisplayName
-                ? `${isEnglish ? `Similar Brazilian businesses near ${businessCityDisplayName}` : `Negócios brasileiros similares na região de ${businessCityDisplayName}`}`
-                : isEnglish ? "Similar Brazilian businesses" : "Negócios brasileiros similares"}
+                ? `${`Negócios brasileiros similares na região de ${businessCityDisplayName}`}`
+                : "Negócios brasileiros similares"}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {similarBusinesses.map((item, index) => {
@@ -1668,7 +1593,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       {item.ownerVerified ? (
                         <div className="absolute bottom-3 right-3 bg-emerald-600/95 text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
                           <Lock className="w-2.5 h-2.5" />
-                          {isEnglish ? "Verified" : "Verificado"}
+                          {"Verificado"}
                         </div>
                       ) : null}
                     </div>
@@ -1682,29 +1607,29 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                             <span className="truncate">{item.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${isEnglish ? (item.address.cityDisplayName || item.address.city) : getCityDisplayName(item.address.cityDisplayName || item.address.city, item.address.countryCode || item.address.country)}, ${isEnglish ? getCountryDisplayName(item.address.countryCode || item.address.country, item.address.country, "en") : getCountryName(item.address.countryCode || item.address.country)}`}
+                            {`${getCityDisplayName(item.address.cityDisplayName || item.address.city, item.address.countryCode || item.address.country)}, ${getCountryName(item.address.countryCode || item.address.country)}`}
                           </p>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(getBusinessDescriptionForLocale(item, locale))}</p>
+                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(item.description || "")}</p>
                       {item.categoryId === "food" && (item.isVeganFriendly || item.isVegetarianFriendly || item.isGlutenFreeFriendly) ? (
                         <div className="flex flex-wrap gap-2 mt-3">
                           {item.isVeganFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                               <Leaf className="w-3 h-3" />
-                              {isEnglish ? "Vegan" : "Vegano"}
+                              {"Vegano"}
                             </span>
                           ) : null}
                           {item.isVegetarianFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-lime-100 text-lime-800">
                               <Leaf className="w-3 h-3" />
-                              {isEnglish ? "Vegetarian" : "Vegetariano"}
+                              {"Vegetariano"}
                             </span>
                           ) : null}
                           {item.isGlutenFreeFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
                               <WheatOff className="w-3 h-3" />
-                              {isEnglish ? "Gluten-free" : "Sem Glúten"}
+                              {"Sem Glúten"}
                             </span>
                           ) : null}
                         </div>
@@ -1734,41 +1659,41 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       <Dialog open={reportOpen} onOpenChange={setReportOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{isEnglish ? "Report listing" : "Denunciar anúncio"}</DialogTitle>
+            <DialogTitle>{"Denunciar anúncio"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              {isEnglish ? "Your report is 100% anonymous. No personal data is shown to the reported listing." : "Sua denúncia é 100% anônima. Nenhum dado pessoal é exibido ao anúncio denunciado."}
+              {"Sua denúncia é 100% anônima. Nenhum dado pessoal é exibido ao anúncio denunciado."}
             </div>
             <div>
-              <Label>{isEnglish ? "Reason" : "Motivo"}</Label>
+              <Label>{"Motivo"}</Label>
               <Select value={reportReason} onValueChange={(v: any) => setReportReason(v)}>
                 <SelectTrigger className="mt-1.5">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fake">{isEnglish ? "Fake account or profile" : "Conta/perfil falso"}</SelectItem>
-                  <SelectItem value="difamacao">{isEnglish ? "Defamation" : "Difamação"}</SelectItem>
-                  <SelectItem value="golpe">{isEnglish ? "Scam or fraud" : "Golpe/fraude"}</SelectItem>
-                  <SelectItem value="conteudo_ofensivo">{isEnglish ? "Offensive content" : "Conteúdo ofensivo"}</SelectItem>
-                  <SelectItem value="outro">{isEnglish ? "Other" : "Outro"}</SelectItem>
+                  <SelectItem value="fake">{"Conta/perfil falso"}</SelectItem>
+                  <SelectItem value="difamacao">{"Difamação"}</SelectItem>
+                  <SelectItem value="golpe">{"Golpe/fraude"}</SelectItem>
+                  <SelectItem value="conteudo_ofensivo">{"Conteúdo ofensivo"}</SelectItem>
+                  <SelectItem value="outro">{"Outro"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>{isEnglish ? "Details (optional)" : "Detalhes (opcional)"}</Label>
+              <Label>{"Detalhes (opcional)"}</Label>
               <Textarea
                 className="mt-1.5"
                 rows={4}
                 value={reportDetails}
                 onChange={(e) => setReportDetails(e.target.value)}
-                placeholder={isEnglish ? "Briefly describe the problem." : "Descreva rapidamente o problema."}
+                placeholder={"Descreva rapidamente o problema."}
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setReportOpen(false)} disabled={reporting}>{isEnglish ? "Cancel" : "Cancelar"}</Button>
+              <Button variant="outline" onClick={() => setReportOpen(false)} disabled={reporting}>{"Cancelar"}</Button>
               <Button onClick={handleSubmitReport} disabled={reporting}>
-                {reporting ? (isEnglish ? "Submitting..." : "Enviando...") : (isEnglish ? "Submit report" : "Enviar denúncia")}
+                {reporting ? ("Enviando...") : ("Enviar denúncia")}
               </Button>
             </div>
           </div>

@@ -36,17 +36,11 @@ function normalizePart(value) {
 function buildStaticSitemapXml(baseUrl) {
   const urls = [
     "/",
-    "/en",
     "/negocios",
-    "/en/businesses",
     "/sobre",
     "/contato",
     "/privacidade",
     "/termos",
-    "/en/about",
-    "/en/contact",
-    "/en/privacy",
-    "/en/terms",
     "/negocio-verificado",
   ];
   const body = urls

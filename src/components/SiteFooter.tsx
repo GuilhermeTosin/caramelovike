@@ -2,13 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MapPin, Store, LogIn, FileText, ScrollText, Info, Mail, Facebook } from "lucide-react";
 import { DEFAULT_GEO_FALLBACK, buildNearbyBusinessSearchPath, getApproxGeoByIp } from "@/lib/utils/geo";
-import { useSiteLocale } from "@/contexts/LocaleContext";
 import { getSiteSlogan } from "@/lib/locales";
 
 export default function SiteFooter() {
   const navigate = useNavigate();
-  const { locale, toLocalePath } = useSiteLocale();
-  const isEnglish = locale === "en";
+  const locale = "pt-BR";
+
   const [isLocatingSearch, setIsLocatingSearch] = useState(false);
 
   const handleNearbySearch = async (event: React.MouseEvent<HTMLAnchorElement>) => {
@@ -22,7 +21,7 @@ export default function SiteFooter() {
       fallback: DEFAULT_GEO_FALLBACK,
     });
     setIsLocatingSearch(false);
-    navigate(toLocalePath(buildNearbyBusinessSearchPath(geo || DEFAULT_GEO_FALLBACK)));
+    navigate(buildNearbyBusinessSearchPath(geo || DEFAULT_GEO_FALLBACK));
   };
 
   return (
@@ -50,61 +49,61 @@ export default function SiteFooter() {
               </div>
             </div>
             <p className="mt-3 text-sm text-slate-300 max-w-md leading-relaxed">
-              {isEnglish ? "Find Brazilian businesses wherever you are. Local search, direct contact and reliable information in one place." : "Encontre negócios brasileiros onde você estiver. Busca local, contato direto e informações confiáveis em um só lugar."}
+              {"Encontre negócios brasileiros onde você estiver. Busca local, contato direto e informações confiáveis em um só lugar."}
             </p>
           </div>
 
           <div>
-            <h2 className="text-sm font-semibold text-white mb-3">{isEnglish ? "Navigation" : "Navegação"}</h2>
+            <h2 className="text-sm font-semibold text-white mb-3">{"Navegação"}</h2>
             <div className="space-y-2 text-sm">
               <Link
-                to={toLocalePath("/buscar")}
+                to={"/buscar"}
                 onClick={handleNearbySearch}
                 aria-busy={isLocatingSearch}
                 className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
               >
                 <MapPin className="w-4 h-4" />
-                {isLocatingSearch ? (isEnglish ? "Finding your location..." : "Localizando...") : (isEnglish ? "Search businesses" : "Buscar negócios")}
+                {isLocatingSearch ? ("Localizando...") : ("Buscar negócios")}
               </Link>
-              <Link to={toLocalePath("/negocios")} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+              <Link to={"/negocios"} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Store className="w-4 h-4" />
-                {isEnglish ? "All businesses" : "Todos os negócios"}
+                {"Todos os negócios"}
               </Link>
-              <Link to={toLocalePath("/cadastro")} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+              <Link to={"/cadastro"} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Store className="w-4 h-4" />
-                {isEnglish ? "List a business" : "Cadastrar negócio"}
+                {"Cadastrar negócio"}
               </Link>
-              <Link to={toLocalePath("/entrar")} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+              <Link to={"/entrar"} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <LogIn className="w-4 h-4" />
-                {isEnglish ? "Sign in" : "Entrar na conta"}
+                {"Entrar na conta"}
               </Link>
             </div>
           </div>
 
           <div>
-            <h2 className="text-sm font-semibold text-white mb-3">{isEnglish ? "About" : "Institucional"}</h2>
+            <h2 className="text-sm font-semibold text-white mb-3">{"Institucional"}</h2>
             <div className="space-y-2 text-sm">
-              <Link to={toLocalePath("/sobre")} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+              <Link to={"/sobre"} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Info className="w-4 h-4" />
-                {isEnglish ? "About" : "Sobre"}
+                {"Sobre"}
               </Link>
-              <Link to={toLocalePath("/contato")} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+              <Link to={"/contato"} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Mail className="w-4 h-4" />
-                {isEnglish ? "Contact" : "Contato"}
+                {"Contato"}
               </Link>
-              <Link to={toLocalePath("/privacidade")} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+              <Link to={"/privacidade"} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <FileText className="w-4 h-4" />
-                {isEnglish ? "Privacy" : "Privacidade"}
+                {"Privacidade"}
               </Link>
-              <Link to={toLocalePath("/termos")} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+              <Link to={"/termos"} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <ScrollText className="w-4 h-4" />
-                {isEnglish ? "Terms and conditions" : "Termos e Condições"}
+                {"Termos e Condições"}
               </Link>
             </div>
           </div>
 
           <div>
-            <h2 className="text-sm font-semibold text-white mb-3">{isEnglish ? "Follow us" : "Siga-nos"}</h2>
+            <h2 className="text-sm font-semibold text-white mb-3">{"Siga-nos"}</h2>
             <div className="space-y-2 text-sm">
               <a href="https://www.facebook.com/people/Caramelinhocom/61591992668311/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors" aria-label="Facebook">
                 <Facebook className="w-4 h-4" />
@@ -115,8 +114,8 @@ export default function SiteFooter() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-slate-800 text-xs text-slate-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <p>{isEnglish ? "© 2026 Caramelinho.com. All rights reserved." : "© 2026 Caramelinho.com. Todos os direitos reservados."}</p>
-          <p>{isEnglish ? "Made to make life abroad easier." : "Feito para facilitar a vida de quem mora fora."}</p>
+          <p>{"© 2026 Caramelinho.com. Todos os direitos reservados."}</p>
+          <p>{"Feito para facilitar a vida de quem mora fora."}</p>
         </div>
       </div>
     </footer>
