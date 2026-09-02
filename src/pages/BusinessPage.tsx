@@ -805,7 +805,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
           <div className="flex items-center justify-between h-16 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
               <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-                <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
+                <img src="/logo-64.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="(max-width: 640px) 56px, 88px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>

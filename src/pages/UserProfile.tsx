@@ -673,7 +673,7 @@ export default function UserProfile() {
           <div className="flex h-16 items-center justify-between sm:h-24">
             <Link to={"/"} className="group flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center sm:h-[5.5rem] sm:w-[5.5rem]">
-                <img src="/logo.webp" alt="Caramelinho logo" className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-110" />
+                <img src="/logo-64.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="(max-width: 640px) 56px, 88px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="min-w-0 leading-tight">
                 <div className="truncate text-lg font-extrabold tracking-tight caramelo-text-gradient sm:text-2xl">Caramelinho</div>

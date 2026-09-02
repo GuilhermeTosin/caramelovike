@@ -93,11 +93,11 @@ export default function ResetPassword() {
         <div className="mb-8">
           <Link to={"/"} className="flex items-center gap-3 mb-4">
             <div className="w-20 h-20 flex items-center justify-center">
-              <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain" />
+              <img src="/logo-112.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="80px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="w-full h-full object-contain" />
             </div>
             <div className="leading-tight text-left">
               <div className="font-extrabold text-[2rem] sm:text-[2.2rem] tracking-tight caramelo-text-gradient">Caramelinho</div>
-              <div className="text-base sm:text-lg font-semibold text-foreground/75">{getSiteSlogan(locale)}</div>
+              <div className="text-base sm:text-lg font-semibold text-foreground/75">{getSiteSlogan()}</div>
             </div>
           </Link>
         </div>
