@@ -1,0 +1,465 @@
+import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties } from "react";
+import { Input } from "./ui/input";
+import { Search, MapPin, X, Loader2 } from "lucide-react";
+import { isMapsApiAvailable, loadGoogleMapsApi } from "@/lib/google-maps";
+
+export type LocationSuggestionMeta = {
+  lat?: number;
+  lng?: number;
+  city?: string;
+  stateCode?: string;
+  countryCode?: string;
+  placeId?: string;
+  formattedAddress?: string;
+};
+
+interface SearchInputWithSuggestionsProps {
+  value: string;
+  onChange: (value: string) => void;
+  suggestions: string[];
+  placeholder: string;
+  icon: "search" | "location";
+  onSubmit?: (
+    value?: string,
+    meta?: LocationSuggestionMeta
+  ) => void;
+  className?: string;
+  inputClassName?: string;
+  useGooglePlaces?: boolean;
+  locationBias?: { lat: number; lng: number } | null;
+  disableLocalSuggestions?: boolean;
+  maxSuggestions?: number;
+  portalSuggestions?: boolean;
+  onUseCurrentLocation?: () => void | Promise<void>;
+  isLoading?: boolean;
+}
+
+function extractCityFromPlace(place: google.maps.places.PlaceResult): string {
+  const components = place.address_components || [];
+
+  const byType = (type: string) =>
+    components.find((c) => c.types.includes(type))?.long_name || "";
+
+  return (
+    byType("locality") ||
+    byType("postal_town") ||
+    byType("administrative_area_level_2") ||
+    byType("sublocality") ||
+    byType("sublocality_level_1") ||
+    place.name ||
+    ""
+  ).trim();
+}
+
+function normalizeForMatch(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+export default function SearchInputWithSuggestions({
+  value,
+  onChange,
+  suggestions,
+  placeholder,
+  icon,
+  onSubmit,
+  className = "",
+  inputClassName = "",
+  useGooglePlaces = false,
+  locationBias = null,
+  disableLocalSuggestions = false,
+  maxSuggestions = 6,
+  portalSuggestions = false,
+  onUseCurrentLocation,
+  isLoading = false,
+}: SearchInputWithSuggestionsProps) {
+  const legacyPlacesAutocompleteEnabled = true;
+  const suggestionsDisabled = disableLocalSuggestions;
+  const [isOpen, setIsOpen] = useState(false);
+  const [portalStyle, setPortalStyle] = useState<CSSProperties | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const locateActionLockRef = useRef(false);
+
+  const canUseGooglePlaces =
+    legacyPlacesAutocompleteEnabled &&
+    !suggestionsDisabled &&
+    useGooglePlaces &&
+    icon === "location" &&
+    isMapsApiAvailable();
+
+  const filteredSuggestions = useMemo(() => {
+    if (suggestionsDisabled) return [];
+    if (canUseGooglePlaces) return [];
+    if (value.length < 2) return [];
+
+    const query = normalizeForMatch(value);
+    return suggestions
+      .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+      .filter((s) => normalizeForMatch(s).includes(query))
+      .slice(0, maxSuggestions);
+  }, [suggestions, value, canUseGooglePlaces, suggestionsDisabled, maxSuggestions]);
+
+  const showLocateAction = icon === "location" && typeof onUseCurrentLocation === "function";
+  const showSuggestions = isOpen && (filteredSuggestions.length > 0 || showLocateAction);
+
+  const syncPortalPosition = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    const node = containerRef.current;
+    if (!node) return;
+
+    const rect = node.getBoundingClientRect();
+    const width = Math.max(0, Math.min(rect.width, window.innerWidth - 16));
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    const top = rect.bottom + 8;
+    const maxHeight = Math.max(160, window.innerHeight - top - 16);
+
+    setPortalStyle({
+      position: "fixed",
+      top,
+      left,
+      width,
+      maxHeight,
+      overflowY: "auto",
+      zIndex: 10000,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!showSuggestions || !portalSuggestions) {
+      setPortalStyle(null);
+      return;
+    }
+
+    syncPortalPosition();
+
+    const handleResize = () => {
+      syncPortalPosition();
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [showSuggestions, portalSuggestions, syncPortalPosition]);
+
+  useEffect(() => {
+    if (!showSuggestions || !portalSuggestions) return;
+
+    const closeOnScroll = () => {
+      setIsOpen(false);
+      setPortalStyle(null);
+    };
+
+    window.addEventListener("scroll", closeOnScroll, true);
+    document.addEventListener("scroll", closeOnScroll, true);
+    window.addEventListener("wheel", closeOnScroll, { passive: true, capture: true });
+    window.addEventListener("touchmove", closeOnScroll, { passive: true, capture: true });
+
+    return () => {
+      window.removeEventListener("scroll", closeOnScroll, true);
+      document.removeEventListener("scroll", closeOnScroll, true);
+      window.removeEventListener("wheel", closeOnScroll, true);
+      window.removeEventListener("touchmove", closeOnScroll, true);
+    };
+  }, [showSuggestions, portalSuggestions]);
+
+  useEffect(() => {
+    if (!canUseGooglePlaces || !inputRef.current) return;
+
+    let mounted = true;
+    const inputEl = inputRef.current;
+
+    const syncFromNativeInput = () => {
+      const currentValue = inputEl.value || "";
+      if (currentValue !== value) {
+        onChange(currentValue);
+      }
+    };
+
+    inputEl.addEventListener("input", syncFromNativeInput);
+
+    loadGoogleMapsApi()
+      .then(() => {
+        if (!mounted || !inputRef.current) return;
+
+        if (autocompleteRef.current) {
+          google.maps.event.clearInstanceListeners(autocompleteRef.current);
+          autocompleteRef.current = null;
+        }
+
+        const ac = new google.maps.places.Autocomplete(inputRef.current, {
+          fields: ["formatted_address", "name", "address_components", "geometry", "place_id"],
+          types: ["(cities)"],
+        });
+
+        if (locationBias) {
+          const bounds = new google.maps.LatLngBounds(
+            new google.maps.LatLng(locationBias.lat - 2, locationBias.lng - 2),
+            new google.maps.LatLng(locationBias.lat + 2, locationBias.lng + 2)
+          );
+          ac.setBounds(bounds);
+          ac.setOptions({ strictBounds: false });
+        }
+
+        ac.addListener("place_changed", () => {
+          const place = ac.getPlace();
+          const extractedCity = extractCityFromPlace(place);
+          const formattedAddress = (place.formatted_address || "").trim();
+          const selected = formattedAddress || extractedCity || inputRef.current?.value || "";
+          const components = place.address_components || [];
+          const stateCode = components.find((c) => c.types.includes("administrative_area_level_1"))?.short_name || "";
+          const countryCode = components.find((c) => c.types.includes("country"))?.short_name || "";
+          const lat = place.geometry?.location?.lat?.();
+          const lng = place.geometry?.location?.lng?.();
+
+          onChange(selected);
+          if (inputRef.current) {
+            inputRef.current.blur();
+          } else if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+          setIsOpen(false);
+
+          if (onSubmit) {
+            onSubmit(selected, {
+              lat,
+              lng,
+              city: extractedCity,
+              stateCode: stateCode.toLowerCase(),
+              countryCode: countryCode.toLowerCase(),
+              placeId: place.place_id,
+              formattedAddress,
+            });
+          }
+        });
+
+        autocompleteRef.current = ac;
+      })
+      .catch(() => {
+        // fallback silencioso para sugestões locais
+      });
+
+    return () => {
+      mounted = false;
+      inputEl.removeEventListener("input", syncFromNativeInput);
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
+      }
+    };
+  }, [canUseGooglePlaces, onChange, onSubmit, locationBias, value]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        !(portalRef.current && portalRef.current.contains(target))
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSelect = (suggestion: string) => {
+    onChange(suggestion);
+    if (inputRef.current) {
+      inputRef.current.blur();
+    } else if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setIsOpen(false);
+    if (onSubmit) onSubmit(suggestion);
+  };
+
+  const triggerUseCurrentLocation = () => {
+    if (locateActionLockRef.current) return;
+    locateActionLockRef.current = true;
+
+    if (inputRef.current) {
+      inputRef.current.blur();
+    } else if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
+    window.setTimeout(() => setIsOpen(false), 0);
+    void Promise.resolve(onUseCurrentLocation?.()).finally(() => {
+      window.setTimeout(() => {
+        locateActionLockRef.current = false;
+      }, 120);
+    });
+  };
+
+  const suggestionList = (
+    <ul
+      className="py-2"
+      onMouseDown={(e) => {
+        if (
+          e.target === e.currentTarget &&
+          filteredSuggestions.length === 1 &&
+          !showLocateAction
+        ) {
+          e.preventDefault();
+          handleSelect(filteredSuggestions[0]);
+        }
+      }}
+    >
+      {showLocateAction && (
+        <li onMouseDown={(e) => e.preventDefault()}>
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              triggerUseCurrentLocation();
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            className="w-full min-h-12 text-left px-5 py-3 hover:bg-secondary flex items-center gap-3 transition-colors"
+          >
+            <MapPin className="w-4 h-4 text-primary" />
+            <span className="text-foreground font-semibold text-xs lg:text-[11px] whitespace-nowrap">
+              {"Usar minha localiza\u00e7\u00e3o"}
+            </span>
+          </button>
+        </li>
+      )}
+      {filteredSuggestions.map((suggestion, index) => (
+        <li key={index} onMouseDown={(e) => e.preventDefault()}>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleSelect(suggestion);
+            }}
+            onClick={() => handleSelect(suggestion)}
+            className="w-full min-h-12 text-left px-5 py-3 hover:bg-secondary flex items-center gap-3 transition-colors"
+          >
+            {icon === "search" ? (
+              <Search className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <MapPin className="w-4 h-4 text-muted-foreground" />
+            )}
+            <span className="text-foreground font-medium">{suggestion}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+
+  return (
+    <div ref={containerRef} className={"relative flex-1 " + className}>
+      {icon === "search" ? (
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/60" />
+      ) : (
+        <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/60" />
+      )}
+
+      <Input
+        ref={inputRef}
+        value={value}
+        autoComplete="off"
+        spellCheck={false}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !canUseGooglePlaces && filteredSuggestions.length > 0) {
+            e.preventDefault();
+            handleSelect(filteredSuggestions[0]);
+          }
+        }}
+        onChange={(e) => {
+          onChange(e.target.value);
+          if (canUseGooglePlaces) {
+            if (portalSuggestions && !e.target.value.trim()) {
+              syncPortalPosition();
+            }
+            setIsOpen(showLocateAction && !e.target.value.trim());
+            return;
+          }
+          if (portalSuggestions) {
+            syncPortalPosition();
+          }
+          setIsOpen(showLocateAction || e.target.value.length >= 2);
+        }}
+        onBlur={() => {
+          if (canUseGooglePlaces && inputRef.current) {
+            const currentValue = inputRef.current.value || "";
+            if (currentValue !== value) {
+              onChange(currentValue);
+            }
+          }
+        }}
+        onFocus={() => {
+          if (canUseGooglePlaces) {
+            if (showLocateAction && !value.trim()) {
+              if (portalSuggestions) {
+                syncPortalPosition();
+              }
+              setIsOpen(true);
+            }
+            return;
+          }
+          if (showLocateAction || (value.length >= 2 && filteredSuggestions.length > 0)) {
+            if (portalSuggestions) {
+              syncPortalPosition();
+            }
+            setIsOpen(true);
+          }
+        }}
+        placeholder={placeholder}
+        className={"h-full pl-14 pr-12 py-1 text-lg border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/85 w-full " + inputClassName}
+      />
+
+      {isLoading && icon === "location" ? (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center text-xs text-muted-foreground pointer-events-none">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        </div>
+      ) : value ? (
+        <button
+          type="button"
+          aria-label={icon === "location" ? "Limpar localiza\u00e7\u00e3o" : "Limpar busca"}
+          title={icon === "location" ? "Limpar localiza\u00e7\u00e3o" : "Limpar busca"}
+          onClick={() => {
+            onChange("");
+            setIsOpen(false);
+          }}
+          className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-secondary text-muted-foreground"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      ) : null}
+
+      {showSuggestions &&
+        (portalSuggestions ? (
+          portalStyle ? (
+            <div
+              ref={portalRef}
+              className="bg-popover border border-border shadow-2xl rounded-2xl overflow-hidden z-[10000] animate-in fade-in slide-in-from-top-2 duration-200"
+              style={portalStyle}
+            >
+              {suggestionList}
+            </div>
+          ) : null
+        ) : (
+          <div
+            ref={portalRef}
+            className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border shadow-2xl rounded-2xl overflow-hidden z-[10000] animate-in fade-in slide-in-from-top-2 duration-200"
+          >
+            {suggestionList}
+          </div>
+        ))}
+    </div>
+  );
+}

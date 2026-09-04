@@ -1,0 +1,1997 @@
+import { supabase } from "@/lib/supabase";
+import type { Business, BusinessFrontend, Review } from "@/types/database";
+import type { CommunityEvent } from "@/types/database";
+import { getFollowLinksBusinessIds } from "@/services/searchPreferences";
+import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
+import { getSimilarBusinesses } from "@/lib/businessSimilar";
+import type { PublicSearchPageRequest } from "@/lib/search/publicSearchPage";
+
+export const BUSINESS_CATEGORY_OPTIONS = [
+  { id: "food", label: "Restaurantes e Alimentação" },
+  { id: "auto", label: "Serviços Automotivos" },
+  { id: "health_beauty", label: "Saúde & Beleza" },
+  { id: "construction", label: "Construção & Reformas" },
+  { id: "legal_consulting", label: "Advocacia & Consultoria" },
+  { id: "accounting_finance", label: "Contabilidade & Finanças" },
+  { id: "education", label: "Educação & Idiomas" },
+  { id: "retail", label: "Comércio & Varejo" },
+  { id: "transport_moving", label: "Transporte & Mudança" },
+  { id: "pets", label: "Serviços para Pets" },
+  { id: "child_elder_care", label: "Cuidados Infantis e de Idosos" },
+  { id: "cleaning", label: "Diaristas" },
+  { id: "real_estate", label: "Imobiliária" },
+  { id: "tourism", label: "Turismo & Viagens" },
+  { id: "artists", label: "Artistas" },
+  { id: "other", label: "Outros" },
+] as const;
+
+const CATEGORY_LABEL_BY_ID: Record<string, string> = {
+  food: "Restaurantes e Alimentação",
+  auto: "Serviços Automotivos",
+  health_beauty: "Saúde & Beleza",
+  construction: "Construção & Reformas",
+  legal_consulting: "Advocacia & Consultoria",
+  accounting_finance: "Contabilidade & Finanças",
+  education: "Educação & Idiomas",
+  retail: "Comércio & Varejo",
+  transport_moving: "Transporte & Mudança",
+  pets: "Serviços para Pets",
+  child_elder_care: "Cuidados Infantis e de Idosos",
+  cleaning: "Diaristas",
+  real_estate: "Imobiliária",
+  tourism: "Turismo & Viagens",
+  artists: "Artistas",
+  other: "Outros",
+};
+
+export const BUSINESS_CATEGORIES = BUSINESS_CATEGORY_OPTIONS.map(
+  (c) => CATEGORY_LABEL_BY_ID[c.id] || c.label
+) as readonly string[];
+
+const CATEGORY_INPUT_ALIASES_BY_ID: Record<string, string[]> = {
+  food: [
+    "alimentacao",
+    "restaurantes",
+    "restaurantes e alimentacao",
+    "alimentacao (restaurantes, padarias, cafes)",
+    "padarias",
+    "cafes",
+  ],
+  auto: ["automotivo", "servicos automotivos"],
+  health_beauty: ["saude & beleza", "saude e beleza"],
+  construction: ["construcao", "construcao & reformas"],
+  legal_consulting: [
+    "advocacia",
+    "advocacia & consultoria",
+    "advocacia & traducoes",
+    "juridico",
+    "traducao",
+    "traducoes",
+    "imigracao",
+    "visto",
+  ],
+  accounting_finance: ["contabilidade", "contabilidade & financas", "financas"],
+  education: ["educacao", "educacao & idiomas"],
+  retail: ["comercio", "comercio & varejo"],
+  transport_moving: ["transporte", "transporte & mudanca", "transporte & mudancas", "mudanca", "mudancas"],
+  pets: ["servicos para pets", "pets", "pet"],
+  child_elder_care: ["cuidados infantis e de idosos", "babas & acompanhantes", "baba", "cuidadora", "cuidador"],
+  cleaning: ["diaristas", "limpeza", "faxina"],
+  real_estate: ["imobiliaria"],
+  tourism: ["turismo", "turismo & viagens", "viagens"],
+  artists: ["artistas", "arte", "musica"],
+  other: ["outros"],
+};
+
+const CATEGORY_ID_BY_INPUT = new Map<string, string>();
+
+function normalizeCategoryInput(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function registerCategoryInput(id: string, input: string) {
+  const normalized = normalizeCategoryInput(input);
+  if (!normalized) return;
+  if (!CATEGORY_ID_BY_INPUT.has(normalized)) {
+    CATEGORY_ID_BY_INPUT.set(normalized, id);
+  }
+}
+
+for (const option of BUSINESS_CATEGORY_OPTIONS) {
+  registerCategoryInput(option.id, option.id);
+  registerCategoryInput(option.id, option.label);
+}
+
+for (const [id, aliases] of Object.entries(CATEGORY_INPUT_ALIASES_BY_ID)) {
+  aliases.forEach((alias) => registerCategoryInput(id, alias));
+}
+
+export function getCategoryId(value: string): string {
+  const normalized = normalizeCategoryInput(value);
+  if (!normalized) return "other";
+  return CATEGORY_ID_BY_INPUT.get(normalized) || "other";
+}
+
+export function getCategoryLabel(value: string): string {
+  if (!value) return value;
+  const categoryId = getCategoryId(value);
+  return CATEGORY_LABEL_BY_ID[categoryId] || "Outros";
+}
+
+export function isBusinessVerified(business: Pick<Business, "owner_verified" | "owner_verified_until">): boolean {
+  const verifiedUntil = business.owner_verified_until || null;
+  return !!business.owner_verified && !!verifiedUntil && new Date(verifiedUntil).getTime() >= Date.now();
+}
+
+export function isFoodCategory(value: string): boolean {
+  return getCategoryId(value) === "food";
+}
+
+export const COUNTRIES: Record<string, { name: string; states: Record<string, string> }> = {
+  ca: {
+    name: "Canadá",
+    states: {
+      qc: "Quebec",
+      on: "Ontário",
+      bc: "Colúmbia Britânica",
+      ab: "Alberta",
+      mb: "Manitoba",
+      sk: "Saskatchewan",
+      ns: "Nova Escócia",
+      nb: "Nova Brunswick",
+      nl: "Terra Nova e Labrador",
+      pe: "Ilha do Príncipe Eduardo",
+      yt: "Yukon",
+      nt: "Territórios do Noroeste",
+      nu: "Nunavut",
+    },
+  },
+  us: {
+    name: "Estados Unidos",
+    states: {
+      al: "Alabama",
+      ak: "Alasca",
+      az: "Arizona",
+      ar: "Arkansas",
+      ca: "Califórnia",
+      co: "Colorado",
+      ct: "Connecticut",
+      de: "Delaware",
+      fl: "Flórida",
+      ga: "Geórgia",
+      hi: "Havaí",
+      id: "Idaho",
+      il: "Illinois",
+      in: "Indiana",
+      ia: "Iowa",
+      ks: "Kansas",
+      ky: "Kentucky",
+      la: "Louisiana",
+      me: "Maine",
+      md: "Maryland",
+      ma: "Massachusetts",
+      mi: "Michigan",
+      mn: "Minnesota",
+      ms: "Mississippi",
+      mo: "Missouri",
+      mt: "Montana",
+      ne: "Nebraska",
+      nv: "Nevada",
+      nh: "New Hampshire",
+      nj: "Nova Jersey",
+      nm: "Novo México",
+      ny: "Nova York",
+      nc: "Carolina do Norte",
+      nd: "Dakota do Norte",
+      oh: "Ohio",
+      ok: "Oklahoma",
+      or: "Oregon",
+      pa: "Pensilvânia",
+      ri: "Rhode Island",
+      sc: "Carolina do Sul",
+      sd: "Dakota do Sul",
+      tn: "Tennessee",
+      tx: "Texas",
+      ut: "Utah",
+      vt: "Vermont",
+      va: "Virgínia",
+      wv: "Virgínia Ocidental",
+      wi: "Wisconsin",
+      wy: "Wyoming",
+    },
+  },
+  pt: {
+    name: "Portugal",
+    states: {
+      li: "Lisboa",
+      po: "Porto",
+      br: "Braga",
+      co: "Coimbra",
+      av: "Aveiro",
+      fa: "Faro",
+      se: "Setúbal",
+      le: "Leiria",
+      ev: "Évora",
+      be: "Beja",
+      vi: "Viana do Castelo",
+      vr: "Vila Real",
+      brg: "Bragança",
+      gu: "Guarda",
+      ca: "Castelo Branco",
+      pa: "Portalegre",
+      sa: "Santarém",
+      vb: "Viseu",
+    },
+  },
+  gb: {
+    name: "Reino Unido",
+    states: {
+      eng: "Inglaterra",
+      sct: "Escócia",
+      wls: "Pa?s de Gales",
+      nir: "Irlanda do Norte",
+    },
+  },
+  de: {
+    name: "Alemanha",
+    states: {
+      bw: "Baden-Württemberg",
+      by: "Baviera",
+      be: "Berlim",
+      bb: "Brandemburgo",
+      hb: "Bremen",
+      hh: "Hamburgo",
+      he: "Hesse",
+      mv: "Mecklemburgo-Pomerânia Ocidental",
+      ni: "Baixa Saxônia",
+      nw: "Renânia do Norte-Vestfália",
+      rp: "Renânia-Palatinado",
+      sl: "Sarre",
+      sn: "Saxônia",
+      st: "Saxônia-Anhalt",
+      sh: "Schleswig-Holstein",
+      th: "Turíngia",
+    },
+  },
+  jp: {
+    name: "Jap?o",
+    states: {
+      tk: "Tóquio",
+      os: "Osaka",
+      ky: "Quioto",
+      hk: "Hokkaido",
+      fk: "Fukuoka",
+      ai: "Aichi",
+      kn: "Kanagawa",
+      st: "Saitama",
+    },
+  },
+  au: {
+    name: "Austrália",
+    states: {
+      nsw: "Nova Gales do Sul",
+      vic: "Vitória",
+      qld: "Queensland",
+      wa: "Austrália Ocidental",
+      sa: "Austrália do Sul",
+      tas: "Tasmânia",
+    },
+  },
+  br: {
+    name: "Brasil",
+    states: {
+      ac: "Acre",
+      al: "Alagoas",
+      ap: "Amapá",
+      am: "Amazonas",
+      ba: "Bahia",
+      ce: "Ceará",
+      df: "Distrito Federal",
+      es: "Espírito Santo",
+      go: "Goiás",
+      ma: "Maranhão",
+      mt: "Mato Grosso",
+      ms: "Mato Grosso do Sul",
+      mg: "Minas Gerais",
+      pa: "Pará",
+      pb: "Paraíba",
+      pr: "Paraná",
+      pe: "Pernambuco",
+      pi: "Piauí",
+      rj: "Rio de Janeiro",
+      rn: "Rio Grande do Norte",
+      rs: "Rio Grande do Sul",
+      ro: "Rondônia",
+      rr: "Roraima",
+      sc: "Santa Catarina",
+      sp: "São Paulo",
+      se: "Sergipe",
+      to: "Tocantins",
+    },
+  },
+};
+
+async function attachLocationDisplayNames(rows: Business[]): Promise<Business[]> {
+  const locationIds = [...new Set(rows.map((row) => row.location_id).filter(Boolean))] as string[];
+  if (locationIds.length === 0) return rows;
+
+  const { data, error } = await supabase
+    .from("business_locations")
+    .select("id, display_name_pt_br")
+    .in("id", locationIds);
+
+  if (error || !data) return rows;
+
+  const namesById = new Map(
+    data
+      .filter((location: { id?: string; display_name_pt_br?: string | null }) => Boolean(location.display_name_pt_br))
+      .map((location: { id: string; display_name_pt_br: string }) => [location.id, location.display_name_pt_br]),
+  );
+
+  return rows.map((row) => ({
+    ...row,
+    location_display_name_pt_br: row.location_id
+      ? namesById.get(row.location_id) || row.location_display_name_pt_br || null
+      : row.location_display_name_pt_br || null,
+  }));
+}
+
+export function toFrontend(
+  b: Business,
+  ownerName?: string,
+  options?: { allowFollowExternalLinks?: boolean }
+): BusinessFrontend {
+  const categoryId = getCategoryId((b as any).category_id || "");
+  const verifiedUntil = b.owner_verified_until || null;
+  const isVerifiedByDate = isBusinessVerified(b);
+  const moderationStatus =
+    b.moderation_status === "pending" || b.moderation_status === "rejected"
+      ? b.moderation_status
+      : "approved";
+  return {
+    id: b.id,
+    ownerId: b.owner_id,
+    ownerName: ownerName || "Proprietário",
+    name: b.name,
+    slug: b.slug,
+    categoryId,
+    category: getCategoryLabel(categoryId),
+    primaryActivity: b.primary_activity || "",
+    primaryActivityCustom: b.primary_activity_custom || "",
+    description: b.description,
+    heroImage: b.hero_image || "",
+    logoUrl: b.logo_url || "",
+    address: {
+      street: b.street || "",
+      city: b.city || "",
+      citySlug: b.city_slug || "",
+      cityDisplayName: b.location_display_name_pt_br || "",
+      state: b.state || "",
+      country: b.country || "",
+      countryCode: b.country_code || "",
+      stateCode: b.state_code || "",
+      postalCode: b.postal_code || "",
+      lat: b.lat,
+      lng: b.lng,
+    },
+    attendanceType:
+      b.attendance_type === "online" || b.attendance_type === "hibrido"
+        ? b.attendance_type
+        : "presencial",
+    services: b.services || [],
+    serviceItems: b.service_items || [],
+    keywords: b.keywords || [],
+    menu: b.menu || [],
+    menuPdfUrl: b.menu_pdf_url || "",
+    isBrazilianOwned: !!b.is_brazilian_owned,
+    servesPortuguese: !!b.serves_portuguese,
+    isVeganFriendly: !!b.is_vegan_friendly,
+    isVegetarianFriendly: !!b.is_vegetarian_friendly,
+    isGlutenFreeFriendly: !!b.is_gluten_free_friendly,
+    photos: b.photos || [],
+    phone: b.phone || "",
+    email: b.email || "",
+    website: b.website || "",
+    instagram: b.instagram || undefined,
+    facebook: b.facebook || undefined,
+    whatsapp: b.whatsapp || undefined,
+    allowFollowExternalLinks: !!options?.allowFollowExternalLinks,
+    reviews: (b.reviews || []).map((r: any) => ({
+      id: r.id,
+      business_id: r.business_id || r.businessId,
+      user_id: r.user_id || r.userId,
+      user_name: r.user_name || r.userName || "Usuário",
+      rating: r.rating,
+      comment: r.comment,
+      created_at: r.created_at || r.createdAt,
+    })) as Review[],
+    averageRating: b.average_rating || 0,
+    ownerVerified: isVerifiedByDate,
+    ownerVerifiedUntil: verifiedUntil || undefined,
+    moderationStatus,
+    moderationReviewedAt: b.moderation_reviewed_at || undefined,
+    moderationReviewedBy: b.moderation_reviewed_by || undefined,
+    openingHours: b.opening_hours || [],
+    promotions: b.promotions || [],
+    events: b.events || [],
+    createdAt: b.created_at,
+    updatedAt: b.updated_at || b.created_at,
+  };
+}
+
+function buildFollowLinksBusinessIdSet(ids: string[]): Set<string> {
+  return new Set(ids.map((id) => String(id || "").trim()).filter(Boolean));
+}
+
+function mergeBusinessEvents(
+  legacyEvents: Business["events"] | undefined,
+  linkedEvents: CommunityEvent[]
+) {
+  const fromLinked = linkedEvents.map((evt) => ({
+    title: evt.title,
+    description: evt.description || "",
+    date: evt.date,
+    location: evt.location,
+    isFree: !!evt.is_free,
+    price: evt.price || "",
+    flyerUrl: evt.flyer_url || "",
+    ticketUrl: evt.ticket_url || "",
+  }));
+
+  const safeLegacy = (legacyEvents || []).filter(
+    (evt): evt is NonNullable<typeof evt> =>
+      !!evt && typeof evt === "object"
+  );
+  const merged = [...safeLegacy, ...fromLinked];
+  const seen = new Set<string>();
+  return merged
+    .filter((evt) => !!evt && typeof evt === "object")
+    .filter((evt) => {
+      const key = `${(evt.title || "").trim().toLowerCase()}|${evt.date || ""}|${(evt.location || "").trim().toLowerCase()}`;
+      if (!key.replace(/\|/g, "").trim()) return false;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((evt) => ({
+      title: String(evt.title || "").trim(),
+      description: String(evt.description || "").trim(),
+      date: String(evt.date || "").trim(),
+      location: String(evt.location || "").trim(),
+      isFree: Boolean(evt.isFree),
+      price: String(evt.price || "").trim(),
+      flyerUrl: String(evt.flyerUrl || "").trim(),
+      ticketUrl: String(evt.ticketUrl || "").trim(),
+    }))
+    .filter((evt) => evt.title || evt.date || evt.location);
+}
+
+export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFrontend[]> {
+  const columns = [
+    "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "logo_url", "hero_image",
+    "street", "city", "city_slug", "state", "country", "country_code", "state_code",
+    "lat", "lng", "attendance_type", "average_rating", "owner_verified", "owner_verified_until",
+    "moderation_status", "moderation_reviewed_at", "moderation_reviewed_by", "created_at", "updated_at",
+  ].join(",");
+  const pageSize = 1000;
+  const rows: Business[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("businesses")
+      .select(columns)
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    const pageRows = (data || []) as Business[];
+    rows.push(...pageRows);
+    if (pageRows.length < pageSize) break;
+  }
+
+  return rows.map((row) => toFrontend(row));
+}
+
+// Similar-business cards need only businesses in the same category and country.
+// Querying this small candidate set keeps business-page SSR independent from the
+// full directory payload (profiles, galleries, reviews and unrelated businesses).
+export async function getPublicBusinessSearchIndex(): Promise<BusinessFrontend[]> {
+  const columns = [
+    "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom",
+    "description", "hero_image", "logo_url", "street", "city", "city_slug", "state",
+    "country", "country_code", "state_code", "postal_code", "lat", "lng", "attendance_type",
+    "services", "service_items", "keywords", "menu", "is_vegan_friendly",
+    "is_vegetarian_friendly", "is_gluten_free_friendly", "average_rating", "owner_verified",
+    "owner_verified_until", "moderation_status", "created_at", "updated_at", "events",
+  ].join(",");
+  const pageSize = 1000;
+  const rows: Business[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("businesses")
+      .select(columns)
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    const pageRows = (data || []) as Business[];
+    rows.push(...pageRows);
+    if (pageRows.length < pageSize) break;
+  }
+
+  if (rows.length === 0) return [];
+
+  const businessIds = rows.map((business) => business.id);
+  const eventBatchSize = 75;
+  const eventBatches: string[][] = [];
+  for (let index = 0; index < businessIds.length; index += eventBatchSize) {
+    eventBatches.push(businessIds.slice(index, index + eventBatchSize));
+  }
+
+  const eventBatchResults = await Promise.all(
+    eventBatches.map((ids) =>
+      supabase
+        .from("events")
+        .select("*")
+        .in("business_id", ids)
+        .eq("status", "published")
+    )
+  );
+  const linkedEvents = eventBatchResults.flatMap((result) => (result.data || []) as CommunityEvent[]);
+
+  const linkedEventsByBusinessId = linkedEvents.reduce((acc, event) => {
+    const events = acc.get(event.business_id) || [];
+    events.push(event);
+    acc.set(event.business_id, events);
+    return acc;
+  }, new Map<string, CommunityEvent[]>());
+
+  return rows.map((business) =>
+    toFrontend({
+      ...business,
+      events: mergeBusinessEvents(business.events, linkedEventsByBusinessId.get(business.id) || []),
+    } as Business)
+  );
+}
+
+export async function getSimilarBusinessesForBusiness(
+  business: BusinessFrontend,
+  limit = 3,
+): Promise<BusinessFrontend[]> {
+  const categoryId = getCategoryId(business.categoryId);
+  const countryCode = String(business.address.countryCode || "").trim().toLowerCase();
+
+  if (!categoryId || !countryCode) return [];
+
+  const columns = [
+    "id", "name", "slug", "category_id", "description", "hero_image", "logo_url",
+    "city", "city_slug", "state", "country", "country_code", "state_code",
+    "lat", "lng", "attendance_type", "services", "is_vegan_friendly",
+    "is_vegetarian_friendly", "is_gluten_free_friendly", "average_rating",
+    "owner_verified", "owner_verified_until", "moderation_status", "created_at", "updated_at",
+  ].join(",");
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select(columns)
+    .or("moderation_status.eq.approved,moderation_status.is.null")
+    .eq("category_id", categoryId)
+    .eq("country_code", countryCode)
+    .neq("id", business.id);
+
+  if (error) throw error;
+
+  return getSimilarBusinesses(business, ((data || []) as Business[]).map(toFrontend), limit);
+}
+
+export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
+  const pageSize = 1000;
+  const businessRows: Business[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data } = await supabase
+      .from("businesses")
+      .select("*")
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+
+    const pageRows = (data || []) as Business[];
+    businessRows.push(...pageRows);
+    if (pageRows.length < pageSize) break;
+  }
+
+  if (businessRows.length === 0) return [];
+
+  const ownerIds = [...new Set(businessRows.map((b: Business) => b.owner_id))];
+  const businessIds = businessRows.map((b) => b.id);
+  const [profilesResult, linkedEventsResult, followLinkIds, enrichedBusinessRows] = await Promise.all([
+    supabase.from("profiles").select("id, name").in("id", ownerIds),
+    supabase.from("events").select("*").in("business_id", businessIds).eq("status", "published"),
+    getFollowLinksBusinessIds(),
+    attachLocationDisplayNames(businessRows),
+  ]);
+
+  const ownerNames = new Map(
+    (profilesResult.data || []).map((p: { id: string; name: string }) => [p.id, p.name])
+  );
+
+  const linkedEventsByBusinessId = ((linkedEventsResult.data || []) as CommunityEvent[]).reduce((acc, evt) => {
+    const key = evt.business_id;
+    const list = acc.get(key) || [];
+    list.push(evt);
+    acc.set(key, list);
+    return acc;
+  }, new Map<string, CommunityEvent[]>());
+
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(followLinkIds);
+
+  return enrichedBusinessRows.map((b) =>
+    toFrontend(
+      {
+        ...b,
+        events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
+      } as Business,
+      ownerNames.get(b.owner_id),
+      { allowFollowExternalLinks: followLinksBusinessIds.has(b.id) }
+    )
+  );
+}
+
+async function hydratePublicSearchBusinessIds(ids: string[]): Promise<BusinessFrontend[]> {
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
+    .in("id", ids);
+
+  if (error) throw error;
+
+  const byId = new Map(
+    (await attachLocationDisplayNames((data || []) as Business[])).map((business) => [
+      business.id,
+      toFrontend(business),
+    ])
+  );
+
+  return ids.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[];
+}
+
+export async function getBusinessesByPublicSearchRpc(
+  params: PublicSearchPageRequest,
+): Promise<{ items: BusinessFrontend[]; totalCount: number }> {
+  const { data, error } = await supabase.rpc("search_public_businesses", {
+    p_limit: Math.max(1, Math.min(params.limit, 100)),
+    p_offset: Math.max(0, (params.page - 1) * params.limit),
+    p_query: params.query || null,
+    p_category_id: params.categoryId,
+    p_query_category_ids: params.queryCategoryIds.length > 0 ? params.queryCategoryIds : null,
+    p_city: params.city,
+    p_city_aliases: params.cityAliases.length > 0 ? params.cityAliases : null,
+    p_location: params.location,
+    p_country_code: params.countryCode,
+    p_state_code: params.stateCode,
+    p_origin_lat: params.originLat,
+    p_origin_lng: params.originLng,
+    p_radius_km: params.radiusKm,
+  });
+
+  if (error) {
+    throw new Error(`[search_public_businesses] ${error.message}`);
+  }
+
+  const ids = Array.from(
+    new Set(
+      (data || [])
+        .map((row: { business_id?: string }) => row.business_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0)
+    )
+  );
+  let totalCount = Number((data && data[0]?.total_count) || 0);
+
+  // Window counts are not returned when an invalid page offset has no rows.
+  // Read one row from the first page so the UI can normalize that URL instead
+  // of incorrectly treating a later page as an empty search.
+  if (ids.length === 0 && params.page > 1) {
+    const { data: firstPage, error: firstPageError } = await supabase.rpc("search_public_businesses", {
+      p_limit: 1,
+      p_offset: 0,
+      p_query: params.query || null,
+      p_category_id: params.categoryId,
+      p_query_category_ids: params.queryCategoryIds.length > 0 ? params.queryCategoryIds : null,
+      p_city: params.city,
+      p_city_aliases: params.cityAliases.length > 0 ? params.cityAliases : null,
+      p_location: params.location,
+      p_country_code: params.countryCode,
+      p_state_code: params.stateCode,
+      p_origin_lat: params.originLat,
+      p_origin_lng: params.originLng,
+      p_radius_km: params.radiusKm,
+    });
+    if (firstPageError) throw new Error(`[search_public_businesses] ${firstPageError.message}`);
+    totalCount = Number((firstPage && firstPage[0]?.total_count) || 0);
+  }
+
+  return {
+    items: await hydratePublicSearchBusinessIds(ids),
+    totalCount,
+  };
+}
+
+export async function getAllBusinessesByPublicSearchRpc(
+  params: Omit<PublicSearchPageRequest, "page" | "limit" | "key">,
+): Promise<BusinessFrontend[]> {
+  const pageSize = 100;
+  const businesses: BusinessFrontend[] = [];
+  let page = 1;
+  let totalCount: number;
+  let fetched = 0;
+
+  do {
+    const result = await getBusinessesByPublicSearchRpc({
+      ...params,
+      page,
+      limit: pageSize,
+      key: "map",
+    });
+    businesses.push(...result.items);
+    totalCount = result.totalCount;
+    fetched += pageSize;
+    page += 1;
+  } while (fetched < totalCount);
+
+  return businesses;
+}
+export async function getBusinessesByRadiusRpc(params: {
+  originLat: number;
+  originLng: number;
+  radiusKm: number;
+  limit?: number;
+  offset?: number;
+  categoryId?: string;
+  countryCode?: string;
+  stateCode?: string;
+  query?: string;
+  city?: string;
+}): Promise<{ items: BusinessFrontend[]; totalCount: number }> {
+  const requestedLimit = Math.max(1, params.limit ?? 300);
+  const requestedOffset = Math.max(0, params.offset ?? 0);
+
+  const { data: hits, error: rpcError } = await supabase.rpc("search_businesses_radius", {
+    p_origin_lat: params.originLat,
+    p_origin_lng: params.originLng,
+    p_radius_km: params.radiusKm,
+    // Para combinar corretamente com online e evitar duplicação entre páginas,
+    // buscamos a janela acumulada até a página atual e paginamos no merge final.
+    p_limit: requestedLimit,
+    p_offset: requestedOffset,
+    p_category_id: params.categoryId || null,
+    p_country_code: params.countryCode || null,
+    p_state_code: params.stateCode || null,
+    p_query: (params.query || "").trim() || null,
+    p_city: (params.city || "").trim() || null,
+  });
+
+  if (rpcError) {
+    throw new Error(`[search_businesses_radius] ${rpcError.message}`);
+  }
+
+  const orderedIds = Array.from(
+    new Set(
+      (hits || [])
+        .map((r: any) => r?.business_id)
+        .filter((id: any) => typeof id === "string" && id.length > 0)
+    )
+  );
+  const physicalTotalCount = Number((hits && hits[0]?.total_count) ?? 0);
+
+  if (orderedIds.length === 0) {
+    return { items: [], totalCount: physicalTotalCount };
+  }
+
+  const { data: physicalRows } = await supabase
+    .from("businesses")
+    .select("*")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
+    .in("id", orderedIds);
+
+  const physical = (physicalRows || []) as Business[];
+
+  const ownerIds = [...new Set(physical.map((b: Business) => b.owner_id))];
+  const businessIds = physical.map((b) => b.id);
+  const [profilesResult, linkedEventsResult, followLinkIds, businessRows] = await Promise.all([
+    supabase.from("profiles").select("id, name").in("id", ownerIds),
+    supabase.from("events").select("*").in("business_id", businessIds).eq("status", "published"),
+    getFollowLinksBusinessIds(),
+    attachLocationDisplayNames(physical),
+  ]);
+
+  const ownerNames = new Map(
+    (profilesResult.data || []).map((p: { id: string; name: string }) => [p.id, p.name])
+  );
+
+  const linkedEventsByBusinessId = ((linkedEventsResult.data || []) as CommunityEvent[]).reduce((acc, evt) => {
+    const key = evt.business_id as string;
+    const list = acc.get(key) || [];
+    list.push(evt);
+    acc.set(key, list);
+    return acc;
+  }, new Map<string, CommunityEvent[]>());
+
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(followLinkIds);
+
+  const byId = new Map(
+    businessRows.map((b) => [
+      b.id,
+      toFrontend(
+        {
+          ...b,
+          events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
+        } as Business,
+        ownerNames.get(b.owner_id),
+        { allowFollowExternalLinks: followLinksBusinessIds.has(b.id) }
+      ),
+    ])
+  );
+
+  const pageIds = orderedIds.filter((id) => byId.has(id));
+
+  return {
+    items: pageIds.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[],
+    totalCount: physicalTotalCount,
+  };
+}
+
+export async function getAllBusinessesByRadiusRpc(params: {
+  originLat: number;
+  originLng: number;
+  radiusKm: number;
+  categoryId?: string;
+  countryCode?: string;
+  stateCode?: string;
+  query?: string;
+  city?: string;
+}): Promise<BusinessFrontend[]> {
+  const batchSize = 500;
+  const collected: BusinessFrontend[] = [];
+  const seenIds = new Set<string>();
+  let offset = 0;
+
+  while (true) {
+    const page = await getBusinessesByRadiusRpc({
+      ...params,
+      limit: batchSize,
+      offset,
+    });
+
+    page.items.forEach((business) => {
+      if (seenIds.has(business.id)) return;
+      seenIds.add(business.id);
+      collected.push(business);
+    });
+
+    offset += batchSize;
+    if (page.items.length < batchSize || offset >= page.totalCount) break;
+  }
+
+  return collected;
+}
+
+type BusinessRoutePath = {
+  countryCode: string;
+  stateCode: string;
+  citySlug: string;
+  slug: string;
+};
+
+const KNOWN_LEGACY_BUSINESS_PATHS = new Map<string, BusinessRoutePath>([
+  ["ca/qc/montreal/tapi-go-montreal", { countryCode: "ca", stateCode: "qc", citySlug: "montreal", slug: "tapi-go" }],
+  ["ca/qc/mirabel/chez-luma-hotel-para-caes", { countryCode: "ca", stateCode: "qc", citySlug: "mirabel", slug: "chez-luma" }],
+]);
+
+function normalizeBusinessRoutePart(value: string) {
+  return (value || "").trim().toLowerCase();
+}
+
+function getBusinessRoutePathKey(
+  countryCode: string,
+  stateCode: string,
+  citySlug: string,
+  slug: string,
+) {
+  return [countryCode, stateCode, citySlug, slug]
+    .map(normalizeBusinessRoutePart)
+    .join("/");
+}
+
+export async function getBusinessByHistoricalPath(
+  countryCode: string,
+  stateCode: string,
+  citySlug: string,
+  slug: string,
+): Promise<BusinessFrontend | null> {
+  const normalizedCountry = normalizeBusinessRoutePart(countryCode);
+  const normalizedState = normalizeBusinessRoutePart(stateCode);
+  const normalizedCity = normalizeBusinessRoutePart(citySlug);
+  const normalizedSlug = normalizeBusinessRoutePart(slug);
+  if (!normalizedCountry || !normalizedState || !normalizedCity || !normalizedSlug) return null;
+
+  const knownTarget = KNOWN_LEGACY_BUSINESS_PATHS.get(
+    getBusinessRoutePathKey(normalizedCountry, normalizedState, normalizedCity, normalizedSlug),
+  );
+  if (knownTarget) {
+    return getBusinessBySlug(
+      knownTarget.countryCode,
+      knownTarget.stateCode,
+      knownTarget.citySlug,
+      knownTarget.slug,
+    );
+  }
+
+  const { data: history } = await supabase
+    .from("business_slug_history")
+    .select("business_id")
+    .eq("country_slug", normalizedCountry)
+    .eq("region_slug", normalizedState)
+    .eq("city_slug", normalizedCity)
+    .eq("old_business_slug", normalizedSlug)
+    .maybeSingle();
+
+  if (history?.business_id) {
+    // Resolve the current record so a historic URL always reaches the final canonical URL in one hop.
+    return getBusinessById(history.business_id);
+  }
+
+  return null;
+}
+export async function getBusinessBySlug(
+  countryCode: string,
+  stateCode: string,
+  city: string,
+  slug: string
+): Promise<BusinessFrontend | null> {
+  const { data } = await supabase
+    .from("businesses")
+    .select("*")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
+    .eq("country_code", countryCode.toLowerCase())
+    .eq("state_code", stateCode.toLowerCase())
+    // Removemos o filtro exato de cidade pois o slug ja a anico e a cidade na URL pode estar slugificada
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  const biz = data as Business;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", biz.owner_id)
+    .maybeSingle();
+
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("business_id", biz.id)
+    .order("created_at", { ascending: false });
+
+  const reviewUserIds = Array.from(
+    new Set((reviews || []).map((r: any) => r.user_id).filter((id: any) => typeof id === "string" && id.length > 0))
+  ) as string[];
+  const { data: reviewProfiles } =
+    reviewUserIds.length > 0
+      ? await supabase.from("profiles").select("id, avatar").in("id", reviewUserIds)
+      : { data: [] as Array<{ id: string; avatar: string | null }> };
+  const reviewAvatarByUserId = new Map(
+    (reviewProfiles || []).map((p: { id: string; avatar: string | null }) => [p.id, p.avatar || null])
+  );
+
+  biz.reviews = (reviews || []).map(r => ({
+    id: r.id,
+    business_id: r.business_id,
+    user_id: r.user_id,
+    user_name: r.user_name || "Usuário",
+    user_avatar: r.user_id ? (reviewAvatarByUserId.get(r.user_id) || null) : null,
+    rating: r.rating,
+    comment: r.comment,
+    created_at: r.created_at,
+  })) as Review[];
+
+  const { data: linkedEventsRows } = await supabase
+    .from("events")
+    .select("*")
+    .eq("business_id", biz.id)
+    .eq("status", "published");
+
+  biz.events = mergeBusinessEvents(biz.events, (linkedEventsRows || []) as CommunityEvent[]);
+
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  const [enrichedBiz] = await attachLocationDisplayNames([biz]);
+  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+}
+
+export async function getBusinessByCountryAndSlug(
+  countryCode: string,
+  slug: string
+): Promise<BusinessFrontend | null> {
+  const { data } = await supabase
+    .from("businesses")
+    .select("*")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
+    .eq("country_code", countryCode.toLowerCase())
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  const biz = data as Business;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", biz.owner_id)
+    .maybeSingle();
+
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("business_id", biz.id)
+    .order("created_at", { ascending: false });
+
+  biz.reviews = (reviews || []).map((r: any) => ({
+    id: r.id,
+    business_id: r.business_id,
+    user_id: r.user_id,
+    user_name: r.user_name || "Usuário",
+    rating: r.rating,
+    comment: r.comment,
+    created_at: r.created_at,
+  })) as Review[];
+
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  const [enrichedBiz] = await attachLocationDisplayNames([biz]);
+  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+}
+
+export async function getBusinessById(
+  id: string,
+  options?: { includeUnapproved?: boolean }
+): Promise<BusinessFrontend | null> {
+  let query = supabase.from("businesses").select("*").eq("id", id);
+  if (!options?.includeUnapproved) {
+    query = query.or("moderation_status.eq.approved,moderation_status.is.null");
+  }
+
+  const { data } = await query.maybeSingle();
+  if (!data) return null;
+
+  const biz = data as Business;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", biz.owner_id)
+    .maybeSingle();
+
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("business_id", biz.id)
+    .order("created_at", { ascending: false });
+
+  biz.reviews = (reviews || []).map((r: any) => ({
+    id: r.id,
+    business_id: r.business_id,
+    user_id: r.user_id,
+    user_name: r.user_name || "Usuário",
+    rating: r.rating,
+    comment: r.comment,
+    created_at: r.created_at,
+  })) as Review[];
+
+  const { data: linkedEventsRows } = await supabase
+    .from("events")
+    .select("*")
+    .eq("business_id", biz.id)
+    .eq("status", "published");
+
+  biz.events = mergeBusinessEvents(biz.events, (linkedEventsRows || []) as CommunityEvent[]);
+
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  const [enrichedBiz] = await attachLocationDisplayNames([biz]);
+  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+}
+
+export async function getBusinessByShortSlug(slug: string): Promise<BusinessFrontend | null> {
+  const normalizedSlug = (slug || "").trim().toLowerCase();
+  if (!normalizedSlug) return null;
+
+  const { data: shortLink } = await supabase
+    .from("business_short_links")
+    .select("business_id")
+    .eq("short_slug", normalizedSlug)
+    .maybeSingle();
+
+  let data: Business | null = null;
+  if (shortLink?.business_id) {
+    const { data: linkedBusiness } = await supabase
+      .from("businesses")
+      .select("*")
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .eq("id", shortLink.business_id)
+      .maybeSingle();
+    data = (linkedBusiness as Business | null) ?? null;
+  }
+
+  // Fallback para links legados (/go usando businesses.slug antigo)
+  if (!data) {
+    const { data: legacy } = await supabase
+      .from("businesses")
+      .select("*")
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .eq("slug", normalizedSlug)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    data = (legacy as Business | null) ?? null;
+  }
+
+  if (!data) return null;
+
+  const biz = data as Business;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", biz.owner_id)
+    .maybeSingle();
+
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  const [enrichedBiz] = await attachLocationDisplayNames([biz]);
+  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+}
+
+async function isHistoricalBusinessSlugAvailable(slug: string, excludeBusinessId?: string): Promise<boolean> {
+  let query = supabase
+    .from("business_slug_history")
+    .select("business_id")
+    .eq("old_business_slug", slug)
+    .limit(1);
+  if (excludeBusinessId) {
+    query = query.neq("business_id", excludeBusinessId);
+  }
+
+  const { data, error } = await query;
+  // The migration may not have been applied in a local environment yet.
+  if (error) return true;
+  return !data || data.length === 0;
+}
+export async function isBusinessSlugAvailable(
+  slug: string,
+  excludeBusinessId?: string
+): Promise<boolean> {
+  const normalizedSlug = slugify((slug || "").trim());
+  if (!normalizedSlug) return false;
+
+  // Novo comportamento: verifica disponibilidade do SHORT link (/go/{slug})
+  let shortQuery = supabase
+    .from("business_short_links")
+    .select("business_id")
+    .eq("short_slug", normalizedSlug)
+    .limit(1);
+  if (excludeBusinessId) {
+    shortQuery = shortQuery.neq("business_id", excludeBusinessId);
+  }
+  const { data: shortData, error: shortError } = await shortQuery;
+  if (shortError) return false;
+  if (shortData && shortData.length > 0) return false;
+
+  // Compatibilidade com legado: evita conflito com slugs antigos na tabela businesses
+  let legacyQuery = supabase.from("businesses").select("id").eq("slug", normalizedSlug).limit(1);
+  if (excludeBusinessId) {
+    legacyQuery = legacyQuery.neq("id", excludeBusinessId);
+  }
+  const { data: legacyData, error: legacyError } = await legacyQuery;
+  if (legacyError || (legacyData && legacyData.length > 0)) return false;
+  return isHistoricalBusinessSlugAvailable(normalizedSlug, excludeBusinessId);
+}
+
+async function isOfficialBusinessSlugAvailable(slug: string, excludeBusinessId?: string): Promise<boolean> {
+  const normalizedSlug = slugify((slug || "").trim());
+  if (!normalizedSlug) return false;
+
+  let query = supabase.from("businesses").select("id").eq("slug", normalizedSlug).limit(1);
+  if (excludeBusinessId) {
+    query = query.neq("id", excludeBusinessId);
+  }
+
+  const { data, error } = await query;
+  if (error || (data && data.length > 0)) return false;
+  return isHistoricalBusinessSlugAvailable(normalizedSlug, excludeBusinessId);
+}
+
+async function generateUniqueOfficialBusinessSlug(
+  baseText: string,
+  excludeBusinessId?: string
+): Promise<string> {
+  const base = slugify(baseText || "");
+  if (!base) return "";
+
+  let candidate = base;
+  let counter = 2;
+  while (!(await isOfficialBusinessSlugAvailable(candidate, excludeBusinessId))) {
+    candidate = `${base}-${counter}`;
+    counter += 1;
+    if (counter > 5000) break;
+  }
+  return candidate;
+}
+
+export async function getBusinessShortSlug(businessId: string): Promise<string> {
+  if (!businessId) return "";
+
+  const { data } = await supabase
+    .from("business_short_links")
+    .select("short_slug")
+    .eq("business_id", businessId)
+    .maybeSingle();
+
+  return (data?.short_slug || "").trim();
+}
+
+export async function setBusinessShortSlug(
+  businessId: string,
+  shortSlug: string | null | undefined
+): Promise<boolean> {
+  if (!businessId) return false;
+  const normalized = slugify((shortSlug || "").trim());
+  if (!normalized) return false;
+
+  const { error } = await supabase
+    .from("business_short_links")
+    .upsert(
+      {
+        business_id: businessId,
+        short_slug: normalized,
+      },
+      { onConflict: "business_id" }
+    );
+
+  return !error;
+}
+
+export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFrontend[]> {
+  const { data } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: false });
+
+  if (!data) return [];
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", ownerId)
+    .maybeSingle();
+
+  const businessIds = (data as Business[]).map((b) => b.id);
+  let reviewsByBusinessId = new Map<string, Review[]>();
+
+  if (businessIds.length > 0) {
+    const { data: reviews } = await supabase
+      .from("reviews")
+      .select("*")
+      .in("business_id", businessIds)
+      .order("created_at", { ascending: false });
+
+    if (reviews) {
+      reviewsByBusinessId = reviews.reduce((acc, r: any) => {
+        const review: Review = {
+          id: r.id,
+          business_id: r.business_id,
+          user_id: r.user_id,
+          user_name: r.user_name || "Usuário",
+          rating: r.rating,
+          comment: r.comment,
+          created_at: r.created_at,
+        };
+        const list = acc.get(r.business_id) || [];
+        list.push(review);
+        acc.set(r.business_id, list);
+        return acc;
+      }, new Map<string, Review[]>());
+    }
+  }
+
+  const businessRows = await attachLocationDisplayNames(data as Business[]);
+  const { data: linkedEventsRows } = businessIds.length > 0
+    ? await supabase.from("events").select("*").in("business_id", businessIds)
+    : { data: [] as any[] };
+
+  const linkedEventsByBusinessId = (linkedEventsRows || []).reduce((acc, evt: any) => {
+    const key = evt.business_id as string;
+    const list = acc.get(key) || [];
+    list.push(evt as CommunityEvent);
+    acc.set(key, list);
+    return acc;
+  }, new Map<string, CommunityEvent[]>());
+
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+
+  return businessRows.map((b) => {
+    const withReviews: Business = {
+      ...b,
+      reviews: reviewsByBusinessId.get(b.id) || [],
+      events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
+    };
+    return toFrontend(withReviews, profile?.name, {
+      allowFollowExternalLinks: followLinksBusinessIds.has(b.id),
+    });
+  });
+}
+
+export type BusinessLocationResolution = {
+  citySlug: string;
+  locationId?: string;
+  databaseReady: boolean;
+};
+
+export async function resolveBusinessLocation(input: {
+  city: string;
+  countryCode: string;
+  stateCode: string;
+  cityPlaceId?: string;
+  citySlug?: string;
+}): Promise<BusinessLocationResolution | null> {
+  const city = input.city.trim();
+  const countryCode = input.countryCode.trim().toLowerCase();
+  const stateCode = input.stateCode.trim().toLowerCase();
+  const citySlug = getCanonicalCitySlug(city, countryCode) || input.citySlug?.trim();
+  if (!city || !countryCode || !citySlug) return null;
+
+  const { data, error } = await supabase.rpc("upsert_business_location", {
+    p_city_place_id: input.cityPlaceId?.trim() || null,
+    p_country_code: countryCode,
+    p_state_code: stateCode,
+    p_official_name: city,
+    p_display_name_pt_br: getCityDisplayName(city, countryCode),
+    p_city_slug: citySlug,
+  });
+
+  if (error || !data) {
+    // The business flow remains available until the schema migration is applied.
+    console.warn("[resolveBusinessLocation] location registry unavailable", error?.code || "no-data");
+    return { citySlug, databaseReady: false };
+  }
+
+  const location = Array.isArray(data) ? data[0] : data;
+  const locationId = String((location as { id?: string }).id || "");
+  return { citySlug, locationId: locationId || undefined, databaseReady: true };
+}
+export async function resolveCanonicalLocationSlug(
+  countryCode: string,
+  stateCode: string,
+  citySlug: string,
+): Promise<string | null> {
+  const country = (countryCode || "").trim().toLowerCase();
+  const state = (stateCode || "").trim().toLowerCase();
+  const slug = slugify(citySlug || "");
+  if (!country || !slug) return null;
+
+  const canonicalFromSlug = getCanonicalCitySlug(citySlug, country);
+  if (canonicalFromSlug && canonicalFromSlug !== slug) return canonicalFromSlug;
+
+  const { data: canonicalLocation, error: canonicalError } = await supabase
+    .from("business_locations")
+    .select("city_slug, display_name_pt_br, official_name")
+    .eq("country_code", country)
+    .eq("state_code", state)
+    .eq("city_slug", slug)
+    .maybeSingle();
+
+  if (!canonicalError && canonicalLocation?.city_slug) {
+    return getCanonicalCitySlug(
+      canonicalLocation.display_name_pt_br || canonicalLocation.official_name,
+      country,
+    ) || String(canonicalLocation.city_slug);
+  }
+
+  const { data: alias, error: aliasError } = await supabase
+    .from("business_location_slug_aliases")
+    .select("location_id")
+    .eq("country_code", country)
+    .eq("state_code", state)
+    .eq("city_slug", slug)
+    .maybeSingle();
+
+  if (aliasError || !alias?.location_id) return null;
+
+  const { data: location, error: locationError } = await supabase
+    .from("business_locations")
+    .select("city_slug, display_name_pt_br, official_name")
+    .eq("id", alias.location_id)
+    .maybeSingle();
+
+  if (locationError || !location?.city_slug) return null;
+  return getCanonicalCitySlug(location.display_name_pt_br || location.official_name, country) || String(location.city_slug);
+}
+
+export async function createBusiness(
+  ownerId: string,
+  data: {
+    name: string;
+    slug?: string;
+    categoryId: string;
+    primaryActivity: string;
+    primaryActivityCustom?: string;
+    description: string;
+    heroImage?: string;
+    logoUrl?: string;
+    street?: string;
+    city?: string;
+    citySlug?: string;
+    locationId?: string;
+    state?: string;
+    country?: string;
+    countryCode?: string;
+    stateCode?: string;
+    attendanceType?: "presencial" | "online" | "hibrido";
+    postalCode?: string;
+    lat?: number;
+    lng?: number;
+    services?: string[];
+    serviceItems?: { name: string; description: string; price: string }[];
+    phone?: string;
+    email?: string;
+    website?: string;
+    instagram?: string;
+    facebook?: string;
+    whatsapp?: string;
+    menu?: { name: string; description: string; price: string }[];
+    menuPdfUrl?: string;
+    isBrazilianOwned?: boolean;
+    servesPortuguese?: boolean;
+    isVeganFriendly?: boolean;
+    isVegetarianFriendly?: boolean;
+    isGlutenFreeFriendly?: boolean;
+    keywords?: string[];
+    photos?: string[];
+    openingHours?: string[];
+    promotions?: { title: string; description: string; code: string; expiresAt: string }[];
+    events?: { title: string; description: string; date: string; location: string; isFree: boolean; price: string; flyerUrl?: string; ticketUrl?: string }[];
+  }
+): Promise<BusinessFrontend | null> {
+
+  if (!data.primaryActivity.trim()) return null;
+
+  const officialSlug = await generateUniqueOfficialBusinessSlug(data.name);
+  if (!officialSlug) return null;
+
+  const safeShortSlug = slugify(data.slug?.trim() || data.name);
+  const shortSlugAvailable = await isBusinessSlugAvailable(safeShortSlug);
+  if (!shortSlugAvailable) return null;
+
+  const { data: newBiz, error } = await supabase
+    .from("businesses")
+    .insert({
+      owner_id: ownerId,
+      name: data.name,
+      slug: officialSlug,
+      category_id: getCategoryId(data.categoryId),
+      primary_activity: data.primaryActivity || null,
+      primary_activity_custom: data.primaryActivityCustom || null,
+      description: data.description,
+      hero_image: data.heroImage || null,
+      logo_url: data.logoUrl || null,
+      street: data.street || null,
+      city: data.city || null,
+      ...(data.citySlug ? { city_slug: data.citySlug } : {}),
+      ...(data.locationId ? { location_id: data.locationId } : {}),
+      state: data.state || null,
+      country: data.country || null,
+      country_code: data.countryCode || null,
+      state_code: data.stateCode || null,
+      attendance_type: data.attendanceType || "presencial",
+      postal_code: data.postalCode || null,
+      lat: data.lat || 0,
+      lng: data.lng || 0,
+      services: data.services || [],
+      service_items: data.serviceItems || [],
+      phone: data.phone || null,
+      email: data.email || null,
+      website: data.website || null,
+      instagram: data.instagram || null,
+      facebook: data.facebook || null,
+      whatsapp: data.whatsapp || null,
+      menu: data.menu || [],
+      menu_pdf_url: data.menuPdfUrl || null,
+      is_brazilian_owned: !!data.isBrazilianOwned,
+      serves_portuguese: !!data.servesPortuguese,
+      is_vegan_friendly: !!data.isVeganFriendly,
+      is_vegetarian_friendly: !!data.isVegetarianFriendly,
+      is_gluten_free_friendly: !!data.isGlutenFreeFriendly,
+      keywords: data.keywords || [],
+      photos: data.photos || [],
+      moderation_status: "pending",
+      opening_hours: data.openingHours || [],
+      events: data.events || [],
+    })
+    .select()
+    .maybeSingle();
+
+  if (error || !newBiz) {
+    console.error("[createBusiness] Supabase error:", error);
+    return null;
+  }
+
+  const linkedShort = await setBusinessShortSlug((newBiz as Business).id, safeShortSlug);
+  if (!linkedShort) {
+    console.error("[createBusiness] Failed to bind short slug for business", (newBiz as Business).id);
+    return null;
+  }
+
+  return toFrontend(newBiz as Business);
+}
+
+export async function updateBusiness(
+  id: string,
+  updates: Record<string, unknown>
+): Promise<boolean> {
+  const normalizedUpdates = { ...updates };
+  const slugValue = typeof normalizedUpdates.slug === "string" ? normalizedUpdates.slug : "";
+  const nameValue = typeof normalizedUpdates.name === "string" ? normalizedUpdates.name : "";
+  const shortSlugCandidate = slugValue.trim() ? slugValue : "";
+  delete normalizedUpdates.slug;
+
+  if (nameValue.trim()) {
+    const officialSlug = await generateUniqueOfficialBusinessSlug(nameValue, id);
+    if (!officialSlug) return false;
+    normalizedUpdates.slug = officialSlug;
+  }
+
+  if (shortSlugCandidate) {
+    const shortAvailable = await isBusinessSlugAvailable(shortSlugCandidate, id);
+    if (!shortAvailable) return false;
+  }
+
+  // Mapear camelCase para snake_case (colunas do banco)
+  const mapped: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(normalizedUpdates)) {
+    if (key === "categoryId" || key === "category") {
+      mapped["category_id"] = getCategoryId(String(value || ""));
+      continue;
+    }
+    const snakeKey = key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+    mapped[snakeKey] = value;
+  }
+  const { error } = await supabase
+    .from("businesses")
+    .update(mapped)
+    .eq("id", id);
+  if (error) {
+    console.error("[updateBusiness] Supabase error code:", error.code, "message:", error.message, "details:", error.details, "hint:", error.hint);
+  }
+  if (error) return false;
+
+  if (shortSlugCandidate) {
+    const shortUpdated = await setBusinessShortSlug(id, shortSlugCandidate);
+    if (!shortUpdated) return false;
+  }
+
+  return true;
+}
+
+export async function deleteBusiness(id: string): Promise<boolean> {
+  const { error } = await supabase.from("businesses").delete().eq("id", id);
+  return !error;
+}
+
+export async function getPendingBusinessesForAdmin(): Promise<BusinessFrontend[]> {
+  const { data } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("moderation_status", "pending")
+    .order("created_at", { ascending: false });
+
+  if (!data) return [];
+
+  const ownerIds = [...new Set((data as Business[]).map((b) => b.owner_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, name")
+    .in("id", ownerIds);
+
+  const ownerNames = new Map(
+    (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
+  );
+
+  const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
+  const enrichedBusinessRows = await attachLocationDisplayNames(data as Business[]);
+  return enrichedBusinessRows.map((b) =>
+    toFrontend(b, ownerNames.get(b.owner_id), {
+      allowFollowExternalLinks: followLinksBusinessIds.has(b.id),
+    })
+  );
+}
+
+export async function setBusinessModerationStatus(
+  businessId: string,
+  status: "approved" | "rejected",
+  reviewerId: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("businesses")
+    .update({
+      moderation_status: status,
+      moderation_reviewed_by: reviewerId,
+      moderation_reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", businessId);
+
+  if (error) {
+    console.error("[setBusinessModerationStatus]", error);
+  }
+  return !error;
+}
+
+export async function addReview(
+  businessId: string,
+  review: {
+    userId: string | null;
+    userName: string;
+    rating: 1 | 2 | 3 | 4 | 5;
+    comment: string;
+  }
+): Promise<boolean> {
+  if (review.userId) {
+    const { data: existing } = await supabase
+      .from("reviews")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("user_id", review.userId)
+      .maybeSingle();
+
+    if (existing) {
+      return false;
+    }
+  }
+
+  const { error } = await supabase
+    .from("reviews")
+    .insert({
+      business_id: businessId,
+      user_id: review.userId,
+      user_name: review.userName,
+      rating: review.rating,
+      comment: review.comment,
+    });
+
+  return !error;
+}
+
+export async function updateReview(
+  reviewId: string,
+  updates: { rating?: 1 | 2 | 3 | 4 | 5; comment?: string }
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("reviews")
+    .update(updates)
+    .eq("id", reviewId);
+
+  return !error;
+}
+
+export async function deleteReview(reviewId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("reviews")
+    .delete()
+    .eq("id", reviewId);
+
+  return !error;
+}
+
+export async function getReviewsByUser(userId: string): Promise<(Review & { businessName: string; businessSlug: string })[]> {
+  const { data } = await supabase
+    .from("reviews")
+    .select(`
+      *,
+      business:businesses(name, slug, country_code, state_code, city, city_slug)
+    `)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (!data) return [];
+
+  return data.map((r: any) => ({
+    id: r.id,
+    business_id: r.business_id,
+    user_id: r.user_id,
+    user_name: r.user_name || "Usuário",
+    rating: r.rating,
+    comment: r.comment,
+    created_at: r.created_at,
+    businessName: r.business?.name || "Negócio",
+    businessSlug:
+      r.business?.country_code && r.business?.state_code && r.business?.city
+        ? `/${r.business?.country_code}/${r.business?.state_code}/${getCanonicalCitySlug(r.business?.city, r.business?.country_code) || r.business?.city_slug}/${r.business?.slug}`
+        : `/go/${r.business?.slug}`,
+  })) as any[];
+}
+
+export function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+    .replace(/\s+/g, "-")           // Substitui espaços por -
+    .replace(/[^\w-]+/g, "")        // Remove caracteres nao-alfanuméricos
+    .replace(/--+/g, "-")           // Remove hifens duplicados
+    .replace(/^-+/, "")             // Remove hifens no início
+    .replace(/-+$/, "");            // Remove hifens no final
+}
+
+export function buildBusinessUrl(biz: BusinessFrontend): string {
+  const countryCode = (biz.address.countryCode || "").toLowerCase();
+  const stateSlug = (biz.address.stateCode || "").toLowerCase();
+  // Stored slugs can be legacy English/local names. The city label is the canonical source.
+  const citySlug = getCanonicalCitySlug(biz.address.city, biz.address.countryCode) || biz.address.citySlug;
+
+  // Regra única para todos os negócios:
+  // prioriza URL completa /pais/estado/cidade/slug, com fallback para dados legados incompletos.
+  if (countryCode && stateSlug && citySlug) {
+    return `/${countryCode}/${stateSlug}/${citySlug}/${biz.slug}`;
+  }
+  if (countryCode) {
+    return `/${countryCode}/${biz.slug}`;
+  }
+  return `/go/${biz.slug}`;
+}
+
+const COUNTRY_DISPLAY_NAMES_PT_BR =
+  typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function"
+    ? new Intl.DisplayNames(["pt-BR"], { type: "region" })
+    : null;
+
+export function getStateDisplayName(
+  countryCode: string,
+  stateCode: string,
+  fallbackState = ""
+): string {
+  const normalizedCountry = (countryCode || "").trim().toLowerCase();
+  const normalizedState = (stateCode || "").trim().toLowerCase();
+  const mapped = COUNTRIES[normalizedCountry]?.states[normalizedState];
+  if (mapped) return mapped;
+
+  const fallback = (fallbackState || "").trim();
+  return fallback || (stateCode || "").trim().toUpperCase();
+}
+function isCodeLikeStateLabel(value: string, stateCode: string): boolean {
+  const label = (value || "").trim();
+  const code = (stateCode || "").trim();
+  if (!label || !code) return false;
+  return label.toLowerCase() === code.toLowerCase();
+}
+
+function pickBetterStateLabel(current: string, candidate: string, stateCode: string): string {
+  const currentLabel = (current || "").trim();
+  const candidateLabel = (candidate || "").trim();
+  if (!candidateLabel) return currentLabel;
+  if (!currentLabel) return candidateLabel;
+
+  const currentCodeLike = isCodeLikeStateLabel(currentLabel, stateCode);
+  const candidateCodeLike = isCodeLikeStateLabel(candidateLabel, stateCode);
+
+  if (currentCodeLike && !candidateCodeLike) return candidateLabel;
+  if (!currentCodeLike && candidateCodeLike) return currentLabel;
+  if (candidateLabel.length > currentLabel.length && !candidateCodeLike) return candidateLabel;
+  return currentLabel;
+}
+
+export function getCountryName(code?: string | null): string {
+  const raw = (code || "").trim();
+  if (!raw) return "";
+
+  const normalized = raw.toLowerCase();
+  if (!/^[a-z]{2,3}$/.test(normalized)) {
+    return raw;
+  }
+
+  const intlName = COUNTRY_DISPLAY_NAMES_PT_BR?.of(normalized.toUpperCase());
+  if (intlName) return intlName;
+
+  return COUNTRIES[normalized]?.name || raw;
+}
+
+function normalizeCityKey(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function hasDiacritics(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    if (value.charCodeAt(i) > 127) return true;
+  }
+  return false;
+}
+
+export async function getAvailableLocations(): Promise<{ countryCode: string, countryName: string, states: { code: string, name: string, cities: string[] }[] }> {
+  const { data } = await supabase
+    .from("businesses")
+    .select("country_code, state_code, state, city")
+    .or("moderation_status.eq.approved,moderation_status.is.null");
+
+  if (!data) return [];
+
+  const locations: any[] = [];
+
+  data.forEach((item) => {
+    const countryCode = String(item.country_code || "").toLowerCase().trim();
+    const stateCode = String(item.state_code || "").toLowerCase().trim();
+    const stateName = String(item.state || "").trim();
+    const city = String(item.city || "").trim();
+    if (!countryCode || !stateCode || !city) return;
+
+    let country = locations.find((l) => l.countryCode === countryCode);
+    if (!country) {
+      country = {
+        countryCode,
+        countryName: getCountryName(countryCode),
+        states: [],
+      };
+      locations.push(country);
+    }
+
+    let state = country.states.find((s: any) => s.code === stateCode);
+    const resolvedStateName = getStateDisplayName(countryCode, stateCode, stateName);
+    if (!state) {
+      state = {
+        code: stateCode,
+        name: resolvedStateName,
+        cities: [],
+        cityMap: {} as Record<string, string>,
+      };
+      country.states.push(state);
+    } else {
+      state.name = pickBetterStateLabel(state.name, resolvedStateName, stateCode);
+    }
+
+    const cityKey = normalizeCityKey(city);
+    if (!cityKey) return;
+
+    const existing = state.cityMap[cityKey];
+    if (!existing) {
+      state.cityMap[cityKey] = city;
+      state.cities.push(city);
+      return;
+    }
+
+    // Se houver duplicata sem/ com acento (ex: Montreal/Montréal), prefere a versão com acento.
+    if (!hasDiacritics(existing) && hasDiacritics(city)) {
+      state.cityMap[cityKey] = city;
+      const idx = state.cities.indexOf(existing);
+      if (idx >= 0) state.cities[idx] = city;
+    }
+  });
+
+  return locations.map((country) => ({
+    ...country,
+    states: country.states.map((state: any) => ({
+      code: state.code,
+      name: state.name,
+      cities: state.cities,
+    })),
+  }));
+}
+
+export function getStateName(countryCode: string, stateCode: string): string {
+  if (!countryCode || !stateCode) return stateCode || "";
+  return COUNTRIES[countryCode.toLowerCase()]?.states[stateCode.toLowerCase()] || stateCode;
+}
+
+export async function getSearchSuggestions(): Promise<string[]> {
+  const { data } = await supabase
+    .from("businesses")
+    .select("name, keywords, services, city, menu, is_vegan_friendly, is_vegetarian_friendly, is_gluten_free_friendly")
+    .or("moderation_status.eq.approved,moderation_status.is.null");
+
+  if (!data) return [];
+
+  const terms = new Map<string, number>();
+  const STOP_WORDS = new Set([
+    "un", "und", "unid", "unidade", "unidades",
+    "kg", "g", "gr", "grama", "gramas",
+    "ml", "l", "lt", "litro", "litros",
+    "porcao", "porcoes", "porção", "porções",
+    "combo", "kit",
+  ]);
+
+  const addRelevantTokens = (raw: string) => {
+    if (!raw) return;
+    const cleaned = raw
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ");
+
+    const tokens = cleaned
+      .split(/\s+/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .filter((t) => !/\d/.test(t))
+      .filter((t) => t.length >= 3)
+      .filter((t) => !STOP_WORDS.has(t));
+
+    tokens.forEach((t) => terms.set(t, (terms.get(t) || 0) + 1));
+  };
+
+  const addRawTerm = (raw: string) => {
+    const normalized = (raw || "").trim();
+    if (!normalized) return;
+    const words = normalized.split(/\s+/).filter(Boolean);
+    const limited = words.slice(0, 5).join(" ").trim();
+    if (!limited || limited.length < 2) return;
+    if (/\d/.test(limited)) return; // evita "Coxinha 6 Unidades" como sugestão literal
+    terms.set(limited, (terms.get(limited) || 0) + 1);
+  };
+
+  data.forEach((b: any) => {
+    if (b.city) addRawTerm(b.city);
+    if (b.keywords && Array.isArray(b.keywords)) {
+      b.keywords.forEach((k: string) => {
+        addRawTerm(k);
+        addRelevantTokens(k);
+      });
+    }
+    if (b.services && Array.isArray(b.services)) {
+      b.services.forEach((s: string) => {
+        addRawTerm(s);
+        addRelevantTokens(s);
+      });
+    }
+    if (b.menu && Array.isArray(b.menu)) {
+      b.menu.forEach((item: any) => {
+        if (item?.name) {
+          addRawTerm(String(item.name));
+          addRelevantTokens(String(item.name));
+        }
+        if (item?.description) {
+          addRawTerm(String(item.description));
+          addRelevantTokens(String(item.description));
+        }
+      });
+    }
+    if (b.is_vegan_friendly) {
+      addRawTerm("vegano");
+      addRawTerm("vegan");
+    }
+    if (b.is_vegetarian_friendly) {
+      addRawTerm("vegetariano");
+      addRawTerm("vegetarian");
+    }
+    if (b.is_gluten_free_friendly) {
+      addRawTerm("sem gluten");
+      addRawTerm("gluten free");
+    }
+  });
+
+  // Retornar por frequência (mais recorrentes primeiro)
+  return Array.from(terms.entries())
+    .filter(([t]) => t && t.length >= 2)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"))
+    .map(([t]) => t);
+}
