@@ -13,17 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { getSiteContent, getMascotPhrases } from "@/data/siteContent";
 import { getHomeContent } from "@/data/homeContent";
-import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getBusinessesByPublicSearchRpc, getCountryName, getSearchSuggestions } from "@/services/businesses";
+import { buildBusinessUrl, getBusinessesByPublicSearchRpc, getCountryName } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import { DEFAULT_GEO_FALLBACK, DEFAULT_SEARCH_RADIUS_KM, calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
-import {
-  geocodeLocationWithCountryFallback,
-  inferNearestCityFromBusinesses,
-  resolveLocationContextFromBusinesses,
-} from "@/lib/search/locationResolver";
+import { geocodeLocationWithCountryFallback } from "@/lib/search/locationResolver";
 import SearchInputWithSuggestions, { type LocationSuggestionMeta } from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
@@ -81,8 +77,6 @@ const HOME_CATEGORY_ICONS: Record<string, typeof Utensils> = {
 };
 
 
-const HOME_PUBLIC_DATA_REFRESH_MS = 5 * 60 * 1000;
-
 const countryCodeToFlag = (countryCode: string) => {
   const normalized = (countryCode || "").trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(normalized)) return String.fromCodePoint(0x1F30E);
@@ -121,7 +115,6 @@ type HomeProps = {
 
 export default function Home({
   initialBusinesses = [],
-  initialBusinessesAreSearchReady = false,
   initialFeaturedBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
@@ -134,11 +127,9 @@ export default function Home({
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("businesses");
-  const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinesses);
-  const [hasCompleteSearchData, setHasCompleteSearchData] = useState(initialBusinessesAreSearchReady);
   const [featuredBusinesses, setFeaturedBusinesses] = useState<BusinessFrontend[]>(initialFeaturedBusinesses);
-  const [searchSuggestions, setSearchSuggestions] = useState<string[]>(initialSearchSuggestions);
-  const [citySuggestions, setCitySuggestions] = useState<string[]>(() => extractCities(initialAvailableLocations));
+  const searchSuggestions = initialSearchSuggestions;
+  const citySuggestions = useMemo(() => extractCities(initialAvailableLocations), [initialAvailableLocations]);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCountryCode, setApproxCountryCode] = useState("");
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
@@ -205,101 +196,39 @@ export default function Home({
 
   useEffect(() => {
     let cancelled = false;
-    const hasServerBusinesses = initialBusinesses.length > 0;
 
-    const refreshPublicData = async () => {
-      const [businessesRes, locationsRes, suggestionsRes] = await Promise.allSettled([
-        getAllBusinesses(),
-        getAvailableLocations(),
-        getSearchSuggestions(),
-      ]);
-
-      if (cancelled) return null;
-
-      if (businessesRes.status === "fulfilled") {
-        setAllBusinesses(businessesRes.value);
-        setHasCompleteSearchData(true);
-      }
-
-      if (locationsRes.status === "fulfilled") {
-        setCitySuggestions(extractCities(locationsRes.value));
-      }
-
-      if (suggestionsRes.status === "fulfilled") {
-        setSearchSuggestions(suggestionsRes.value);
-      }
-
-      return businessesRes.status === "fulfilled" ? businessesRes.value : null;
-    };
-
-    const loadData = async (refreshDirectory: boolean) => {
-      const [freshBusinesses, approxGeo] = await Promise.all([
-        refreshDirectory ? refreshPublicData() : Promise.resolve(initialBusinesses),
-        getApproxGeoByIp({
-          timeoutMs: 3000,
-          maxAgeMs: 24 * 60 * 60 * 1000,
-          fallback: DEFAULT_GEO_FALLBACK,
-        }),
-      ]);
-
+    const loadRegionalData = async () => {
+      const approxGeo = await getApproxGeoByIp({
+        timeoutMs: 3000,
+        maxAgeMs: 24 * 60 * 60 * 1000,
+        fallback: DEFAULT_GEO_FALLBACK,
+      });
       if (cancelled) return;
 
-      const businesses = freshBusinesses && freshBusinesses.length > 0 ? freshBusinesses : initialBusinesses;
       const coords = approxGeo ? { lat: approxGeo.lat, lng: approxGeo.lng } : null;
+      if (coords) setUserCoords(coords);
       if (approxGeo?.countryCode) setApproxCountryCode(approxGeo.countryCode);
       if (approxGeo?.city) {
         setLocationQuery((prev) => (prev.trim() ? prev : approxGeo.city!));
       }
-      let regionalBusinesses = [...businesses];
-      let region: FeaturedRegion | null = null;
 
-      if (coords) {
-        setUserCoords(coords);
-        regionalBusinesses = [...businesses].sort((a, b) => {
-          const distA = calculateDistance(coords.lat, coords.lng, a.address.lat, a.address.lng);
-          const distB = calculateDistance(coords.lat, coords.lng, b.address.lat, b.address.lng);
-          return distA - distB;
-        });
-        const nearest = regionalBusinesses[0];
-        if (nearest) {
-          region = {
-            countryCode: nearest.address.countryCode,
-            stateCode: nearest.address.stateCode,
-            city: nearest.address.city,
-          };
-        }
-      }
-
-      const regionalFeatured = initialFeaturedBusinesses.length > 0
-        ? initialFeaturedBusinesses
-        : await getFeaturedBusinessesForRegion(region, 6);
-
-      if (cancelled) return;
-
-      setAllBusinesses(regionalBusinesses);
+      const region: FeaturedRegion | null = approxGeo
+        ? {
+            countryCode: approxGeo.countryCode,
+            stateCode: approxGeo.stateCode,
+            city: approxGeo.city,
+          }
+        : null;
+      const regionalFeatured = await getFeaturedBusinessesForRegion(region, 6);
+      if (cancelled || regionalFeatured.length === 0) return;
       setFeaturedBusinesses(regionalFeatured);
     };
 
-    // The server sends only home aggregates. Load the full search index on the client
-    // so geolocation and instant search navigation remain available without bloating SSR.
-    const initialLoadTimer = hasServerBusinesses
-      ? window.setTimeout(() => void loadData(false), 1500)
-      : null;
-
-    if (!hasServerBusinesses) {
-      void loadData(true);
-    }
-
-    const refreshTimer = window.setInterval(() => {
-      void refreshPublicData();
-    }, HOME_PUBLIC_DATA_REFRESH_MS);
-
+    void loadRegionalData();
     return () => {
       cancelled = true;
-      if (initialLoadTimer !== null) window.clearTimeout(initialLoadTimer);
-      window.clearInterval(refreshTimer);
     };
-  }, [initialBusinesses, initialFeaturedBusinesses]);
+  }, []);
 
   const handleUseCurrentLocationInput = async () => {
     selectedLocationRef.current = null;
@@ -313,9 +242,8 @@ export default function Home({
         return;
       }
       setUserCoords(coords);
-      const inferredCity = inferNearestCityFromBusinesses(allBusinesses, coords) || homeText.currentLocationLabel;
       setLocationQuery("");
-      window.setTimeout(() => setLocationQuery(inferredCity), 0);
+      window.setTimeout(() => setLocationQuery(homeText.currentLocationLabel), 0);
     } finally {
       setIsResolvingLocationInput(false);
     }
@@ -341,14 +269,11 @@ export default function Home({
       params.set("cidade", selectedLocationMatches && selectedLocation.meta.city ? selectedLocation.meta.city : locationText);
       params.set("local", locationText);
       params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-      const resolved = resolveLocationContextFromBusinesses(allBusinesses, locationText);
       const coords =
         selectedCoords ||
-        resolved.coords ||
         (await geocodeLocationWithCountryFallback(
           locationText,
           (selectedLocationMatches ? selectedLocation.meta.countryCode : "") ||
-            resolved.countryCode ||
             approxCountryCode ||
             DEFAULT_GEO_FALLBACK.countryCode
         ));
@@ -363,7 +288,7 @@ export default function Home({
       params.set("origem_local", locationText);
       params.set("origem_source", "city");
       const countryCode =
-        (selectedLocationMatches ? selectedLocation.meta.countryCode : "") || resolved.countryCode;
+        (selectedLocationMatches ? selectedLocation.meta.countryCode : "") || approxCountryCode;
       if (countryCode) params.set("origem_pais", countryCode.toLowerCase());
       else params.delete("origem_pais");
       return true;
@@ -435,7 +360,7 @@ export default function Home({
 
     const state = searchMode === "businesses"
       ? await getBusinessSearchNavigationState(params)
-      : hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined;
+      : undefined;
     navigate(`/buscar?${params.toString()}`, { state });
     setIsSubmittingSearch(false);
   };
@@ -449,7 +374,7 @@ export default function Home({
     await appendLocationContext(params, locationQuery);
     const state = searchMode === "businesses"
       ? await getBusinessSearchNavigationState(params)
-      : hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined;
+      : undefined;
     navigate(`/buscar?${params.toString()}`, { state });
     setIsSubmittingSearch(false);
   };
@@ -472,10 +397,7 @@ export default function Home({
     }, 0);
     return () => window.clearTimeout(timer);
   }, [mascotPhrases]);
-  const liveHomeSnapshot = useMemo(() => buildHomePublicSnapshot(allBusinesses), [allBusinesses]);
-  const homeSnapshot = allBusinesses.length > 0
-    ? liveHomeSnapshot
-    : initialHomeSnapshot || liveHomeSnapshot;
+  const homeSnapshot = initialHomeSnapshot || buildHomePublicSnapshot([]);
 
   const categories = useMemo(() => {
     return homeText.categories.map((cat) => ({
@@ -932,4 +854,3 @@ function normalizeText(value?: string | null): string {
 function formatBusinessCount(count: number): string {
   return String(count) + " " + (count === 1 ? "neg\u00f3cio" : "neg\u00f3cios");
 }
-

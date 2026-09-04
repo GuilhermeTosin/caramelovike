@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import {
   buildBusinessUrl,
-  getAllBusinesses,
   getCountryName,
   getStateDisplayName,
   resolveCanonicalLocationSlug,
@@ -17,7 +16,6 @@ import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import { DIRECTORY_CATEGORY_MINIMUM_BUSINESSES } from "@/lib/directoryCategories";
 import {
   buildDirectoryPagePath,
-  buildDirectoryPageSnapshot,
   type DirectoryLevel,
   type DirectoryPageSnapshot,
 } from "@/lib/directorySnapshot";
@@ -70,34 +68,9 @@ function Header() {
 export default function BusinessDirectoryPage({ initialDirectorySnapshot }: BusinessDirectoryPageProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [directoryBusinesses, setDirectoryBusinesses] = useState<BusinessFrontend[]>([]);
-  const [loadedDirectory, setLoadedDirectory] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    void getAllBusinesses()
-      .then((rows) => {
-        if (active) setDirectoryBusinesses(rows);
-      })
-      .catch(() => {
-        if (active) setDirectoryBusinesses([]);
-      })
-      .finally(() => {
-        if (active) setLoadedDirectory(true);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const liveSnapshot = useMemo(
-    () => directoryBusinesses.length > 0 ? buildDirectoryPageSnapshot(pathname, directoryBusinesses) : null,
-    [directoryBusinesses, pathname],
-  );
   const initialSnapshotMatchesPath = initialDirectorySnapshot?.pathname === pathname;
-  const snapshot = liveSnapshot || (initialSnapshotMatchesPath ? initialDirectorySnapshot : null);
-  const loadingBusinesses = !snapshot && !loadedDirectory;
+  const snapshot = initialSnapshotMatchesPath ? initialDirectorySnapshot : null;
+  const loadingBusinesses = !snapshot;
 
   useEffect(() => {
     if (!snapshot) return;

@@ -1,5 +1,5 @@
 import {
-  getAllBusinesses,
+  getPublicBusinessDirectoryIndex,
   buildBusinessUrl,
 } from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
@@ -64,7 +64,7 @@ async function writeGeneratedSitemapFiles(baseUrl: string) {
 
 export async function onBeforePrerenderStart() {
   const [businesses, events] = await Promise.all([
-    getAllBusinesses().catch(() => [] as BusinessFrontend[]),
+    getPublicBusinessDirectoryIndex().catch(() => [] as BusinessFrontend[]),
     getPublishedCommunityEvents().catch(() => [] as CommunityEvent[]),
   ]);
 

@@ -354,6 +354,7 @@ export default function SearchResults({
     matchingSearchSnapshot?.totalCount ?? null
   );
   const [rpcFallbackMode, setRpcFallbackMode] = useState(false);
+  const [businessSearchError, setBusinessSearchError] = useState<string | null>(null);
   const [mapBusinesses, setMapBusinesses] = useState<BusinessFrontend[] | null>(null);
   const [mapBusinessesLoading, setMapBusinessesLoading] = useState(false);
   const [mapBusinessesError, setMapBusinessesError] = useState<string | null>(null);
@@ -662,12 +663,17 @@ export default function SearchResults({
 
     const loadInitialData = async () => {
       const supplementalDataPromise = Promise.allSettled([
-        getAvailableLocations(),
-        getSearchSuggestions(),
+        initialAvailableLocations.length > 0
+          ? Promise.resolve(initialAvailableLocations)
+          : getAvailableLocations(),
+        initialSearchSuggestions.length > 0
+          ? Promise.resolve(initialSearchSuggestions)
+          : getSearchSuggestions(),
         getPublishedCommunityEvents(),
       ]);
 
       try {
+        setBusinessSearchError(null);
         if (isBusinessSearchMode) {
           const page = matchingSearchSnapshot
             ? {
@@ -688,9 +694,19 @@ export default function SearchResults({
           setRpcTotalCount(null);
           setRpcFallbackMode(false);
         }
-      } catch {
-        // Keep the existing client-side filter as a temporary compatibility
-        // fallback if the Supabase migration has not been applied yet.
+      } catch (error) {
+        if (isBusinessSearchMode) {
+          console.error("[SearchResults] public business search failed:", error);
+          if (!active) return;
+          setAllBusinesses([]);
+          setRpcTotalCount(0);
+          setRpcFallbackMode(false);
+          setBusinessSearchError("Não foi possível carregar os negócios agora. Tente novamente em instantes.");
+          return;
+        }
+
+        // Event mode still uses the legacy business-backed event data until
+        // its own compact event index is introduced.
         try {
           const businesses = await getAllBusinesses();
           if (!active) return;
@@ -1947,7 +1963,18 @@ export default function SearchResults({
           </aside>
 
           <div ref={resultsTopRef}>
-            {!isResultsLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? filteredCommunityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
+            {!isResultsLoading && !isResolvingDistanceOrigin && !showMap && businessSearchError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center lg:text-left">
+                <div className="flex flex-col lg:flex-row lg:items-start gap-5">
+                  <PawPrint className="w-14 h-14 text-destructive/35 mx-auto lg:mx-0 shrink-0" />
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold text-foreground mb-2">Não foi possível carregar os resultados</h2>
+                    <p className="text-muted-foreground mb-6">{businessSearchError}</p>
+                    <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
+                  </div>
+                </div>
+              </div>
+            ) : !isResultsLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? filteredCommunityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0" />
@@ -2827,4 +2854,3 @@ export default function SearchResults({
     </div>
   );
 }
-

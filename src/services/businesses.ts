@@ -471,11 +471,13 @@ function mergeBusinessEvents(
 }
 
 export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFrontend[]> {
+  // This index is used only to calculate public directory and home aggregates.
+  // Keep it compact; full business content is loaded only on business pages.
   const columns = [
     "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "logo_url", "hero_image",
-    "street", "city", "city_slug", "state", "country", "country_code", "state_code",
+    "city", "city_slug", "location_id", "state", "country", "country_code", "state_code",
     "lat", "lng", "attendance_type", "average_rating", "owner_verified", "owner_verified_until",
-    "moderation_status", "moderation_reviewed_at", "moderation_reviewed_by", "created_at", "updated_at",
+    "created_at", "updated_at",
   ].join(",");
   const pageSize = 1000;
   const rows: Business[] = [];
@@ -495,7 +497,7 @@ export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFronten
     if (pageRows.length < pageSize) break;
   }
 
-  return rows.map((row) => toFrontend(row));
+  return (await attachLocationDisplayNames(rows)).map((row) => toFrontend(row));
 }
 
 // Similar-business cards need only businesses in the same category and country.
@@ -654,7 +656,13 @@ async function hydratePublicSearchBusinessIds(ids: string[]): Promise<BusinessFr
 
   const { data, error } = await supabase
     .from("businesses")
-    .select("*")
+    .select([
+      "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "description",
+      "hero_image", "logo_url", "city", "city_slug", "location_id", "state", "country", "country_code",
+      "state_code", "postal_code", "lat", "lng", "attendance_type", "is_vegan_friendly",
+      "is_vegetarian_friendly", "is_gluten_free_friendly", "average_rating", "owner_verified",
+      "owner_verified_until", "created_at", "updated_at",
+    ].join(","))
     .or("moderation_status.eq.approved,moderation_status.is.null")
     .in("id", ids);
 

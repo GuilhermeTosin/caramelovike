@@ -1,7 +1,6 @@
 import type { PageContextServer } from "vike/types";
 import { redirect, render } from "vike/abort";
 import {
-  getPublicBusinessSearchIndex,
   getBusinessesByPublicSearchRpc,
   getPublicBusinessDirectoryIndex,
   getSimilarBusinessesForBusiness,
@@ -34,6 +33,25 @@ type AvailableLocation = {
   countryName: string;
   states: Array<{ code: string; name: string; cities: string[] }>;
 };
+
+type PublicSearchMetadata = {
+  availableLocations: AvailableLocation[];
+  searchSuggestions: string[];
+};
+
+type TimedCache<T> = {
+  value: T;
+  expiresAt: number;
+};
+
+// Reuse read-only public snapshots while a serverless instance stays warm.
+// This keeps repeated SSR requests from repeatedly transferring the catalog.
+const PUBLIC_DIRECTORY_CACHE_TTL_MS = 10 * 60 * 1000;
+const PUBLIC_SEARCH_METADATA_CACHE_TTL_MS = 15 * 60 * 1000;
+let publicDirectoryCache: TimedCache<BusinessFrontend[]> | null = null;
+let publicDirectoryRequest: Promise<BusinessFrontend[]> | null = null;
+let publicSearchMetadataCache: TimedCache<PublicSearchMetadata> | null = null;
+let publicSearchMetadataRequest: Promise<PublicSearchMetadata> | null = null;
 
 type PageContext = PageContextServer & {
   urlOriginal?: string;
@@ -101,9 +119,7 @@ function isKnownAppPath(pathname: string) {
   return !!parseBusinessPath(pathname);
 }
 
-// The server may inspect the compact index to build a route-specific snapshot,
-// but it never passes the complete directory to the browser.
-async function getPublicBusinessesForSsr(): Promise<BusinessFrontend[]> {
+async function fetchPublicBusinessesForSsr(): Promise<BusinessFrontend[]> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -118,12 +134,60 @@ async function getPublicBusinessesForSsr(): Promise<BusinessFrontend[]> {
 
   throw lastError instanceof Error ? lastError : new Error("Unable to load public businesses for SSR.");
 }
+
+// The server may inspect the compact index to build a route-specific snapshot,
+// but it never passes the complete directory to the browser.
+async function getPublicBusinessesForSsr(): Promise<BusinessFrontend[]> {
+  if (publicDirectoryCache && publicDirectoryCache.expiresAt > Date.now()) {
+    return publicDirectoryCache.value;
+  }
+
+  if (!publicDirectoryRequest) {
+    publicDirectoryRequest = fetchPublicBusinessesForSsr()
+      .then((businesses) => {
+        publicDirectoryCache = {
+          value: businesses,
+          expiresAt: Date.now() + PUBLIC_DIRECTORY_CACHE_TTL_MS,
+        };
+        return businesses;
+      })
+      .finally(() => {
+        publicDirectoryRequest = null;
+      });
+  }
+
+  return publicDirectoryRequest;
+}
+
+async function getPublicSearchMetadata(): Promise<PublicSearchMetadata> {
+  if (publicSearchMetadataCache && publicSearchMetadataCache.expiresAt > Date.now()) {
+    return publicSearchMetadataCache.value;
+  }
+
+  if (!publicSearchMetadataRequest) {
+    publicSearchMetadataRequest = Promise.all([
+      getAvailableLocations().catch(() => [] as AvailableLocation[]),
+      getSearchSuggestions().catch(() => [] as string[]),
+    ])
+      .then(([availableLocations, searchSuggestions]) => {
+        const metadata = { availableLocations, searchSuggestions };
+        publicSearchMetadataCache = {
+          value: metadata,
+          expiresAt: Date.now() + PUBLIC_SEARCH_METADATA_CACHE_TTL_MS,
+        };
+        return metadata;
+      })
+      .finally(() => {
+        publicSearchMetadataRequest = null;
+      });
+  }
+
+  return publicSearchMetadataRequest;
+}
+
 async function getPublicSearchData(urlOriginal?: string) {
   const params = new URL(urlOriginal || "/buscar", "https://www.caramelinho.com").searchParams;
-  const [availableLocations, searchSuggestions] = await Promise.all([
-    getAvailableLocations().catch(() => [] as AvailableLocation[]),
-    getSearchSuggestions().catch(() => [] as string[]),
-  ]);
+  const { availableLocations, searchSuggestions } = await getPublicSearchMetadata();
 
   if (!isPublicBusinessSearch(params)) {
     return { initialAvailableLocations: availableLocations, initialSearchSuggestions: searchSuggestions };
@@ -143,13 +207,10 @@ async function getPublicSearchData(urlOriginal?: string) {
       initialSearchSuggestions: searchSuggestions,
     };
   } catch (error) {
-    // The full index fallback prevents an outage while a newly deployed RPC is
-    // being applied in Supabase. It is removed from the rendered payload as soon
-    // as migration 00038 is available.
+    // Do not fall back to the complete catalog here. A failed paginated RPC must
+    // remain a failed search rather than transferring every public business.
     console.error("[onBeforeRender] public search RPC unavailable:", error);
     return {
-      initialBusinesses: await getPublicBusinessSearchIndex().catch(() => getPublicBusinessesForSsr()),
-      initialBusinessesAreSearchReady: true,
       initialAvailableLocations: availableLocations,
       initialSearchSuggestions: searchSuggestions,
     };
@@ -157,18 +218,17 @@ async function getPublicSearchData(urlOriginal?: string) {
 }
 
 async function getPublicHomeData() {
-  const businesses = await getPublicBusinessesForSsr();
-  const [featuredBusinesses, availableLocations, searchSuggestions] = await Promise.all([
+  const [businesses, featuredBusinesses, searchMetadata] = await Promise.all([
+    getPublicBusinessesForSsr(),
     getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[]),
-    getAvailableLocations().catch(() => [] as AvailableLocation[]),
-    getSearchSuggestions().catch(() => [] as string[]),
+    getPublicSearchMetadata(),
   ]);
 
   return {
     initialHomeSnapshot: buildHomePublicSnapshot(businesses),
     initialFeaturedBusinesses: featuredBusinesses,
-    initialAvailableLocations: availableLocations,
-    initialSearchSuggestions: searchSuggestions,
+    initialAvailableLocations: searchMetadata.availableLocations,
+    initialSearchSuggestions: searchMetadata.searchSuggestions,
   };
 }
 export async function onBeforeRender(pageContext: PageContext) {
