@@ -49,6 +49,50 @@ export type MarketplacePage = { items: MarketplaceListing[]; totalCount: number 
 const MARKETPLACE_CATEGORY_SELECT = "id,slug,name,sort_order,is_active";
 const MARKETPLACE_LIST_SELECT = "id,owner_id,listing_type,category_id,title,price,currency,condition,country_code,state_code,city,neighborhood,slug,status,view_count,created_at,updated_at,category:marketplace_categories(id,slug,name,sort_order,is_active)";
 const MARKETPLACE_DETAIL_SELECT = "*,category:marketplace_categories(*)";
+const MARKETPLACE_CITY_CACHE_TTL_MS = 60 * 1000;
+
+let marketplaceCityCache: { values: string[]; expiresAt: number } | null = null;
+let marketplaceCityRequest: Promise<string[]> | null = null;
+
+function normalizeMarketplaceCity(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("pt-BR");
+}
+
+async function getActiveMarketplaceCities() {
+  if (marketplaceCityCache && marketplaceCityCache.expiresAt > Date.now()) {
+    return marketplaceCityCache.values;
+  }
+
+  if (!marketplaceCityRequest) {
+    marketplaceCityRequest = supabase
+      .from("marketplace_listings")
+      .select("city")
+      .eq("status", "active")
+      .limit(5000)
+      .then(({ data, error }) => {
+        if (error) throw error;
+        const values = [...new Set((data || []).map((row) => String(row.city || "").trim()).filter(Boolean))];
+        marketplaceCityCache = { values, expiresAt: Date.now() + MARKETPLACE_CITY_CACHE_TTL_MS };
+        return values;
+      })
+      .finally(() => {
+        marketplaceCityRequest = null;
+      });
+  }
+
+  return marketplaceCityRequest;
+}
+
+async function findMatchingMarketplaceCities(city: string) {
+  const normalizedCity = normalizeMarketplaceCity(city);
+  if (!normalizedCity) return [];
+  const values = await getActiveMarketplaceCities();
+  return values.filter((value) => normalizeMarketplaceCity(value) === normalizedCity);
+}
 
 export async function getMarketplaceCategories(): Promise<MarketplaceCategory[]> {
   const { data, error } = await supabase.from("marketplace_categories").select(MARKETPLACE_CATEGORY_SELECT).eq("is_active", true).order("sort_order");
@@ -111,37 +155,58 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
 export async function getMarketplacePage(filters: MarketplaceFilters = {}): Promise<MarketplacePage> {
   const page = Math.max(1, filters.page || 1);
   const pageSize = Math.min(48, Math.max(1, filters.pageSize || 12));
-  let query = supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT, { count: "exact" }).eq("status", "active").order("created_at", { ascending: false });
-  if (filters.search?.trim()) {
-    const term = filters.search.trim();
-    const filtersForTerm = [`title.ilike.%${term}%`, `description.ilike.%${term}%`];
-    const keywordTerm = term.toLocaleLowerCase("pt-BR");
-    if (/^[\p{L}\p{N}_-]+$/u.test(keywordTerm)) filtersForTerm.push(`keywords.cs.{${keywordTerm}}`);
-    query = query.or(filtersForTerm.join(","));
-  }
-  if (filters.listingType) query = query.eq("listing_type", filters.listingType);
-  if (filters.city?.trim()) query = query.ilike("city", filters.city.trim());
-  if (filters.countryCode) query = query.eq("country_code", filters.countryCode.toLowerCase());
-  if (filters.stateCode) query = query.eq("state_code", filters.stateCode.toLowerCase());
+  let categoryId = "";
   if (filters.category) {
     const category = getMarketplaceCategoryBySlug(filters.category);
     if (category) {
       const { data } = await supabase.from("marketplace_categories").select("id").eq("slug", category.slug).maybeSingle();
-      if (data?.id) query = query.eq("category_id", data.id);
+      categoryId = data?.id || "";
     }
   }
-  if (filters.condition) query = query.eq("condition", filters.condition);
-  if (typeof filters.minPrice === "number") query = query.gte("price", filters.minPrice);
-  if (typeof filters.maxPrice === "number") query = query.lte("price", filters.maxPrice);
+
+  const buildQuery = (cityValues?: string[]) => {
+    let query = supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT, { count: "exact" }).eq("status", "active").order("created_at", { ascending: false });
+    if (filters.search?.trim()) {
+      const term = filters.search.trim();
+      const filtersForTerm = [`title.ilike.%${term}%`, `description.ilike.%${term}%`];
+      const keywordTerm = term.toLocaleLowerCase("pt-BR");
+      if (/^[\p{L}\p{N}_-]+$/u.test(keywordTerm)) filtersForTerm.push(`keywords.cs.{${keywordTerm}}`);
+      query = query.or(filtersForTerm.join(","));
+    }
+    if (filters.listingType) query = query.eq("listing_type", filters.listingType);
+    if (filters.city?.trim()) {
+      query = cityValues?.length
+        ? query.in("city", cityValues)
+        : query.ilike("city", filters.city.trim());
+    }
+    if (filters.countryCode) query = query.eq("country_code", filters.countryCode.toLowerCase());
+    if (filters.stateCode) query = query.eq("state_code", filters.stateCode.toLowerCase());
+    if (categoryId) query = query.eq("category_id", categoryId);
+    if (filters.condition) query = query.eq("condition", filters.condition);
+    if (typeof filters.minPrice === "number") query = query.gte("price", filters.minPrice);
+    if (typeof filters.maxPrice === "number") query = query.lte("price", filters.maxPrice);
+    return query;
+  };
+
   const from = (page - 1) * pageSize;
-  const { data, error, count } = await query.range(from, from + pageSize - 1);
-  if (error) throw error;
+  const executeQuery = async (cityValues?: string[]) => {
+    const { data, error, count } = await buildQuery(cityValues).range(from, from + pageSize - 1);
+    if (error) throw error;
+    return { data, count: count || 0 };
+  };
+
+  let result = await executeQuery();
+  if (filters.city?.trim() && result.count === 0) {
+    const matchingCities = await findMatchingMarketplaceCities(filters.city);
+    if (matchingCities.length > 0) result = await executeQuery(matchingCities);
+  }
+
   return {
-    items: await enrichListings((data || []) as MarketplaceListing[], {
+    items: await enrichListings((result.data || []) as MarketplaceListing[], {
       includeOwnerProfile: false,
       includeOwnerStats: false,
     }),
-    totalCount: count || 0,
+    totalCount: result.count,
   };
 }
 
