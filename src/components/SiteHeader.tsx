@@ -24,6 +24,41 @@ type SearchMode = "businesses" | "events" | "products";
 
 const SEARCH_MODES: SearchMode[] = ["businesses", "events", "products"];
 
+type HeaderSearchModeText = {
+  label: string;
+  placeholder: string;
+  ctaLabel: string;
+};
+
+const SEARCH_MODE_FALLBACKS: Record<SearchMode, HeaderSearchModeText> = {
+  businesses: {
+    label: "Negócios",
+    placeholder: "Buscar por produto ou serviço (Ex: coxinha)",
+    ctaLabel: "Farejar negócios",
+  },
+  events: {
+    label: "Eventos",
+    placeholder: "Buscar por festa, feira ou encontro",
+    ctaLabel: "Farejar eventos",
+  },
+  products: {
+    label: "Produtos",
+    placeholder: "Buscar por produto",
+    ctaLabel: "Buscar produtos",
+  },
+};
+
+function getSearchModeText(
+  homeText: ReturnType<typeof getHomeContent>,
+  mode: SearchMode,
+): HeaderSearchModeText {
+  const configuredModes = homeText.searchModes as Partial<Record<SearchMode, Partial<HeaderSearchModeText>>> | undefined;
+  return {
+    ...SEARCH_MODE_FALLBACKS[mode],
+    ...configuredModes?.[mode],
+  };
+}
+
 function getCitySuggestions(locations: AvailableLocation[]) {
   return Array.from(new Set(locations.flatMap((location) => location.states.flatMap((state) => state.cities))));
 }
@@ -62,7 +97,7 @@ export default function SiteHeader({
   const [locationSelection, setLocationSelection] = useState<LocationSuggestionMeta | null>(null);
   const [locating, setLocating] = useState(false);
   const citySuggestions = useMemo(() => getCitySuggestions(initialAvailableLocations), [initialAvailableLocations]);
-  const activeSearchMode = homeText.searchModes[searchMode];
+  const activeSearchMode = getSearchModeText(homeText, searchMode);
 
   useEffect(() => {
     const nextContext = getSearchContext(routerLocation.pathname, routerLocation.search);
@@ -267,12 +302,13 @@ export default function SiteHeader({
               {SEARCH_MODES.map((mode) => {
                 const ModeIcon = mode === "businesses" ? Store : mode === "events" ? CalendarDays : ShoppingBag;
                 const isActive = searchMode === mode;
+                const modeText = getSearchModeText(homeText, mode);
                 return (
                   <button
                     key={mode}
                     type="button"
-                    aria-label={`Pesquisar ${homeText.searchModes[mode].label.toLowerCase()}`}
-                    title={homeText.searchModes[mode].label}
+                    aria-label={`Pesquisar ${modeText.label.toLowerCase()}`}
+                    title={modeText.label}
                     aria-pressed={isActive}
                     onClick={() => setSearchMode(mode)}
                     className={`grid h-9 w-9 place-items-center rounded-lg transition-shadow ${isActive ? "bg-[#eaf3ed] text-[#12633d]" : "text-[#203940]/45 hover:shadow-[0_4px_12px_rgba(32,57,64,0.12)]"}`}
@@ -329,12 +365,13 @@ export default function SiteHeader({
             {SEARCH_MODES.map((mode) => {
               const ModeIcon = mode === "businesses" ? Store : mode === "events" ? CalendarDays : ShoppingBag;
               const isActive = searchMode === mode;
+              const modeText = getSearchModeText(homeText, mode);
               return (
                 <button
                   key={mode}
                   type="button"
-                  aria-label={`Pesquisar ${homeText.searchModes[mode].label.toLowerCase()}`}
-                  title={homeText.searchModes[mode].label}
+                  aria-label={`Pesquisar ${modeText.label.toLowerCase()}`}
+                  title={modeText.label}
                   aria-pressed={isActive}
                   onClick={() => setSearchMode(mode)}
                   className={`grid h-10 w-10 place-items-center rounded-lg transition-shadow ${isActive ? "bg-[#eaf3ed] text-[#12633d]" : "text-[#203940]/45 hover:shadow-[0_4px_12px_rgba(32,57,64,0.12)]"}`}
