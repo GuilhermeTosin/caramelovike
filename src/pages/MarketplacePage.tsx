@@ -53,6 +53,7 @@ function MarketplaceDiscoveryHeader({
   city,
   onSearchChange,
   onCityChange,
+  onCitySelected,
   onSubmit,
   onCategorySelect,
 }: {
@@ -62,6 +63,7 @@ function MarketplaceDiscoveryHeader({
   city: string;
   onSearchChange: (value: string) => void;
   onCityChange: (value: string) => void;
+  onCitySelected: (place: AddressResult) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onCategorySelect: (slug: string) => void;
 }) {
@@ -84,8 +86,14 @@ function MarketplaceDiscoveryHeader({
           <Input value={search} onChange={(event) => onSearchChange(event.target.value)} className="h-12 border-0 bg-transparent pl-12 text-base shadow-none focus-visible:ring-0" placeholder="O que você está procurando?" aria-label="Buscar produtos no Marketplace" />
         </div>
         <div className="relative min-w-0 lg:w-56 lg:border-l lg:border-[#203940]/10 lg:pl-2">
-          <MapPin className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#c85f1a] lg:left-5" aria-hidden="true" />
-          <Input value={city} onChange={(event) => onCityChange(event.target.value)} className="h-12 border-0 bg-transparent pl-12 text-base shadow-none focus-visible:ring-0" placeholder="Em qual cidade?" aria-label="Filtrar por cidade" />
+          <AddressAutocomplete
+            value={city}
+            onChange={onCityChange}
+            onPlaceSelected={onCitySelected}
+            mode="city"
+            placeholder="Em qual cidade?"
+            className="h-12 border-0 bg-transparent pl-12 text-base shadow-none focus-visible:ring-0"
+          />
         </div>
         <Button type="submit" className="h-12 rounded-xl px-7 text-base">
           Buscar
@@ -355,6 +363,7 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
       totalPages={totalPages}
       onSearchChange={setSearch}
       onCityChange={setCity}
+      onCitySelected={(place) => setCity(place.city || place.formattedAddress)}
       onSubmit={() => updateFilters({ search, category, listingType, city, minPrice, maxPrice, condition })}
       onCategorySelect={(nextCategory) => {
         setCategory(nextCategory);

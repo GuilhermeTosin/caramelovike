@@ -25,6 +25,7 @@ interface AddressAutocompleteProps {
   placeholder?: string;
   disabled?: boolean;
   mode?: "address" | "city";
+  className?: string;
 }
 
 interface PlacesPrediction {
@@ -212,6 +213,7 @@ export default function AddressAutocomplete({
   placeholder,
   disabled = false,
   mode = "address",
+  className,
 }: AddressAutocompleteProps) {
   const locale = "pt-BR";
 
@@ -414,7 +416,7 @@ export default function AddressAutocomplete({
         }}
         placeholder={inputPlaceholder}
         disabled={disabled || !apiAvailable}
-        className="pl-10"
+        className={className ? `pl-10 ${className}` : "pl-10"}
       />
       {loading ? (
         <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
