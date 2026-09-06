@@ -473,11 +473,14 @@ function mergeBusinessEvents(
 }
 
 export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFrontend[]> {
+  // This index is used only to calculate public directory and home aggregates.
+  // Keep it intentionally compact: descriptions, contact data, galleries and
+  // services are loaded only for the business cards/pages that actually need them.
   const columns = [
     "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "logo_url", "hero_image",
-    "street", "city", "city_slug", "state", "country", "country_code", "state_code",
+    "city", "city_slug", "location_id", "state", "country", "country_code", "state_code",
     "lat", "lng", "attendance_type", "average_rating", "owner_verified", "owner_verified_until",
-    "moderation_status", "moderation_reviewed_at", "moderation_reviewed_by", "created_at", "updated_at",
+    "created_at", "updated_at",
   ].join(",");
   const pageSize = 1000;
   const rows: Business[] = [];
@@ -497,7 +500,79 @@ export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFronten
     if (pageRows.length < pageSize) break;
   }
 
-  return rows.map((row) => toFrontend(row));
+  return (await attachLocationDisplayNames(rows)).map((row) => toFrontend(row));
+}
+
+export async function getRecentBusinessesForRegion(params: {
+  city?: string;
+  countryCode?: string;
+  stateCode?: string;
+  originLat?: number;
+  originLng?: number;
+  limit?: number;
+  fallbackRadiusKm?: number;
+}): Promise<BusinessFrontend[]> {
+  const limit = Math.max(1, Math.min(params.limit ?? 5, 5));
+  const city = String(params.city || "").trim();
+  const countryCode = String(params.countryCode || "").trim().toLowerCase();
+  const stateCode = String(params.stateCode || "").trim().toLowerCase();
+
+  const findByLocation = async (location: {
+    city?: string;
+    countryCode?: string;
+    stateCode?: string;
+  }) => getBusinessesByPublicSearchRpc({
+    key: "home-recent-businesses",
+    page: 1,
+    limit,
+    query: "",
+    categoryId: null,
+    queryCategoryIds: [],
+    city: location.city || null,
+    cityAliases: location.city ? [location.city] : [],
+    location: null,
+    countryCode: location.countryCode || null,
+    stateCode: location.stateCode || null,
+    radiusKm: null,
+    originLat: null,
+    originLng: null,
+  });
+
+  // Prefer recent listings in the user's city, then broaden to its region.
+  if (city) {
+    try {
+      const cityResult = await findByLocation({ city, countryCode, stateCode });
+      if (cityResult.items.length > 0) return cityResult.items;
+    } catch {
+      // Try the broader location and radius fallbacks below.
+    }
+  }
+
+  if (countryCode || stateCode) {
+    try {
+      const regionResult = await findByLocation({ countryCode, stateCode });
+      if (regionResult.items.length > 0) return regionResult.items;
+    } catch {
+      // Use the coordinate fallback when the regional query is unavailable.
+    }
+  }
+
+  if (Number.isFinite(params.originLat) && Number.isFinite(params.originLng)) {
+    try {
+      const nearbyResult = await getBusinessesByRadiusRpc({
+        originLat: params.originLat as number,
+        originLng: params.originLng as number,
+        radiusKm: Math.max(1, params.fallbackRadiusKm ?? 500),
+        limit,
+        offset: 0,
+      });
+      return nearbyResult.items;
+    } catch {
+      // Keep the SSR list if the radius RPC is unavailable.
+    }
+  }
+
+  return [];
 }
 
 // Similar-business cards need only businesses in the same category and country.
@@ -652,7 +727,13 @@ async function hydratePublicSearchBusinessIds(ids: string[]): Promise<BusinessFr
 
   const { data, error } = await supabase
     .from("businesses")
-    .select("*")
+    .select([
+      "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "description",
+      "hero_image", "logo_url", "city", "city_slug", "location_id", "state",
+      "country", "country_code", "state_code", "postal_code", "lat", "lng", "attendance_type",
+      "is_vegan_friendly", "is_vegetarian_friendly", "is_gluten_free_friendly", "average_rating",
+      "owner_verified", "owner_verified_until", "created_at", "updated_at",
+    ].join(","))
     .or("moderation_status.eq.approved,moderation_status.is.null")
     .in("id", ids);
 
