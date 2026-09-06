@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useRef } from "react";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, X, Navigation, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Share2, Copy } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, X, Navigation, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Pagination from "@/components/Pagination";
 import { Badge } from "@/components/ui/badge";
@@ -25,13 +25,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { stripRichTextHtml } from "@/lib/richText";
 import MapView from "@/components/MapView";
 import { useAuth } from "@/contexts/AuthContext";
-import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
-import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import { getHomeContent } from "@/data/homeContent";
 import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
 import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
-import { geocodeAddress } from "@/lib/google-maps";
-import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
@@ -42,12 +38,12 @@ import {
   buildBusinessUrl,
   getAllBusinesses,
   getAllBusinessesByPublicSearchRpc,
+  getPublicBusinessSearchIndex,
   getAvailableLocations,
   getCategoryId,
   getCategoryLabel,
   getBusinessesByPublicSearchRpc,
   getCountryName,
-  getSearchSuggestions,
 } from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { DEFAULT_CATEGORY_SYNONYMS, getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
@@ -68,11 +64,9 @@ import {
 import {
   CITY_ALIASES,
   geocodeLocationWithCountryFallback,
-  inferNearestCityFromBusinesses,
   resolveLocationContextFromBusinesses,
 } from "@/lib/search/locationResolver";
 import { buildEventResults } from "@/lib/search/eventSearch";
-import { useCommunityFinds } from "@/hooks/useCommunityFinds";
 import AddCommunityFindForm from "@/components/AddCommunityFindForm";
 import {
   addCommunityFindMessage,
@@ -241,7 +235,6 @@ type SearchResultsProps = {
   initialBusinesses?: BusinessFrontend[];
   initialBusinessesAreSearchReady?: boolean;
   initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
-  initialSearchSuggestions?: string[];
   initialSearchSynonyms?: Record<string, string[]>;
   initialSearchSnapshot?: PublicSearchPageSnapshot;
 };
@@ -256,23 +249,10 @@ type PublicSearchPageResult = {
   totalCount: number;
 };
 
-function extractCities(
-  locations: { states: { cities: string[] }[] }[]
-): string[] {
-  const cities = new Set<string>();
-  locations.forEach((location) => {
-    location.states.forEach((state) => {
-      state.cities.forEach((city) => cities.add(city));
-    });
-  });
-  return Array.from(cities);
-}
-
 export default function SearchResults({
   initialBusinesses = [],
   initialBusinessesAreSearchReady = false,
   initialAvailableLocations = [],
-  initialSearchSuggestions = [],
   initialSearchSynonyms = DEFAULT_CATEGORY_SYNONYMS,
   initialSearchSnapshot,
 }: SearchResultsProps = {}) {
@@ -370,7 +350,9 @@ export default function SearchResults({
   const pageParam = Number(searchParams.get("pagina") || "1");
   const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
   const isEventMode = eventsFilter === "1";
-  const isCommunityFindsMode = communityFindsFilter === "1";
+  // Achadinhos foi substituído pelo Marketplace. URLs antigas são redirecionadas
+  // no servidor, e a busca não consulta mais a tabela legada.
+  const isCommunityFindsMode = false;
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
   const originLocalParam = searchParams.get("origem_local") || "";
@@ -411,13 +393,9 @@ export default function SearchResults({
           initialBusinessesAreSearchReady,
         });
   const hasSeededBusinessPool = initialBusinessPool.length > 0;
-  const [searchInput, setSearchInput] = useState(queryLabel);
-  const [locationInput, setLocationInput] = useState(locationFilter);
   const [showMap, setShowMap] = useState(false);
   const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinessPool);
   const [availableLocations, setAvailableLocations] = useState<any[]>(initialAvailableLocations);
-  const [searchSuggestions, setSearchSuggestions] = useState<string[]>(initialSearchSuggestions);
-  const [citySuggestions, setCitySuggestions] = useState<string[]>(() => extractCities(initialAvailableLocations));
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCoords, setApproxCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCountryCode, setApproxCountryCode] = useState("");
@@ -434,6 +412,7 @@ export default function SearchResults({
     matchingSearchSnapshot?.totalCount ?? null
   );
   const [rpcFallbackMode, setRpcFallbackMode] = useState(false);
+  const [businessSearchError, setBusinessSearchError] = useState<string | null>(null);
   const [mapBusinesses, setMapBusinesses] = useState<BusinessFrontend[] | null>(null);
   const [mapBusinessesLoading, setMapBusinessesLoading] = useState(false);
   const [mapBusinessesError, setMapBusinessesError] = useState<string | null>(null);
@@ -460,11 +439,9 @@ export default function SearchResults({
   const [loadedEventImages, setLoadedEventImages] = useState<Record<string, boolean>>({});
   const [loadedCommunityFindImages, setLoadedCommunityFindImages] = useState<Record<string, boolean>>({});
   const effectivePage = currentPage;
-  const {
-    finds: communityFinds,
-    vote: voteCommunityFind,
-    reload: reloadCommunityFinds,
-  } = useCommunityFinds();
+  const communityFinds = useMemo(() => [] as CommunityFindWithVote[], []);
+  const voteCommunityFind = async () => null;
+  const reloadCommunityFinds = async () => undefined;
 
   useEffect(() => {
     // Load the public profile code after results become interactive so a card click
@@ -742,14 +719,17 @@ export default function SearchResults({
     let active = true;
 
     const loadInitialData = async () => {
+      const locationsPromise = initialAvailableLocations.length > 0
+        ? Promise.resolve(initialAvailableLocations)
+        : getAvailableLocations();
       const supplementalDataPromise = Promise.allSettled([
-        getAvailableLocations(),
-        getSearchSuggestions(),
+        locationsPromise,
         getPublishedCommunityEvents(),
       ]);
 
       try {
         if (isBusinessSearchMode) {
+          setBusinessSearchError(null);
           const page = matchingSearchSnapshot
             ? {
                 items: matchingSearchSnapshot.businesses,
@@ -769,9 +749,30 @@ export default function SearchResults({
           setRpcTotalCount(null);
           setRpcFallbackMode(false);
         }
-      } catch {
-        // Keep the existing client-side filter as a temporary compatibility
-        // fallback if the Supabase migration has not been applied yet.
+      } catch (error) {
+        if (isBusinessSearchMode) {
+          // Keep search usable while a new RPC is being deployed or temporarily
+          // unavailable. This compact fallback is filtered and paginated locally.
+          console.error("[SearchResults] public search request failed:", error);
+          try {
+            const businesses = await getPublicBusinessSearchIndex();
+            if (!active) return;
+            setAllBusinesses(businesses);
+            setRpcTotalCount(null);
+            setRpcFallbackMode(true);
+            setBusinessSearchError(null);
+          } catch (fallbackError) {
+            console.error("[SearchResults] compact search fallback failed:", fallbackError);
+            if (!active) return;
+            setAllBusinesses([]);
+            setRpcTotalCount(0);
+            setRpcFallbackMode(false);
+            setBusinessSearchError("Não foi possível carregar os resultados agora. Tente novamente em instantes.");
+          }
+        }
+
+        // Event mode still needs its legacy business context until it receives
+        // the same paginated backend as the public business search.
         try {
           const businesses = await getAllBusinesses();
           if (!active) return;
@@ -788,23 +789,12 @@ export default function SearchResults({
         if (active) setLoadedResultsRequestKey(resultsRequestKey);
       }
 
-      const [locationsRes, suggestionsRes, eventsRes] = await supplementalDataPromise;
+      const [locationsRes, eventsRes] = await supplementalDataPromise;
       if (!active) return;
 
       if (locationsRes.status === "fulfilled") {
         const locations = locationsRes.value;
         setAvailableLocations(locations);
-        const cities = new Set<string>();
-        locations.forEach((l) => {
-          l.states.forEach((s: any) => {
-            s.cities.forEach((c: string) => cities.add(c));
-          });
-        });
-        setCitySuggestions(Array.from(cities));
-      }
-
-      if (suggestionsRes.status === "fulfilled") {
-        setSearchSuggestions(suggestionsRes.value);
       }
 
       if (eventsRes.status === "fulfilled") {
@@ -822,6 +812,7 @@ export default function SearchResults({
     matchingSearchSnapshot,
     hasSeededBusinessPool,
     initialBusinessPool,
+    initialAvailableLocations,
     getCachedBusinessPage,
   ]);
 
@@ -960,28 +951,6 @@ export default function SearchResults({
     };
   }, []);
 
-  useEffect(() => {
-    Promise.resolve().then(() => setSearchInput(queryLabel));
-  }, [queryLabel]);
-
-  useEffect(() => {
-    Promise.resolve().then(() => {
-      if (locationFilter.trim()) {
-        setLocationInput(locationFilter);
-        return;
-      }
-
-      // Quando a origem é GPS/IP, mantemos o texto atual do campo
-      // (cidade inferida ou "Minha localização"), sem limpar automaticamente.
-      if ((originSourceParam === "gps" || originSourceParam === "ip") && !cityFilter.trim()) {
-        setLocationInput((prev) => prev.trim() || text.currentLocation);
-        return;
-      }
-
-      setLocationInput("");
-    });
-  }, [locationFilter, originSourceParam, cityFilter, text.currentLocation]);
-
   const selectedCountryData = useMemo(() => {
     return availableLocations.find(l => l.countryCode === countryFilter);
   }, [availableLocations, countryFilter]);
@@ -1002,10 +971,6 @@ export default function SearchResults({
 
   const resolveCountryCodeFromBusinesses = useCallback((cityText: string): string | null => {
     return resolveLocationContextFromBusinesses(allBusinesses, cityText).countryCode;
-  }, [allBusinesses]);
-
-  const inferNearestCityFromCoords = useCallback((coords: { lat: number; lng: number }): string | null => {
-    return inferNearestCityFromBusinesses(allBusinesses, coords);
   }, [allBusinesses]);
 
   useEffect(() => {
@@ -1125,7 +1090,7 @@ export default function SearchResults({
     }
 
     return "O Caramelinho não achou nada com esses critérios.";
-  }, [categoryFilterId, cityFilter, locationFilter, false]);
+  }, [categoryFilterId, cityFilter, locationFilter, isCommunityFindsMode]);
 
 
   useEffect(() => {
@@ -1138,7 +1103,7 @@ export default function SearchResults({
       `${baseTitle}${cityText} | Caramelinho.com`,
       `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
     );
-  }, [queryLabel, categoryFilter, cityFilter, false, text.businessSearch]);
+  }, [queryLabel, categoryFilter, cityFilter, isCommunityFindsMode, text.businessSearch]);
 
   const results = useMemo(() => {
     // The server search RPC applies every business filter before pagination.
@@ -1349,130 +1314,7 @@ export default function SearchResults({
     return query ? `/buscar?${query}` : "/buscar";
   }, [searchParams]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const params = new URLSearchParams(searchParams);
-    params.delete("auto_raio");
-    params.delete("pagina");
-    if (searchInput.trim()) params.set("q", searchInput.trim());
-    else params.delete("q");
-    const locationText = locationInput.trim();
-    const isCurrentLocationText =
-      normalizeText(locationText) === normalizeText(text.currentLocation);
-    const hasExplicitCity = !!locationText && !isCurrentLocationText;
-    if (hasExplicitCity) {
-      const typedLocation = locationText;
-      params.set("local", typedLocation);
-      params.set("cidade", typedLocation);
-      if (!params.get("raio")) params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-      // Cidade escolhida no campo principal deve prevalecer sobre filtros laterais antigos.
-      params.delete("pais");
-      params.delete("estado");
-      params.delete("categoria");
-      params.delete("brasileiro");
-      params.delete("portugues");
-
-      const existingLat = parseCoordParam(params.get("origem_lat") || "");
-      const existingLng = parseCoordParam(params.get("origem_lng") || "");
-      const hasMatchingCommittedOrigin =
-        existingLat !== null &&
-        existingLng !== null &&
-        normalizeText(params.get("origem_local") || "") === normalizeText(typedLocation);
-      let coords = hasMatchingCommittedOrigin
-        ? { lat: existingLat, lng: existingLng }
-        : resolveCoordsFromBusinesses(typedLocation);
-      if (!coords && typedLocation.length >= 3) {
-        setResolvingLocation(true);
-        coords = await geocodeAddress(typedLocation);
-        setResolvingLocation(false);
-      }
-      if (coords) {
-        params.set("origem_lat", String(coords.lat));
-        params.set("origem_lng", String(coords.lng));
-        params.set("origem_local", typedLocation);
-        params.set("origem_source", "city");
-        const cityCountryCode = hasMatchingCommittedOrigin
-          ? params.get("origem_pais")
-          : resolveCountryCodeFromBusinesses(typedLocation);
-        if (cityCountryCode) params.set("origem_pais", cityCountryCode);
-        else params.delete("origem_pais");
-      } else {
-        showLocationNotice(
-          "Localização não encontrada",
-          "Não foi possível localizar essa cidade. Escolha uma sugestão do Google ou tente informar também o país."
-        );
-        return;
-      }
-    } else {
-      params.delete("local");
-      params.delete("cidade");
-      const currentOriginSource = (params.get("origem_source") || "").toLowerCase();
-      // Se a origem atual veio de cidade digitada, limpar ao remover a cidade.
-      // Se veio de GPS/IP (fluxo Farejar), manter raio e origem para preservar busca por proximidade.
-      if (currentOriginSource === "city") {
-        params.delete("origem_lat");
-        params.delete("origem_lng");
-        params.delete("origem_local");
-        params.delete("origem_source");
-        params.delete("origem_pais");
-      } else {
-        // Sem cidade explícita, não precisamos manter origem_local textual.
-        params.delete("origem_local");
-      }
-    }
-
-    const hasSearchContext = !!(
-      searchInput.trim() ||
-      params.get("categoria") ||
-      params.get("pais") ||
-      params.get("estado") ||
-      params.get("cidade") ||
-      params.get("local") ||
-      (params.get("origem_lat") && params.get("origem_lng"))
-    );
-    if (hasSearchContext && !params.get("raio")) {
-      params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-    }
-
-    const hasQuery = !!searchInput.trim();
-    const hasCityContext = !!(params.get("cidade") || params.get("local"));
-    const hasOriginCoords = !!(params.get("origem_lat") && params.get("origem_lng"));
-    if (hasQuery && !hasCityContext && !hasOriginCoords) {
-      const approxGeo = await getApproxGeoByIp({
-        timeoutMs: 3000,
-        maxAgeMs: 24 * 60 * 60 * 1000,
-        fallback: DEFAULT_GEO_FALLBACK,
-      });
-      if (approxGeo) {
-        params.set("origem_lat", String(approxGeo.lat));
-        params.set("origem_lng", String(approxGeo.lng));
-        params.set("origem_source", approxGeo.source === "cache" ? "ip_cache" : "ip");
-        if (approxGeo.countryCode) params.set("origem_pais", approxGeo.countryCode.toLowerCase());
-        else params.delete("origem_pais");
-        if (!params.get("raio")) params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-        params.set("auto_raio", "1");
-      }
-    }
-
-    const hasLocationContext = !!(
-      params.get("cidade") ||
-      params.get("local") ||
-      (params.get("origem_lat") && params.get("origem_lng"))
-    );
-    if (!hasQuery && !hasLocationContext) {
-      showLocationNotice(
-        "Busca incompleta",
-        "Digite o que você procura ou informe sua cidade para iniciar a busca."
-      );
-      return;
-    }
-
-    setSearchParams(params);
-  };
-
   const handleClearFilters = () => {
-    setSearchInput("");
-    setLocationInput("");
     navigate("/buscar");
   };
 
@@ -1494,9 +1336,6 @@ export default function SearchResults({
         if (approxGeo) {
           setApproxCoords({ lat: approxGeo.lat, lng: approxGeo.lng });
           if (approxGeo.countryCode) setApproxCountryCode(approxGeo.countryCode);
-          const inferredCity = inferNearestCityFromCoords(approxGeo) || text.currentLocation;
-          setLocationInput("");
-          window.setTimeout(() => setLocationInput(inferredCity), 0);
 
           const params = new URLSearchParams(searchParams);
           params.delete("pagina");
@@ -1527,9 +1366,6 @@ export default function SearchResults({
       }
 
       setUserCoords(coords);
-      const inferredCity = inferNearestCityFromCoords(coords) || text.currentLocation;
-      setLocationInput("");
-      window.setTimeout(() => setLocationInput(inferredCity), 0);
 
       const params = new URLSearchParams(searchParams);
       params.delete("pagina");
@@ -1561,8 +1397,7 @@ export default function SearchResults({
   const getParamsWithCurrentLocation = useCallback(() => {
     const params = new URLSearchParams(searchParams);
     const committedCity = cityFilter.trim();
-    const draftCity = locationInput.trim();
-    const localToKeep = draftCity || locationFilter.trim();
+    const localToKeep = locationFilter.trim();
 
     if (localToKeep) params.set("local", localToKeep);
     else params.delete("local");
@@ -1580,7 +1415,7 @@ export default function SearchResults({
       params.delete("origem_pais");
     }
     return params;
-  }, [searchParams, cityFilter, locationInput, locationFilter]);
+  }, [searchParams, cityFilter, locationFilter]);
 
   const handleToggleEventsMode = (enabled: boolean) => {
     const params = getParamsWithCurrentLocation();
@@ -1590,21 +1425,6 @@ export default function SearchResults({
       params.delete("achadinhos");
     }
     else params.delete("eventos");
-    setSearchParams(params);
-  };
-
-  const handleToggleCommunityFindsMode = (enabled: boolean) => {
-    const params = getParamsWithCurrentLocation();
-    params.delete("pagina");
-    if (enabled) {
-      params.set("achadinhos", "1");
-      params.delete("eventos");
-      // Achadinhos não deve herdar contexto de busca de negócios/categorias
-      params.delete("categoria");
-      params.delete("q");
-    } else {
-      params.delete("achadinhos");
-    }
     setSearchParams(params);
   };
 
@@ -1767,32 +1587,6 @@ export default function SearchResults({
       </Select>
       <div
         className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
-          isCommunityFindsMode ? "bg-blue-100 border-blue-500" : "bg-blue-50 border-blue-300"
-        }`}
-      >
-        <div className="inline-flex items-center gap-2 text-sm">
-          <MapPin className={`w-3.5 h-3.5 ${isCommunityFindsMode ? "text-blue-700" : "text-blue-600"}`} />
-          <span>{"Achadinhos"}</span>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isCommunityFindsMode}
-          onClick={() => handleToggleCommunityFindsMode(!isCommunityFindsMode)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            isCommunityFindsMode ? "bg-blue-500" : "bg-muted"
-          }`}
-          title={isCommunityFindsMode ? ("Filtro de achadinhos ativo") : ("Filtro de achadinhos desativado")}
-        >
-          <span
-            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-              isCommunityFindsMode ? "translate-x-5" : "translate-x-1"
-            }`}
-          />
-        </button>
-      </div>
-      <div
-        className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
           isEventMode ? "bg-amber-100 border-amber-500" : "bg-amber-50 border-amber-300"
         }`}
       >
@@ -1828,137 +1622,7 @@ export default function SearchResults({
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-24">
-            <Link to={"/"} className="flex items-center gap-3 group">
-              <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-                <img src="/logo-64.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="(max-width: 640px) 56px, 88px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
-              </div>
-              <div className="leading-tight min-w-0">
-                <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{text.slogan}</div>
-              </div>
-            </Link>
-
-            <div className="hidden items-center gap-3 sm:flex"><SiteHeaderAuthActions className="flex items-center gap-3" compact /></div>
-            <MobileHeaderMenu />
-          </div>
-        </div>
-      </header>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSearch} className="mb-6 sm:mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-0 rounded-2xl lg:rounded-xl border border-border lg:border-2 bg-white shadow-xl lg:shadow-sm focus-within:ring-2 ring-primary/20 transition-all w-full overflow-visible p-2 lg:p-0">
-            <SearchInputWithSuggestions
-              value={searchInput}
-              onChange={setSearchInput}
-              suggestions={searchSuggestions}
-              disableLocalSuggestions
-              placeholder={text.searchPlaceholder}
-              icon="search"
-              onSubmit={(selectedValue) => {
-                const nextValue = selectedValue ?? searchInput;
-                const params = new URLSearchParams(searchParams);
-                params.delete("pagina");
-                params.delete("q_label");
-                if (nextValue.trim()) params.set("q", nextValue.trim());
-                else params.delete("q");
-                setSearchParams(params);
-              }}
-              className="rounded-xl lg:rounded-none lg:!h-12"
-              inputClassName="h-12 text-base lg:text-lg placeholder:text-[11px] lg:placeholder:text-sm"
-            />
-            <div className="hidden lg:block w-px h-8 bg-border self-center" />
-            <div className="lg:hidden h-px bg-border/50 mx-1" />
-            <SearchInputWithSuggestions
-              value={locationInput}
-              onChange={setLocationInput}
-              suggestions={citySuggestions}
-              onUseCurrentLocation={() => handleLocateMe(true)}
-              isLoading={locatingMe}
-              placeholder={text.locationPlaceholder}
-              currentLocationLabel={text.currentLocation}
-              icon="location"
-              useGooglePlaces
-              onSubmit={(selectedValue, meta) => {
-                (async () => {
-                  const nextValue = selectedValue ?? locationInput;
-                  setLocationInput(nextValue);
-                  const params = new URLSearchParams(searchParams);
-                  params.delete("pagina");
-                  const trimmedValue = nextValue.trim();
-                  const isCurrentLocationText =
-                    normalizeText(trimmedValue) === normalizeText(text.currentLocation);
-                  const hasExplicitCity = !!trimmedValue && !isCurrentLocationText;
-
-                  if (hasExplicitCity) {
-                    const typedLocation = trimmedValue;
-                    params.set("local", typedLocation);
-                    params.set("cidade", meta?.city || typedLocation);
-                    if (!params.get("raio")) params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-                    // A cidade da barra principal não deve impor filtros administrativos,
-                    // pois o cadastro historico pode usar codigos diferentes (ex.: lau vs qc).
-                    params.delete("pais");
-                    params.delete("estado");
-                    params.delete("categoria");
-                    params.delete("brasileiro");
-                    params.delete("portugues");
-
-                    let coords =
-                      typeof meta?.lat === "number" && typeof meta?.lng === "number"
-                        ? { lat: meta.lat, lng: meta.lng }
-                        : resolveCoordsFromBusinesses(typedLocation);
-
-                    if (!coords && typedLocation.length >= 3) {
-                      setResolvingLocation(true);
-                      coords = await geocodeAddress(typedLocation);
-                      setResolvingLocation(false);
-                    }
-
-                    if (coords) {
-                      params.set("origem_lat", String(coords.lat));
-                      params.set("origem_lng", String(coords.lng));
-                      params.set("origem_local", typedLocation);
-                      params.set("origem_source", "city");
-                      if (meta?.countryCode) params.set("origem_pais", meta.countryCode.toLowerCase());
-                      else params.delete("origem_pais");
-                    } else {
-                      params.delete("origem_lat");
-                      params.delete("origem_lng");
-                      params.delete("origem_local");
-                      params.delete("origem_source");
-                      params.delete("origem_pais");
-                    }
-                  } else {
-                    params.delete("local");
-                    params.delete("cidade");
-                    const currentOriginSource = (params.get("origem_source") || "").toLowerCase();
-                    if (currentOriginSource === "city") {
-                      params.delete("raio");
-                      params.delete("origem_lat");
-                      params.delete("origem_lng");
-                      params.delete("origem_local");
-                      params.delete("origem_source");
-                      params.delete("origem_pais");
-                    } else {
-                      params.delete("origem_local");
-                    }
-                  }
-                  setSearchParams(params);
-                })();
-              }}
-              className="rounded-xl lg:rounded-none lg:!h-12"
-              inputClassName="h-12 text-base lg:text-lg placeholder:text-[11px] lg:placeholder:text-sm"
-            />
-            <div className="pt-2 lg:p-2 flex items-center">
-              <Button type="submit" size="sm" className="w-full lg:w-auto caramelo-gradient text-white border-0 !rounded-xl">
-                {text.submit}
-              </Button>
-            </div>
-          </div>
-        </form>
-
         <div className="flex flex-wrap items-center gap-2 mb-6">
           <Button
             type="button"
@@ -2028,13 +1692,26 @@ export default function SearchResults({
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
           <aside className="hidden lg:block">
-            <div className="sticky top-24 rounded-xl border border-border bg-card p-4">
+            <div className="sticky top-[var(--site-header-height)] rounded-xl border border-border bg-card p-4">
               {renderFilterControls()}
             </div>
           </aside>
 
           <div ref={resultsTopRef}>
-            {!isResultsLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? filteredCommunityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
+            {businessSearchError && isBusinessSearchMode && !isResultsLoading ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center lg:text-left">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+                  <PawPrint className="mx-auto h-14 w-14 shrink-0 text-destructive/45 lg:mx-0" />
+                  <div className="flex-1">
+                    <h2 className="mb-2 text-xl font-bold text-foreground">Não foi possível carregar a busca</h2>
+                    <p className="mb-6 text-muted-foreground">{businessSearchError}</p>
+                    <Button variant="outline" onClick={() => window.location.reload()}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : !isResultsLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? filteredCommunityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0" />

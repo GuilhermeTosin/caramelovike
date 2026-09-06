@@ -86,6 +86,15 @@ export default function SearchInputWithSuggestions({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const locateActionLockRef = useRef(false);
+  const onChangeRef = useRef(onChange);
+  const onSubmitRef = useRef(onSubmit);
+  const valueRef = useRef(value);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    onSubmitRef.current = onSubmit;
+    valueRef.current = value;
+  }, [onChange, onSubmit, value]);
 
   const canUseGooglePlaces =
     legacyPlacesAutocompleteEnabled &&
@@ -180,8 +189,8 @@ export default function SearchInputWithSuggestions({
 
     const syncFromNativeInput = () => {
       const currentValue = inputEl.value || "";
-      if (currentValue !== value) {
-        onChange(currentValue);
+      if (currentValue !== valueRef.current) {
+        onChangeRef.current(currentValue);
       }
     };
 
@@ -221,7 +230,7 @@ export default function SearchInputWithSuggestions({
           const lat = place.geometry?.location?.lat?.();
           const lng = place.geometry?.location?.lng?.();
 
-          onChange(selected);
+          onChangeRef.current(selected);
           if (inputRef.current) {
             inputRef.current.blur();
           } else if (document.activeElement instanceof HTMLElement) {
@@ -229,8 +238,8 @@ export default function SearchInputWithSuggestions({
           }
           setIsOpen(false);
 
-          if (onSubmit) {
-            onSubmit(selected, {
+          if (onSubmitRef.current) {
+            onSubmitRef.current(selected, {
               lat,
               lng,
               city: extractedCity,
@@ -256,7 +265,7 @@ export default function SearchInputWithSuggestions({
         autocompleteRef.current = null;
       }
     };
-  }, [canUseGooglePlaces, onChange, onSubmit, locationBias, value]);
+  }, [canUseGooglePlaces, locationBias]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

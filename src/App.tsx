@@ -8,8 +8,9 @@ import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import type { HomePublicSnapshot } from "@/lib/homeSnapshot";
 import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import type { PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
+import type { MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
 import { DEFAULT_CATEGORY_SYNONYMS } from "@/services/searchPreferences";
-import Home from "@/pages/Home";
+import HomeV2 from "@/pages/HomeV2";
 import SearchResults from "@/pages/SearchResults";
 import BusinessDirectoryPage from "@/pages/BusinessDirectoryPage";
 import Register from "@/pages/Register";
@@ -27,6 +28,8 @@ import TermsPage from "@/pages/TermsPage";
 import NotFound from "@/pages/NotFound";
 import BusinessPageRoute from "@/pages/BusinessPageRoute";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import SiteHeader from "@/components/SiteHeader";
+import MarketplacePage, { MarketplaceCreatePage, MarketplaceEditPage, MarketplaceListingPage } from "@/pages/MarketplacePage";
 
 const VercelAnalytics = lazy(async () => {
   const module = await import("@vercel/analytics/react");
@@ -66,8 +69,10 @@ function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean
       "/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard",
     ]);
     const isPrivatePreviewPath = pathname.startsWith("/preview/negocio/");
-    const canonicalPathname = isBusinessPage ? pathname : getInternalSearchCanonicalPath(pathname);
-    const canonicalSearch = isBusinessPage || getInternalSearchRobots(pathname) ? "" : search;
+    const isExperimentalHome = pathname === "/index2";
+    const isMarketplacePath = pathname === "/marketplace" || pathname.startsWith("/marketplace/");
+    const canonicalPathname = isExperimentalHome ? "/" : isBusinessPage || isMarketplacePath ? pathname : getInternalSearchCanonicalPath(pathname);
+    const canonicalSearch = isExperimentalHome || isBusinessPage || isMarketplacePath || getInternalSearchRobots(pathname) ? "" : search;
     const canonicalPath = `${canonicalPathname}${canonicalSearch}`;
     const canonicalUrl = `${window.location.origin}${canonicalPath}`;
 
@@ -76,6 +81,11 @@ function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean
 
     if (privatePaths.has(pathname) || isPrivatePreviewPath) {
       setRobots("noindex,nofollow,noarchive");
+      return;
+    }
+
+    if (isExperimentalHome) {
+      setRobots("noindex,follow");
       return;
     }
 
@@ -99,6 +109,7 @@ type AppProps = {
   initialBusinesses?: BusinessFrontend[];
   initialBusinessesAreSearchReady?: boolean;
   initialFeaturedBusinesses?: BusinessFrontend[];
+  initialRecentBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: Array<{
     countryCode: string;
     countryName: string;
@@ -110,6 +121,8 @@ type AppProps = {
   initialHomeSnapshot?: HomePublicSnapshot;
   initialDirectorySnapshot?: DirectoryPageSnapshot;
   initialEvent?: CommunityEvent | null;
+  initialMarketplaceSnapshot?: MarketplaceSnapshot;
+  initialMarketplaceListing?: import("@/types/database").MarketplaceListing | null;
   isBusinessPage?: boolean;
 };
 
@@ -129,6 +142,7 @@ export default function App({
   initialBusinesses = [],
   initialBusinessesAreSearchReady = false,
   initialFeaturedBusinesses = [],
+  initialRecentBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
   initialSearchSynonyms = DEFAULT_CATEGORY_SYNONYMS,
@@ -136,6 +150,8 @@ export default function App({
   initialHomeSnapshot,
   initialDirectorySnapshot,
   initialEvent = null,
+  initialMarketplaceSnapshot,
+  initialMarketplaceListing = null,
   isBusinessPage = false,
 }: AppProps = {}) {
   return (
@@ -144,21 +160,27 @@ export default function App({
         <ScrollToTop />
         <CanonicalManager isBusinessPage={isBusinessPage} />
         <GoogleAnalytics />
+        <SiteHeader
+          initialAvailableLocations={initialAvailableLocations}
+          initialSearchSuggestions={initialSearchSuggestions}
+        />
         <Routes>
           <Route
             path="/"
             element={
-              <Home
-                initialBusinesses={initialBusinesses}
-                initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
+              <HomeV2
                 initialFeaturedBusinesses={initialFeaturedBusinesses}
+                initialRecentBusinesses={initialRecentBusinesses}
                 initialAvailableLocations={initialAvailableLocations}
                 initialSearchSuggestions={initialSearchSuggestions}
-                initialSearchSynonyms={initialSearchSynonyms}
-                initialSearchSnapshot={initialSearchSnapshot}
                 initialHomeSnapshot={initialHomeSnapshot}
+                initialMarketplaceSnapshot={initialMarketplaceSnapshot}
               />
             }
+          />
+          <Route
+            path="/index2"
+            element={<Navigate to="/" replace />}
           />
           <Route
             path="/buscar"
@@ -167,7 +189,6 @@ export default function App({
                 initialBusinesses={initialBusinesses}
                 initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
                 initialAvailableLocations={initialAvailableLocations}
-                initialSearchSuggestions={initialSearchSuggestions}
                 initialSearchSynonyms={initialSearchSynonyms}
                 initialSearchSnapshot={initialSearchSnapshot}
               />
@@ -191,6 +212,10 @@ export default function App({
           <Route path="/termos" element={<TermsPage />} />
           <Route path="/eventos" element={<Navigate to="/buscar?eventos=1" replace />} />
           <Route path="/eventos/:eventId" element={<EventPage initialEvent={initialEvent} />} />
+          <Route path="/marketplace" element={<MarketplacePage initialSnapshot={initialMarketplaceSnapshot} />} />
+          <Route path="/marketplace/novo" element={<MarketplaceCreatePage />} />
+          <Route path="/marketplace/editar/:id" element={<MarketplaceEditPage />} />
+          <Route path="/marketplace/:countryCode/:stateCode/:city/:slug" element={<MarketplaceListingPage initialListing={initialMarketplaceListing} />} />
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
           <Route path="/preview/negocio/:businessId" element={<BusinessPageRoute previewMode />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
