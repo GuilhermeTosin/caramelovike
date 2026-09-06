@@ -42,8 +42,6 @@ import { createBusinessReport } from "@/services/reports";
 import type { BusinessFrontend } from "@/types/database";
 import { getRichTextBlockClassName, sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import { useAuth } from "@/contexts/AuthContext";
-import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
-import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setJsonLd, setRobots } from "@/lib/seo";
@@ -54,7 +52,6 @@ import { calculateDistance } from "@/lib/utils/geo";
 import NotFound from "@/pages/NotFound";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
 import { getCityDisplayName } from "@/lib/locationDisplay";
-import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { formatDatePtBr, getMeaningfulUpdatedAt } from "@/lib/dates";
 import {
@@ -800,26 +797,6 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-24">
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-                <img src="/logo-64.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="(max-width: 640px) 56px, 88px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
-              </div>
-              <div className="leading-tight min-w-0">
-                <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{getSiteSlogan()}</div>
-              </div>
-            </Link>
-            <div className="hidden items-center gap-3 sm:flex">
-              <SiteHeaderAuthActions className="flex items-center gap-3" compact />
-            </div>
-            <MobileHeaderMenu />
-          </div>
-        </div>
-      </header>
-
       <div className="relative h-[400px] sm:h-[500px] overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950">
         <img
           src={heroImagePreviewUrl}
@@ -874,7 +851,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="contents">
             <div className="order-1 w-full min-w-0 lg:order-none lg:col-span-2">
-              <div className="sticky top-16 z-30 sm:top-24 -mx-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:mx-0 sm:px-0">
+              <div className="sticky top-[var(--site-header-height)] z-30 -mx-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:mx-0 sm:px-0">
                 <div className="overflow-x-auto scrollbar-hide">
               <nav aria-label={"Seções do negócio"} className="flex w-max min-w-full items-center justify-start bg-transparent">
                 <a href="#sobre" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
@@ -912,7 +889,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                 <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
               </div>
 
-              <section id="sobre" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
+              <section id="sobre" className="scroll-mt-[calc(var(--site-header-height)+4rem)] border-b border-border/70 py-8 first:pt-6 last:border-b-0">
                 <h2 className="text-xl font-bold text-foreground mb-3">{"Sobre"} {business.name}</h2>
                 {business.categoryId === "food" && (business.isVeganFriendly || business.isVegetarianFriendly || business.isGlutenFreeFriendly) ? (
                   <div className="flex flex-wrap gap-2 mb-3">
@@ -948,7 +925,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
             </div>
 
             <div className="order-3 w-full min-w-0 lg:order-none lg:col-span-2">
-              <section id="fotos" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8">
+              <section id="fotos" className="scroll-mt-[calc(var(--site-header-height)+4rem)] border-b border-border/70 py-8">
                 <h2 className="mb-4 text-xl font-bold text-foreground">{"Fotos"}</h2>
                 {galleryPhotos.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{"Nenhuma foto disponível."}</p>
@@ -1001,7 +978,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               </section>
 
               {getCategoryId(business.category) !== "food" && hasServiceItems && (
-                <section id="servicos" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
+                <section id="servicos" className="scroll-mt-[calc(var(--site-header-height)+4rem)] border-b border-border/70 py-8 first:pt-6 last:border-b-0">
                   <h2 className="text-xl font-bold text-foreground mb-4">{"Serviços"}</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {serviceEntries.map((service, idx) => (
@@ -1032,7 +1009,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               )}
 
               {(business.menu && business.menu.length > 0) || !!business.menuPdfUrl ? (
-                <section id="cardapio" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
+                <section id="cardapio" className="scroll-mt-[calc(var(--site-header-height)+4rem)] border-b border-border/70 py-8 first:pt-6 last:border-b-0">
                   <h2 className="text-xl font-bold text-foreground mb-4">{"Cardápio"}</h2>
                   {business.menuPdfUrl && (
                     <div className="mb-4">
@@ -1068,7 +1045,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               ) : null}
 
               {activePromotions.length > 0 && (
-                <section id="promocoes" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
+                <section id="promocoes" className="scroll-mt-[calc(var(--site-header-height)+4rem)] border-b border-border/70 py-8 first:pt-6 last:border-b-0">
                   <h2 className="text-xl font-bold text-foreground mb-4">{"Promoções"}</h2>
                   <div className="space-y-2">
                     {activePromotions.map((promotion, idx) => (
@@ -1092,7 +1069,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               )}
 
               {upcomingEvents.length > 0 && (
-                <section id="eventos" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
+                <section id="eventos" className="scroll-mt-[calc(var(--site-header-height)+4rem)] border-b border-border/70 py-8 first:pt-6 last:border-b-0">
                   <h2 className="text-xl font-bold text-foreground mb-4">{"Próximos eventos"}</h2>
                   <div className="space-y-4">
                     {upcomingEvents.map((event, idx) => (
@@ -1154,7 +1131,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                 </section>
               )}
 
-              <section id="avaliacoes" className="scroll-mt-32 border-b sm:scroll-mt-40 border-border/70 py-8 first:pt-6 last:border-b-0">
+              <section id="avaliacoes" className="scroll-mt-[calc(var(--site-header-height)+4rem)] border-b border-border/70 py-8 first:pt-6 last:border-b-0">
                 <h2 className="text-xl font-bold text-foreground mb-6">{"Avaliações"}</h2>
                 <Card className="p-5 mb-6 border-border">
                   <div className="flex flex-col sm:flex-row gap-6 sm:items-center">
