@@ -60,6 +60,17 @@
       },
       "dest": "/api/sitemap-businesses"
     },
+    {
+      "src": "/sitemaps/marketplace.xml",
+      "headers": {
+        "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate",
+        "CDN-Cache-Control": "no-store",
+        "Vercel-CDN-Cache-Control": "no-store"
+      },
+      "dest": "/api/sitemap-marketplace"
+    },
+    { "src": "/marketplace", "dest": "/api/ssr" },
+    { "src": "/marketplace/(.*)", "dest": "/api/ssr" },
     { "src": "/", "dest": "/api/ssr" },
 
     { "handle": "filesystem" },

@@ -4,6 +4,7 @@ import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import type { HomePublicSnapshot } from "@/lib/homeSnapshot";
 import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import type { PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
+import type { MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
 
 type PageContext = {
   urlOriginal?: string;
@@ -12,6 +13,7 @@ type PageContext = {
   initialBusinesses?: BusinessFrontend[];
   initialBusinessesAreSearchReady?: boolean;
   initialFeaturedBusinesses?: BusinessFrontend[];
+  initialRecentBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: Array<{
     countryCode: string;
     countryName: string;
@@ -23,6 +25,8 @@ type PageContext = {
   initialHomeSnapshot?: HomePublicSnapshot;
   initialDirectorySnapshot?: DirectoryPageSnapshot;
   initialEvent?: CommunityEvent | null;
+  initialMarketplaceSnapshot?: MarketplaceSnapshot;
+  initialMarketplaceListing?: import("@/types/database").MarketplaceListing | null;
   isBusinessPage?: boolean;
 };
 
@@ -39,6 +43,7 @@ export function Page({ pageContext }: { pageContext?: PageContext }) {
       initialBusinesses={pageContext?.initialBusinesses || []}
       initialBusinessesAreSearchReady={pageContext?.initialBusinessesAreSearchReady || false}
       initialFeaturedBusinesses={pageContext?.initialFeaturedBusinesses || []}
+      initialRecentBusinesses={pageContext?.initialRecentBusinesses || []}
       initialAvailableLocations={pageContext?.initialAvailableLocations || []}
       initialSearchSuggestions={pageContext?.initialSearchSuggestions || []}
       initialSearchSynonyms={pageContext?.initialSearchSynonyms}
@@ -46,6 +51,8 @@ export function Page({ pageContext }: { pageContext?: PageContext }) {
       initialHomeSnapshot={pageContext?.initialHomeSnapshot}
       initialDirectorySnapshot={pageContext?.initialDirectorySnapshot}
       initialEvent={pageContext?.initialEvent || null}
+      initialMarketplaceSnapshot={pageContext?.initialMarketplaceSnapshot}
+      initialMarketplaceListing={pageContext?.initialMarketplaceListing || null}
       isBusinessPage={pageContext?.isBusinessPage || false}
     />
   );

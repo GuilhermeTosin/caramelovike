@@ -221,11 +221,18 @@ function isKnownAppPath(pathname) {
     "/privacidade",
     "/termos",
     "/negocio/wizard",
+    "/marketplace",
   ]);
 
   if (exactPaths.has(pathname)) return true;
   if (pathname.startsWith("/negocios/")) return true;
   if (pathname.startsWith("/eventos/")) return true;
+  if (pathname.startsWith("/marketplace/")) {
+    const parts = pathname.split("/").filter(Boolean);
+    return (parts[1] === "novo" && parts.length === 2)
+      || (parts[1] === "editar" && parts.length === 3)
+      || parts.length === 5;
+  }
   if (pathname.startsWith("/preview/negocio/")) return true;
   if (pathname.startsWith("/go/")) return true;
   return !!parseBusinessPath(pathname);

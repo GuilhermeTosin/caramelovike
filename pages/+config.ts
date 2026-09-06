@@ -12,6 +12,7 @@ export default {
     "initialBusinesses",
     "initialBusinessesAreSearchReady",
     "initialFeaturedBusinesses",
+    "initialRecentBusinesses",
     "initialAvailableLocations",
     "initialSearchSuggestions",
     "initialSearchSynonyms",
@@ -19,6 +20,8 @@ export default {
     "initialHomeSnapshot",
     "initialDirectorySnapshot",
     "initialEvent",
+    "initialMarketplaceSnapshot",
+    "initialMarketplaceListing",
     "isBusinessPage",
   ],
 } satisfies Config;

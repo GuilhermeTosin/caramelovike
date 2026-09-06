@@ -1,5 +1,5 @@
 import {
-  getAllBusinesses,
+  getPublicBusinessDirectoryIndex,
   buildBusinessUrl,
 } from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
@@ -13,6 +13,7 @@ const STATIC_PUBLIC_URLS = [
   "/privacidade",
   "/termos",
   "/negocio-verificado",
+  "/marketplace",
 ];
 
 function buildBusinessUrls(businesses: BusinessFrontend[]) {
@@ -28,6 +29,7 @@ function buildStaticSitemapXml(baseUrl: string) {
     "/privacidade",
     "/termos",
     "/negocio-verificado",
+    "/marketplace",
   ];
   const body = urls
     .map((path) => `<url><loc>${baseUrl}${path}</loc><changefreq>weekly</changefreq></url>`)
@@ -47,7 +49,7 @@ async function writeGeneratedSitemapFiles(baseUrl: string) {
   const distClientDir = join(process.cwd(), "dist", "client");
   const sitemapDir = join(publicDir, "sitemaps");
   const distSitemapDir = join(distClientDir, "sitemaps");
-  const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <sitemap><loc>${baseUrl}/sitemaps/static.xml</loc></sitemap>\n  <sitemap><loc>${baseUrl}/sitemaps/businesses.xml</loc></sitemap>\n</sitemapindex>\n`;
+  const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <sitemap><loc>${baseUrl}/sitemaps/static.xml</loc></sitemap>\n  <sitemap><loc>${baseUrl}/sitemaps/businesses.xml</loc></sitemap>\n  <sitemap><loc>${baseUrl}/sitemaps/marketplace.xml</loc></sitemap>\n</sitemapindex>\n`;
 
   await mkdir(sitemapDir, { recursive: true });
   await mkdir(distSitemapDir, { recursive: true });
@@ -59,7 +61,7 @@ async function writeGeneratedSitemapFiles(baseUrl: string) {
 
 export async function onBeforePrerenderStart() {
   const [businesses, events] = await Promise.all([
-    getAllBusinesses().catch(() => [] as BusinessFrontend[]),
+    getPublicBusinessDirectoryIndex().catch(() => [] as BusinessFrontend[]),
     getPublishedCommunityEvents().catch(() => [] as CommunityEvent[]),
   ]);
 

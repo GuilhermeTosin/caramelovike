@@ -11,7 +11,7 @@ import { buildDirectoryPagePath, parseDirectoryRoute, type DirectoryPageSnapshot
 import { getDirectoryCategoryBySlug } from "@/lib/directoryCategories";
 import { getCountryDisplayName, getLocaleHtmlLang, getLocaleOgCode, localizePath } from "@/lib/locales";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
-import { buildBusinessUrl, getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
+import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
 import { getMeaningfulUpdatedAt } from "@/lib/dates";
 import {
@@ -22,6 +22,7 @@ import {
   buildEventStructuredData,
 } from "@/lib/seo/eventMeta";
 import { stripRichTextHtml } from "@/lib/richText";
+import type { MarketplaceListing } from "@/types/database";
 import {
   buildBusinessOfferCatalog,
   buildOpeningHoursSpecification,
@@ -34,6 +35,7 @@ type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
   initialEvent?: CommunityEvent | null;
   isEventPage?: boolean;
+  initialMarketplaceListing?: MarketplaceListing | null;
 };
 
 function getPageUrlParts(urlOriginal?: string) {
@@ -46,21 +48,47 @@ function getPageUrlParts(urlOriginal?: string) {
 
 function getCanonicalUrl(urlOriginal: string | undefined, isBusinessPage: boolean) {
   const { pathname, search } = getPageUrlParts(urlOriginal);
-  const canonicalPath = isBusinessPage ? pathname : getInternalSearchCanonicalPath(pathname);
+  if (pathname === "/index2") return "https://www.caramelinho.com/";
+  const isMarketplacePath = pathname === "/marketplace" || pathname.startsWith("/marketplace/");
+  const canonicalPath = isBusinessPage || isMarketplacePath ? pathname : getInternalSearchCanonicalPath(pathname);
   const isInternalSearch = !!getInternalSearchRobots(pathname);
-  return "https://www.caramelinho.com" + canonicalPath + (isBusinessPage || isInternalSearch ? "" : search);
+  return "https://www.caramelinho.com" + canonicalPath + (isBusinessPage || isMarketplacePath || isInternalSearch ? "" : search);
 }
 
 function getRobotsContent(urlOriginal?: string) {
-  const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
+  const url = new URL(urlOriginal || "/", "https://www.caramelinho.com");
+  const pathname = url.pathname;
+
+  if (pathname === "/index2") return "noindex,follow";
 
   const privatePaths = new Set([
     "/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard",
   ]);
-  if (privatePaths.has(pathname)) return "noindex,nofollow,noarchive";
+  if (privatePaths.has(pathname) || pathname === "/marketplace/novo" || pathname.startsWith("/marketplace/editar/")) return "noindex,nofollow,noarchive";
+  if (pathname === "/marketplace" && url.search) return "noindex,follow";
   const searchRobots = getInternalSearchRobots(pathname);
   if (searchRobots) return searchRobots;
   return "index,follow,max-image-preview:large";
+}
+
+function marketplaceListingJsonLd(listing: MarketplaceListing, canonicalUrl: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": canonicalUrl + "#product",
+    name: listing.title,
+    description: stripRichTextHtml(listing.description),
+    image: (listing.images || []).map((image) => image.image_url),
+    category: listing.category?.name,
+    url: canonicalUrl,
+    offers: listing.price !== null ? {
+      "@type": "Offer",
+      price: listing.price,
+      priceCurrency: listing.currency,
+      availability: listing.status === "active" ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
+      url: canonicalUrl,
+    } : undefined,
+  };
 }
 
 function getRobotsContentForPage(urlOriginal?: string, is404?: boolean) {
@@ -209,6 +237,13 @@ function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] 
     return {
       title: "Buscar neg\u00f3cios brasileiros | Caramelinho.com",
       description: "Busque neg\u00f3cios, servi\u00e7os, produtos e eventos brasileiros perto de voc\u00ea no exterior.",
+    };
+  }
+
+  if (pathname === "/index2") {
+    return {
+      title: "Caramelinho | Nova experiência",
+      description: "Encontre negócios brasileiros, produtos e serviços no exterior em uma nova experiência do Caramelinho.",
     };
   }
 
@@ -375,15 +410,23 @@ export function onRenderHtml(pageContext: PageContext) {
   const isBusinessPage = !!pageContext.isBusinessPage;
   const isEventPage = !!pageContext.isEventPage;
   const isDirectoryPage = !!parseDirectoryRoute(pathname);
+  const isMarketplaceIndex = pathname === "/marketplace";
+  const isMarketplaceDetail = pathname.startsWith("/marketplace/") && !!pageContext.initialMarketplaceListing;
   const canonicalUrl = isEventPage && event
     ? buildEventCanonicalUrl(event.id)
+    : (isMarketplaceIndex || isMarketplaceDetail)
+      ? `https://www.caramelinho.com${pathname}`
     : getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
   const isErrorPage = !!pageContext.is404 || pageContext.abortStatusCode === 404 || pageContext.abortReason === "not-found";
   const businessHasData = !!business;
   const localizedBusiness = business;
   const staticMeta = isErrorPage
     ? getErrorPageMeta()
-    : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || [], pageContext.initialDirectorySnapshot?.pageMeta);
+    : isMarketplaceIndex
+      ? { title: "Marketplace | Caramelinho", description: "Compre, venda e encontre produtos perto de você no Marketplace do Caramelinho." }
+      : isMarketplaceDetail && pageContext.initialMarketplaceListing
+        ? { title: `${pageContext.initialMarketplaceListing.title} | Marketplace | Caramelinho`, description: `${pageContext.initialMarketplaceListing.title} em ${pageContext.initialMarketplaceListing.city}. Veja preço, condição e entre em contato com o vendedor.` }
+        : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || [], pageContext.initialDirectorySnapshot?.pageMeta);
   const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal);
   const eventMeta = event
     ? { title: buildEventSeoTitle(event), description: buildEventSeoDescription(event) }
@@ -413,7 +456,12 @@ export function onRenderHtml(pageContext: PageContext) {
       ? event.flyer_url || "https://www.caramelinho.com/og-image.jpg"
       : "https://www.caramelinho.com/og-image.jpg";
   const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, isErrorPage);
-  const jsonLd = isBusinessPage && businessHasData
+  const jsonLd = isMarketplaceDetail && pageContext.initialMarketplaceListing
+    ? [
+        { id: "website", data: buildWebsiteJsonLd() },
+        { id: "marketplace-product", data: marketplaceListingJsonLd(pageContext.initialMarketplaceListing, canonicalUrl) },
+      ]
+    : isBusinessPage && businessHasData
     ? [
         { id: "website", data: buildWebsiteJsonLd() },
         { id: "business-local", data: buildBusinessJsonLd(localizedBusiness!, canonicalUrl, pageImage) },
