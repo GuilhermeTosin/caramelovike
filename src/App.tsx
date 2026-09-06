@@ -164,6 +164,7 @@ export default function App({
           initialAvailableLocations={initialAvailableLocations}
           initialSearchSuggestions={initialSearchSuggestions}
         />
+        <div className="pt-[var(--site-header-height)]">
         <Routes>
           <Route
             path="/"
@@ -223,6 +224,7 @@ export default function App({
           <Route path="/:countryCode/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </div>
       </AppRouter>
       <Toaster richColors position="top-center" />
       <DeferredAnalytics />
