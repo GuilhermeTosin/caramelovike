@@ -98,6 +98,7 @@ export default function AdminUsersTab({
       bio: user.bio,
       phone: user.phone,
       location: user.location,
+      role: user.role,
     });
   };
 
@@ -193,8 +194,8 @@ export default function AdminUsersTab({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="truncate font-semibold text-foreground">{user.name || "Sem nome"}</h3>
-                          <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                            {user.role === "admin" ? "Administrador" : "Usuário"}
+                          <Badge variant={user.role === "admin" ? "default" : user.role === "editor" ? "outline" : "secondary"}>
+                            {user.role === "admin" ? "Administrador" : user.role === "editor" ? "Editor" : "Usuário"}
                           </Badge>
                         </div>
                         <p className="mt-1 truncate text-sm text-muted-foreground">{user.email || "E-mail não informado"}</p>
@@ -205,16 +206,11 @@ export default function AdminUsersTab({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3 text-center text-xs text-muted-foreground lg:w-[300px]">
+                    <div className="grid grid-cols-2 gap-3 text-center text-xs text-muted-foreground lg:w-[200px]">
                       <div className="rounded-lg bg-secondary/60 p-2">
                         <Building2 className="mx-auto mb-1 h-4 w-4 text-primary" />
                         <strong className="block text-base text-foreground">{user.businesses.length}</strong>
                         negócios
-                      </div>
-                      <div className="rounded-lg bg-secondary/60 p-2">
-                        <MapPin className="mx-auto mb-1 h-4 w-4 text-primary" />
-                        <strong className="block text-base text-foreground">{user.achadinhos.length}</strong>
-                        achadinhos
                       </div>
                       <div className="rounded-lg bg-secondary/60 p-2">
                         <CalendarDays className="mx-auto mb-1 h-4 w-4 text-primary" />
@@ -310,22 +306,6 @@ export default function AdminUsersTab({
                 </section>
 
                 <section>
-                  <h3 className="mb-2 font-semibold">Achadinhos ({selectedUser.achadinhos.length})</h3>
-                  {selectedUser.achadinhos.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhum achadinho vinculado.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {selectedUser.achadinhos.map((find) => (
-                        <div key={find.id} className="rounded-lg border border-border p-3">
-                          <p className="font-medium">{find.product_name}</p>
-                          <p className="text-sm text-muted-foreground">{find.location_name} · {find.category}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-
-                <section>
                   <h3 className="mb-2 font-semibold">Eventos ({selectedUser.events.length})</h3>
                   {selectedUser.events.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Nenhum evento vinculado.</p>
@@ -390,6 +370,25 @@ export default function AdminUsersTab({
                 value={editForm.bio || ""}
                 onChange={(event) => setEditForm((current) => ({ ...current, bio: event.target.value }))}
               />
+            </div>
+            <div>
+              <Label htmlFor="admin-user-role">Função</Label>
+              <select
+                id="admin-user-role"
+                className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={editForm.role || "user"}
+                onChange={(event) => setEditForm((current) => ({ ...current, role: event.target.value as AdminUserProfileUpdates["role"] }))}
+                disabled={saving || editingUser?.id === adminUserId}
+              >
+                <option value="user">Usuário</option>
+                <option value="editor">Editor</option>
+                <option value="admin">Administrador</option>
+              </select>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {editingUser?.id === adminUserId
+                  ? "A conta administradora não pode ser rebaixada."
+                  : "Editores podem cadastrar e gerenciar vários negócios, mas não acessam funções administrativas."}
+              </p>
             </div>
           </div>
 

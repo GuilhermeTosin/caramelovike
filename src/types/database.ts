@@ -7,7 +7,7 @@ export interface Profile {
   phone: string | null;
   location: string | null;
   avatar: string | null;
-  role?: "user" | "admin";
+  role?: "user" | "editor" | "admin";
   created_at: string;
 }
 
@@ -108,6 +108,68 @@ export interface CommunityFindReport {
     id: string;
     message: string;
   } | null;
+}
+
+export type MarketplaceListingType = "selling" | "wanted" | "giving_away";
+export type MarketplaceCondition = "new" | "like_new" | "good" | "used" | "parts";
+export type MarketplaceListingStatus = "draft" | "active" | "paused" | "sold" | "expired" | "removed";
+
+export interface MarketplaceCategory {
+  id: string;
+  slug: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface MarketplaceListingImage {
+  id: string;
+  listing_id: string;
+  image_url: string;
+  sort_order: number;
+}
+
+export interface MarketplaceListing {
+  id: string;
+  owner_id: string;
+  listing_type: MarketplaceListingType;
+  category_id: string;
+  title: string;
+  description: string;
+  price: number | null;
+  currency: string;
+  condition: MarketplaceCondition | null;
+  country_code: string;
+  state_code: string;
+  city: string;
+  neighborhood: string | null;
+  lat: number | null;
+  lng: number | null;
+  keywords: string[];
+  video_url: string | null;
+  slug: string;
+  status: MarketplaceListingStatus;
+  view_count: number;
+  created_at: string;
+  updated_at: string;
+  images?: MarketplaceListingImage[];
+  owner_name?: string;
+  owner_avatar?: string | null;
+  owner_created_at?: string | null;
+  owner_listing_count?: number;
+  is_favorited?: boolean;
+  category?: MarketplaceCategory;
+}
+
+export interface MarketplaceReport {
+  id: string;
+  listing_id: string;
+  reporter_id: string | null;
+  reason: "fraud" | "prohibited" | "spam" | "duplicate" | "misleading" | "offensive" | "other";
+  details: string | null;
+  status: "pending" | "reviewing" | "resolved" | "rejected";
+  created_at: string;
+  listing?: Pick<MarketplaceListing, "id" | "title" | "city" | "country_code" | "state_code"> | null;
 }
 
 export interface Review {
@@ -393,7 +455,7 @@ export interface UserFrontend {
   phone: string;
   location: string;
   avatar: string;
-  role: "user" | "admin";
+  role: "user" | "editor" | "admin";
   createdAt: string;
 }
 
@@ -401,5 +463,5 @@ export interface AuthSessionFrontend {
   userId: string;
   email: string;
   name: string;
-  role?: "user" | "admin";
+  role?: "user" | "editor" | "admin";
 }

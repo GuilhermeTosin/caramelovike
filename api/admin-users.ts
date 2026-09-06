@@ -38,18 +38,6 @@ type UserRelationBusiness = {
   created_at: string;
 };
 
-type UserRelationFind = {
-  id: string;
-  user_id: string;
-  product_name: string;
-  location_name: string;
-  category: string;
-  upvotes: number;
-  downvotes: number;
-  expires_at: string;
-  created_at: string;
-};
-
 type UserRelationEvent = {
   id: string;
   owner_id: string;
@@ -75,6 +63,8 @@ type ProfileRow = {
   role: string | null;
   created_at: string;
 };
+
+type UserRole = "user" | "editor" | "admin";
 
 type OwnerClaimRequestRow = {
   id: string;
@@ -130,6 +120,12 @@ function normalizeSearchValue(value: unknown): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+function normalizeRole(value: unknown): UserRole {
+  const role = String(value || "").trim().toLowerCase();
+  if (role === "admin" || role === "editor") return role;
+  return "user";
 }
 
 function jsonError(res: VercelResponse, status: number, error: string) {
@@ -250,16 +246,12 @@ function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
 }
 
 async function loadUserRecords(config: SupabaseConfig) {
-  const [authUsers, profiles, businesses, finds, events] = await Promise.all([
+  const [authUsers, profiles, businesses, events] = await Promise.all([
     listAuthUsers(config),
     fetchJson<ProfileRow[]>(config, "/rest/v1/profiles?select=*&limit=10000"),
     fetchJson<UserRelationBusiness[]>(
       config,
       "/rest/v1/businesses?select=id,owner_id,name,slug,city,state,country,country_code,state_code,moderation_status,created_at&limit=10000&order=created_at.desc",
-    ),
-    fetchJson<UserRelationFind[]>(
-      config,
-      "/rest/v1/community_finds?select=id,user_id,product_name,location_name,category,upvotes,downvotes,expires_at,created_at&limit=10000&order=created_at.desc",
     ),
     fetchJson<UserRelationEvent[]>(
       config,
@@ -269,13 +261,11 @@ async function loadUserRecords(config: SupabaseConfig) {
 
   const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
   const businessesByOwner = groupBy(businesses, (business) => business.owner_id);
-  const findsByOwner = groupBy(finds, (find) => find.user_id);
   const eventsByOwner = groupBy(events, (event) => event.owner_id);
 
   return authUsers.map((authUser) => {
     const profile = profilesById.get(authUser.id);
     const userBusinesses = businessesByOwner.get(authUser.id) || [];
-    const userFinds = findsByOwner.get(authUser.id) || [];
     const userEvents = eventsByOwner.get(authUser.id) || [];
     const metadata = authUser.user_metadata || {};
 
@@ -287,7 +277,7 @@ async function loadUserRecords(config: SupabaseConfig) {
       phone: profile?.phone || authUser.phone || "",
       location: profile?.location || "",
       avatar: profile?.avatar || "",
-      role: String(profile?.role || "").trim().toLowerCase() === "admin" ? "admin" : "user",
+      role: normalizeRole(profile?.role),
       createdAt: profile?.created_at || authUser.created_at || "",
       auth: {
         createdAt: authUser.created_at || "",
@@ -296,7 +286,6 @@ async function loadUserRecords(config: SupabaseConfig) {
         emailConfirmedAt: authUser.email_confirmed_at || "",
       },
       businesses: userBusinesses,
-      achadinhos: userFinds,
       events: userEvents,
     };
 
@@ -315,7 +304,6 @@ async function loadUserRecords(config: SupabaseConfig) {
           business.country_code,
           business.state_code,
         ]),
-        ...userFinds.flatMap((find) => [find.product_name, find.location_name, find.category]),
         ...userEvents.flatMap((event) => [event.title, event.description, event.location, event.status]),
       ].join(" "),
     );
@@ -343,6 +331,14 @@ async function updateProfile(config: SupabaseConfig, userId: string, body: Recor
     if (typeof body[field] === "string") {
       updates[field] = String(body[field]).trim();
     }
+  }
+
+  if (typeof body.role === "string") {
+    const role = body.role.trim().toLowerCase();
+    if (!["user", "editor", "admin"].includes(role)) {
+      throw new Error("Função de usuário inválida.");
+    }
+    updates.role = role;
   }
 
   if (Object.keys(updates).length === 0) {
@@ -485,7 +481,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("CDN-Cache-Control", "no-store");
   res.setHeader("Vercel-CDN-Cache-Control", "no-store");
   try {
-    if (!getConfig()) return jsonError(res, 503, "API administrativa sem credenciais de servidor neste ambiente.");
+    if (!getConfig()) {
+      return jsonError(
+        res,
+        503,
+        "API administrativa sem credenciais de servidor. Configure SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SECRET_KEY) no .env.local; nunca use uma chave VITE_ para esta função.",
+      );
+    }
     const admin = await requireAdmin(req);
     if (!admin) return jsonError(res, 403, "Acesso restrito ao administrador autorizado.");
 
@@ -540,6 +542,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const userId = String(body.userId || "").trim();
       if (!userId) return jsonError(res, 400, "Usuário inválido.");
+
+      if (userId === admin.user.id && typeof body.role === "string" && normalizeRole(body.role) !== "admin") {
+        return jsonError(res, 400, "A conta administradora precisa manter a função de administrador.");
+      }
 
       const updated = await updateProfile(admin.config, userId, body);
       return res.status(200).json({ ok: true, profile: updated[0] || null });
