@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, Building2, CalendarDays, Car, Chev
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import MarketplaceListingCard from "@/components/MarketplaceListingCard";
 import SiteFooter from "@/components/SiteFooter";
 import { buildMarketplaceSearchPath, useSearchLocation } from "@/contexts/SearchLocationContext";
 import { getHomeContent } from "@/data/homeContent";
@@ -350,31 +351,10 @@ export default function HomeV2({
                 </div>
                 <Link to={marketplaceHref} className="inline-flex items-center gap-1.5 text-sm font-bold text-[#167348] hover:text-[#105a38]">Ver todos os produtos <ArrowUpRight className="h-4 w-4" /></Link>
               </div>
-              <div className="mt-8 grid gap-5 md:grid-cols-3">
-                {recentListings.map((listing) => {
-                  const image = listing.images?.[0]?.image_url;
-                  return (
-                    <Link key={listing.id} to={marketplaceListingPath(listing)} className="group">
-                      <Card className="h-full overflow-hidden rounded-xl border border-[#203940]/10 bg-white p-0 shadow-none transition-shadow duration-300 hover:shadow-[0_16px_45px_rgba(32,57,64,0.10)]">
-                        <div className="aspect-[16/10] overflow-hidden bg-[#edf0ec]">
-                          {image ? (
-                            <img src={getOptimizedImageUrl(image, { width: 720, quality: 78, format: "webp" })} alt={listing.title} loading="lazy" className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="grid h-full place-items-center text-[#c85f1a]"><Tag className="h-10 w-10" /></div>
-                          )}
-                        </div>
-                        <div className="p-5">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-[10px] font-bold uppercase tracking-wide text-[#c85f1a]">{MARKETPLACE_TYPE_LABELS[listing.listing_type]}</span>
-                            <span className="text-xs text-[#203940]/50"><MapPin className="mr-1 inline h-3 w-3" />{listing.city}</span>
-                          </div>
-                          <h3 className="mt-3 line-clamp-2 text-lg font-bold leading-snug text-[#203940]">{listing.title}</h3>
-                          <p className="mt-4 text-base font-black text-[#167348]">{formatListingPrice(listing)}</p>
-                        </div>
-                      </Card>
-                    </Link>
-                  );
-                })}
+              <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {recentListings.map((listing) => (
+                  <MarketplaceListingCard key={listing.id} listing={listing} />
+                ))}
               </div>
             </div>
           </section>
