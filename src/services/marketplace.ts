@@ -389,8 +389,9 @@ export async function toggleMarketplaceFavorite(listingId: string, favorite: boo
   const userId = await getCurrentUserId();
   if (!userId) return { ok: false, error: "Faça login para salvar anúncios." };
   const result = favorite
-    ? await supabase.from("marketplace_favorites").upsert({ listing_id: listingId, user_id: userId })
+    ? await supabase.from("marketplace_favorites").insert({ listing_id: listingId, user_id: userId })
     : await supabase.from("marketplace_favorites").delete().eq("listing_id", listingId).eq("user_id", userId);
+  if (favorite && result.error?.code === "23505") return { ok: true };
   return { ok: !result.error, error: result.error?.message };
 }
 
