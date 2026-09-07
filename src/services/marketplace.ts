@@ -274,6 +274,32 @@ export async function getMarketplaceListingsByOwner(ownerId: string) {
   return enrichListings((data || []) as unknown as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false });
 }
 
+export async function getMarketplaceFavoritesByUser(userId: string) {
+  const { data: favoriteRows, error: favoritesError } = await supabase
+    .from("marketplace_favorites")
+    .select("listing_id,created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (favoritesError) throw favoritesError;
+
+  const favoriteIds = (favoriteRows || []).map((row) => row.listing_id);
+  if (favoriteIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("marketplace_listings")
+    .select(MARKETPLACE_LIST_SELECT)
+    .in("id", favoriteIds)
+    .eq("status", "active");
+  if (error) throw error;
+
+  const listingsById = new Map((data || []).map((row) => [row.id, row]));
+  const orderedListings = favoriteIds
+    .map((id) => listingsById.get(id))
+    .filter(Boolean) as unknown as MarketplaceListing[];
+  const enrichedListings = await enrichListings(orderedListings, { includeFavorites: false });
+  return enrichedListings.map((listing) => ({ ...listing, is_favorited: true }));
+}
+
 export async function getMarketplaceListingByOwner(id: string, ownerId: string) {
   const { data, error } = await supabase
     .from("marketplace_listings")

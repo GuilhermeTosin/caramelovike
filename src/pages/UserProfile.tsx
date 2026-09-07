@@ -36,6 +36,7 @@ import AllBusinessesTab from "@/pages/user-profile/components/AllBusinessesTab";
 import AdminUsersTab from "@/pages/user-profile/components/AdminUsersTab";
 import EventsTab from "@/pages/user-profile/components/EventsTab";
 import MarketplaceAccountTab from "@/pages/user-profile/components/MarketplaceAccountTab";
+import MarketplaceFavoritesTab from "@/pages/user-profile/components/MarketplaceFavoritesTab";
 import MarketplaceAdminTab from "@/pages/user-profile/components/MarketplaceAdminTab";
 import VerificationAdminTab from "@/pages/user-profile/components/VerificationAdminTab";
 import BusinessModerationTab from "@/pages/user-profile/components/BusinessModerationTab";
@@ -763,6 +764,10 @@ export default function UserProfile() {
 
             <div className={activeTab === "marketplace" ? "block" : "hidden"}>
               {session?.userId ? <MarketplaceAccountTab ownerId={session.userId} /> : null}
+            </div>
+
+            <div className={activeTab === "marketplace-favoritos" ? "block" : "hidden"}>
+              {session?.userId ? <MarketplaceFavoritesTab userId={session.userId} /> : null}
             </div>
 
             {isAdmin ? (
