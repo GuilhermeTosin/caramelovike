@@ -9,7 +9,7 @@ import type {
   MarketplaceListingType,
   MarketplaceReport,
 } from "@/types/database";
-import { getMarketplaceCategoryBySlug, normalizeMarketplaceKeywords, slugifyMarketplace } from "@/lib/marketplaceCategories";
+import { normalizeMarketplaceKeywords, slugifyMarketplace } from "@/lib/marketplaceCategories";
 
 export type MarketplaceFilters = {
   search?: string;
@@ -42,6 +42,7 @@ export type MarketplaceListingInput = {
   keywords?: string[];
   videoUrl?: string | null;
   images?: string[];
+  id?: string;
 };
 
 export type MarketplacePage = { items: MarketplaceListing[]; totalCount: number };
@@ -49,63 +50,12 @@ export type MarketplacePage = { items: MarketplaceListing[]; totalCount: number 
 const MARKETPLACE_CATEGORY_SELECT = "id,slug,name,sort_order,is_active";
 const MARKETPLACE_LIST_SELECT = "id,owner_id,listing_type,category_id,title,price,currency,condition,country_code,state_code,city,neighborhood,slug,status,view_count,created_at,updated_at,category:marketplace_categories(id,slug,name,sort_order,is_active)";
 const MARKETPLACE_DETAIL_SELECT = "*,category:marketplace_categories(*)";
-const MARKETPLACE_CITY_CACHE_TTL_MS = 60 * 1000;
-
-let marketplaceCityCache: { values: string[]; expiresAt: number } | null = null;
-let marketplaceCityRequest: Promise<string[]> | null = null;
-
-function invalidateMarketplaceCityCache() {
-  marketplaceCityCache = null;
-}
-
 function normalizeMarketplaceCity(value: string) {
-  return value
+  return (value.split(",")[0] || value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLocaleLowerCase("pt-BR");
-}
-
-async function getActiveMarketplaceCities(forceRefresh = false) {
-  if (!forceRefresh && marketplaceCityCache && marketplaceCityCache.expiresAt > Date.now()) {
-    return marketplaceCityCache.values;
-  }
-
-  if (!marketplaceCityRequest) {
-    marketplaceCityRequest = supabase
-      .from("marketplace_listings")
-      .select("city")
-      .eq("status", "active")
-      .limit(5000)
-      .then(({ data, error }) => {
-        if (error) throw error;
-        const values = [...new Set((data || []).map((row) => String(row.city || "").trim()).filter(Boolean))];
-        // Do not cache an empty result: a newly published listing must become
-        // searchable immediately, even if this process queried before it existed.
-        if (values.length > 0) {
-          marketplaceCityCache = { values, expiresAt: Date.now() + MARKETPLACE_CITY_CACHE_TTL_MS };
-        } else {
-          marketplaceCityCache = null;
-        }
-        return values;
-      })
-      .finally(() => {
-        marketplaceCityRequest = null;
-      });
-  }
-
-  return marketplaceCityRequest;
-}
-
-async function findMatchingMarketplaceCities(city: string, forceRefresh = false) {
-  const normalizedCities = new Set(
-    [city, city.split(",")[0] || ""]
-      .map(normalizeMarketplaceCity)
-      .filter(Boolean),
-  );
-  if (normalizedCities.size === 0) return [];
-  const values = await getActiveMarketplaceCities(forceRefresh);
-  return values.filter((value) => normalizedCities.has(normalizeMarketplaceCity(value)));
 }
 
 export async function getMarketplaceCategories(): Promise<MarketplaceCategory[]> {
@@ -171,15 +121,15 @@ export async function getMarketplacePage(filters: MarketplaceFilters = {}): Prom
   const pageSize = Math.min(48, Math.max(1, filters.pageSize || 12));
   let categoryId = "";
   if (filters.category) {
-    const category = getMarketplaceCategoryBySlug(filters.category);
-    if (category) {
-      const { data } = await supabase.from("marketplace_categories").select("id").eq("slug", category.slug).maybeSingle();
-      categoryId = data?.id || "";
-    }
+    const categorySlug = filters.category.trim().toLowerCase();
+    const { data, error } = await supabase.from("marketplace_categories").select("id").eq("slug", categorySlug).eq("is_active", true).maybeSingle();
+    if (error) throw error;
+    if (!data?.id) return { items: [], totalCount: 0 };
+    categoryId = data.id;
   }
 
-  const buildQuery = (cityValues?: string[]) => {
-    let query = supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT, { count: "exact" }).eq("status", "active").order("created_at", { ascending: false });
+  const buildQuery = () => {
+    let query = supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT, { count: "exact" }).eq("status", "active").order("created_at", { ascending: false }).order("id", { ascending: false });
     if (filters.search?.trim()) {
       const term = filters.search.trim();
       const filtersForTerm = [`title.ilike.%${term}%`, `description.ilike.%${term}%`];
@@ -189,9 +139,7 @@ export async function getMarketplacePage(filters: MarketplaceFilters = {}): Prom
     }
     if (filters.listingType) query = query.eq("listing_type", filters.listingType);
     if (filters.city?.trim()) {
-      query = cityValues?.length
-        ? query.in("city", cityValues)
-        : query.ilike("city", filters.city.trim());
+      query = query.eq("city_normalized", normalizeMarketplaceCity(filters.city));
     }
     if (filters.countryCode) query = query.eq("country_code", filters.countryCode.toLowerCase());
     if (filters.stateCode) query = query.eq("state_code", filters.stateCode.toLowerCase());
@@ -203,23 +151,13 @@ export async function getMarketplacePage(filters: MarketplaceFilters = {}): Prom
   };
 
   const from = (page - 1) * pageSize;
-  const executeQuery = async (cityValues?: string[]) => {
-    const { data, error, count } = await buildQuery(cityValues).range(from, from + pageSize - 1);
+  const executeQuery = async () => {
+    const { data, error, count } = await buildQuery().range(from, from + pageSize - 1);
     if (error) throw error;
     return { data, count: count || 0 };
   };
 
-  let result = await executeQuery();
-  if (filters.city?.trim() && result.count === 0) {
-    const matchingCities = await findMatchingMarketplaceCities(filters.city);
-    if (matchingCities.length > 0) {
-      result = await executeQuery(matchingCities);
-    } else if (marketplaceCityCache) {
-      // A warm instance may have cached the city list before a new listing was created.
-      const freshMatchingCities = await findMatchingMarketplaceCities(filters.city, true);
-      if (freshMatchingCities.length > 0) result = await executeQuery(freshMatchingCities);
-    }
-  }
+  const result = await executeQuery();
 
   return {
     items: await enrichListings((result.data || []) as MarketplaceListing[], {
@@ -241,8 +179,10 @@ export async function getMarketplaceListingByPath(countryCode: string, stateCode
     .eq("slug", slug)
     .in("status", ["active", "sold"])
     .limit(10);
+  if (error) throw error;
+
   const row = (data || []).find((item) => slugifyMarketplace(String(item.city || "")) === slugifyMarketplace(city));
-  if (error || !row) return null;
+  if (!row) return null;
   const [listing] = await enrichListings([row as MarketplaceListing]);
   return listing || null;
 }
@@ -252,18 +192,32 @@ export async function createMarketplaceListing(input: MarketplaceListingInput): 
   if (!ownerId) return { ok: false, error: "Faça login para publicar um anúncio." };
   const baseSlug = slugifyMarketplace(input.title);
   const slug = `${baseSlug}-${Date.now().toString(36)}`;
-  const { data, error } = await supabase.from("marketplace_listings").insert({ owner_id: ownerId, listing_type: input.listingType, category_id: input.categoryId, title: input.title.trim(), description: input.description.trim(), price: input.price ?? null, currency: input.currency.toUpperCase(), condition: input.condition || null, country_code: input.countryCode.toLowerCase(), state_code: input.stateCode.toLowerCase(), city: input.city.trim(), neighborhood: input.neighborhood?.trim() || null, lat: input.lat ?? null, lng: input.lng ?? null, keywords: normalizeMarketplaceKeywords(input.keywords || []), video_url: input.videoUrl?.trim() || null, slug, status: "active" }).select("*").single();
+  const { data, error } = await supabase.rpc("create_marketplace_listing_with_images", {
+    p_listing_id: input.id || crypto.randomUUID(),
+    p_listing_type: input.listingType,
+    p_category_id: input.categoryId,
+    p_title: input.title,
+    p_description: input.description,
+    p_price: input.price ?? null,
+    p_currency: input.currency,
+    p_condition: input.condition || null,
+    p_country_code: input.countryCode,
+    p_state_code: input.stateCode,
+    p_city: input.city,
+    p_neighborhood: input.neighborhood || null,
+    p_lat: input.lat ?? null,
+    p_lng: input.lng ?? null,
+    p_keywords: normalizeMarketplaceKeywords(input.keywords || []),
+    p_video_url: input.videoUrl?.trim() || null,
+    p_slug: slug,
+    p_images: (input.images || []).slice(0, 8),
+  }).single();
   if (error || !data) return { ok: false, error: error?.message || "Não foi possível publicar o anúncio." };
-  invalidateMarketplaceCityCache();
-  if (input.images?.length) {
-    const { error: imageError } = await supabase.from("marketplace_listing_images").insert(input.images.slice(0, 8).map((imageUrl, index) => ({ listing_id: data.id, image_url: imageUrl, sort_order: index })));
-    if (imageError) return { ok: false, error: imageError.message };
-  }
   return { ok: true, listing: data as MarketplaceListing };
 }
 
 export async function getMarketplaceListingsByOwner(ownerId: string) {
-  const { data, error } = await supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).eq("owner_id", ownerId).order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).eq("owner_id", ownerId).order("created_at", { ascending: false }).order("id", { ascending: false });
   if (error) throw error;
   return enrichListings((data || []) as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false });
 }
@@ -302,13 +256,12 @@ export async function updateMarketplaceListing(id: string, ownerId: string, inpu
     .select("*, category:marketplace_categories(*)")
     .maybeSingle();
   if (error || !data) return { ok: false, error: error?.message || "Não foi possível atualizar o anúncio." };
-  if (input.city !== undefined) invalidateMarketplaceCityCache();
   const [listing] = await enrichListings([data as MarketplaceListing]);
   return { ok: true, listing };
 }
 
 export async function getMarketplaceListingsForAdmin() {
-  const { data, error } = await supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).order("created_at", { ascending: false }).limit(500);
+  const { data, error } = await supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(500);
   if (error) throw error;
   return enrichListings((data || []) as MarketplaceListing[], { includeImages: false, includeFavorites: false });
 }
@@ -330,9 +283,10 @@ export async function getSimilarMarketplaceListings(listing: MarketplaceListing,
     .select(MARKETPLACE_LIST_SELECT)
     .eq("status", "active")
     .eq("category_id", listing.category_id)
-    .eq("city", listing.city)
+    .eq("city_normalized", normalizeMarketplaceCity(listing.city))
     .neq("id", listing.id)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(limit);
   return enrichListings((data || []) as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false });
 }

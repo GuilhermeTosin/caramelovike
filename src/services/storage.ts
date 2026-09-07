@@ -141,6 +141,26 @@ export async function uploadImage(
   }
 }
 
+export async function removePublicImageUrls(
+  bucket: string,
+  urls: string[],
+): Promise<{ ok: boolean; error?: string }> {
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const paths = urls.flatMap((url) => {
+    const markerIndex = url.indexOf(marker);
+    if (markerIndex < 0) return [];
+    try {
+      return [decodeURIComponent(url.slice(markerIndex + marker.length))];
+    } catch {
+      return [];
+    }
+  });
+  if (paths.length === 0) return { ok: true };
+
+  const { error } = await supabase.storage.from(bucket).remove(paths);
+  return { ok: !error, error: error?.message };
+}
+
 /**
  * Helper para gerar caminhos únicos de imagem
  */
