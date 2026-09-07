@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import SearchInputWithSuggestions, { type LocationSuggestionMeta } from "@/components/SearchInputWithSuggestions";
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import { useSearchLocation } from "@/contexts/SearchLocationContext";
 import { getHomeContent } from "@/data/homeContent";
 import { geocodeAddress } from "@/lib/google-maps";
 import { DEFAULT_MARKETPLACE_DISTANCE_KM } from "@/lib/marketplaceCategories";
@@ -97,6 +98,7 @@ export default function SiteHeader({
   const [searchMode, setSearchMode] = useState<SearchMode>(initialContext.mode);
   const [locationSelection, setLocationSelection] = useState<LocationSuggestionMeta | null>(null);
   const [locating, setLocating] = useState(false);
+  const { setSearchLocation } = useSearchLocation();
   const headerRef = useRef<HTMLElement | null>(null);
   const citySuggestions = useMemo(() => getCitySuggestions(initialAvailableLocations), [initialAvailableLocations]);
   const activeSearchMode = getSearchModeText(homeText, searchMode);
@@ -143,6 +145,13 @@ export default function SiteHeader({
     }).then((geo) => {
       if (cancelled || !geo?.city) return;
       setLocation((current) => current.trim() || geo.city || "");
+      setSearchLocation({
+        city: geo.city,
+        countryCode: geo.countryCode?.toLowerCase(),
+        stateCode: geo.stateCode?.toLowerCase(),
+        lat: geo.lat,
+        lng: geo.lng,
+      });
     });
 
     return () => {
@@ -193,11 +202,19 @@ export default function SiteHeader({
           if (params.get("sem_raio") !== "1" && !params.get("raio")) {
             params.set("raio", String(DEFAULT_MARKETPLACE_DISTANCE_KM));
           }
+          setSearchLocation({
+            city: meta?.city || trimmedLocation,
+            countryCode: meta?.countryCode?.toLowerCase(),
+            stateCode: meta?.stateCode?.toLowerCase(),
+            lat: coords.lat,
+            lng: coords.lng,
+          });
         } else {
           params.delete("origem_lat");
           params.delete("origem_lng");
           params.delete("raio");
           params.delete("sem_raio");
+          setSearchLocation(null);
         }
       } else {
         params.delete("cidade");
@@ -207,6 +224,7 @@ export default function SiteHeader({
         params.delete("origem_lng");
         params.delete("raio");
         params.delete("sem_raio");
+        setSearchLocation(null);
       }
       navigateWithParams(targetPath, params);
       return;
@@ -237,16 +255,25 @@ export default function SiteHeader({
         params.set("origem_source", "city");
         if (meta?.countryCode) params.set("origem_pais", meta.countryCode.toLowerCase());
         else params.delete("origem_pais");
+        setSearchLocation({
+          city: meta?.city || trimmedLocation,
+          countryCode: meta?.countryCode?.toLowerCase(),
+          stateCode: meta?.stateCode?.toLowerCase(),
+          lat: coords.lat,
+          lng: coords.lng,
+        });
       } else {
         params.delete("origem_lat");
         params.delete("origem_lng");
         params.delete("origem_local");
         params.delete("origem_source");
         params.delete("origem_pais");
+        setSearchLocation(null);
       }
     } else {
       params.delete("local");
       params.delete("cidade");
+      setSearchLocation(null);
       if ((params.get("origem_source") || "").toLowerCase() === "city") {
         params.delete("origem_lat");
         params.delete("origem_lng");
@@ -272,11 +299,20 @@ export default function SiteHeader({
         if (approxGeo.countryCode) params.set("origem_pais", approxGeo.countryCode.toLowerCase());
         params.set("raio", params.get("raio") || DEFAULT_SEARCH_RADIUS_KM);
         params.set("auto_raio", "1");
+        if (approxGeo.city) {
+          setSearchLocation({
+            city: approxGeo.city,
+            countryCode: approxGeo.countryCode?.toLowerCase(),
+            stateCode: approxGeo.stateCode?.toLowerCase(),
+            lat: approxGeo.lat,
+            lng: approxGeo.lng,
+          });
+        }
       }
     }
 
     navigateWithParams(targetPath, params);
-  }, [navigateWithParams, routerLocation.pathname, routerLocation.search, searchMode]);
+  }, [navigateWithParams, routerLocation.pathname, routerLocation.search, searchMode, setSearchLocation]);
 
   const handleSearch = (event: FormEvent) => {
     event.preventDefault();
@@ -319,6 +355,13 @@ export default function SiteHeader({
         params.set("origem_lat", String(geo.lat));
         params.set("origem_lng", String(geo.lng));
         if (params.get("sem_raio") !== "1") params.set("raio", String(DEFAULT_MARKETPLACE_DISTANCE_KM));
+        setSearchLocation(geo.city ? {
+          city: geo.city,
+          countryCode: geo.countryCode?.toLowerCase(),
+          stateCode: geo.stateCode?.toLowerCase(),
+          lat: geo.lat,
+          lng: geo.lng,
+        } : null);
         navigateWithParams("/marketplace", params);
         return;
       }
@@ -347,7 +390,7 @@ export default function SiteHeader({
     } finally {
       setLocating(false);
     }
-  }, [locating, navigateWithParams, query, routerLocation.pathname, routerLocation.search, searchMode]);
+  }, [locating, navigateWithParams, query, routerLocation.pathname, routerLocation.search, searchMode, setSearchLocation]);
 
   return (
     <>

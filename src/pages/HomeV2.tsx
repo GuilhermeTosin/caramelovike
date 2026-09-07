@@ -4,10 +4,12 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import SiteFooter from "@/components/SiteFooter";
+import { useSearchLocation, type SearchLocation } from "@/contexts/SearchLocationContext";
 import { getHomeContent } from "@/data/homeContent";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { getCountryDisplayName } from "@/lib/locales";
+import { DEFAULT_MARKETPLACE_DISTANCE_KM } from "@/lib/marketplaceCategories";
 import { marketplaceListingPath, type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
 import { setSeoMeta } from "@/lib/seo";
 import { stripRichTextHtml } from "@/lib/richText";
@@ -97,6 +99,20 @@ function formatCount(count: number) {
   return new Intl.NumberFormat("pt-BR").format(count);
 }
 
+function buildMarketplaceHref(location: SearchLocation | null) {
+  if (!location?.city.trim()) return "/marketplace";
+
+  const params = new URLSearchParams({ cidade: location.city.trim() });
+  if (location.countryCode) params.set("pais", location.countryCode.toLowerCase());
+  if (location.stateCode) params.set("estado", location.stateCode.toLowerCase());
+  if (Number.isFinite(location.lat) && Number.isFinite(location.lng)) {
+    params.set("origem_lat", String(location.lat));
+    params.set("origem_lng", String(location.lng));
+    params.set("raio", String(DEFAULT_MARKETPLACE_DISTANCE_KM));
+  }
+  return `/marketplace?${params.toString()}`;
+}
+
 function countryCodeToFlag(countryCode: string) {
   const normalized = countryCode.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(normalized)) return "🌎";
@@ -110,6 +126,7 @@ export default function HomeV2({
   initialHomeSnapshot,
   initialMarketplaceSnapshot,
 }: HomeV2Props = {}) {
+  const { searchLocation } = useSearchLocation();
   const homeText = getHomeContent();
   const snapshot = initialHomeSnapshot || {
     businessCount: 0,
@@ -135,6 +152,7 @@ export default function HomeV2({
   const activeRecentBusiness = recentBusinesses.length > 0
     ? recentBusinesses[recentBusinessIndex % recentBusinesses.length]
     : null;
+  const marketplaceHref = buildMarketplaceHref(searchLocation);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,7 +214,7 @@ export default function HomeV2({
                   <Link to="/negocios" className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#167348] px-5 text-sm font-bold text-white transition-shadow hover:shadow-[0_8px_20px_rgba(22,115,72,0.22)]">
                     Explorar negócios <ArrowRight className="h-4 w-4" />
                   </Link>
-                  <Link to="/marketplace" className="inline-flex h-11 items-center gap-2 rounded-lg border border-[#203940]/15 bg-white px-5 text-sm font-bold text-[#203940] transition-shadow hover:shadow-[0_8px_20px_rgba(32,57,64,0.12)]">
+                  <Link to={marketplaceHref} className="inline-flex h-11 items-center gap-2 rounded-lg border border-[#203940]/15 bg-white px-5 text-sm font-bold text-[#203940] transition-shadow hover:shadow-[0_8px_20px_rgba(32,57,64,0.12)]">
                     Ver produtos <ShoppingBag className="h-4 w-4" />
                   </Link>
                 </div>
@@ -293,7 +311,7 @@ export default function HomeV2({
                         </div>
                       </Link>
                     ) : (
-                      <Link to="/marketplace" className="rounded-xl bg-[#e7f0fb] p-4 text-[#153e68] transition-shadow hover:shadow-[0_8px_20px_rgba(0,92,169,0.16)]">
+                      <Link to={marketplaceHref} className="rounded-xl bg-[#e7f0fb] p-4 text-[#153e68] transition-shadow hover:shadow-[0_8px_20px_rgba(0,92,169,0.16)]">
                         <ShoppingBag className="h-5 w-5 text-[#005ca9]" />
                         <span className="mt-3 block text-sm font-bold">Conheça o Marketplace</span>
                         <span className="mt-1 block text-xs text-[#153e68]/60">Compre, venda ou desapegue</span>
@@ -331,7 +349,7 @@ export default function HomeV2({
             </div>
             <div className="flex flex-wrap gap-3 text-sm font-bold">
               <Link to="/negocios" className="inline-flex items-center gap-1.5 text-[#167348] hover:text-[#105a38]">Explorar diretório <ArrowRight className="h-4 w-4" /></Link>
-              <Link to="/marketplace" className="inline-flex items-center gap-1.5 text-[#c85f1a] hover:text-[#a44d16]">Ver produtos <ArrowRight className="h-4 w-4" /></Link>
+              <Link to={marketplaceHref} className="inline-flex items-center gap-1.5 text-[#c85f1a] hover:text-[#a44d16]">Ver produtos <ArrowRight className="h-4 w-4" /></Link>
             </div>
           </div>
         </section>
@@ -345,7 +363,7 @@ export default function HomeV2({
                   <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#203940] sm:text-4xl">Produtos recém-publicados</h2>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-[#203940]/60 sm:text-base">Compre, venda ou doe diretamente para brasileiros perto de você.</p>
                 </div>
-                <Link to="/marketplace" className="inline-flex items-center gap-1.5 text-sm font-bold text-[#167348] hover:text-[#105a38]">Ver todos os produtos <ArrowUpRight className="h-4 w-4" /></Link>
+                <Link to={marketplaceHref} className="inline-flex items-center gap-1.5 text-sm font-bold text-[#167348] hover:text-[#105a38]">Ver todos os produtos <ArrowUpRight className="h-4 w-4" /></Link>
               </div>
               <div className="mt-8 grid gap-5 md:grid-cols-3">
                 {recentListings.map((listing) => {

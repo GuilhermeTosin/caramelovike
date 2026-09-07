@@ -30,6 +30,7 @@ import BusinessPageRoute from "@/pages/BusinessPageRoute";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import SiteHeader from "@/components/SiteHeader";
 import MarketplacePage, { MarketplaceCreatePage, MarketplaceEditPage, MarketplaceListingPage } from "@/pages/MarketplacePage";
+import { SearchLocationProvider } from "@/contexts/SearchLocationContext";
 
 const VercelAnalytics = lazy(async () => {
   const module = await import("@vercel/analytics/react");
@@ -157,15 +158,16 @@ export default function App({
   return (
     <AuthProvider>
       <AppRouter router={router} location={location}>
-        <ScrollToTop />
-        <CanonicalManager isBusinessPage={isBusinessPage} />
-        <GoogleAnalytics />
-        <SiteHeader
-          initialAvailableLocations={initialAvailableLocations}
-          initialSearchSuggestions={initialSearchSuggestions}
-        />
-        <div className="pt-[var(--site-header-height)]">
-        <Routes>
+        <SearchLocationProvider>
+          <ScrollToTop />
+          <CanonicalManager isBusinessPage={isBusinessPage} />
+          <GoogleAnalytics />
+          <SiteHeader
+            initialAvailableLocations={initialAvailableLocations}
+            initialSearchSuggestions={initialSearchSuggestions}
+          />
+          <div className="pt-[var(--site-header-height)]">
+          <Routes>
           <Route
             path="/"
             element={
@@ -223,8 +225,9 @@ export default function App({
           <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="/:countryCode/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="*" element={<NotFound />} />
-        </Routes>
-        </div>
+          </Routes>
+          </div>
+        </SearchLocationProvider>
       </AppRouter>
       <Toaster richColors position="top-center" />
       <DeferredAnalytics />
