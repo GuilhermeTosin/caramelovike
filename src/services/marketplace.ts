@@ -54,6 +54,10 @@ const MARKETPLACE_CITY_CACHE_TTL_MS = 60 * 1000;
 let marketplaceCityCache: { values: string[]; expiresAt: number } | null = null;
 let marketplaceCityRequest: Promise<string[]> | null = null;
 
+function invalidateMarketplaceCityCache() {
+  marketplaceCityCache = null;
+}
+
 function normalizeMarketplaceCity(value: string) {
   return value
     .normalize("NFD")
@@ -62,8 +66,8 @@ function normalizeMarketplaceCity(value: string) {
     .toLocaleLowerCase("pt-BR");
 }
 
-async function getActiveMarketplaceCities() {
-  if (marketplaceCityCache && marketplaceCityCache.expiresAt > Date.now()) {
+async function getActiveMarketplaceCities(forceRefresh = false) {
+  if (!forceRefresh && marketplaceCityCache && marketplaceCityCache.expiresAt > Date.now()) {
     return marketplaceCityCache.values;
   }
 
@@ -76,7 +80,13 @@ async function getActiveMarketplaceCities() {
       .then(({ data, error }) => {
         if (error) throw error;
         const values = [...new Set((data || []).map((row) => String(row.city || "").trim()).filter(Boolean))];
-        marketplaceCityCache = { values, expiresAt: Date.now() + MARKETPLACE_CITY_CACHE_TTL_MS };
+        // Do not cache an empty result: a newly published listing must become
+        // searchable immediately, even if this process queried before it existed.
+        if (values.length > 0) {
+          marketplaceCityCache = { values, expiresAt: Date.now() + MARKETPLACE_CITY_CACHE_TTL_MS };
+        } else {
+          marketplaceCityCache = null;
+        }
         return values;
       })
       .finally(() => {
@@ -87,10 +97,10 @@ async function getActiveMarketplaceCities() {
   return marketplaceCityRequest;
 }
 
-async function findMatchingMarketplaceCities(city: string) {
+async function findMatchingMarketplaceCities(city: string, forceRefresh = false) {
   const normalizedCity = normalizeMarketplaceCity(city);
   if (!normalizedCity) return [];
-  const values = await getActiveMarketplaceCities();
+  const values = await getActiveMarketplaceCities(forceRefresh);
   return values.filter((value) => normalizeMarketplaceCity(value) === normalizedCity);
 }
 
@@ -198,7 +208,13 @@ export async function getMarketplacePage(filters: MarketplaceFilters = {}): Prom
   let result = await executeQuery();
   if (filters.city?.trim() && result.count === 0) {
     const matchingCities = await findMatchingMarketplaceCities(filters.city);
-    if (matchingCities.length > 0) result = await executeQuery(matchingCities);
+    if (matchingCities.length > 0) {
+      result = await executeQuery(matchingCities);
+    } else if (marketplaceCityCache) {
+      // A warm instance may have cached the city list before a new listing was created.
+      const freshMatchingCities = await findMatchingMarketplaceCities(filters.city, true);
+      if (freshMatchingCities.length > 0) result = await executeQuery(freshMatchingCities);
+    }
   }
 
   return {
@@ -234,6 +250,7 @@ export async function createMarketplaceListing(input: MarketplaceListingInput): 
   const slug = `${baseSlug}-${Date.now().toString(36)}`;
   const { data, error } = await supabase.from("marketplace_listings").insert({ owner_id: ownerId, listing_type: input.listingType, category_id: input.categoryId, title: input.title.trim(), description: input.description.trim(), price: input.price ?? null, currency: input.currency.toUpperCase(), condition: input.condition || null, country_code: input.countryCode.toLowerCase(), state_code: input.stateCode.toLowerCase(), city: input.city.trim(), neighborhood: input.neighborhood?.trim() || null, lat: input.lat ?? null, lng: input.lng ?? null, keywords: normalizeMarketplaceKeywords(input.keywords || []), video_url: input.videoUrl?.trim() || null, slug, status: "active" }).select("*").single();
   if (error || !data) return { ok: false, error: error?.message || "Não foi possível publicar o anúncio." };
+  invalidateMarketplaceCityCache();
   if (input.images?.length) {
     const { error: imageError } = await supabase.from("marketplace_listing_images").insert(input.images.slice(0, 8).map((imageUrl, index) => ({ listing_id: data.id, image_url: imageUrl, sort_order: index })));
     if (imageError) return { ok: false, error: imageError.message };
@@ -281,6 +298,7 @@ export async function updateMarketplaceListing(id: string, ownerId: string, inpu
     .select("*, category:marketplace_categories(*)")
     .maybeSingle();
   if (error || !data) return { ok: false, error: error?.message || "Não foi possível atualizar o anúncio." };
+  if (input.city !== undefined) invalidateMarketplaceCityCache();
   const [listing] = await enrichListings([data as MarketplaceListing]);
   return { ok: true, listing };
 }
