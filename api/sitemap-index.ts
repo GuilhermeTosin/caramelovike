@@ -7,7 +7,7 @@ function getBaseUrl(req: VercelRequest): string {
 }
 
 export function buildSitemapIndexXml(baseUrl: string): string {
-  const sitemapUrls = [`${baseUrl}/sitemaps/static.xml`, `${baseUrl}/sitemaps/businesses.xml`];
+  const sitemapUrls = [`${baseUrl}/sitemaps/static.xml`, `${baseUrl}/sitemaps/businesses.xml`, `${baseUrl}/sitemaps/marketplace.xml`];
   const body = sitemapUrls.map((url) => `<sitemap><loc>${url}</loc></sitemap>`).join("");
 
   return `<?xml version="1.0" encoding="UTF-8"?>

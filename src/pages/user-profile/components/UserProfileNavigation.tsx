@@ -1,16 +1,14 @@
-import { AlertTriangle, BarChart3, Calendar, Flag, LogOut, MapPin, Megaphone, MessageCircle, Search, ShieldCheck, Star, Store, User, BadgeCheck, ClipboardCheck, Users } from "lucide-react";
+import { AlertTriangle, BarChart3, Calendar, Flag, LogOut, Megaphone, MessageCircle, Search, ShieldCheck, Star, Store, User, BadgeCheck, ClipboardCheck, Users, Tag } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { CommunityFind } from "@/types/database";
 
 type UserProfileNavigationProps = {
   activeTab: string;
   isAdmin: boolean;
   canManageUsers: boolean;
   unreadMessages: number;
-  myCommunityFinds: CommunityFind[];
   onTabChange: (value: string) => void;
   onLogout: () => void;
 };
@@ -20,16 +18,14 @@ export default function UserProfileNavigation({
   isAdmin,
   canManageUsers,
   unreadMessages,
-  myCommunityFinds,
   onTabChange,
   onLogout,
 }: UserProfileNavigationProps) {
   const locale = "pt-BR";
 
   const text = {
-    navigation: "Navegação do perfil", select: "Selecione uma seção", profile: "Meu Perfil", businesses: "Meus negócios", events: "Meus Eventos", finds: "Achadinhos", verifications: "Verificações", businessReview: "Análise de negócios", allBusinesses: "Todos os negócios", users: "Usuários", reports: "Denúncias", highlights: "Destaques", search: "Busca", quality: "Qualidade", reviews: "Avaliações", messages: "Mensagens", signOut: "Sair",
+    navigation: "Navegação do perfil", select: "Selecione uma seção", profile: "Meu Perfil", businesses: "Meus negócios", events: "Meus Eventos", marketplace: "Meus anúncios", verifications: "Verificações", businessReview: "Análise de negócios", allBusinesses: "Todos os negócios", users: "Usuários", reports: "Denúncias", highlights: "Destaques", search: "Busca", quality: "Qualidade", reviews: "Avaliações", messages: "Mensagens", signOut: "Sair",
   };
-  const hasCommunityFindAlerts = myCommunityFinds.some((find) => (find.upvotes || 0) - (find.downvotes || 0) <= -2);
 
   return (
     <>
@@ -55,10 +51,11 @@ export default function UserProfileNavigation({
               <SelectItem value="perfil">{text.profile}</SelectItem>
               <SelectItem value="negocios">{text.businesses}</SelectItem>
               <SelectItem value="eventos">{text.events}</SelectItem>
-              <SelectItem value="achadinhos">{text.finds}</SelectItem>
+              <SelectItem value="marketplace">{text.marketplace}</SelectItem>
               {isAdmin && <SelectItem value="verificacoes">{text.verifications}</SelectItem>}
               {isAdmin && <SelectItem value="analise-negocios">{text.businessReview}</SelectItem>}
               {isAdmin && <SelectItem value="todos-negocios">{text.allBusinesses}</SelectItem>}
+              {isAdmin && <SelectItem value="marketplace-admin">Marketplace (admin)</SelectItem>}
               {canManageUsers && <SelectItem value="usuarios">{text.users}</SelectItem>}
               {isAdmin && <SelectItem value="ownership">Ownership</SelectItem>}
               {isAdmin && <SelectItem value="denuncias">{text.reports}</SelectItem>}
@@ -75,7 +72,7 @@ export default function UserProfileNavigation({
       </div>
 
       <aside className="hidden md:block w-full md:w-64 lg:w-72 shrink-0">
-        <div className="sticky top-24">
+        <div className="sticky top-[var(--site-header-height)]">
           <Card className="p-2 border border-border bg-card">
             <TabsList className="flex flex-col h-auto bg-transparent gap-1">
               <TabsTrigger value="perfil" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
@@ -90,14 +87,9 @@ export default function UserProfileNavigation({
                 <Calendar className="w-4 h-4" />
                 {text.events}
               </TabsTrigger>
-              <TabsTrigger value="achadinhos" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
-                <MapPin className="w-4 h-4" />
-                {text.finds}
-                {hasCommunityFindAlerts ? (
-                  <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
-                    !
-                  </span>
-                ) : null}
+              <TabsTrigger value="marketplace" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                <Tag className="w-4 h-4" />
+                {text.marketplace}
               </TabsTrigger>
               {isAdmin && (
                 <TabsTrigger value="verificacoes" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
@@ -121,6 +113,12 @@ export default function UserProfileNavigation({
                 <TabsTrigger value="usuarios" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                   <Users className="w-4 h-4" />
                   {text.users}
+                </TabsTrigger>
+              )}
+              {isAdmin && (
+                <TabsTrigger value="marketplace-admin" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                  <Tag className="w-4 h-4" />
+                  Marketplace (admin)
                 </TabsTrigger>
               )}
               {isAdmin && (

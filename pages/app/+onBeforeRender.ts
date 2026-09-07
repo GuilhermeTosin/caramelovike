@@ -328,7 +328,20 @@ export async function onBeforeRender(pageContext: PageContext) {
   }
 
   if (marketplaceRoute?.kind === "listing") {
-    const listing = await getMarketplaceListingByPath(marketplaceRoute.countryCode, marketplaceRoute.stateCode, decodeURIComponent(marketplaceRoute.city), marketplaceRoute.slug).catch(() => null);
+    let listing: import("@/types/database").MarketplaceListing | null;
+    try {
+      listing = await getMarketplaceListingByPath(
+        marketplaceRoute.countryCode,
+        marketplaceRoute.stateCode,
+        decodeURIComponent(marketplaceRoute.city),
+        marketplaceRoute.slug,
+      );
+    } catch (error) {
+      console.error("[onBeforeRender] marketplace listing lookup failed:", error);
+      if (isPrerendering) throw error;
+      throw render(503);
+    }
+
     if (!listing && !isPrerendering) throw render(404);
     return { pageContext: { initialMarketplaceListing: listing, isBusinessPage: false } };
   }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { uploadImage, generateImagePath } from "@/services/storage";
 import {
@@ -9,10 +9,9 @@ import {
   replaceBusinessLinkedEvents,
   updateCommunityEvent,
 } from "@/services/events";
-import { deleteCommunityFind, getCommunityFindsByOwner, updateCommunityFind } from "@/services/communityFinds";
 import { formatIsoToBr, parseBrDateToIso } from "@/pages/user-profile/utils";
-import type { CommunityEvent, CommunityFind } from "@/types/database";
-import type { CommunityEventForm, CommunityFindEditForm } from "@/pages/user-profile/types";
+import type { CommunityEvent } from "@/types/database";
+import type { CommunityEventForm } from "@/pages/user-profile/types";
 
 type UseCommunityContentOptions = {
   sessionUserId?: string;
@@ -51,15 +50,6 @@ export function useCommunityContent({
   onActivateEventsTab,
 }: UseCommunityContentOptions) {
   const [myCommunityEvents, setMyCommunityEvents] = useState<CommunityEvent[]>([]);
-  const [myCommunityFinds, setMyCommunityFinds] = useState<CommunityFind[]>([]);
-  const [showCommunityFindForm, setShowCommunityFindForm] = useState(false);
-  const [editingCommunityFind, setEditingCommunityFind] = useState<CommunityFind | null>(null);
-  const [editingCommunityFindSubmitting, setEditingCommunityFindSubmitting] = useState(false);
-  const [editingCommunityFindForm, setEditingCommunityFindForm] = useState<CommunityFindEditForm>({
-    productName: "",
-    locationName: "",
-    category: "comida",
-  });
   const [savingCommunityEvent, setSavingCommunityEvent] = useState(false);
   const [editingCommunityEventId, setEditingCommunityEventId] = useState<string | null>(null);
   const [communityEventFlyerFile, setCommunityEventFlyerFile] = useState<File | null>(null);
@@ -71,30 +61,25 @@ export function useCommunityContent({
     setCommunityEventFlyerFile(null);
   };
 
-  const refreshCommunityEvents = async () => {
+  const refreshCommunityEvents = useCallback(async () => {
     if (!sessionUserId) return;
     const events = await getCommunityEventsByOwner(sessionUserId);
     setMyCommunityEvents(events);
-  };
-
-  const refreshCommunityFinds = async () => {
-    if (!sessionUserId) return;
-    const finds = await getCommunityFindsByOwner(sessionUserId);
-    setMyCommunityFinds(finds);
-  };
+  }, [sessionUserId]);
 
   useEffect(() => {
+    let active = true;
     if (!sessionUserId) {
-      setMyCommunityEvents([]);
-      setMyCommunityFinds([]);
-      setShowCommunityFindForm(false);
-      setEditingCommunityFind(null);
-      resetCommunityEventEditor();
-      return;
+      Promise.resolve().then(() => {
+        if (!active) return;
+        setMyCommunityEvents([]);
+        resetCommunityEventEditor();
+      });
+      return () => { active = false; };
     }
-    void refreshCommunityEvents();
-    void refreshCommunityFinds();
-  }, [sessionUserId]);
+    const timer = window.setTimeout(() => { void refreshCommunityEvents(); }, 0);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [refreshCommunityEvents, sessionUserId]);
 
   const handleCreateCommunityEvent = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -190,68 +175,12 @@ export function useCommunityContent({
     await onBusinessesRefresh();
   };
 
-  const handleCommunityFindCreated = async () => {
-    if (!sessionUserId) return;
-    await refreshCommunityFinds();
-    setShowCommunityFindForm(false);
-  };
-
-  const handleDeleteCommunityFind = async (findId: string) => {
-    if (!confirm("Excluir este achadinho?")) return;
-    const result = await deleteCommunityFind(findId);
-    if (!result.ok) {
-      toast.error(result.error || "Não foi possível excluir o achadinho.");
-      return;
-    }
-    setMyCommunityFinds((prev) => prev.filter((find) => find.id !== findId));
-    toast.success("Achadinho excluído.");
-  };
-
-  const handleStartEditCommunityFind = (find: CommunityFind) => {
-    setEditingCommunityFind(find);
-    setEditingCommunityFindForm({
-      productName: find.product_name || "",
-      locationName: find.location_name || "",
-      category: find.category || "outros",
-    });
-  };
-
-  const handleSaveCommunityFindEdit = async () => {
-    if (!editingCommunityFind) return;
-    if (!editingCommunityFindForm.productName.trim() || !editingCommunityFindForm.locationName.trim()) {
-      toast.error("Preencha o nome do produto e o local.");
-      return;
-    }
-    setEditingCommunityFindSubmitting(true);
-    const result = await updateCommunityFind(editingCommunityFind.id, {
-      productName: editingCommunityFindForm.productName,
-      locationName: editingCommunityFindForm.locationName,
-      category: editingCommunityFindForm.category,
-    });
-    setEditingCommunityFindSubmitting(false);
-    if (!result.ok) {
-      toast.error(result.error || "Não foi possível editar o achadinho.");
-      return;
-    }
-    await refreshCommunityFinds();
-    setEditingCommunityFind(null);
-    toast.success("Achadinho atualizado.");
-  };
-
   return {
     myCommunityEvents,
-    myCommunityFinds,
-    showCommunityFindForm,
-    editingCommunityFind,
-    editingCommunityFindSubmitting,
-    editingCommunityFindForm,
     savingCommunityEvent,
     editingCommunityEventId,
     communityEventFlyerFile,
     communityEventForm,
-    setShowCommunityFindForm,
-    setEditingCommunityFind,
-    setEditingCommunityFindForm,
     setCommunityEventFlyerFile,
     setCommunityEventForm,
     refreshCommunityEvents,
@@ -259,9 +188,5 @@ export function useCommunityContent({
     handleCreateCommunityEvent,
     handleStartEditCommunityEvent,
     handleDeleteCommunityEvent,
-    handleCommunityFindCreated,
-    handleDeleteCommunityFind,
-    handleStartEditCommunityFind,
-    handleSaveCommunityFindEdit,
   };
 }

@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { getSiteSlogan } from "@/lib/locales";
 
 function getAppOrigin(): string {
   if (typeof window === "undefined") return "https://www.caramelinho.com";
@@ -21,8 +20,6 @@ export default function ResetPassword() {
   const [info, setInfo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRecoverySession, setIsRecoverySession] = useState(false);
-  const locale = "pt-BR";
-
   const text = {
     saving: "Salvando...", savePassword: "Salvar nova senha", sendLink: "Enviar link de redefinição", emailRequired: "Informe seu e-mail.", linkSent: "Enviamos o link de redefinição para seu e-mail.", passwordsRequired: "Preencha os dois campos de senha.", passwordLength: "A nova senha deve ter pelo menos 6 caracteres.", mismatch: "As senhas não conferem.", updated: "Senha atualizada com sucesso. Você já pode entrar.",
     titleRecovery: "Definir nova senha", titleRequest: "Esqueci minha senha", recoveryDescription: "Digite sua nova senha para concluir a recuperação.", requestDescription: "Informe seu e-mail para receber o link de redefinição.", newPassword: "Nova senha", newPlaceholder: "Digite a nova senha", confirmPassword: "Confirmar nova senha", confirmPlaceholder: "Repita a nova senha", back: "Voltar para entrar",
@@ -90,18 +87,6 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="mb-8">
-          <Link to={"/"} className="flex items-center gap-3 mb-4">
-            <div className="w-20 h-20 flex items-center justify-center">
-              <img src="/logo-112.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="80px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="w-full h-full object-contain" />
-            </div>
-            <div className="leading-tight text-left">
-              <div className="font-extrabold text-[2rem] sm:text-[2.2rem] tracking-tight caramelo-text-gradient">Caramelinho</div>
-              <div className="text-base sm:text-lg font-semibold text-foreground/75">{getSiteSlogan()}</div>
-            </div>
-          </Link>
-        </div>
-
         <Card className="p-6 sm:p-8 border-border">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-foreground">

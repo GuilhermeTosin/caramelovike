@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { MessageCircle, PawPrint, User } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { PawPrint, User } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
@@ -35,8 +35,8 @@ import BusinessesTab from "@/pages/user-profile/components/BusinessesTab";
 import AllBusinessesTab from "@/pages/user-profile/components/AllBusinessesTab";
 import AdminUsersTab from "@/pages/user-profile/components/AdminUsersTab";
 import EventsTab from "@/pages/user-profile/components/EventsTab";
-import CommunityFindsTab from "@/pages/user-profile/components/CommunityFindsTab";
-import EditCommunityFindDialog from "@/pages/user-profile/components/EditCommunityFindDialog";
+import MarketplaceAccountTab from "@/pages/user-profile/components/MarketplaceAccountTab";
+import MarketplaceAdminTab from "@/pages/user-profile/components/MarketplaceAdminTab";
 import VerificationAdminTab from "@/pages/user-profile/components/VerificationAdminTab";
 import BusinessModerationTab from "@/pages/user-profile/components/BusinessModerationTab";
 import OwnershipAdminTab from "@/pages/user-profile/components/OwnershipAdminTab";
@@ -53,12 +53,9 @@ import { useReportsAdmin } from "@/pages/user-profile/hooks/useReportsAdmin";
 import { useFeaturedAdmin } from "@/pages/user-profile/hooks/useFeaturedAdmin";
 import { useInboxAndReviews } from "@/pages/user-profile/hooks/useInboxAndReviews";
 import { useBusinessManagement } from "@/pages/user-profile/hooks/useBusinessManagement";
-import { getSiteSlogan } from "@/lib/locales";
-import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 
 export default function UserProfile() {
   const navigate = useNavigate();
-  const locale = "pt-BR";
 
   const { session, user, isLoading, logout, refreshUnread, unreadMessages, refreshSession } = useAuth();
   const isAdmin = session?.role === "admin" || user?.role === "admin";
@@ -170,18 +167,10 @@ export default function UserProfile() {
 
   const {
     myCommunityEvents,
-    myCommunityFinds,
-    showCommunityFindForm,
-    editingCommunityFind,
-    editingCommunityFindSubmitting,
-    editingCommunityFindForm,
     savingCommunityEvent,
     editingCommunityEventId,
     communityEventFlyerFile,
     communityEventForm,
-    setShowCommunityFindForm,
-    setEditingCommunityFind,
-    setEditingCommunityFindForm,
     setCommunityEventFlyerFile,
     setCommunityEventForm,
     refreshCommunityEvents,
@@ -189,10 +178,6 @@ export default function UserProfile() {
     handleCreateCommunityEvent,
     handleStartEditCommunityEvent,
     handleDeleteCommunityEvent,
-    handleCommunityFindCreated,
-    handleDeleteCommunityFind,
-    handleStartEditCommunityFind,
-    handleSaveCommunityFindEdit,
   } = useCommunityContent({
     sessionUserId: session?.userId,
     onBusinessesRefresh: refreshOwnedBusinesses,
@@ -244,19 +229,13 @@ export default function UserProfile() {
 
   const {
     reports,
-    communityFindReports,
     reportsLoading,
     reportsView,
-    reportsKind,
     setReportsView,
-    setReportsKind,
     loadReportsAdminData,
     handleReportStatus,
     handleArchiveReport,
     handleUnarchiveReport,
-    handleCommunityFindReportStatus,
-    handleArchiveCommunityFindReport,
-    handleUnarchiveCommunityFindReport,
   } = useReportsAdmin({
     isAdmin,
     sessionUserId: session?.userId,
@@ -668,57 +647,6 @@ export default function UserProfile() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-50 border-b border-border bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between sm:h-24">
-            <Link to={"/"} className="group flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center sm:h-[5.5rem] sm:w-[5.5rem]">
-                <img src="/logo-64.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="(max-width: 640px) 56px, 88px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-110" />
-              </div>
-              <div className="min-w-0 leading-tight">
-                <div className="truncate text-lg font-extrabold tracking-tight caramelo-text-gradient sm:text-2xl">Caramelinho</div>
-                <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-foreground/75 sm:text-sm">
-                  {getSiteSlogan(locale)}
-                </div>
-              </div>
-            </Link>
-
-            <div className="flex shrink-0 items-center">
-              <div className="hidden items-center gap-3 sm:flex">
-                {isLoading ? (
-                  <div className="flex w-48 items-center justify-end gap-1.5" aria-label={"Carregando ações da conta"}>
-                    <div className="h-10 w-10 animate-pulse rounded-full bg-muted/70" />
-                    <div className="h-10 w-28 animate-pulse rounded-full bg-muted/70" />
-                  </div>
-                ) : (
-                  <div className="flex w-48 items-center justify-end gap-1.5">
-                    <Link to={"/perfil?tab=mensagens"} onClick={() => setActiveTab("mensagens")} className="group relative">
-                      <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-secondary sm:h-10 sm:w-10">
-                        <MessageCircle className="h-5 w-5" />
-                        {unreadMessages > 0 ? (
-                          <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-primary text-[10px] font-bold text-white">
-                            {unreadMessages > 9 ? "9+" : unreadMessages}
-                          </span>
-                        ) : null}
-                      </Button>
-                    </Link>
-                    <Link to={"/perfil"}>
-                      <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-full border-border px-3 hover:bg-secondary sm:h-10 sm:gap-2">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                          <User className="h-3 w-3 text-primary" />
-                        </div>
-                        <span className="max-w-[90px] truncate font-medium">{session.name?.split(" ")[0] || ("Perfil")}</span>
-                      </Button>
-                    </Link>
-                  </div>
-                )}
-              </div>
-              <MobileHeaderMenu showSearchLink />
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="mx-auto flex-1 w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-8 md:flex-row lg:gap-12">
           <UserProfileNavigation
@@ -726,7 +654,6 @@ export default function UserProfile() {
             isAdmin={isAdmin}
             canManageUsers={canManageUsers}
             unreadMessages={unreadMessages}
-            myCommunityFinds={myCommunityFinds}
             onTabChange={setActiveTab}
             onLogout={() => {
               void handleLogout();
@@ -836,23 +763,16 @@ export default function UserProfile() {
               onDeleteCommunityEvent={handleDeleteCommunityEvent}
             />
 
-            <CommunityFindsTab
-              showCommunityFindForm={showCommunityFindForm}
-              myCommunityFinds={myCommunityFinds}
-              onToggleForm={() => setShowCommunityFindForm((prev) => !prev)}
-              onCreated={handleCommunityFindCreated}
-              onStartEditCommunityFind={handleStartEditCommunityFind}
-              onDeleteCommunityFind={handleDeleteCommunityFind}
-            />
+            <div className={activeTab === "marketplace" ? "block" : "hidden"}>
+              {session?.userId ? <MarketplaceAccountTab ownerId={session.userId} /> : null}
+            </div>
 
-            <EditCommunityFindDialog
-              editingCommunityFind={editingCommunityFind}
-              editingCommunityFindForm={editingCommunityFindForm}
-              editingCommunityFindSubmitting={editingCommunityFindSubmitting}
-              onClose={() => setEditingCommunityFind(null)}
-              onFormChange={setEditingCommunityFindForm}
-              onSave={handleSaveCommunityFindEdit}
-            />
+            {isAdmin ? (
+              <div className={activeTab === "marketplace-admin" ? "block" : "hidden"}>
+                <MarketplaceAdminTab />
+              </div>
+            ) : null}
+
 
             {isAdmin ? (
               <VerificationAdminTab
@@ -904,12 +824,9 @@ export default function UserProfile() {
 
             {isAdmin ? (
               <ReportsAdminTab
-                reportsKind={reportsKind}
                 reportsView={reportsView}
                 reportsLoading={reportsLoading}
                 reports={reports}
-                communityFindReports={communityFindReports}
-                onReportsKindChange={setReportsKind}
                 onReportsViewChange={setReportsView}
                 onRefresh={() => {
                   void loadReportsAdminData(reportsView);
@@ -917,9 +834,6 @@ export default function UserProfile() {
                 onReportStatus={handleReportStatus}
                 onArchiveReport={handleArchiveReport}
                 onUnarchiveReport={handleUnarchiveReport}
-                onCommunityFindReportStatus={handleCommunityFindReportStatus}
-                onArchiveCommunityFindReport={handleArchiveCommunityFindReport}
-                onUnarchiveCommunityFindReport={handleUnarchiveCommunityFindReport}
               />
             ) : null}
 

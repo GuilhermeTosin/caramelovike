@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, Store, LogIn, FileText, ScrollText, Info, Mail, Facebook } from "lucide-react";
+import { MapPin, Store, LogIn, FileText, ScrollText, Info, Mail, Facebook, Tag } from "lucide-react";
 import { DEFAULT_GEO_FALLBACK, buildNearbyBusinessSearchPath, getApproxGeoByIp } from "@/lib/utils/geo";
 import { getSiteSlogan } from "@/lib/locales";
 
@@ -68,6 +68,10 @@ export default function SiteFooter() {
               <Link to={"/negocios"} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Store className="w-4 h-4" />
                 {"Todos os negócios"}
+              </Link>
+              <Link to="/marketplace" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+                <Tag className="w-4 h-4" />
+                {"Marketplace"}
               </Link>
               <Link to={"/cadastro"} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Store className="w-4 h-4" />

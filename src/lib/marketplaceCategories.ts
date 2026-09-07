@@ -10,6 +10,7 @@ export const MARKETPLACE_CATEGORIES = [
   { slug: "livros", name: "Livros" },
   { slug: "produtos-brasileiros", name: "Produtos brasileiros" },
   { slug: "beleza-e-cuidados-pessoais", name: "Beleza e cuidados pessoais" },
+  { slug: "vagas-de-emprego", name: "Vagas de emprego" },
   { slug: "outros", name: "Outros" },
 ] as const;
 

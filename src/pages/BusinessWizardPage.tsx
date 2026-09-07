@@ -16,14 +16,11 @@ import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import {
   getPrimaryActivityCustomPlaceholder,
   getPrimaryActivityOptions,
-  getPrimaryActivityLabel,
   isPrimaryActivityValid,
   normalizePrimaryActivityCustom,
   OTHER_PRIMARY_ACTIVITY_ID,
 } from "@/lib/businessActivities";
 import SiteFooter from "@/components/SiteFooter";
-import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
-import MobileHeaderMenu from "@/components/MobileHeaderMenu";
 import {
   BUSINESS_CATEGORY_OPTIONS,
   createBusiness,
@@ -40,7 +37,6 @@ import {
 } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
 import { generateImagePath, uploadImage } from "@/services/storage";
-import { getSiteSlogan } from "@/lib/locales";
 import { getHomeContent } from "@/data/homeContent";
 
 type WizardStep = 1 | 2 | 3 | 4 | 5 | 6;
@@ -138,12 +134,10 @@ function parseBusinessHours(lines: string[] = []): BusinessHour[] {
 
 export default function BusinessWizardPage() {
   const navigate = useNavigate();
-  const locale = "pt-BR";
 
   const message = useCallback((portuguese: string) => portuguese, []);
   const categoryLabels = new Map(getHomeContent().categories.map((category) => [category.id, category.name]));
   const displayBusinessDay = (day: string) => day;
-  const text = null;
   const [searchParams] = useSearchParams();
   const { session } = useAuth();
   const editingBusinessId = (searchParams.get("editBusinessId") || "").trim();
@@ -789,32 +783,10 @@ export default function BusinessWizardPage() {
   };
 
   const canShowFoodToggles = getCategoryId(form.category) === "food";
-  const sharedHeader = (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-24">
-          <Link to={"/"} className="flex items-center gap-3 group">
-            <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-              <img src="/logo-64.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="(max-width: 640px) 56px, 88px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
-            </div>
-            <div className="leading-tight min-w-0">
-              <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{getSiteSlogan()}</div>
-            </div>
-          </Link>
-          <div className="hidden sm:flex">
-            <SiteHeaderAuthActions className="flex items-center gap-3" compact />
-          </div>
-          <MobileHeaderMenu showLanguage={false} />
-        </div>
-      </div>
-    </header>
-  );
 
   if (!session) {
     return (
       <div className="min-h-screen bg-background">
-        {sharedHeader}
         <main className="max-w-3xl mx-auto px-4 py-16">
           <Card className="p-8 text-center">
             <User className="w-10 h-10 mx-auto text-muted-foreground/60" />
@@ -838,7 +810,6 @@ export default function BusinessWizardPage() {
   if (isEditMode && loadingEditBusiness) {
     return (
       <div className="min-h-screen bg-background">
-        {sharedHeader}
         <main className="max-w-3xl mx-auto px-4 py-16">
           <Card className="p-8 text-center">
             <h1 className="text-2xl font-bold">{"Carregando edição..."}</h1>
@@ -852,8 +823,6 @@ export default function BusinessWizardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50/50 via-background to-background">
-      {sharedHeader}
-
       <main className="max-w-5xl mx-auto px-4 py-8">
         <Card className="p-6 border-border">
           <div className="flex items-center justify-between mb-4">

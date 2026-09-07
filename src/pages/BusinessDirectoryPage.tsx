@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import {
-  getAllBusinesses,
   buildBusinessUrl,
   getCountryName,
   getStateDisplayName,
@@ -17,15 +16,12 @@ import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import { DIRECTORY_CATEGORY_MINIMUM_BUSINESSES } from "@/lib/directoryCategories";
 import {
   buildDirectoryPagePath,
-  buildDirectoryPageSnapshot,
   type DirectoryLevel,
   type DirectoryPageSnapshot,
 } from "@/lib/directorySnapshot";
 import Pagination from "@/components/Pagination";
-import MobileHeaderMenu from "@/components/MobileHeaderMenu";
-import { getLocalizedDirectoryIntro, getLocalizedDirectoryMeta } from "@/lib/directoryLocale";
-import { getHomeContent } from "@/data/homeContent";
-import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
+import { getLocalizedDirectoryMeta } from "@/lib/directoryLocale";
+import { getCountryDisplayName } from "@/lib/locales";
 
 type BusinessDirectoryPageProps = {
   initialDirectorySnapshot?: DirectoryPageSnapshot;
@@ -40,65 +36,12 @@ function getLocationLabel(business: BusinessFrontend) {
   return parts.join(", ") || ("Localização não informada");
 }
 
-function Header() {
-  return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-24">
-          <Link to={"/"} className="flex items-center gap-3 group">
-            <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-              <img src="/logo-64.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="(max-width: 640px) 56px, 88px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
-            </div>
-            <div className="leading-tight min-w-0">
-              <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">
-                {getSiteSlogan()}
-              </div>
-            </div>
-          </Link>
-          <div className="hidden items-center gap-3 sm:flex">
-            <Link to="/buscar" className="text-sm font-semibold text-primary hover:text-primary/80">
-              {"Buscar negócios"}
-            </Link>
-          </div>
-          <MobileHeaderMenu showSearchLink />
-        </div>
-      </div>
-    </header>
-  );
-}
-
 export default function BusinessDirectoryPage({ initialDirectorySnapshot }: BusinessDirectoryPageProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [directoryBusinesses, setDirectoryBusinesses] = useState<BusinessFrontend[]>([]);
-  const [loadedDirectory, setLoadedDirectory] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    void getAllBusinesses()
-      .then((rows) => {
-        if (active) setDirectoryBusinesses(rows);
-      })
-      .catch(() => {
-        if (active) setDirectoryBusinesses([]);
-      })
-      .finally(() => {
-        if (active) setLoadedDirectory(true);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const liveSnapshot = useMemo(
-    () => directoryBusinesses.length > 0 ? buildDirectoryPageSnapshot(pathname, directoryBusinesses) : null,
-    [directoryBusinesses, pathname],
-  );
   const initialSnapshotMatchesPath = initialDirectorySnapshot?.pathname === pathname;
-  const snapshot = liveSnapshot || (initialSnapshotMatchesPath ? initialDirectorySnapshot : null);
-  const loadingBusinesses = !snapshot && !loadedDirectory;
+  const snapshot = initialSnapshotMatchesPath ? initialDirectorySnapshot : null;
+  const loadingBusinesses = !snapshot;
 
   useEffect(() => {
     if (!snapshot) return;
@@ -134,8 +77,6 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
-
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
         <div className="max-w-4xl">
           <Link to={"/"} className="text-sm text-muted-foreground hover:text-foreground transition-colors">

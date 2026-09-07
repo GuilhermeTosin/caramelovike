@@ -30,7 +30,8 @@
             "/contato",
             "/privacidade",
             "/termos",
-            "/negocio-verificado"
+            "/negocio-verificado",
+            "/marketplace"
         ],
         "skipThirdPartyRequests": true,
         "puppeteerArgs": [

@@ -1,0 +1,17 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { getMarketplaceListingsByOwner, updateMarketplaceListingStatus, deleteMarketplaceListing } from "@/services/marketplace";
+import { marketplaceListingPath } from "@/lib/marketplaceSnapshot";
+import type { MarketplaceListing } from "@/types/database";
+
+export default function MarketplaceAccountTab({ ownerId }: { ownerId: string }) {
+  const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { let active = true; void getMarketplaceListingsByOwner(ownerId).then((items) => { if (active) setListings(items); }).catch(() => { if (active) setListings([]); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [ownerId]);
+  const changeStatus = async (id: string, status: MarketplaceListing["status"]) => { const result = await updateMarketplaceListingStatus(id, status); if (result.ok) setListings((items) => items.map((item) => item.id === id ? { ...item, status } : item)); };
+  const remove = async (id: string) => { if (!window.confirm("Excluir este anúncio?")) return; const result = await deleteMarketplaceListing(id); if (result.ok) setListings((items) => items.filter((item) => item.id !== id)); };
+  return <div className="space-y-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">Meus anúncios</h2><p className="mt-1 text-sm text-muted-foreground">Gerencie seus anúncios do Marketplace.</p></div><Button asChild><Link to="/marketplace/novo">+ Publicar anúncio</Link></Button></div>{loading ? <Card className="p-8 text-center text-muted-foreground">Carregando anúncios...</Card> : listings.length === 0 ? <Card className="p-8 text-center text-muted-foreground">Você ainda não publicou nenhum anúncio.</Card> : <div className="space-y-3">{listings.map((listing) => <Card key={listing.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><Link to={marketplaceListingPath(listing)} className="font-semibold text-primary hover:underline">{listing.title}</Link><div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><span>{listing.city}</span><Badge variant="secondary">{listing.status}</Badge></div>{listing.status === "removed" ? <p className="mt-2 text-xs text-destructive">Este anúncio foi removido pela moderação.</p> : null}</div><div className="flex flex-wrap gap-2">{listing.status !== "removed" ? <Button asChild size="sm" variant="outline"><Link to={`/marketplace/editar/${listing.id}`}>Editar</Link></Button> : null}{listing.status === "active" ? <Button size="sm" variant="outline" onClick={() => void changeStatus(listing.id, "paused")}>Pausar</Button> : listing.status !== "removed" ? <Button size="sm" variant="outline" onClick={() => void changeStatus(listing.id, "active")}>Ativar</Button> : null}{listing.status === "active" ? <Button size="sm" variant="outline" onClick={() => void changeStatus(listing.id, "sold")}>Marcar vendido</Button> : null}{listing.status !== "removed" ? <Button size="sm" variant="outline" className="text-destructive" onClick={() => void remove(listing.id)}>Excluir</Button> : null}</div></Card>)}</div>}</div>;
+}

@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { CalendarDays, MapPin, Ticket, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import SiteFooter from "@/components/SiteFooter";
-import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
-import MobileHeaderMenu from "@/components/MobileHeaderMenu";
-import { getSiteSlogan } from "@/lib/locales";
 import { getCommunityEventById } from "@/services/events";
 import type { CommunityEvent } from "@/types/database";
 import { setJsonLd, setSeoMeta } from "@/lib/seo";
@@ -98,24 +95,6 @@ export default function EventPage({ initialEvent = null }: EventPageProps) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-24 flex items-center justify-between">
-          <Link to={"/"} className="flex items-center gap-3 group">
-            <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-              <img src="/logo-64.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="(max-width: 640px) 56px, 88px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
-            </div>
-            <div className="leading-tight min-w-0">
-              <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{getSiteSlogan()}</div>
-            </div>
-          </Link>
-          <div className="hidden items-center gap-3 sm:flex">
-            <SiteHeaderAuthActions className="flex items-center gap-3" compact />
-          </div>
-          <MobileHeaderMenu />
-        </div>
-      </header>
-
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         <Card className="overflow-hidden border-border">
           <div className="aspect-[16/8] bg-muted">

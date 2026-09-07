@@ -4,13 +4,11 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 type MobileHeaderMenuProps = {
-  showLanguage?: boolean;
   showSearchLink?: boolean;
 };
 
-export default function MobileHeaderMenu({ showLanguage = true, showSearchLink = false }: MobileHeaderMenuProps) {
+export default function MobileHeaderMenu({ showSearchLink = false }: MobileHeaderMenuProps) {
   const { session, unreadMessages, isLoading } = useAuth();
-  const locale = "pt-BR";
   const { pathname, search } = useLocation();
   const menuRef = useRef<HTMLDetailsElement>(null);
 
@@ -23,7 +21,7 @@ export default function MobileHeaderMenu({ showLanguage = true, showSearchLink =
   const profileName = session?.name?.split(" ")[0] || "";
 
   return (
-    <details ref={menuRef} className="group relative sm:hidden">
+    <details ref={menuRef} className="group relative lg:hidden">
       <summary
         className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-[12px] border border-input bg-background text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
         aria-label={"Abrir menu"}
@@ -46,6 +44,16 @@ export default function MobileHeaderMenu({ showLanguage = true, showSearchLink =
             <div className="my-1 h-px bg-border" />
           </>
         ) : null}
+
+        <Link
+          to="/marketplace"
+          onClick={closeMenu}
+          className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+        >
+          <Store className="h-4 w-4 text-muted-foreground" />
+          <span>Marketplace</span>
+        </Link>
+        <div className="my-1 h-px bg-border" />
 
         {isLoading ? (
           <div className="space-y-2 p-2.5">

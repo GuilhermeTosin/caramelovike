@@ -1,15 +1,10 @@
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
 import { BadgeCheck, CheckCircle2, ShieldCheck, Star, Trophy } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
-import { getSiteSlogan } from "@/lib/locales";
 
 export default function VerifiedBusinessInfo() {
-  const locale = "pt-BR";
-
   const text = {
     title: "Negócio Verificado | Caramelinho",
     description: "Saiba como conquistar o selo Negócio Verificado no Caramelinho, entender a validade de 12 meses e os critérios de renovação.",
@@ -48,23 +43,6 @@ export default function VerifiedBusinessInfo() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-24 flex items-center justify-between">
-          <Link to={"/"} className="flex items-center gap-3 group">
-            <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-              <img src="/logo-64.webp" srcSet="/logo-64.webp 64w, /logo-112.webp 112w" sizes="(max-width: 640px) 56px, 88px" alt="Caramelinho logo" width={112} height={112} decoding="async" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
-            </div>
-            <div className="leading-tight min-w-0">
-              <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{getSiteSlogan(locale)}</div>
-            </div>
-          </Link>
-          <Button asChild className="caramelo-gradient text-white border-0">
-            <Link to={"/perfil?tab=negocios"}>{text.request}</Link>
-          </Button>
-        </div>
-      </header>
-
       <main className="flex-1">
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
           <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 p-8 sm:p-10">

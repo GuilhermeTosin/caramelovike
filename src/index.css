@@ -8,6 +8,7 @@ html {
 
 @layer base {
   :root {
+    --site-header-height: 12.375rem;
     --background: 0 0% 100%;
     --foreground: 20 14.3% 4.1%;
     --card: 0 0% 100%;
@@ -53,6 +54,12 @@ html {
   }
 }
 
+@media (min-width: 1024px) {
+  :root {
+    --site-header-height: 5.0625rem;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -77,6 +84,18 @@ html {
   background: linear-gradient(135deg, #BA4D0A 0%, #D86A1C 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.hero-gradient-phrase {
+  background-image: linear-gradient(90deg, #203940 0%, #2d7a4a 30%, #c89912 61%, #2d6898 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  padding-inline: 0.02em;
+  margin-inline: -0.02em;
 }
 
 .shadow-soft {

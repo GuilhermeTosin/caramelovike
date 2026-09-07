@@ -133,7 +133,7 @@ export async function getSitemapRows(forceRefresh = false): Promise<SitemapBusin
 }
 
 export function buildSitemapIndexXml(baseUrl: string): string {
-  const urls = [`${baseUrl}/sitemaps/static.xml`, `${baseUrl}/sitemaps/businesses.xml`];
+  const urls = [`${baseUrl}/sitemaps/static.xml`, `${baseUrl}/sitemaps/businesses.xml`, `${baseUrl}/sitemaps/marketplace.xml`];
   const body = urls.map((loc) => `<sitemap><loc>${loc}</loc></sitemap>`).join("");
 
   return `<?xml version="1.0" encoding="UTF-8"?>

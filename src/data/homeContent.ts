@@ -1,4 +1,4 @@
-export type HomeSearchMode = "businesses" | "events" | "achadinhos";
+export type HomeSearchMode = "businesses" | "events" | "achadinhos" | "products";
 
 export type HomeQuickTag = {
   label: string;
@@ -132,6 +132,20 @@ const HOME_CONTENT: HomeContent = {
           { label: "Outlet", query: "Outlet" },
           { label: "Novidade", query: "Novidade" },
           { label: "Cupom", query: "Cupom" },
+        ],
+      },
+      products: {
+        label: "Produtos",
+        description: "Encontre produtos anunciados pela comunidade brasileira perto de você.",
+        placeholder: "Buscar por produto",
+        ctaLabel: "Buscar produtos",
+        quickTags: [
+          { label: "Móveis", query: "Móveis" },
+          { label: "Eletrônicos", query: "Eletrônicos" },
+          { label: "Roupas", query: "Roupas" },
+          { label: "Carros", query: "Carros" },
+          { label: "Casa", query: "Casa" },
+          { label: "Doações", query: "Doações" },
         ],
       },
     },

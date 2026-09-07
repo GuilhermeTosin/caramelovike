@@ -130,6 +130,25 @@ export default function SiteHeader({
     setLocationSelection(null);
   }, [routerLocation.pathname, routerLocation.search]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(routerLocation.search);
+    if (params.get("local")?.trim() || params.get("cidade")?.trim()) return;
+
+    let cancelled = false;
+    void getApproxGeoByIp({
+      timeoutMs: 3000,
+      maxAgeMs: 24 * 60 * 60 * 1000,
+      fallback: DEFAULT_GEO_FALLBACK,
+    }).then((geo) => {
+      if (cancelled || !geo?.city) return;
+      setLocation((current) => current.trim() || geo.city || "");
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routerLocation.pathname, routerLocation.search]);
+
   const navigateWithParams = useCallback((pathname: string, params: URLSearchParams) => {
     const queryString = params.toString();
     navigate(queryString ? `${pathname}?${queryString}` : pathname);
