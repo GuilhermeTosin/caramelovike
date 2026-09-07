@@ -26,9 +26,18 @@ export async function updateProfile(
   id: string,
   updates: Partial<Pick<Profile, "name" | "bio" | "phone" | "location" | "avatar">>
 ): Promise<boolean> {
+  const payload = {
+    id,
+    ...(updates.name !== undefined ? { name: updates.name } : {}),
+    ...(updates.bio !== undefined ? { bio: updates.bio } : {}),
+    ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+    ...(updates.location !== undefined ? { location: updates.location } : {}),
+    ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
+  };
+
   const { error } = await supabase
     .from("profiles")
-    .upsert({ id, ...updates });
+    .upsert(payload);
   return !error;
 }
 
