@@ -16,9 +16,9 @@ describe("directory category filtering", () => {
   it("keeps Montreal, Quebec isolated from homonymous cities", () => {
     expect(bakery).not.toBeNull();
     const businesses = [
-      business("montreal-qc-bakery", "ca", "qc", "Montr?al", "bakery"),
-      business("montreal-fr-bakery", "fr", "ara", "Montr?al", "bakery"),
-      business("montreal-qc-dentist", "ca", "qc", "Montr?al", "dentist"),
+      business("montreal-qc-bakery", "ca", "qc", "Montreal", "bakery"),
+      business("montreal-fr-bakery", "fr", "ara", "Montreal", "bakery"),
+      business("montreal-qc-dentist", "ca", "qc", "Montreal", "dentist"),
     ];
 
     expect(getDirectoryCategoryBusinesses(businesses, "ca", "qc", "montreal", bakery!).map((item) => item.id)).toEqual([
@@ -29,8 +29,8 @@ describe("directory category filtering", () => {
   it("returns only businesses from the requested landing-page category", () => {
     expect(bakery).not.toBeNull();
     const businesses = [
-      business("bakery", "ca", "qc", "Montr?al", "bakery"),
-      business("dentist", "ca", "qc", "Montr?al", "dentist"),
+      business("bakery", "ca", "qc", "Montreal", "bakery"),
+      business("dentist", "ca", "qc", "Montreal", "dentist"),
     ];
 
     expect(getDirectoryCategoryBusinesses(businesses, "ca", "qc", "montreal", bakery!).map((item) => item.id)).toEqual([

@@ -68,7 +68,7 @@ export default function AboutPage() {
               srcSet="/logo-176.webp 176w, /logo-224.webp 224w"
               sizes="(max-width: 640px) 220px, 280px"
               decoding="async"
-              fetchpriority="high"
+              fetchPriority="high"
               loading="eager"
               className="w-full max-w-[220px] sm:max-w-[280px] h-auto object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.12)]"
             />

@@ -804,7 +804,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
           aria-hidden="true"
           className="absolute inset-0 z-0 w-full h-full object-cover scale-110 blur-2xl opacity-85 pointer-events-none"
           loading="eager"
-          fetchpriority="low"
+          fetchPriority="low"
           decoding="async"
         />
         <img
@@ -815,7 +815,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
           alt={business.name}
           className="absolute inset-0 z-10 w-full h-full object-cover pointer-events-none"
           loading="eager"
-          fetchpriority="high"
+          fetchPriority="high"
           decoding="async"
         />
         <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
@@ -1530,7 +1530,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                         sizes="(max-width: 640px) 92vw, 30vw"
                         alt={item.name}
                         loading={prioritizeImage ? "eager" : "lazy"}
-                        fetchpriority={prioritizeImage ? "high" : "low"}
+                        fetchPriority={prioritizeImage ? "high" : "low"}
                         decoding="async"
                         className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
                       />

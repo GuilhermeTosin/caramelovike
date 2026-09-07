@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { DEFAULT_MARKETPLACE_DISTANCE_KM } from "@/lib/marketplaceCategories";
 
 export type SearchLocation = {
   city: string;
@@ -7,6 +8,20 @@ export type SearchLocation = {
   lat?: number;
   lng?: number;
 };
+
+export function buildMarketplaceSearchPath(location: SearchLocation | null) {
+  if (!location?.city.trim()) return "/marketplace";
+
+  const params = new URLSearchParams({ cidade: location.city.trim() });
+  if (location.countryCode) params.set("pais", location.countryCode.toLowerCase());
+  if (location.stateCode) params.set("estado", location.stateCode.toLowerCase());
+  if (Number.isFinite(location.lat) && Number.isFinite(location.lng)) {
+    params.set("origem_lat", String(location.lat));
+    params.set("origem_lng", String(location.lng));
+    params.set("raio", String(DEFAULT_MARKETPLACE_DISTANCE_KM));
+  }
+  return `/marketplace?${params.toString()}`;
+}
 
 type SearchLocationContextValue = {
   searchLocation: SearchLocation | null;

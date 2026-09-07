@@ -495,7 +495,7 @@ export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFronten
       .range(from, from + pageSize - 1);
 
     if (error) throw error;
-    const pageRows = (data || []) as Business[];
+    const pageRows = (data || []) as unknown as Business[];
     rows.push(...pageRows);
     if (pageRows.length < pageSize) break;
   }
@@ -600,7 +600,7 @@ export async function getPublicBusinessSearchIndex(): Promise<BusinessFrontend[]
       .range(from, from + pageSize - 1);
 
     if (error) throw error;
-    const pageRows = (data || []) as Business[];
+    const pageRows = (data || []) as unknown as Business[];
     rows.push(...pageRows);
     if (pageRows.length < pageSize) break;
   }
@@ -655,7 +655,11 @@ export async function getSimilarBusinessesForBusiness(
 
   if (error) throw error;
 
-  return getSimilarBusinesses(business, ((data || []) as Business[]).map(toFrontend), limit);
+  return getSimilarBusinesses(
+    business,
+    ((data || []) as unknown as Business[]).map((row) => toFrontend(row)),
+    limit,
+  );
 }
 
 export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
@@ -740,7 +744,7 @@ async function hydratePublicSearchBusinessIds(ids: string[]): Promise<BusinessFr
   if (error) throw error;
 
   const byId = new Map(
-    (await attachLocationDisplayNames((data || []) as Business[])).map((business) => [
+    (await attachLocationDisplayNames((data || []) as unknown as Business[])).map((business) => [
       business.id,
       toFrontend(business),
     ])
@@ -772,14 +776,15 @@ export async function getBusinessesByPublicSearchRpc(
     throw new Error(`[search_public_businesses] ${error.message}`);
   }
 
-  const ids = Array.from(
+  const rpcRows = (data || []) as unknown as Array<{ business_id?: unknown; total_count?: unknown }>;
+  const ids: string[] = Array.from(
     new Set(
-      (data || [])
-        .map((row: { business_id?: string }) => row.business_id)
+      rpcRows
+        .map((row) => row.business_id)
         .filter((id): id is string => typeof id === "string" && id.length > 0)
     )
   );
-  let totalCount = Number((data && data[0]?.total_count) || 0);
+  let totalCount = Number(rpcRows[0]?.total_count || 0);
 
   // Window counts are not returned when an invalid page offset has no rows.
   // Read one row from the first page so the UI can normalize that URL instead
@@ -801,7 +806,8 @@ export async function getBusinessesByPublicSearchRpc(
       p_radius_km: params.radiusKm,
     });
     if (firstPageError) throw new Error(`[search_public_businesses] ${firstPageError.message}`);
-    totalCount = Number((firstPage && firstPage[0]?.total_count) || 0);
+    const firstPageRows = (firstPage || []) as unknown as Array<{ total_count?: unknown }>;
+    totalCount = Number(firstPageRows[0]?.total_count || 0);
   }
 
   return {
@@ -868,11 +874,11 @@ export async function getBusinessesByRadiusRpc(params: {
     throw new Error(`[search_businesses_radius] ${rpcError.message}`);
   }
 
-  const orderedIds = Array.from(
+  const orderedIds: string[] = Array.from(
     new Set(
       (hits || [])
         .map((r: any) => r?.business_id)
-        .filter((id: any) => typeof id === "string" && id.length > 0)
+        .filter((id: any): id is string => typeof id === "string" && id.length > 0)
     )
   );
   const physicalTotalCount = Number((hits && hits[0]?.total_count) ?? 0);
@@ -920,7 +926,7 @@ export async function getBusinessesByRadiusRpc(params: {
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(followLinkIds);
 
-  const byId = new Map(
+  const byId = new Map<string, BusinessFrontend>(
     businessRows.map((b) => [
       b.id,
       toFrontend(
@@ -1834,7 +1840,11 @@ export function slugify(text: string): string {
     .replace(/-+$/, "");            // Remove hifens no final
 }
 
-export function buildBusinessUrl(biz: BusinessFrontend): string {
+type BusinessUrlInput = Pick<BusinessFrontend, "slug"> & {
+  address: Pick<BusinessFrontend["address"], "countryCode" | "stateCode" | "city" | "citySlug">;
+};
+
+export function buildBusinessUrl(biz: BusinessUrlInput): string {
   const countryCode = (biz.address.countryCode || "").toLowerCase();
   const stateSlug = (biz.address.stateCode || "").toLowerCase();
   // Stored slugs can contain legacy location variants. The city label is canonical.
@@ -1921,7 +1931,13 @@ function hasDiacritics(value: string): boolean {
   return false;
 }
 
-export async function getAvailableLocations(): Promise<{ countryCode: string, countryName: string, states: { code: string, name: string, cities: string[] }[] }> {
+export type AvailableLocation = {
+  countryCode: string;
+  countryName: string;
+  states: { code: string; name: string; cities: string[] }[];
+};
+
+export async function getAvailableLocations(): Promise<AvailableLocation[]> {
   const { data } = await supabase
     .from("businesses")
     .select("country_code, state_code, state, city")

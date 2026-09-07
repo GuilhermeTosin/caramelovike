@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { ChevronRight, LogIn, Menu, MessageCircle, Search, Store, User, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { buildMarketplaceSearchPath, useSearchLocation } from "@/contexts/SearchLocationContext";
 
 type MobileHeaderMenuProps = {
   showSearchLink?: boolean;
@@ -9,6 +10,7 @@ type MobileHeaderMenuProps = {
 
 export default function MobileHeaderMenu({ showSearchLink = false }: MobileHeaderMenuProps) {
   const { session, unreadMessages, isLoading } = useAuth();
+  const { searchLocation } = useSearchLocation();
   const { pathname, search } = useLocation();
   const menuRef = useRef<HTMLDetailsElement>(null);
 
@@ -19,6 +21,7 @@ export default function MobileHeaderMenu({ showSearchLink = false }: MobileHeade
 
   const closeMenu = () => menuRef.current?.removeAttribute("open");
   const profileName = session?.name?.split(" ")[0] || "";
+  const marketplaceHref = buildMarketplaceSearchPath(searchLocation);
 
   return (
     <details ref={menuRef} className="group relative lg:hidden">
@@ -46,7 +49,7 @@ export default function MobileHeaderMenu({ showSearchLink = false }: MobileHeade
         ) : null}
 
         <Link
-          to="/marketplace"
+          to={marketplaceHref}
           onClick={closeMenu}
           className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
         >

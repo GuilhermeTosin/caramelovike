@@ -45,7 +45,7 @@ export default function SiteFooter() {
               </div>
               <div className="leading-tight">
                 <div className="font-extrabold text-base tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-[11px] font-semibold tracking-wide text-amber-200">{getSiteSlogan(locale)}</div>
+                <div className="text-[11px] font-semibold tracking-wide text-amber-200">{getSiteSlogan()}</div>
               </div>
             </div>
             <p className="mt-3 text-sm text-slate-300 max-w-md leading-relaxed">

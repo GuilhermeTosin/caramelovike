@@ -40,7 +40,7 @@ export function useReportsAdmin({ isAdmin, sessionUserId }: UseReportsAdminOptio
       return;
     }
     toast.success("Denuncia atualizada.");
-    await loadReportsAdminData(reportsView, reportsKind);
+    await loadReportsAdminData(reportsView);
   };
 
   const handleArchiveReport = async (report: BusinessReport) => {
@@ -58,7 +58,7 @@ export function useReportsAdmin({ isAdmin, sessionUserId }: UseReportsAdminOptio
       return;
     }
     toast.success("Denuncia arquivada.");
-    await loadReportsAdminData(reportsView, reportsKind);
+    await loadReportsAdminData(reportsView);
   };
 
   const handleUnarchiveReport = async (report: BusinessReport) => {
@@ -68,7 +68,7 @@ export function useReportsAdmin({ isAdmin, sessionUserId }: UseReportsAdminOptio
       return;
     }
     toast.success("Denuncia desarquivada.");
-    await loadReportsAdminData(reportsView, reportsKind);
+    await loadReportsAdminData(reportsView);
   };
 
   return {

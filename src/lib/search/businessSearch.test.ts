@@ -38,6 +38,8 @@ function createBusiness(overrides: Partial<BusinessFrontend>): BusinessFrontend 
     categoryId: "cat-1",
     category: "Alimentação",
     description: "Descrição",
+    attendanceType: "presencial",
+    moderationStatus: "approved",
     heroImage: "",
     logoUrl: "",
     address: {
@@ -136,6 +138,7 @@ function createRawBusiness(overrides: Partial<Business>): Business {
 function runSearch(options: {
   allBusinesses: BusinessFrontend[];
   query?: string;
+  categoryFilter?: string;
   cityFilter?: string;
   locationFilter?: string;
   radiusKm?: number | null;
@@ -146,6 +149,7 @@ function runSearch(options: {
     allBusinesses: options.allBusinesses,
     query: options.query || "",
     categoryFilter: options.categoryFilter || "",
+    onlineFilter: "",
     cityFilter: options.cityFilter || "",
     locationFilter: options.locationFilter || "",
     countryFilter: "",

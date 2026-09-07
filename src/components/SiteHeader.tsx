@@ -14,6 +14,7 @@ import {
   DEFAULT_SEARCH_RADIUS_KM,
   getApproxGeoByIp,
   getCurrentPositionRobust,
+  type ApproxGeo,
 } from "@/lib/utils/geo";
 
 type AvailableLocation = {
@@ -336,7 +337,7 @@ export default function SiteHeader({
     setLocating(true);
     try {
       const precise = await getCurrentPositionRobust();
-      const geo = precise.coords
+      const geo: ApproxGeo | null = precise.coords
         ? { ...precise.coords, source: "gps" as const }
         : await getApproxGeoByIp({ fallback: DEFAULT_GEO_FALLBACK });
       if (!geo) return;

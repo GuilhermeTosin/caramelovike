@@ -18,6 +18,8 @@ function createBusiness(overrides: Partial<BusinessFrontend>): BusinessFrontend 
     categoryId: "cat-1",
     category: "Alimentação",
     description: "Descricao",
+    attendanceType: "presencial",
+    moderationStatus: "approved",
     heroImage: "",
     logoUrl: "",
     address: {

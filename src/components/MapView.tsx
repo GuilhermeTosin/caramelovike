@@ -119,7 +119,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
         const marker = new maps.Marker({
           position: group.position,
           map,
-          title: getApproximateGroupTitle(group, false),
+          title: getApproximateGroupTitle(group),
           icon: {
             url: svgToDataUrl(getApproximateGroupPinSvg(group.businesses.length)),
             scaledSize: new google.maps.Size(48, 54),
@@ -186,14 +186,14 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       const pinElement = document.createElement("button");
       pinElement.type = "button";
       pinElement.className = "cursor-pointer rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2";
-      pinElement.setAttribute("aria-label", getApproximateGroupTitle(group, false));
+      pinElement.setAttribute("aria-label", getApproximateGroupTitle(group));
       pinElement.innerHTML = getApproximateGroupPinSvg(group.businesses.length);
 
       const marker = new maps.marker.AdvancedMarkerElement({
         position: group.position,
         map,
         content: pinElement,
-        title: getApproximateGroupTitle(group, false),
+        title: getApproximateGroupTitle(group),
       });
       addMarkerClickListeners(marker, pinElement, () => setSelectedApproximateGroupKey(group.key));
       markersRef.current.push(marker);

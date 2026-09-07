@@ -79,12 +79,16 @@ export async function utf8Fetch(
   }
 
   const pending = fetch(request)
-    .then(async (response) => ({
-      body: await response.arrayBuffer(),
-      headers: Array.from(response.headers.entries()),
-      status: response.status,
-      statusText: response.statusText,
-    }))
+    .then(async (response): Promise<BufferedResponse> => {
+      const headers: [string, string][] = [];
+      response.headers.forEach((value, key) => headers.push([key, value]));
+      return {
+        body: await response.arrayBuffer(),
+        headers,
+        status: response.status,
+        statusText: response.statusText,
+      };
+    })
     .finally(() => {
       inFlightMutationRequests.delete(key);
     });

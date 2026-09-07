@@ -128,7 +128,9 @@ function parsePositiveInteger(value: string | null, fallback: number) {
 }
 
 function parseCoordinate(value: string | null) {
-  const parsed = Number(value || "");
+  const raw = (value || "").trim();
+  if (!raw) return null;
+  const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : null;
 }
 

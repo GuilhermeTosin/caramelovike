@@ -74,6 +74,13 @@ type EnrichOptions = {
   includeFavorites?: boolean;
 };
 
+type MarketplaceOwnerProfile = {
+  id: string;
+  name?: string | null;
+  avatar?: string | null;
+  created_at?: string | null;
+};
+
 async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions = {}): Promise<MarketplaceListing[]> {
   if (rows.length === 0) return [];
   const {
@@ -97,7 +104,10 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
   ]);
   const imagesById = new Map<string, MarketplaceListingImage[]>();
   (images || []).forEach((image) => imagesById.set(image.listing_id, [...(imagesById.get(image.listing_id) || []), image as MarketplaceListingImage]));
-  const profileById = new Map((profiles || []).map((profile) => [profile.id, profile]));
+  const profileById = new Map<string, MarketplaceOwnerProfile>();
+  ((profiles || []) as unknown as MarketplaceOwnerProfile[]).forEach((profile) => {
+    profileById.set(profile.id, profile);
+  });
   const countByOwner = new Map<string, number>();
   (ownerListings || []).forEach((row) => countByOwner.set(row.owner_id, (countByOwner.get(row.owner_id) || 0) + 1));
   const userId = includeFavorites ? await getCurrentUserId().catch(() => null) : null;
@@ -162,7 +172,7 @@ export async function getMarketplacePage(filters: MarketplaceFilters = {}): Prom
     const { data, error } = await supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).in("id", ids);
     if (error) throw error;
     const rowsById = new Map((data || []).map((row) => [row.id, row]));
-    const orderedRows = ids.map((id) => rowsById.get(id)).filter(Boolean) as MarketplaceListing[];
+    const orderedRows = ids.map((id) => rowsById.get(id)).filter(Boolean) as unknown as MarketplaceListing[];
     const totalCount = Number((radiusRows as Array<{ total_count?: number }>)[0]?.total_count || 0);
     return {
       items: await enrichListings(orderedRows, { includeOwnerProfile: false, includeOwnerStats: false }),
@@ -202,7 +212,7 @@ export async function getMarketplacePage(filters: MarketplaceFilters = {}): Prom
   const result = await executeQuery();
 
   return {
-    items: await enrichListings((result.data || []) as MarketplaceListing[], {
+    items: await enrichListings((result.data || []) as unknown as MarketplaceListing[], {
       includeOwnerProfile: false,
       includeOwnerStats: false,
     }),
@@ -225,7 +235,7 @@ export async function getMarketplaceListingByPath(countryCode: string, stateCode
 
   const row = (data || []).find((item) => slugifyMarketplace(String(item.city || "")) === slugifyMarketplace(city));
   if (!row) return null;
-  const [listing] = await enrichListings([row as MarketplaceListing]);
+  const [listing] = await enrichListings([row as unknown as MarketplaceListing]);
   return listing || null;
 }
 
@@ -255,13 +265,13 @@ export async function createMarketplaceListing(input: MarketplaceListingInput): 
     p_images: (input.images || []).slice(0, 8),
   }).single();
   if (error || !data) return { ok: false, error: error?.message || "Não foi possível publicar o anúncio." };
-  return { ok: true, listing: data as MarketplaceListing };
+  return { ok: true, listing: data as unknown as MarketplaceListing };
 }
 
 export async function getMarketplaceListingsByOwner(ownerId: string) {
   const { data, error } = await supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).eq("owner_id", ownerId).order("created_at", { ascending: false }).order("id", { ascending: false });
   if (error) throw error;
-  return enrichListings((data || []) as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false });
+  return enrichListings((data || []) as unknown as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false });
 }
 
 export async function getMarketplaceListingByOwner(id: string, ownerId: string) {
@@ -272,7 +282,7 @@ export async function getMarketplaceListingByOwner(id: string, ownerId: string) 
     .eq("owner_id", ownerId)
     .maybeSingle();
   if (error || !data) return null;
-  const [listing] = await enrichListings([data as MarketplaceListing]);
+  const [listing] = await enrichListings([data as unknown as MarketplaceListing]);
   return listing || null;
 }
 
@@ -298,14 +308,14 @@ export async function updateMarketplaceListing(id: string, ownerId: string, inpu
     .select("*, category:marketplace_categories(*)")
     .maybeSingle();
   if (error || !data) return { ok: false, error: error?.message || "Não foi possível atualizar o anúncio." };
-  const [listing] = await enrichListings([data as MarketplaceListing]);
+  const [listing] = await enrichListings([data as unknown as MarketplaceListing]);
   return { ok: true, listing };
 }
 
 export async function getMarketplaceListingsForAdmin() {
   const { data, error } = await supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(500);
   if (error) throw error;
-  return enrichListings((data || []) as MarketplaceListing[], { includeImages: false, includeFavorites: false });
+  return enrichListings((data || []) as unknown as MarketplaceListing[], { includeImages: false, includeFavorites: false });
 }
 
 export async function getMarketplaceReportsForAdmin() {
@@ -330,7 +340,7 @@ export async function getSimilarMarketplaceListings(listing: MarketplaceListing,
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(limit);
-  return enrichListings((data || []) as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false });
+  return enrichListings((data || []) as unknown as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false });
 }
 
 export async function addMarketplaceListingImages(listingId: string, imageUrls: string[]) {

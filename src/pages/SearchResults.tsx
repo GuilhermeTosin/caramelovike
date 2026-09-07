@@ -234,9 +234,15 @@ const parseCoordParam = (raw: string): number | null => {
 type SearchResultsProps = {
   initialBusinesses?: BusinessFrontend[];
   initialBusinessesAreSearchReady?: boolean;
-  initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
+  initialAvailableLocations?: AvailableLocation[];
   initialSearchSynonyms?: Record<string, string[]>;
   initialSearchSnapshot?: PublicSearchPageSnapshot;
+};
+
+type AvailableLocation = {
+  countryCode: string;
+  countryName: string;
+  states: { code: string; name: string; cities: string[] }[];
 };
 
 type SearchResultsLocationState = {
@@ -395,7 +401,7 @@ export default function SearchResults({
   const hasSeededBusinessPool = initialBusinessPool.length > 0;
   const [showMap, setShowMap] = useState(false);
   const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinessPool);
-  const [availableLocations, setAvailableLocations] = useState<any[]>(initialAvailableLocations);
+  const [availableLocations, setAvailableLocations] = useState<AvailableLocation[]>(initialAvailableLocations);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCoords, setApproxCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCountryCode, setApproxCountryCode] = useState("");
@@ -440,7 +446,7 @@ export default function SearchResults({
   const [loadedCommunityFindImages, setLoadedCommunityFindImages] = useState<Record<string, boolean>>({});
   const effectivePage = currentPage;
   const communityFinds = useMemo(() => [] as CommunityFindWithVote[], []);
-  const voteCommunityFind = async () => null;
+  const voteCommunityFind = async (_findId: string, _direction: "upvote" | "downvote" | "clear") => null;
   const reloadCommunityFinds = async () => undefined;
 
   useEffect(() => {
@@ -1639,7 +1645,7 @@ export default function SearchResults({
             {text.filters}
           </div>
           <div className="w-full sm:w-auto sm:ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleLocateMe} className="h-9 flex-1 sm:flex-none" disabled={locatingMe}>
+            <Button variant="outline" size="sm" onClick={() => { void handleLocateMe(); }} className="h-9 flex-1 sm:flex-none" disabled={locatingMe}>
               <Navigation className="w-4 h-4 mr-1" />
               {locatingMe ? ("Localizando...") : ("Me localizar")}
             </Button>
@@ -1828,7 +1834,7 @@ export default function SearchResults({
                             className="w-full h-36 object-cover cursor-pointer transition-all duration-500 ease-out"
                             style={{ opacity: findImageLoaded ? 1 : 0 }}
                             loading={prioritizeImage ? "eager" : "lazy"}
-                            fetchpriority={prioritizeImage ? "high" : "low"}
+                            fetchPriority={prioritizeImage ? "high" : "low"}
                             decoding="async"
                             onClick={async () => {
                               await openCommunityFindDialog(find);
@@ -2006,7 +2012,7 @@ export default function SearchResults({
                           className="w-full h-full object-cover group-hover:scale-[1.02] transition-all duration-500 ease-out"
                           style={{ opacity: eventImageLoaded ? 1 : 0 }}
                           loading={prioritizeImage ? "eager" : "lazy"}
-                          fetchpriority={prioritizeImage ? "high" : "low"}
+                          fetchPriority={prioritizeImage ? "high" : "low"}
                           decoding="async"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
@@ -2093,7 +2099,7 @@ export default function SearchResults({
                         className="w-full h-full object-cover group-hover:scale-[1.02] transition-all duration-500 ease-out"
                         style={{ opacity: businessCardImageLoaded ? 1 : 0 }}
                         loading={prioritizeImage ? "eager" : "lazy"}
-                        fetchpriority={prioritizeImage ? "high" : "low"}
+                        fetchPriority={prioritizeImage ? "high" : "low"}
                         decoding="async"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />

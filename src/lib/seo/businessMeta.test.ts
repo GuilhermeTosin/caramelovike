@@ -14,7 +14,7 @@ const baseBusiness = {
   primaryActivity: "restaurant",
   primaryActivityCustom: "",
   description: "",
-  attendanceType: "presencial",
+  attendanceType: "presencial" as const,
   address: {
     city: "Toronto",
     state: "Ontario",
@@ -111,6 +111,7 @@ describe("business SEO metadata", () => {
       "car_dealership",
       "automotive_center",
       "paintless_dent_repair",
+      "other",
     ]);
   });
   it("exposes the complete construction activity list plus Other", () => {
@@ -286,7 +287,7 @@ describe("business SEO metadata", () => {
   it("uses Brazilian descriptors only in titles for selected activities", () => {
     expect(getBusinessSeoDescriptor(baseBusiness)).toBe("Restaurante");
     expect(buildBusinessSeoTitle(baseBusiness)).toBe(
-      "Sabor Carioca | Restaurante brasileiro em Toronto, Ontario",
+      "Sabor Carioca | Restaurante brasileiro em Toronto, Ontário",
     );
 
     const dentistBusiness = {
@@ -296,7 +297,7 @@ describe("business SEO metadata", () => {
       primaryActivity: "dentist",
     };
     expect(buildBusinessSeoTitle(dentistBusiness)).toBe(
-      "Sabor Carioca | Dentista brasileiro em Toronto, Ontario",
+      "Sabor Carioca | Dentista brasileiro em Toronto, Ontário",
     );
   });
 

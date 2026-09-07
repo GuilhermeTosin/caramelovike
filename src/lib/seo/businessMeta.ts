@@ -4,7 +4,7 @@ import { getPrimaryActivityLabel, getPrimaryActivitySeoLabel } from "@/lib/busin
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getStateDisplayName } from "@/services/businesses";
 
-type BusinessSeoInput = Pick<
+export type BusinessSeoInput = Pick<
   BusinessFrontend,
   | "name"
   | "categoryId"
@@ -12,9 +12,11 @@ type BusinessSeoInput = Pick<
   | "primaryActivity"
   | "primaryActivityCustom"
   | "description"
-  | "address"
   | "attendanceType"
->;
+> & {
+  address: Pick<BusinessFrontend["address"], "city" | "state" | "country" | "countryCode" | "stateCode"> &
+    Partial<Pick<BusinessFrontend["address"], "citySlug" | "cityDisplayName" | "street" | "postalCode" | "lat" | "lng">>;
+};
 
 
 function cleanText(value: unknown): string {

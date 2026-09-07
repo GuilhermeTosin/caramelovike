@@ -153,7 +153,7 @@ export default function BusinessWizardPage() {
   const [checkingSlug, setCheckingSlug] = useState(false);
   const [onlineCityResolved, setOnlineCityResolved] = useState(false);
   const [locationCatalog, setLocationCatalog] = useState<
-    { countryCode: string; states: { code: string; cities: string[] }[] }[]
+    { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[]
   >([]);
   const [slugMessage, setSlugMessage] = useState(() => message("Escolha um link curto para compartilhar seu negócio."));
   const [slugStatus, setSlugStatus] = useState<"idle" | "ok" | "error">("idle");
@@ -706,7 +706,7 @@ export default function BusinessWizardPage() {
         stateCode: form.stateCode.trim().toLowerCase(),
         country: form.country.trim() || getCountryName(form.countryCode.trim().toLowerCase()),
         countryCode: form.countryCode.trim().toLowerCase(),
-        attendanceType: form.hasPhysicalAddress ? "presencial" : "online",
+        attendanceType: (form.hasPhysicalAddress ? "presencial" : "online") as "presencial" | "online",
         postalCode: form.hasPhysicalAddress ? form.postalCode.trim() : "",
         lat: form.lat || 0,
         lng: form.lng || 0,

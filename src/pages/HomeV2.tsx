@@ -4,12 +4,11 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import SiteFooter from "@/components/SiteFooter";
-import { useSearchLocation, type SearchLocation } from "@/contexts/SearchLocationContext";
+import { buildMarketplaceSearchPath, useSearchLocation } from "@/contexts/SearchLocationContext";
 import { getHomeContent } from "@/data/homeContent";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { getCountryDisplayName } from "@/lib/locales";
-import { DEFAULT_MARKETPLACE_DISTANCE_KM } from "@/lib/marketplaceCategories";
 import { marketplaceListingPath, type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
 import { setSeoMeta } from "@/lib/seo";
 import { stripRichTextHtml } from "@/lib/richText";
@@ -99,20 +98,6 @@ function formatCount(count: number) {
   return new Intl.NumberFormat("pt-BR").format(count);
 }
 
-function buildMarketplaceHref(location: SearchLocation | null) {
-  if (!location?.city.trim()) return "/marketplace";
-
-  const params = new URLSearchParams({ cidade: location.city.trim() });
-  if (location.countryCode) params.set("pais", location.countryCode.toLowerCase());
-  if (location.stateCode) params.set("estado", location.stateCode.toLowerCase());
-  if (Number.isFinite(location.lat) && Number.isFinite(location.lng)) {
-    params.set("origem_lat", String(location.lat));
-    params.set("origem_lng", String(location.lng));
-    params.set("raio", String(DEFAULT_MARKETPLACE_DISTANCE_KM));
-  }
-  return `/marketplace?${params.toString()}`;
-}
-
 function countryCodeToFlag(countryCode: string) {
   const normalized = countryCode.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(normalized)) return "🌎";
@@ -152,7 +137,7 @@ export default function HomeV2({
   const activeRecentBusiness = recentBusinesses.length > 0
     ? recentBusinesses[recentBusinessIndex % recentBusinesses.length]
     : null;
-  const marketplaceHref = buildMarketplaceHref(searchLocation);
+  const marketplaceHref = buildMarketplaceSearchPath(searchLocation);
 
   useEffect(() => {
     let cancelled = false;

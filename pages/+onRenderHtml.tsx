@@ -72,12 +72,48 @@ function getRobotsContent(urlOriginal?: string) {
 }
 
 function marketplaceListingJsonLd(listing: MarketplaceListing, canonicalUrl: string) {
+  const title = listing.title.trim();
+  const description = stripRichTextHtml(listing.description).trim();
+  const isJobListing = listing.category?.slug === "vagas-de-emprego";
+
+  // Do not describe a job as a product. Emit JobPosting only when the
+  // minimum factual fields required by the schema are available.
+  if (isJobListing) {
+    const employerName = listing.owner_name?.trim();
+    const city = listing.city.trim();
+    const countryCode = listing.country_code.trim();
+    if (!title || !description || !employerName || !listing.created_at || !city || !countryCode) return null;
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "JobPosting",
+      "@id": canonicalUrl + "#job",
+      title,
+      description,
+      datePosted: listing.created_at,
+      hiringOrganization: {
+        "@type": "Organization",
+        name: employerName,
+      },
+      jobLocation: {
+        "@type": "Place",
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: city,
+          addressRegion: listing.state_code.trim().toUpperCase() || undefined,
+          addressCountry: countryCode.toUpperCase(),
+        },
+      },
+      url: canonicalUrl,
+    };
+  }
+
   return {
     "@context": "https://schema.org",
     "@type": "Product",
     "@id": canonicalUrl + "#product",
-    name: listing.title,
-    description: stripRichTextHtml(listing.description),
+    name: title,
+    description,
     image: (listing.images || []).map((image) => image.image_url),
     category: listing.category?.name,
     url: canonicalUrl,
@@ -272,7 +308,7 @@ function buildWebsiteJsonLd() {
 }
 
 function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, pageImage: string) {
-  const address = business.address || {};
+  const address: BusinessFrontend["address"] = business.address;
   const latitude = Number(address.lat);
   const longitude = Number(address.lng);
   const meaningfulUpdatedAt = getMeaningfulUpdatedAt(business.updatedAt, business.createdAt);
@@ -313,7 +349,7 @@ function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, p
 }
 
 function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl: string) {
-  const address = business.address || {};
+  const address: BusinessFrontend["address"] = business.address;
   const countryCode = String(address.countryCode || "").toLowerCase();
   const stateCode = String(address.stateCode || "").toLowerCase();
   const citySlug = getCanonicalCitySlug(address.city, countryCode) || slugify(address.citySlug || address.city || "");
@@ -456,10 +492,13 @@ export function onRenderHtml(pageContext: PageContext) {
       ? event.flyer_url || "https://www.caramelinho.com/og-image.jpg"
       : "https://www.caramelinho.com/og-image.jpg";
   const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, isErrorPage);
+  const marketplaceListingStructuredData = isMarketplaceDetail && pageContext.initialMarketplaceListing
+    ? marketplaceListingJsonLd(pageContext.initialMarketplaceListing, canonicalUrl)
+    : null;
   const jsonLd = isMarketplaceDetail && pageContext.initialMarketplaceListing
     ? [
         { id: "website", data: buildWebsiteJsonLd() },
-        { id: "marketplace-product", data: marketplaceListingJsonLd(pageContext.initialMarketplaceListing, canonicalUrl) },
+        ...(marketplaceListingStructuredData ? [{ id: "marketplace-listing", data: marketplaceListingStructuredData }] : []),
       ]
     : isBusinessPage && businessHasData
     ? [

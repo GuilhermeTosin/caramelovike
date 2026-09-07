@@ -19,7 +19,7 @@ export type ApproxGeo = {
   city?: string;
   stateCode?: string;
   countryCode?: string;
-  source?: "ip" | "cache" | "fallback";
+  source?: "ip" | "cache" | "fallback" | "gps";
 };
 
 type GeoipCachePayload = {

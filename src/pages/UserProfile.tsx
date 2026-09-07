@@ -106,13 +106,11 @@ export default function UserProfile() {
       })),
     );
     setMyReviews(reviews);
-    return businesses;
   };
 
   const refreshAllBusinesses = async () => {
     const businesses = await getAllBusinesses();
     setAllBusinesses(businesses);
-    return businesses;
   };
 
   const {
@@ -945,7 +943,7 @@ export default function UserProfile() {
       />
 
       <UserProfileDialogs
-        businessCategoryOptions={BUSINESS_CATEGORY_OPTIONS}
+        businessCategoryOptions={[...BUSINESS_CATEGORY_OPTIONS]}
         creatingBusiness={creatingBusiness}
         editingBusiness={editingBusiness}
         closeBusinessEditor={closeBusinessEditor}

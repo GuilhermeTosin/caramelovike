@@ -158,8 +158,8 @@ export default function Home({
   const previousSearchRef = useRef({ query: "", location: "" });
 
   useEffect(() => {
-    setSeoMeta(homeSeo.title, homeSeo.description);
-  }, [homeSeo.description, homeSeo.title]);
+    setSeoMeta(homeSeo.homeTitle, homeSeo.homeDescription);
+  }, [homeSeo.homeDescription, homeSeo.homeTitle]);
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -410,7 +410,7 @@ export default function Home({
     setIsSubmittingSearch(false);
   };
 
-  const [mascotPhrase, setMascotPhrase] = useState(() => mascotPhrases[0]);
+  const [mascotPhrase, setMascotPhrase] = useState<string>(() => mascotPhrases[0]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -729,7 +729,7 @@ export default function Home({
                       alt={biz.name}
                       className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
                       loading={prioritizeImage ? "eager" : "lazy"}
-                      fetchpriority={prioritizeImage ? "high" : "low"}
+                      fetchPriority={prioritizeImage ? "high" : "low"}
                       decoding="async"
                     />
                     <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
