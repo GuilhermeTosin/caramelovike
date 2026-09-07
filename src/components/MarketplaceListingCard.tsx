@@ -4,8 +4,9 @@ import { Heart, MapPin, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
 import { marketplaceListingPath } from "@/lib/marketplaceSnapshot";
-import { toggleMarketplaceFavorite } from "@/services/marketplace";
+import { getMarketplaceFavoriteIds, toggleMarketplaceFavorite } from "@/services/marketplace";
 import type { MarketplaceListing } from "@/types/database";
 
 const LISTING_TYPE_LABELS: Record<MarketplaceListing["listing_type"], string> = {
@@ -33,12 +34,36 @@ type MarketplaceListingCardProps = {
 
 export default function MarketplaceListingCard({ listing, onFavoriteChange }: MarketplaceListingCardProps) {
   const image = listing.images?.[0]?.image_url;
+  const { session, isLoading: authLoading } = useAuth();
   const [favorite, setFavorite] = useState(!!listing.is_favorited);
   const [savingFavorite, setSavingFavorite] = useState(false);
 
   useEffect(() => {
     setFavorite(!!listing.is_favorited);
   }, [listing.is_favorited]);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    const userId = session?.userId;
+    if (!userId) {
+      setFavorite(false);
+      return;
+    }
+
+    let active = true;
+    void getMarketplaceFavoriteIds(userId)
+      .then((favoriteIds) => {
+        if (active) setFavorite(favoriteIds.has(listing.id));
+      })
+      .catch(() => {
+        // Keep the SSR state when the optional favorite sync is unavailable.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading, listing.id, session?.userId]);
 
   const handleFavorite = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();

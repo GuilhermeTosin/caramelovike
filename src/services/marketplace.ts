@@ -53,6 +53,8 @@ export type MarketplacePage = { items: MarketplaceListing[]; totalCount: number 
 const MARKETPLACE_CATEGORY_SELECT = "id,slug,name,sort_order,is_active";
 const MARKETPLACE_LIST_SELECT = "id,owner_id,listing_type,category_id,title,price,currency,condition,country_code,state_code,city,neighborhood,lat,lng,slug,status,view_count,created_at,updated_at,category:marketplace_categories(id,slug,name,sort_order,is_active)";
 const MARKETPLACE_DETAIL_SELECT = "*,category:marketplace_categories(*)";
+const marketplaceFavoriteIdsCache = new Map<string, Promise<Set<string>>>();
+
 function normalizeMarketplaceCity(value: string) {
   return (value.split(",")[0] || value)
     .normalize("NFD")
@@ -300,6 +302,41 @@ export async function getMarketplaceFavoritesByUser(userId: string) {
   return enrichedListings.map((listing) => ({ ...listing, is_favorited: true }));
 }
 
+export function getMarketplaceFavoriteIds(userId: string) {
+  const cached = marketplaceFavoriteIdsCache.get(userId);
+  if (cached) return cached;
+
+  const request = Promise.resolve(
+    supabase
+      .from("marketplace_favorites")
+      .select("listing_id")
+      .eq("user_id", userId)
+      .then(({ data, error }) => {
+        if (error) throw error;
+        return new Set((data || []).map((row) => row.listing_id));
+      })
+  )
+    .catch((error) => {
+      marketplaceFavoriteIdsCache.delete(userId);
+      throw error;
+    });
+
+  marketplaceFavoriteIdsCache.set(userId, request);
+  return request;
+}
+
+function updateMarketplaceFavoriteCache(userId: string, listingId: string, favorite: boolean) {
+  const cached = marketplaceFavoriteIdsCache.get(userId);
+  if (!cached) return;
+
+  void cached.then((ids) => {
+    if (favorite) ids.add(listingId);
+    else ids.delete(listingId);
+  }).catch(() => {
+    // The failed request already removed itself from the cache.
+  });
+}
+
 export async function getMarketplaceListingByOwner(id: string, ownerId: string) {
   const { data, error } = await supabase
     .from("marketplace_listings")
@@ -391,7 +428,11 @@ export async function toggleMarketplaceFavorite(listingId: string, favorite: boo
   const result = favorite
     ? await supabase.from("marketplace_favorites").insert({ listing_id: listingId, user_id: userId })
     : await supabase.from("marketplace_favorites").delete().eq("listing_id", listingId).eq("user_id", userId);
-  if (favorite && result.error?.code === "23505") return { ok: true };
+  if (favorite && result.error?.code === "23505") {
+    updateMarketplaceFavoriteCache(userId, listingId, true);
+    return { ok: true };
+  }
+  if (!result.error) updateMarketplaceFavoriteCache(userId, listingId, favorite);
   return { ok: !result.error, error: result.error?.message };
 }
 
