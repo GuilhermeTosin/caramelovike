@@ -2,6 +2,62 @@
 -- The city selected by the user is used as the origin. When a radius is
 -- active, distance is the location filter instead of an exact city match.
 
+-- Older Marketplace rows may have only city/state/country. Reuse a valid
+-- coordinate from an existing business in the same locality as a city-level
+-- fallback so those rows remain eligible for radius searches.
+create or replace function public.fill_marketplace_coordinates_from_city()
+returns trigger
+language plpgsql
+set search_path = public, extensions
+as $$
+begin
+  if new.lat is not null and new.lng is not null then
+    return new;
+  end if;
+
+  select b.lat, b.lng
+    into new.lat, new.lng
+  from public.businesses b
+  where public.normalize_marketplace_city(b.city) = public.normalize_marketplace_city(new.city)
+    and lower(trim(coalesce(b.country_code, ''))) = lower(trim(coalesce(new.country_code, '')))
+    and lower(trim(coalesce(b.state_code, ''))) = lower(trim(coalesce(new.state_code, '')))
+    and b.lat is not null
+    and b.lng is not null
+    and b.lat <> 0
+    and b.lng <> 0
+  order by b.created_at desc, b.id desc
+  limit 1;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_fill_marketplace_coordinates on public.marketplace_listings;
+create trigger trg_fill_marketplace_coordinates
+before insert or update of city, country_code, state_code, lat, lng
+on public.marketplace_listings
+for each row execute function public.fill_marketplace_coordinates_from_city();
+
+update public.marketplace_listings l
+set lat = source.lat,
+    lng = source.lng
+from lateral (
+  select b.lat, b.lng
+  from public.businesses b
+  where public.normalize_marketplace_city(b.city) = public.normalize_marketplace_city(l.city)
+    and lower(trim(coalesce(b.country_code, ''))) = lower(trim(coalesce(l.country_code, '')))
+    and lower(trim(coalesce(b.state_code, ''))) = lower(trim(coalesce(l.state_code, '')))
+    and b.lat is not null
+    and b.lng is not null
+    and b.lat <> 0
+    and b.lng <> 0
+  order by b.created_at desc, b.id desc
+  limit 1
+) source
+where (l.lat is null or l.lng is null)
+  and source.lat is not null
+  and source.lng is not null;
+
 create index if not exists marketplace_listings_active_geo_idx
   on public.marketplace_listings using gist (
     (st_setsrid(st_makepoint(lng, lat), 4326)::geography)

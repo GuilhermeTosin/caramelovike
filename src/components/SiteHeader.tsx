@@ -7,6 +7,7 @@ import SearchInputWithSuggestions, { type LocationSuggestionMeta } from "@/compo
 import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import { getHomeContent } from "@/data/homeContent";
 import { geocodeAddress } from "@/lib/google-maps";
+import { DEFAULT_MARKETPLACE_DISTANCE_KM } from "@/lib/marketplaceCategories";
 import {
   DEFAULT_GEO_FALLBACK,
   DEFAULT_SEARCH_RADIUS_KM,
@@ -189,10 +190,14 @@ export default function SiteHeader({
         if (coords) {
           params.set("origem_lat", String(coords.lat));
           params.set("origem_lng", String(coords.lng));
+          if (params.get("sem_raio") !== "1" && !params.get("raio")) {
+            params.set("raio", String(DEFAULT_MARKETPLACE_DISTANCE_KM));
+          }
         } else {
           params.delete("origem_lat");
           params.delete("origem_lng");
           params.delete("raio");
+          params.delete("sem_raio");
         }
       } else {
         params.delete("cidade");
@@ -201,6 +206,7 @@ export default function SiteHeader({
         params.delete("origem_lat");
         params.delete("origem_lng");
         params.delete("raio");
+        params.delete("sem_raio");
       }
       navigateWithParams(targetPath, params);
       return;
@@ -312,6 +318,7 @@ export default function SiteHeader({
         if (geo.stateCode) params.set("estado", geo.stateCode.toLowerCase());
         params.set("origem_lat", String(geo.lat));
         params.set("origem_lng", String(geo.lng));
+        if (params.get("sem_raio") !== "1") params.set("raio", String(DEFAULT_MARKETPLACE_DISTANCE_KM));
         navigateWithParams("/marketplace", params);
         return;
       }

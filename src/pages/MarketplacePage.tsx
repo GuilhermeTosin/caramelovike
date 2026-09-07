@@ -10,7 +10,7 @@ import AddressAutocomplete, { type AddressResult } from "@/components/AddressAut
 import SiteFooter from "@/components/SiteFooter";
 import { useAuth } from "@/contexts/AuthContext";
 import { setSeoMeta } from "@/lib/seo";
-import { MARKETPLACE_CATEGORIES, MARKETPLACE_DISTANCE_OPTIONS, normalizeMarketplaceDistance, normalizeMarketplaceKeywords } from "@/lib/marketplaceCategories";
+import { DEFAULT_MARKETPLACE_DISTANCE_KM, MARKETPLACE_CATEGORIES, MARKETPLACE_DISTANCE_OPTIONS, normalizeMarketplaceDistance, normalizeMarketplaceKeywords } from "@/lib/marketplaceCategories";
 import { buildMarketplaceRequestKey, marketplaceListingPath, type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
 import { contactMarketplaceSeller, createMarketplaceListing, getMarketplaceCategories, getMarketplaceListingByOwner, getMarketplaceListingByPath, getMarketplacePage, getSimilarMarketplaceListings, reportMarketplaceListing, toggleMarketplaceFavorite, updateMarketplaceListing, type MarketplaceFilters } from "@/services/marketplace";
 import { generateImagePath, removePublicImageUrls, uploadImage } from "@/services/storage";
@@ -71,7 +71,7 @@ function MarketplaceDiscoveryHeader({
   onSearchChange: (value: string) => void;
   onCityChange: (value: string) => void;
   onCitySelected: (place: AddressResult) => void;
-  onRadiusChange: (value: string) => void;
+  onRadiusChange: (value: string) => void | Promise<void>;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onCategorySelect: (slug: string) => void;
 }) {
@@ -103,12 +103,12 @@ function MarketplaceDiscoveryHeader({
             className="h-12 border-0 bg-transparent pl-12 text-base shadow-none focus-visible:ring-0"
           />
         </div>
-        <div className="min-w-0 lg:w-48 lg:border-l lg:border-[#203940]/10 lg:pl-2">
+        <div className="min-w-0 lg:w-40 lg:border-l lg:border-[#203940]/10 lg:pl-2">
           <label className="flex h-12 items-center gap-2 px-3 text-sm text-muted-foreground">
             <MapPinned className="h-5 w-5 shrink-0 text-[#12633d]" aria-hidden="true" />
             <span className="sr-only">Distância</span>
             <select value={radiusKm} onChange={(event) => onRadiusChange(event.target.value)} className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm text-foreground outline-none focus:ring-0" aria-label="Distância da busca">
-              <option value="">Qualquer distância</option>
+              <option value="">Sem limite</option>
               {MARKETPLACE_DISTANCE_OPTIONS.map((distance) => <option key={distance} value={String(distance)}>Até {distance} km</option>)}
             </select>
           </label>
@@ -158,6 +158,7 @@ type MarketplaceFilterValues = {
   listingType?: string;
   city?: string;
   radiusKm?: string;
+  noRadius?: boolean;
   originLat?: string;
   originLng?: string;
   countryCode?: string;
@@ -199,7 +200,7 @@ function MarketplacePageView({
   onSearchChange: (value: string) => void;
   onCityChange: (value: string) => void;
   onCitySelected: (place: AddressResult) => void;
-  onRadiusChange: (value: string) => void;
+  onRadiusChange: (value: string) => void | Promise<void>;
   onSubmit: () => void | Promise<void>;
   onCategorySelect: (slug: string) => void;
   onPageChange: (nextPage: number) => void;
@@ -342,19 +343,28 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
   const appliedMaxPrice = searchParams.get("precoMax") || "";
   const appliedCondition = (searchParams.get("condicao") as MarketplaceCondition) || "";
   const appliedRadiusKm = normalizeMarketplaceDistance(searchParams.get("raio"));
+  const appliedNoRadius = searchParams.get("sem_raio") === "1";
   const appliedOriginLat = searchParams.get("origem_lat") || "";
   const appliedOriginLng = searchParams.get("origem_lng") || "";
+  const hasAppliedOrigin = appliedOriginLat !== "" && appliedOriginLng !== ""
+    && Number.isFinite(Number(appliedOriginLat)) && Number.isFinite(Number(appliedOriginLng));
+  const effectiveAppliedRadiusKm = appliedNoRadius
+    ? null
+    : !appliedRadiusKm && appliedCity && hasAppliedOrigin
+      ? DEFAULT_MARKETPLACE_DISTANCE_KM
+      : appliedRadiusKm;
   const parsedPage = Number(searchParams.get("pagina") || 1);
   const appliedPage = Number.isFinite(parsedPage) ? Math.max(1, Math.floor(parsedPage)) : 1;
   const [searchDraft, setSearchDraft] = useState(appliedSearch);
   const [cityDraft, setCityDraft] = useState(appliedCity);
   const [draftCountryCode, setDraftCountryCode] = useState(appliedCountryCode);
   const [draftStateCode, setDraftStateCode] = useState(appliedStateCode);
-  const [draftRadiusKm, setDraftRadiusKm] = useState(appliedRadiusKm ? String(appliedRadiusKm) : "");
+  const [draftRadiusKm, setDraftRadiusKm] = useState(appliedNoRadius ? "" : effectiveAppliedRadiusKm ? String(effectiveAppliedRadiusKm) : "");
+  const [draftNoRadius, setDraftNoRadius] = useState(appliedNoRadius);
   const [draftOriginLat, setDraftOriginLat] = useState(appliedOriginLat);
   const [draftOriginLng, setDraftOriginLng] = useState(appliedOriginLng);
   const [radiusError, setRadiusError] = useState("");
-  const appliedRequestKey = buildMarketplaceRequestKey(appliedSearch, appliedCategory, appliedListingType, appliedPage, appliedCity, appliedMinPrice, appliedMaxPrice, appliedCondition, appliedCountryCode, appliedStateCode, appliedRadiusKm ? String(appliedRadiusKm) : "", appliedOriginLat, appliedOriginLng);
+  const appliedRequestKey = buildMarketplaceRequestKey(appliedSearch, appliedCategory, appliedListingType, appliedPage, appliedCity, appliedMinPrice, appliedMaxPrice, appliedCondition, appliedCountryCode, appliedStateCode, appliedNoRadius ? "none" : effectiveAppliedRadiusKm ? String(effectiveAppliedRadiusKm) : "", appliedOriginLat, appliedOriginLng);
   const initialSnapshotForRequest = initialSnapshot?.requestKey === appliedRequestKey ? initialSnapshot : null;
   const [snapshot, setSnapshot] = useState<MarketplaceSnapshot | null>(initialSnapshotForRequest);
 
@@ -370,7 +380,7 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
       minPrice: appliedMinPrice ? Number(appliedMinPrice.replace(",", ".")) : undefined,
       maxPrice: appliedMaxPrice ? Number(appliedMaxPrice.replace(",", ".")) : undefined,
       condition: appliedCondition || undefined,
-      radiusKm: appliedRadiusKm || undefined,
+      radiusKm: effectiveAppliedRadiusKm || undefined,
       originLat: appliedOriginLat ? Number(appliedOriginLat) : undefined,
       originLng: appliedOriginLng ? Number(appliedOriginLng) : undefined,
       page: appliedPage,
@@ -382,7 +392,7 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
     let active = true;
     void getMarketplacePage(filters).then((result) => { if (active) setSnapshot({ ...result, categories: initialSnapshot?.categories || [], requestKey }); }).catch(() => { if (active) setSnapshot({ items: [], totalCount: 0, categories: [], requestKey }); });
     return () => { active = false; };
-  }, [appliedCategory, appliedCity, appliedCondition, appliedCountryCode, appliedListingType, appliedMaxPrice, appliedMinPrice, appliedPage, appliedRadiusKm, appliedOriginLat, appliedOriginLng, appliedRequestKey, appliedSearch, appliedStateCode, initialSnapshot]);
+  }, [appliedCategory, appliedCity, appliedCondition, appliedCountryCode, appliedListingType, appliedMaxPrice, appliedMinPrice, appliedPage, effectiveAppliedRadiusKm, appliedOriginLat, appliedOriginLng, appliedRequestKey, appliedSearch, appliedStateCode, initialSnapshot]);
 
   useEffect(() => {
     const sync = window.setTimeout(() => {
@@ -390,13 +400,14 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
       setCityDraft(appliedCity);
       setDraftCountryCode(appliedCountryCode);
       setDraftStateCode(appliedStateCode);
-      setDraftRadiusKm(appliedRadiusKm ? String(appliedRadiusKm) : "");
+      setDraftRadiusKm(effectiveAppliedRadiusKm ? String(effectiveAppliedRadiusKm) : "");
+      setDraftNoRadius(appliedNoRadius);
       setDraftOriginLat(appliedOriginLat);
       setDraftOriginLng(appliedOriginLng);
       setRadiusError("");
     }, 0);
     return () => window.clearTimeout(sync);
-  }, [appliedCity, appliedCountryCode, appliedOriginLat, appliedOriginLng, appliedRadiusKm, appliedSearch, appliedStateCode]);
+  }, [appliedCity, appliedCountryCode, appliedNoRadius, appliedOriginLat, appliedOriginLng, effectiveAppliedRadiusKm, appliedSearch, appliedStateCode]);
 
   const requestKey = appliedRequestKey;
   const visibleSnapshot = initialSnapshot?.requestKey === requestKey ? initialSnapshot : snapshot;
@@ -419,6 +430,9 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
     const nextLng = Number(next.originLng);
     if (normalizedRadius) params.set("raio", String(normalizedRadius));
     else params.delete("raio");
+    if (normalizedRadius) params.delete("sem_raio");
+    else if (next.noRadius) params.set("sem_raio", "1");
+    else params.delete("sem_raio");
     if (Number.isFinite(nextLat) && Number.isFinite(nextLng)) {
       params.set("origem_lat", String(nextLat));
       params.set("origem_lng", String(nextLng));
@@ -458,7 +472,7 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
     setRadiusError("");
     const origin = await resolveDraftOrigin(draftRadiusKm);
     if (draftRadiusKm && !origin) return;
-    updateFilters({ search: searchDraft, category, listingType: appliedListingType, city: cityDraft, countryCode: draftCountryCode, stateCode: draftStateCode, radiusKm: draftRadiusKm, originLat: origin?.lat || "", originLng: origin?.lng || "", minPrice: appliedMinPrice, maxPrice: appliedMaxPrice, condition: appliedCondition });
+    updateFilters({ search: searchDraft, category, listingType: appliedListingType, city: cityDraft, countryCode: draftCountryCode, stateCode: draftStateCode, radiusKm: draftRadiusKm, noRadius: draftNoRadius, originLat: origin?.lat || "", originLng: origin?.lng || "", minPrice: appliedMinPrice, maxPrice: appliedMaxPrice, condition: appliedCondition });
   };
 
   const handlePageChange = (nextPage: number) => {
@@ -490,6 +504,8 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
         setDraftOriginLat("");
         setDraftOriginLng("");
         setRadiusError("");
+        if (value.trim() && !draftNoRadius && !draftRadiusKm) setDraftRadiusKm(String(DEFAULT_MARKETPLACE_DISTANCE_KM));
+        if (!value.trim()) setDraftRadiusKm("");
       }}
       onCitySelected={(place) => {
         const selectedCity = place.city?.trim() || place.formattedAddress.split(",")[0]?.trim() || place.formattedAddress;
@@ -499,10 +515,20 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
         setDraftOriginLat(String(place.lat));
         setDraftOriginLng(String(place.lng));
         setRadiusError("");
+        if (!draftNoRadius && !draftRadiusKm) setDraftRadiusKm(String(DEFAULT_MARKETPLACE_DISTANCE_KM));
       }}
-      onRadiusChange={(value) => {
-        setDraftRadiusKm(normalizeMarketplaceDistance(value) ? value : "");
+      onRadiusChange={async (value) => {
+        const normalizedRadius = normalizeMarketplaceDistance(value);
+        setDraftRadiusKm(normalizedRadius ? String(normalizedRadius) : "");
+        setDraftNoRadius(!normalizedRadius);
         setRadiusError("");
+        if (!normalizedRadius) {
+          updateFilters({ search: searchDraft, category: appliedCategory, listingType: appliedListingType, city: cityDraft, countryCode: draftCountryCode, stateCode: draftStateCode, radiusKm: "", noRadius: true, originLat: "", originLng: "", minPrice: appliedMinPrice, maxPrice: appliedMaxPrice, condition: appliedCondition });
+          return;
+        }
+        const origin = await resolveDraftOrigin(String(normalizedRadius));
+        if (!origin) return;
+        updateFilters({ search: searchDraft, category: appliedCategory, listingType: appliedListingType, city: cityDraft, countryCode: draftCountryCode, stateCode: draftStateCode, radiusKm: String(normalizedRadius), noRadius: false, originLat: origin.lat, originLng: origin.lng, minPrice: appliedMinPrice, maxPrice: appliedMaxPrice, condition: appliedCondition });
       }}
       onSubmit={() => commitCurrentFilters()}
       onCategorySelect={(nextCategory) => {

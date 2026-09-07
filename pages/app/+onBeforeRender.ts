@@ -30,7 +30,7 @@ import { buildDirectoryPagePath, buildDirectoryPageSnapshot, parseDirectoryRoute
 import { DEFAULT_CATEGORY_SYNONYMS, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import { getMarketplaceCategories, getMarketplaceListingByPath, getMarketplacePage } from "@/services/marketplace";
 import { buildMarketplaceRequestKey, buildMarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
-import { normalizeMarketplaceDistance } from "@/lib/marketplaceCategories";
+import { DEFAULT_MARKETPLACE_DISTANCE_KM, normalizeMarketplaceDistance } from "@/lib/marketplaceCategories";
 
 type AvailableLocation = {
   countryCode: string;
@@ -324,6 +324,7 @@ export async function onBeforeRender(pageContext: PageContext) {
       const marketplaceParams = marketplaceUrl.searchParams;
       const marketplacePage = Math.max(1, Number(marketplaceParams.get("pagina") || 1) || 1);
       const radiusKm = normalizeMarketplaceDistance(marketplaceParams.get("raio"));
+      const noRadius = marketplaceParams.get("sem_raio") === "1";
       const search = marketplaceParams.get("q") || "";
       const category = marketplaceParams.get("categoria") || "";
       const listingType = marketplaceParams.get("tipo") || "";
@@ -335,7 +336,14 @@ export async function onBeforeRender(pageContext: PageContext) {
       const stateCode = marketplaceParams.get("estado") || "";
       const originLat = marketplaceParams.get("origem_lat") || "";
       const originLng = marketplaceParams.get("origem_lng") || "";
-      const requestKey = buildMarketplaceRequestKey(search, category, listingType, marketplacePage, city, minPrice, maxPrice, condition, countryCode, stateCode, radiusKm ? String(radiusKm) : "", originLat, originLng);
+      const hasOrigin = originLat !== "" && originLng !== ""
+        && Number.isFinite(Number(originLat)) && Number.isFinite(Number(originLng));
+      const effectiveRadiusKm = noRadius
+        ? null
+        : !radiusKm && city && hasOrigin
+          ? DEFAULT_MARKETPLACE_DISTANCE_KM
+          : radiusKm;
+      const requestKey = buildMarketplaceRequestKey(search, category, listingType, marketplacePage, city, minPrice, maxPrice, condition, countryCode, stateCode, noRadius ? "none" : effectiveRadiusKm ? String(effectiveRadiusKm) : "", originLat, originLng);
       const [page, categories] = await Promise.all([
         getMarketplacePage({
           search,
@@ -347,7 +355,7 @@ export async function onBeforeRender(pageContext: PageContext) {
           minPrice: minPrice ? Number(minPrice.replace(",", ".")) : undefined,
           maxPrice: maxPrice ? Number(maxPrice.replace(",", ".")) : undefined,
           condition: condition as import("@/types/database").MarketplaceCondition || undefined,
-          radiusKm: radiusKm || undefined,
+          radiusKm: effectiveRadiusKm || undefined,
           originLat: originLat ? Number(originLat) : undefined,
           originLng: originLng ? Number(originLng) : undefined,
           page: marketplacePage,
