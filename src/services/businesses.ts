@@ -1689,8 +1689,20 @@ export async function updateBusiness(
 }
 
 export async function deleteBusiness(id: string): Promise<boolean> {
-  const { error } = await supabase.from("businesses").delete().eq("id", id);
-  return !error;
+  const { data, error } = await supabase
+    .from("businesses")
+    .delete()
+    .eq("id", id)
+    .select("id");
+
+  if (error) {
+    console.error("[deleteBusiness] Erro ao remover negócio:", error);
+    return false;
+  }
+
+  // DELETE pode não retornar erro quando a RLS não encontra uma linha elegível.
+  // Só confirmamos a remoção quando o próprio registro foi devolvido pelo banco.
+  return Array.isArray(data) && data.some((row) => row.id === id);
 }
 
 export async function getPendingBusinessesForAdmin(): Promise<BusinessFrontend[]> {
