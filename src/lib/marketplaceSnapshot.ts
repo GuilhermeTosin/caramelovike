@@ -7,8 +7,8 @@ export type MarketplaceSnapshot = MarketplacePage & {
   requestKey: string;
 };
 
-export function buildMarketplaceRequestKey(search = "", category = "", listingType = "", page = 1, city = "", minPrice = "", maxPrice = "", condition = "") {
-  return new URLSearchParams({ search, category, listingType, page: String(page), city, minPrice, maxPrice, condition }).toString();
+export function buildMarketplaceRequestKey(search = "", category = "", listingType = "", page = 1, city = "", minPrice = "", maxPrice = "", condition = "", countryCode = "", stateCode = "") {
+  return new URLSearchParams({ search, category, listingType, page: String(page), city, minPrice, maxPrice, condition, countryCode, stateCode }).toString();
 }
 
 export function buildMarketplaceSnapshot(page: MarketplacePage, categories: MarketplaceCategory[], search = ""): MarketplaceSnapshot {

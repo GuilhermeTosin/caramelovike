@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Baby, BookOpen, CalendarDays, CarFront, ChevronLeft, ChevronRight, CircleDollarSign, Dumbbell, FileText, GripVertical, Guitar, Heart, Images, MapPin, MapPinned, MessageCircle, Package, PackagePlus, Search, Share2, ShieldAlert, Shirt, ShoppingBag, ShoppingBasket, Smartphone, Sofa, Sparkles, Tag, Upload, User, Wrench, X, Youtube, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Baby, BookOpen, Briefcase, CalendarDays, CarFront, ChevronLeft, ChevronRight, CircleDollarSign, Dumbbell, FileText, GripVertical, Guitar, Heart, Images, MapPin, MapPinned, MessageCircle, Package, PackagePlus, Search, Share2, ShieldAlert, Shirt, ShoppingBag, ShoppingBasket, Smartphone, Sofa, Sparkles, Tag, Upload, User, Wrench, X, Youtube, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ const MARKETPLACE_CATEGORY_ICONS: Record<string, LucideIcon> = {
   livros: BookOpen,
   "produtos-brasileiros": ShoppingBasket,
   "beleza-e-cuidados-pessoais": Sparkles,
+  "vagas-de-emprego": Briefcase,
   outros: Package,
 };
 
@@ -138,6 +139,8 @@ type MarketplaceFilterValues = {
   category?: string;
   listingType?: string;
   city?: string;
+  countryCode?: string;
+  stateCode?: string;
   minPrice?: string;
   maxPrice?: string;
   condition?: string;
@@ -154,6 +157,7 @@ function MarketplacePageView({
   totalPages,
   onSearchChange,
   onCityChange,
+  onCitySelected,
   onSubmit,
   onCategorySelect,
   onPageChange,
@@ -168,6 +172,7 @@ function MarketplacePageView({
   totalPages: number;
   onSearchChange: (value: string) => void;
   onCityChange: (value: string) => void;
+  onCitySelected: (place: AddressResult) => void;
   onSubmit: () => void;
   onCategorySelect: (slug: string) => void;
   onPageChange: (nextPage: number) => void;
@@ -183,6 +188,7 @@ function MarketplacePageView({
           city={city}
           onSearchChange={onSearchChange}
           onCityChange={onCityChange}
+          onCitySelected={onCitySelected}
           onSubmit={(event) => {
             event.preventDefault();
             onSubmit();
@@ -299,6 +305,8 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
   const initialSearch = searchParams.get("q") || "";
   const initialCategory = searchParams.get("categoria") || "";
   const initialCity = searchParams.get("cidade") || "";
+  const initialCountryCode = searchParams.get("pais") || "";
+  const initialStateCode = searchParams.get("estado") || "";
   const initialMinPrice = searchParams.get("precoMin") || "";
   const initialMaxPrice = searchParams.get("precoMax") || "";
   const initialCondition = (searchParams.get("condicao") as MarketplaceCondition) || "";
@@ -307,25 +315,27 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
   const [category, setCategory] = useState(initialCategory);
   const [listingType, setListingType] = useState<MarketplaceListingType | "">((searchParams.get("tipo") as MarketplaceListingType) || "");
   const [city, setCity] = useState(initialCity);
+  const [countryCode, setCountryCode] = useState(initialCountryCode);
+  const [stateCode, setStateCode] = useState(initialStateCode);
   const [minPrice, setMinPrice] = useState(initialMinPrice);
   const [maxPrice, setMaxPrice] = useState(initialMaxPrice);
   const [condition, setCondition] = useState<MarketplaceCondition | "">(initialCondition);
   const [page, setPage] = useState(initialPage);
-  const [snapshot, setSnapshot] = useState<MarketplaceSnapshot | null>(() => initialSnapshot?.requestKey === buildMarketplaceRequestKey(initialSearch, initialCategory, listingType, initialPage, initialCity, initialMinPrice, initialMaxPrice, initialCondition) ? initialSnapshot : null);
+  const [snapshot, setSnapshot] = useState<MarketplaceSnapshot | null>(() => initialSnapshot?.requestKey === buildMarketplaceRequestKey(initialSearch, initialCategory, listingType, initialPage, initialCity, initialMinPrice, initialMaxPrice, initialCondition, initialCountryCode, initialStateCode) ? initialSnapshot : null);
   const [loading, setLoading] = useState(!snapshot || snapshot.items.length === 0);
 
   useEffect(() => { setSeoMeta("Marketplace | Caramelinho", "Compre, venda e encontre produtos perto de você no Marketplace do Caramelinho."); }, []);
   useEffect(() => {
-    const filters: MarketplaceFilters = { search, category, listingType: listingType || undefined, city, minPrice: minPrice ? Number(minPrice.replace(",", ".")) : undefined, maxPrice: maxPrice ? Number(maxPrice.replace(",", ".")) : undefined, condition: condition || undefined, page, pageSize: 12 };
-    const requestKey = buildMarketplaceRequestKey(search, category, listingType, page, city, minPrice, maxPrice, condition);
+    const filters: MarketplaceFilters = { search, category, listingType: listingType || undefined, city, countryCode: countryCode || undefined, stateCode: stateCode || undefined, minPrice: minPrice ? Number(minPrice.replace(",", ".")) : undefined, maxPrice: maxPrice ? Number(maxPrice.replace(",", ".")) : undefined, condition: condition || undefined, page, pageSize: 12 };
+    const requestKey = buildMarketplaceRequestKey(search, category, listingType, page, city, minPrice, maxPrice, condition, countryCode, stateCode);
     const hasInitial = initialSnapshot?.requestKey === requestKey && initialSnapshot.items.length > 0;
     if (hasInitial) return;
     let active = true;
     void getMarketplacePage(filters).then((result) => { if (active) setSnapshot({ ...result, categories: initialSnapshot?.categories || [], requestKey }); }).catch(() => { if (active) setSnapshot({ items: [], totalCount: 0, categories: [], requestKey }); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [category, city, condition, initialSnapshot, listingType, maxPrice, minPrice, page, search]);
+  }, [category, city, condition, countryCode, initialSnapshot, listingType, maxPrice, minPrice, page, search, stateCode]);
 
-  const requestKey = buildMarketplaceRequestKey(search, category, listingType, page, city, minPrice, maxPrice, condition);
+  const requestKey = buildMarketplaceRequestKey(search, category, listingType, page, city, minPrice, maxPrice, condition, countryCode, stateCode);
   const isLoading = loading || snapshot?.requestKey !== requestKey;
   const totalPages = Math.max(1, Math.ceil((snapshot?.totalCount || 0) / 12));
   const categories = snapshot?.categories?.length ? snapshot.categories : MARKETPLACE_CATEGORIES.map((category, index) => ({ ...category, id: category.slug, sort_order: index, is_active: true }));
@@ -335,6 +345,8 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
     if (next.category) params.set("categoria", next.category);
     if (next.listingType) params.set("tipo", next.listingType);
     if (next.city?.trim()) params.set("cidade", next.city.trim());
+    if (next.countryCode?.trim()) params.set("pais", next.countryCode.trim().toLowerCase());
+    if (next.stateCode?.trim()) params.set("estado", next.stateCode.trim().toLowerCase());
     if (next.minPrice?.trim()) params.set("precoMin", next.minPrice.trim());
     if (next.maxPrice?.trim()) params.set("precoMax", next.maxPrice.trim());
     if (next.condition) params.set("condicao", next.condition);
@@ -362,15 +374,21 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
       page={page}
       totalPages={totalPages}
       onSearchChange={setSearch}
-      onCityChange={setCity}
-      onCitySelected={(place) => {
-        const fallbackCity = place.formattedAddress.split(",")[0]?.trim() || place.formattedAddress;
-        setCity(fallbackCity || place.city?.trim() || "");
+      onCityChange={(value) => {
+        setCity(value);
+        setCountryCode("");
+        setStateCode("");
       }}
-      onSubmit={() => updateFilters({ search, category, listingType, city, minPrice, maxPrice, condition })}
+      onCitySelected={(place) => {
+        const selectedCity = place.city?.trim() || place.formattedAddress.split(",")[0]?.trim() || place.formattedAddress;
+        setCity(selectedCity);
+        setCountryCode(place.countryCode.trim().toLowerCase());
+        setStateCode(place.stateCode.trim().toLowerCase());
+      }}
+      onSubmit={() => updateFilters({ search, category, listingType, city, countryCode, stateCode, minPrice, maxPrice, condition })}
       onCategorySelect={(nextCategory) => {
         setCategory(nextCategory);
-        updateFilters({ search, category: nextCategory, listingType, city, minPrice, maxPrice, condition });
+        updateFilters({ search, category: nextCategory, listingType, city, countryCode, stateCode, minPrice, maxPrice, condition });
       }}
       onPageChange={handlePageChange}
     />
