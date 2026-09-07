@@ -16,6 +16,17 @@ export const MARKETPLACE_CATEGORIES = [
 
 export type MarketplaceCategorySlug = (typeof MARKETPLACE_CATEGORIES)[number]["slug"];
 
+export const MARKETPLACE_DISTANCE_OPTIONS = [1, 2, 5, 10, 20, 40, 60, 80, 100, 250, 500] as const;
+
+export type MarketplaceDistanceKm = (typeof MARKETPLACE_DISTANCE_OPTIONS)[number];
+
+export function normalizeMarketplaceDistance(value: string | number | null | undefined): MarketplaceDistanceKm | null {
+  const distance = Number(value);
+  return MARKETPLACE_DISTANCE_OPTIONS.includes(distance as MarketplaceDistanceKm)
+    ? distance as MarketplaceDistanceKm
+    : null;
+}
+
 export const MAX_MARKETPLACE_KEYWORDS = 10;
 
 export function normalizeMarketplaceKeywords(values: string[]) {

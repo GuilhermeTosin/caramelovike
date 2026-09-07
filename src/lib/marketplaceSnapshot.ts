@@ -7,12 +7,12 @@ export type MarketplaceSnapshot = MarketplacePage & {
   requestKey: string;
 };
 
-export function buildMarketplaceRequestKey(search = "", category = "", listingType = "", page = 1, city = "", minPrice = "", maxPrice = "", condition = "", countryCode = "", stateCode = "") {
-  return new URLSearchParams({ search, category, listingType, page: String(page), city, minPrice, maxPrice, condition, countryCode, stateCode }).toString();
+export function buildMarketplaceRequestKey(search = "", category = "", listingType = "", page = 1, city = "", minPrice = "", maxPrice = "", condition = "", countryCode = "", stateCode = "", radiusKm = "", originLat = "", originLng = "") {
+  return new URLSearchParams({ search, category, listingType, page: String(page), city, minPrice, maxPrice, condition, countryCode, stateCode, radiusKm, originLat, originLng }).toString();
 }
 
-export function buildMarketplaceSnapshot(page: MarketplacePage, categories: MarketplaceCategory[], search = ""): MarketplaceSnapshot {
-  return { ...page, categories, requestKey: buildMarketplaceRequestKey(search) };
+export function buildMarketplaceSnapshot(page: MarketplacePage, categories: MarketplaceCategory[], search = "", requestKey?: string): MarketplaceSnapshot {
+  return { ...page, categories, requestKey: requestKey || buildMarketplaceRequestKey(search) };
 }
 
 export function marketplaceListingPath(listing: Pick<MarketplaceListing, "country_code" | "state_code" | "city" | "slug">) {

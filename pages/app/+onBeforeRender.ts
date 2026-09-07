@@ -29,7 +29,8 @@ import { buildPublicSearchPageRequest, isPublicBusinessSearch, type PublicSearch
 import { buildDirectoryPagePath, buildDirectoryPageSnapshot, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import { DEFAULT_CATEGORY_SYNONYMS, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import { getMarketplaceCategories, getMarketplaceListingByPath, getMarketplacePage } from "@/services/marketplace";
-import { buildMarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
+import { buildMarketplaceRequestKey, buildMarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
+import { normalizeMarketplaceDistance } from "@/lib/marketplaceCategories";
 
 type AvailableLocation = {
   countryCode: string;
@@ -319,8 +320,42 @@ export async function onBeforeRender(pageContext: PageContext) {
   if (marketplaceRoute?.kind === "index") {
     if (pageContext.isClientSideNavigation) return { pageContext: { isBusinessPage: false } };
     try {
-      const [page, categories] = await Promise.all([getMarketplacePage({ page: 1, pageSize: 12 }), getMarketplaceCategories()]);
-      return { pageContext: { initialMarketplaceSnapshot: buildMarketplaceSnapshot(page, categories), isBusinessPage: false } };
+      const marketplaceUrl = new URL(pageContext.urlOriginal || "/marketplace", "http://localhost");
+      const marketplaceParams = marketplaceUrl.searchParams;
+      const marketplacePage = Math.max(1, Number(marketplaceParams.get("pagina") || 1) || 1);
+      const radiusKm = normalizeMarketplaceDistance(marketplaceParams.get("raio"));
+      const search = marketplaceParams.get("q") || "";
+      const category = marketplaceParams.get("categoria") || "";
+      const listingType = marketplaceParams.get("tipo") || "";
+      const city = marketplaceParams.get("cidade") || "";
+      const minPrice = marketplaceParams.get("precoMin") || "";
+      const maxPrice = marketplaceParams.get("precoMax") || "";
+      const condition = marketplaceParams.get("condicao") || "";
+      const countryCode = marketplaceParams.get("pais") || "";
+      const stateCode = marketplaceParams.get("estado") || "";
+      const originLat = marketplaceParams.get("origem_lat") || "";
+      const originLng = marketplaceParams.get("origem_lng") || "";
+      const requestKey = buildMarketplaceRequestKey(search, category, listingType, marketplacePage, city, minPrice, maxPrice, condition, countryCode, stateCode, radiusKm ? String(radiusKm) : "", originLat, originLng);
+      const [page, categories] = await Promise.all([
+        getMarketplacePage({
+          search,
+          category,
+          listingType: listingType as import("@/types/database").MarketplaceListingType || undefined,
+          city,
+          countryCode: countryCode || undefined,
+          stateCode: stateCode || undefined,
+          minPrice: minPrice ? Number(minPrice.replace(",", ".")) : undefined,
+          maxPrice: maxPrice ? Number(maxPrice.replace(",", ".")) : undefined,
+          condition: condition as import("@/types/database").MarketplaceCondition || undefined,
+          radiusKm: radiusKm || undefined,
+          originLat: originLat ? Number(originLat) : undefined,
+          originLng: originLng ? Number(originLng) : undefined,
+          page: marketplacePage,
+          pageSize: 12,
+        }),
+        getMarketplaceCategories(),
+      ]);
+      return { pageContext: { initialMarketplaceSnapshot: buildMarketplaceSnapshot(page, categories, search, requestKey), isBusinessPage: false } };
     } catch (error) {
       console.error("[onBeforeRender] marketplace index failed:", error);
       return { pageContext: { initialMarketplaceSnapshot: buildMarketplaceSnapshot({ items: [], totalCount: 0 }, []), isBusinessPage: false } };

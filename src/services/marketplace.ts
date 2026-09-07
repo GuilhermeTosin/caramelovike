@@ -9,7 +9,7 @@ import type {
   MarketplaceListingType,
   MarketplaceReport,
 } from "@/types/database";
-import { normalizeMarketplaceKeywords, slugifyMarketplace } from "@/lib/marketplaceCategories";
+import { normalizeMarketplaceDistance, normalizeMarketplaceKeywords, slugifyMarketplace } from "@/lib/marketplaceCategories";
 
 export type MarketplaceFilters = {
   search?: string;
@@ -21,6 +21,9 @@ export type MarketplaceFilters = {
   minPrice?: number;
   maxPrice?: number;
   condition?: MarketplaceCondition;
+  radiusKm?: number;
+  originLat?: number;
+  originLng?: number;
   page?: number;
   pageSize?: number;
 };
@@ -48,7 +51,7 @@ export type MarketplaceListingInput = {
 export type MarketplacePage = { items: MarketplaceListing[]; totalCount: number };
 
 const MARKETPLACE_CATEGORY_SELECT = "id,slug,name,sort_order,is_active";
-const MARKETPLACE_LIST_SELECT = "id,owner_id,listing_type,category_id,title,price,currency,condition,country_code,state_code,city,neighborhood,slug,status,view_count,created_at,updated_at,category:marketplace_categories(id,slug,name,sort_order,is_active)";
+const MARKETPLACE_LIST_SELECT = "id,owner_id,listing_type,category_id,title,price,currency,condition,country_code,state_code,city,neighborhood,lat,lng,slug,status,view_count,created_at,updated_at,category:marketplace_categories(id,slug,name,sort_order,is_active)";
 const MARKETPLACE_DETAIL_SELECT = "*,category:marketplace_categories(*)";
 function normalizeMarketplaceCity(value: string) {
   return (value.split(",")[0] || value)
@@ -126,6 +129,45 @@ export async function getMarketplacePage(filters: MarketplaceFilters = {}): Prom
     if (error) throw error;
     if (!data?.id) return { items: [], totalCount: 0 };
     categoryId = data.id;
+  }
+
+  const radiusKm = normalizeMarketplaceDistance(filters.radiusKm);
+  const originLat = Number(filters.originLat);
+  const originLng = Number(filters.originLng);
+  const hasRadiusOrigin = !!radiusKm && Number.isFinite(originLat) && Number.isFinite(originLng);
+
+  // A radius without an origin is not a valid location query. Do not silently
+  // fall back to the global Marketplace list in that case.
+  if (radiusKm && !hasRadiusOrigin) return { items: [], totalCount: 0 };
+
+  if (hasRadiusOrigin) {
+    const { data: radiusRows, error: radiusError } = await supabase.rpc("search_marketplace_listings_radius", {
+      p_origin_lat: originLat,
+      p_origin_lng: originLng,
+      p_radius_km: radiusKm,
+      p_search: filters.search?.trim() || null,
+      p_category_id: categoryId || null,
+      p_listing_type: filters.listingType || null,
+      p_min_price: typeof filters.minPrice === "number" ? filters.minPrice : null,
+      p_max_price: typeof filters.maxPrice === "number" ? filters.maxPrice : null,
+      p_condition: filters.condition || null,
+      p_page: page,
+      p_page_size: pageSize,
+    });
+    if (radiusError) throw radiusError;
+
+    const ids = ((radiusRows || []) as Array<{ listing_id: string }>).map((row) => row.listing_id);
+    if (ids.length === 0) return { items: [], totalCount: 0 };
+
+    const { data, error } = await supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).in("id", ids);
+    if (error) throw error;
+    const rowsById = new Map((data || []).map((row) => [row.id, row]));
+    const orderedRows = ids.map((id) => rowsById.get(id)).filter(Boolean) as MarketplaceListing[];
+    const totalCount = Number((radiusRows as Array<{ total_count?: number }>)[0]?.total_count || 0);
+    return {
+      items: await enrichListings(orderedRows, { includeOwnerProfile: false, includeOwnerStats: false }),
+      totalCount,
+    };
   }
 
   const buildQuery = () => {

@@ -174,8 +174,34 @@ export default function SiteHeader({
     else params.delete("q");
 
     if (searchMode === "products") {
-      if (trimmedLocation) params.set("cidade", meta?.city || trimmedLocation);
-      else params.delete("cidade");
+      if (trimmedLocation) {
+        params.set("cidade", meta?.city || trimmedLocation);
+        if (meta?.countryCode) params.set("pais", meta.countryCode.toLowerCase());
+        else params.delete("pais");
+        if (meta?.stateCode) params.set("estado", meta.stateCode.toLowerCase());
+        else params.delete("estado");
+
+        const metaHasCoordinates = typeof meta?.lat === "number" && Number.isFinite(meta.lat)
+          && typeof meta?.lng === "number" && Number.isFinite(meta.lng);
+        const coords = metaHasCoordinates
+          ? { lat: Number(meta?.lat), lng: Number(meta?.lng) }
+          : await geocodeAddress(trimmedLocation);
+        if (coords) {
+          params.set("origem_lat", String(coords.lat));
+          params.set("origem_lng", String(coords.lng));
+        } else {
+          params.delete("origem_lat");
+          params.delete("origem_lng");
+          params.delete("raio");
+        }
+      } else {
+        params.delete("cidade");
+        params.delete("pais");
+        params.delete("estado");
+        params.delete("origem_lat");
+        params.delete("origem_lng");
+        params.delete("raio");
+      }
       navigateWithParams(targetPath, params);
       return;
     }
@@ -282,6 +308,10 @@ export default function SiteHeader({
         params.delete("q_label");
         if (query.trim()) params.set("q", query.trim());
         if (geo.city) params.set("cidade", geo.city);
+        if (geo.countryCode) params.set("pais", geo.countryCode.toLowerCase());
+        if (geo.stateCode) params.set("estado", geo.stateCode.toLowerCase());
+        params.set("origem_lat", String(geo.lat));
+        params.set("origem_lng", String(geo.lng));
         navigateWithParams("/marketplace", params);
         return;
       }
