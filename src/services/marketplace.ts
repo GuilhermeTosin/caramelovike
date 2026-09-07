@@ -98,10 +98,14 @@ async function getActiveMarketplaceCities(forceRefresh = false) {
 }
 
 async function findMatchingMarketplaceCities(city: string, forceRefresh = false) {
-  const normalizedCity = normalizeMarketplaceCity(city);
-  if (!normalizedCity) return [];
+  const normalizedCities = new Set(
+    [city, city.split(",")[0] || ""]
+      .map(normalizeMarketplaceCity)
+      .filter(Boolean),
+  );
+  if (normalizedCities.size === 0) return [];
   const values = await getActiveMarketplaceCities(forceRefresh);
-  return values.filter((value) => normalizeMarketplaceCity(value) === normalizedCity);
+  return values.filter((value) => normalizedCities.has(normalizeMarketplaceCity(value)));
 }
 
 export async function getMarketplaceCategories(): Promise<MarketplaceCategory[]> {

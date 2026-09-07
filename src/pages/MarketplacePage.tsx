@@ -365,7 +365,7 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
       onCityChange={setCity}
       onCitySelected={(place) => {
         const fallbackCity = place.formattedAddress.split(",")[0]?.trim() || place.formattedAddress;
-        setCity(place.city?.trim() || fallbackCity);
+        setCity(fallbackCity || place.city?.trim() || "");
       }}
       onSubmit={() => updateFilters({ search, category, listingType, city, minPrice, maxPrice, condition })}
       onCategorySelect={(nextCategory) => {
