@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { DEFAULT_MARKETPLACE_DISTANCE_KM } from "@/lib/marketplaceCategories";
+import { DEFAULT_SEARCH_RADIUS_KM } from "@/lib/utils/geo";
 
 export type SearchLocation = {
   city: string;
@@ -21,6 +22,28 @@ export function buildMarketplaceSearchPath(location: SearchLocation | null) {
     params.set("raio", String(DEFAULT_MARKETPLACE_DISTANCE_KM));
   }
   return `/marketplace?${params.toString()}`;
+}
+
+export function buildBusinessCategorySearchPath(categoryId: string, location: SearchLocation | null) {
+  const params = new URLSearchParams({ categoria: categoryId });
+  const selectedLocation = location;
+  const city = selectedLocation?.city.trim();
+  if (!selectedLocation || !city) return `/buscar?${params.toString()}`;
+
+  params.set("cidade", city);
+  params.set("local", city);
+  if (selectedLocation.countryCode) params.set("origem_pais", selectedLocation.countryCode.toLowerCase());
+
+  if (selectedLocation.stateCode) params.set("estado", selectedLocation.stateCode.toLowerCase());
+  if (Number.isFinite(selectedLocation.lat) && Number.isFinite(selectedLocation.lng)) {
+    params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
+    params.set("origem_lat", String(selectedLocation.lat));
+    params.set("origem_lng", String(selectedLocation.lng));
+    params.set("origem_local", city);
+    params.set("origem_source", "city");
+  }
+
+  return `/buscar?${params.toString()}`;
 }
 
 type SearchLocationContextValue = {

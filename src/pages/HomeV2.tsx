@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Building2, CalendarDays, Car, ChevronRight, GraduationCap, Hammer, HeartHandshake, HeartPulse, Landmark, Lock, MapPin, MapPinned, Megaphone, MoreHorizontal, Music, PawPrint, Plane, Scale, ShoppingBag, SprayCan, Star, Store, Tag, Truck, User, Users, UsersRound, Utensils } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import MarketplaceListingCard from "@/components/MarketplaceListingCard";
 import SiteFooter from "@/components/SiteFooter";
-import { buildMarketplaceSearchPath, useSearchLocation } from "@/contexts/SearchLocationContext";
+import { buildBusinessCategorySearchPath, buildMarketplaceSearchPath, useSearchLocation, type SearchLocation } from "@/contexts/SearchLocationContext";
 import { getHomeContent } from "@/data/homeContent";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
@@ -112,7 +112,8 @@ export default function HomeV2({
   initialHomeSnapshot,
   initialMarketplaceSnapshot,
 }: HomeV2Props = {}) {
-  const { searchLocation } = useSearchLocation();
+  const navigate = useNavigate();
+  const { searchLocation, setSearchLocation } = useSearchLocation();
   const homeText = getHomeContent();
   const snapshot = initialHomeSnapshot || {
     businessCount: 0,
@@ -151,6 +152,13 @@ export default function HomeV2({
       });
       if (!geo || cancelled) return;
       setUserCoords({ lat: geo.lat, lng: geo.lng });
+      setSearchLocation({
+        city: geo.city || "",
+        countryCode: geo.countryCode?.toLowerCase(),
+        stateCode: geo.stateCode?.toLowerCase(),
+        lat: geo.lat,
+        lng: geo.lng,
+      });
 
       try {
         const regionalBusinesses = await getRecentBusinessesForRegion({
@@ -174,7 +182,29 @@ export default function HomeV2({
     return () => {
       cancelled = true;
     };
-  }, [initialRecentBusinesses]);
+  }, [initialRecentBusinesses, setSearchLocation]);
+
+  const handleCategoryClick = async (event: React.MouseEvent<HTMLAnchorElement>, categoryId: string) => {
+    if (searchLocation?.city.trim()) return;
+
+    event.preventDefault();
+    const geo = await getApproxGeoByIp({
+      timeoutMs: 3000,
+      maxAgeMs: 24 * 60 * 60 * 1000,
+      fallback: DEFAULT_GEO_FALLBACK,
+    });
+    const location: SearchLocation | null = geo?.city
+      ? {
+          city: geo.city,
+          countryCode: geo.countryCode?.toLowerCase(),
+          stateCode: geo.stateCode?.toLowerCase(),
+          lat: geo.lat,
+          lng: geo.lng,
+        }
+      : null;
+    if (location) setSearchLocation(location);
+    navigate(buildBusinessCategorySearchPath(categoryId, location));
+  };
 
   useEffect(() => {
     setSeoMeta("Caramelinho | Nova experiência", "Encontre negócios brasileiros, produtos e serviços no exterior em uma nova experiência do Caramelinho.");
@@ -324,22 +354,6 @@ export default function HomeV2({
           </div>
         </section>
 
-        <section className="border-b border-[#203940]/10 bg-white">
-          <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-            <div className="flex items-center gap-4">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#eaf3ed] text-[#167348]"><Users className="h-5 w-5" /></div>
-              <div>
-                <p className="text-sm font-bold text-[#203940]">Feito para a comunidade brasileira no exterior</p>
-                <p className="mt-1 text-sm text-[#203940]/60">Negócios locais, produtos e eventos no mesmo lugar.</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3 text-sm font-bold">
-              <Link to="/negocios" className="inline-flex items-center gap-1.5 text-[#167348] hover:text-[#105a38]">Explorar diretório <ArrowRight className="h-4 w-4" /></Link>
-              <Link to={marketplaceHref} className="inline-flex items-center gap-1.5 text-[#c85f1a] hover:text-[#a44d16]">Ver produtos <ArrowRight className="h-4 w-4" /></Link>
-            </div>
-          </div>
-        </section>
-
         {recentListings.length > 0 ? (
           <section className="bg-[#fbfaf6] py-16 sm:py-20">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -372,7 +386,12 @@ export default function HomeV2({
               {categories.map((category, index) => {
                 const CategoryIcon = category.icon;
                 return (
-                  <Link key={category.id} to={`/buscar?categoria=${encodeURIComponent(category.id)}`} className="group rounded-xl border border-[#203940]/10 bg-white p-4 transition-shadow hover:shadow-[0_12px_32px_rgba(32,57,64,0.08)] sm:p-5">
+                  <Link
+                    key={category.id}
+                    to={buildBusinessCategorySearchPath(category.id, searchLocation)}
+                    onClick={(event) => { void handleCategoryClick(event, category.id); }}
+                    className="group rounded-xl border border-[#203940]/10 bg-white p-4 transition-shadow hover:shadow-[0_12px_32px_rgba(32,57,64,0.08)] sm:p-5"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <span className={`grid h-11 w-11 place-items-center rounded-full border bg-white ${index % 3 === 0 ? "border-[#167348]/25 text-[#167348]" : index % 3 === 1 ? "border-[#b1770d]/30 text-[#a36d08]" : "border-[#235d91]/25 text-[#235d91]"}`}>
                         <CategoryIcon className="h-5 w-5 stroke-[1.7]" />
