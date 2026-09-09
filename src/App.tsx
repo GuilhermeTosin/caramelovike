@@ -29,7 +29,7 @@ import NotFound from "@/pages/NotFound";
 import BusinessPageRoute from "@/pages/BusinessPageRoute";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import SiteHeader from "@/components/SiteHeader";
-import MarketplacePage, { MarketplaceCreatePage, MarketplaceEditPage, MarketplaceListingPage } from "@/pages/MarketplacePage";
+import MarketplacePage, { MarketplaceBusinessSellerPage, MarketplaceCreatePage, MarketplaceEditPage, MarketplaceListingPage, MarketplaceSellerPage } from "@/pages/MarketplacePage";
 import { SearchLocationProvider } from "@/contexts/SearchLocationContext";
 
 const VercelAnalytics = lazy(async () => {
@@ -124,6 +124,8 @@ type AppProps = {
   initialEvent?: CommunityEvent | null;
   initialMarketplaceSnapshot?: MarketplaceSnapshot;
   initialMarketplaceListing?: import("@/types/database").MarketplaceListing | null;
+  initialMarketplaceSeller?: import("@/services/marketplace").MarketplaceSellerPage | null;
+  initialMarketplaceBusinessSeller?: import("@/services/marketplace").MarketplaceBusinessSellerPage | null;
   isBusinessPage?: boolean;
 };
 
@@ -153,6 +155,8 @@ export default function App({
   initialEvent = null,
   initialMarketplaceSnapshot,
   initialMarketplaceListing = null,
+  initialMarketplaceSeller = null,
+  initialMarketplaceBusinessSeller = null,
   isBusinessPage = false,
 }: AppProps = {}) {
   return (
@@ -218,6 +222,8 @@ export default function App({
           <Route path="/marketplace" element={<MarketplacePage initialSnapshot={initialMarketplaceSnapshot} />} />
           <Route path="/marketplace/novo" element={<MarketplaceCreatePage />} />
           <Route path="/marketplace/editar/:id" element={<MarketplaceEditPage />} />
+          <Route path="/marketplace/vendedor/:ownerId" element={<MarketplaceSellerPage initialSeller={initialMarketplaceSeller} />} />
+          <Route path="/marketplace/negocio/:businessId" element={<MarketplaceBusinessSellerPage initialBusinessSeller={initialMarketplaceBusinessSeller} />} />
           <Route path="/marketplace/:countryCode/:stateCode/:city/:slug" element={<MarketplaceListingPage initialListing={initialMarketplaceListing} />} />
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
           <Route path="/preview/negocio/:businessId" element={<BusinessPageRoute previewMode />} />

@@ -31,6 +31,7 @@ export type MarketplaceFilters = {
 export type MarketplaceListingInput = {
   listingType: MarketplaceListingType;
   categoryId: string;
+  sellerBusinessId?: string | null;
   title: string;
   description: string;
   price?: number | null;
@@ -51,7 +52,7 @@ export type MarketplaceListingInput = {
 export type MarketplacePage = { items: MarketplaceListing[]; totalCount: number };
 
 const MARKETPLACE_CATEGORY_SELECT = "id,slug,name,sort_order,is_active";
-const MARKETPLACE_LIST_SELECT = "id,owner_id,listing_type,category_id,title,price,currency,condition,country_code,state_code,city,neighborhood,lat,lng,slug,status,view_count,created_at,updated_at,category:marketplace_categories(id,slug,name,sort_order,is_active)";
+const MARKETPLACE_LIST_SELECT = "id,owner_id,seller_business_id,listing_type,category_id,title,price,currency,condition,country_code,state_code,city,neighborhood,lat,lng,slug,status,view_count,created_at,updated_at,category:marketplace_categories(id,slug,name,sort_order,is_active)";
 const MARKETPLACE_DETAIL_SELECT = "*,category:marketplace_categories(*)";
 const marketplaceFavoriteIdsCache = new Map<string, Promise<Set<string>>>();
 
@@ -76,12 +77,52 @@ type EnrichOptions = {
   includeFavorites?: boolean;
 };
 
-type MarketplaceOwnerProfile = {
+export type MarketplaceOwnerProfile = {
   id: string;
   name?: string | null;
   avatar?: string | null;
   created_at?: string | null;
 };
+
+export type MarketplaceSellerReview = {
+  id: string;
+  business_id: string;
+  user_id: string | null;
+  user_name: string;
+  user_avatar?: string | null;
+  rating: 1 | 2 | 3 | 4 | 5;
+  comment: string;
+  created_at: string;
+  businessName: string;
+  businessSlug: string;
+};
+
+export type MarketplaceSellerPage = {
+  profile: MarketplaceOwnerProfile;
+  listings: MarketplaceListing[];
+  reviews: MarketplaceSellerReview[];
+  reviewsUnavailable?: boolean;
+};
+
+export type MarketplaceSellerBusiness = {
+  id: string;
+  name: string;
+  logo_url?: string | null;
+  slug: string;
+  country_code: string | null;
+  state_code: string | null;
+  city: string | null;
+  city_slug: string | null;
+};
+
+export type MarketplaceBusinessSellerPage = {
+  business: MarketplaceSellerBusiness & { publicPath: string };
+  listings: MarketplaceListing[];
+  reviews: MarketplaceSellerReview[];
+  reviewsUnavailable?: boolean;
+};
+
+export type MarketplaceSellerBusinessOption = Pick<MarketplaceSellerBusiness, "id" | "name" | "logo_url">;
 
 async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions = {}): Promise<MarketplaceListing[]> {
   if (rows.length === 0) return [];
@@ -93,7 +134,8 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
   } = options;
   const ids = rows.map((row) => row.id);
   const ownerIds = [...new Set(rows.map((row) => row.owner_id))];
-  const [{ data: images }, { data: profiles }, { data: ownerListings }] = await Promise.all([
+  const businessIds = [...new Set(rows.map((row) => row.seller_business_id).filter((id): id is string => typeof id === "string" && id.length > 0))];
+  const [{ data: images }, { data: profiles }, { data: ownerListings }, { data: sellerBusinesses }] = await Promise.all([
     includeImages
       ? supabase.from("marketplace_listing_images").select("id,listing_id,image_url,sort_order").in("listing_id", ids).order("sort_order")
       : Promise.resolve({ data: [] as MarketplaceListingImage[] }),
@@ -101,8 +143,11 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
       ? supabase.from("profiles").select("id,name,avatar,created_at").in("id", ownerIds)
       : Promise.resolve({ data: [] as Array<{ id: string; name?: string | null; avatar?: string | null; created_at?: string | null }> }),
     includeOwnerStats
-      ? supabase.from("marketplace_listings").select("owner_id").in("owner_id", ownerIds).eq("status", "active")
-      : Promise.resolve({ data: [] as Array<{ owner_id: string }> }),
+      ? supabase.from("marketplace_listings").select("owner_id,seller_business_id").in("owner_id", ownerIds).eq("status", "active")
+      : Promise.resolve({ data: [] as Array<{ owner_id: string; seller_business_id?: string | null }> }),
+    businessIds.length > 0
+      ? supabase.from("businesses").select("id,name,logo_url,slug,country_code,state_code,city,city_slug").in("id", businessIds)
+      : Promise.resolve({ data: [] as MarketplaceSellerBusiness[] }),
   ]);
   const imagesById = new Map<string, MarketplaceListingImage[]>();
   (images || []).forEach((image) => imagesById.set(image.listing_id, [...(imagesById.get(image.listing_id) || []), image as MarketplaceListingImage]));
@@ -112,6 +157,13 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
   });
   const countByOwner = new Map<string, number>();
   (ownerListings || []).forEach((row) => countByOwner.set(row.owner_id, (countByOwner.get(row.owner_id) || 0) + 1));
+  const countBySeller = new Map<string, number>();
+  (ownerListings || []).forEach((row) => {
+    const key = `${row.owner_id}:${row.seller_business_id || "personal"}`;
+    countBySeller.set(key, (countBySeller.get(key) || 0) + 1);
+  });
+  const sellerBusinessById = new Map<string, MarketplaceSellerBusiness>();
+  ((sellerBusinesses || []) as MarketplaceSellerBusiness[]).forEach((business) => sellerBusinessById.set(business.id, business));
   const userId = includeFavorites ? await getCurrentUserId().catch(() => null) : null;
   const favoriteIds = userId
     ? (await supabase.from("marketplace_favorites").select("listing_id").eq("user_id", userId).in("listing_id", ids)).data || []
@@ -119,6 +171,8 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
   const favorites = new Set(favoriteIds.map((row) => row.listing_id));
   return rows.map((row) => {
     const profile = profileById.get(row.owner_id);
+    const sellerBusiness = row.seller_business_id ? sellerBusinessById.get(row.seller_business_id) : undefined;
+    const sellerKey = `${row.owner_id}:${row.seller_business_id || "personal"}`;
     return {
       ...row,
       images: imagesById.get(row.id) || [],
@@ -126,6 +180,10 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
       owner_avatar: profile?.avatar || null,
       owner_created_at: profile?.created_at || null,
       owner_listing_count: countByOwner.get(row.owner_id) || 0,
+      seller_business_name: sellerBusiness?.name || null,
+      seller_business_logo: sellerBusiness?.logo_url || null,
+      seller_business_path: sellerBusiness ? marketplaceSellerBusinessPath(sellerBusiness) : null,
+      seller_listing_count: countBySeller.get(sellerKey) || 0,
       is_favorited: favorites.has(row.id),
     };
   });
@@ -237,7 +295,7 @@ export async function getMarketplaceListingByPath(countryCode: string, stateCode
 
   const row = (data || []).find((item) => slugifyMarketplace(String(item.city || "")) === slugifyMarketplace(city));
   if (!row) return null;
-  const [listing] = await enrichListings([row as unknown as MarketplaceListing]);
+  const [listing] = await enrichListings([row as unknown as MarketplaceListing], { includeOwnerStats: true });
   return listing || null;
 }
 
@@ -248,6 +306,7 @@ export async function createMarketplaceListing(input: MarketplaceListingInput): 
   const slug = `${baseSlug}-${Date.now().toString(36)}`;
   const { data, error } = await supabase.rpc("create_marketplace_listing_with_images", {
     p_listing_id: input.id || crypto.randomUUID(),
+    p_seller_business_id: input.sellerBusinessId || null,
     p_listing_type: input.listingType,
     p_category_id: input.categoryId,
     p_title: input.title,
@@ -274,6 +333,120 @@ export async function getMarketplaceListingsByOwner(ownerId: string) {
   const { data, error } = await supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).eq("owner_id", ownerId).order("created_at", { ascending: false }).order("id", { ascending: false });
   if (error) throw error;
   return enrichListings((data || []) as unknown as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false });
+}
+
+function marketplaceSellerBusinessPath(business: MarketplaceSellerBusiness) {
+  const countryCode = (business.country_code || "").trim().toLowerCase();
+  const stateCode = (business.state_code || "").trim().toLowerCase();
+  const citySlug = slugifyMarketplace(business.city_slug || business.city || "");
+  const businessSlug = (business.slug || "").trim();
+
+  if (countryCode && stateCode && citySlug && businessSlug) {
+    return `/${countryCode}/${stateCode}/${citySlug}/${businessSlug}`;
+  }
+  return businessSlug ? `/go/${businessSlug}` : "/negocios";
+}
+
+export async function getMarketplaceSellerBusinesses(): Promise<MarketplaceSellerBusinessOption[]> {
+  const { data, error } = await supabase.rpc("get_marketplace_seller_businesses");
+  if (error) throw error;
+  return (data || []) as MarketplaceSellerBusinessOption[];
+}
+
+async function getSellerReviews(businesses: MarketplaceSellerBusiness[]) {
+  if (businesses.length === 0) return { reviews: [] as MarketplaceSellerReview[], reviewsUnavailable: false };
+
+  const businessIds = businesses.map((business) => business.id);
+  const { data: reviewRows, error: reviewsError } = await supabase
+    .from("reviews")
+    .select("*")
+    .in("business_id", businessIds)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (reviewsError) {
+    console.error("[marketplace] seller reviews lookup failed:", reviewsError);
+    return { reviews: [] as MarketplaceSellerReview[], reviewsUnavailable: true };
+  }
+
+  const reviewUserIds = [...new Set((reviewRows || []).map((review) => review.user_id).filter((id): id is string => typeof id === "string" && id.length > 0))];
+  const { data: reviewProfiles, error: reviewProfilesError } = reviewUserIds.length > 0
+    ? await supabase.from("profiles").select("id,avatar").in("id", reviewUserIds)
+    : { data: [] as Array<{ id: string; avatar: string | null }>, error: null };
+  const businessById = new Map(businesses.map((business) => [business.id, business]));
+  const avatarByUserId = new Map((reviewProfiles || []).map((reviewProfile) => [reviewProfile.id, reviewProfile.avatar || null]));
+  const reviews = (reviewRows || []).flatMap((review) => {
+    const business = businessById.get(review.business_id);
+    if (!business) return [];
+    return [{
+      id: review.id,
+      business_id: review.business_id,
+      user_id: review.user_id,
+      user_name: review.user_name || "Usuário",
+      user_avatar: review.user_id ? avatarByUserId.get(review.user_id) || null : null,
+      rating: review.rating as MarketplaceSellerReview["rating"],
+      comment: review.comment,
+      created_at: review.created_at,
+      businessName: business.name,
+      businessSlug: marketplaceSellerBusinessPath(business),
+    }];
+  });
+
+  return { reviews, reviewsUnavailable: Boolean(reviewProfilesError) };
+}
+
+export async function getMarketplaceSellerPage(ownerId: string): Promise<MarketplaceSellerPage | null> {
+  const normalizedOwnerId = ownerId.trim();
+  if (!normalizedOwnerId) return null;
+
+  const [{ data: profile, error: profileError }, { data: listingRows, error: listingsError }] = await Promise.all([
+    supabase.from("profiles").select("id,name,avatar,created_at").eq("id", normalizedOwnerId).maybeSingle(),
+    supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).eq("owner_id", normalizedOwnerId).is("seller_business_id", null).eq("status", "active").order("created_at", { ascending: false }).order("id", { ascending: false }),
+  ]);
+
+  if (profileError) throw profileError;
+  if (listingsError) throw listingsError;
+
+  // A listing references auth.users directly. Keep the public seller page
+  // usable even if an older account is missing its mirrored profile row.
+  if (!profile && (!listingRows || listingRows.length === 0)) return null;
+  const sellerProfile: MarketplaceOwnerProfile = profile
+    ? profile as MarketplaceOwnerProfile
+    : { id: normalizedOwnerId, name: null, avatar: null, created_at: null };
+
+  const listings = await enrichListings((listingRows || []) as unknown as MarketplaceListing[], {
+    includeOwnerProfile: false,
+    includeOwnerStats: false,
+    includeFavorites: false,
+  });
+  return { profile: sellerProfile, listings, reviews: [] };
+}
+
+export async function getMarketplaceBusinessSellerPage(businessId: string): Promise<MarketplaceBusinessSellerPage | null> {
+  const normalizedBusinessId = businessId.trim();
+  if (!normalizedBusinessId) return null;
+
+  const [{ data: business, error: businessError }, { data: listingRows, error: listingsError }] = await Promise.all([
+    supabase.from("businesses").select("id,name,logo_url,slug,country_code,state_code,city,city_slug").eq("id", normalizedBusinessId).maybeSingle(),
+    supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).eq("seller_business_id", normalizedBusinessId).eq("status", "active").order("created_at", { ascending: false }).order("id", { ascending: false }),
+  ]);
+
+  if (businessError) throw businessError;
+  if (listingsError) throw listingsError;
+  if (!business) return null;
+
+  const businessProfile = business as MarketplaceSellerBusiness;
+  const listings = await enrichListings((listingRows || []) as unknown as MarketplaceListing[], {
+    includeOwnerProfile: false,
+    includeOwnerStats: true,
+    includeFavorites: false,
+  });
+  const reviewResult = await getSellerReviews([businessProfile]);
+  return {
+    business: { ...businessProfile, publicPath: marketplaceSellerBusinessPath(businessProfile) },
+    listings,
+    reviews: reviewResult.reviews,
+    reviewsUnavailable: reviewResult.reviewsUnavailable,
+  };
 }
 
 export async function getMarketplaceFavoritesByUser(userId: string) {
@@ -354,6 +527,7 @@ export async function updateMarketplaceListing(id: string, ownerId: string, inpu
     Object.entries({
       title: input.title?.trim(),
       description: input.description?.trim(),
+      seller_business_id: input.sellerBusinessId === undefined ? undefined : input.sellerBusinessId || null,
       price: input.price,
       currency: input.currency?.toUpperCase(),
       condition: input.condition,

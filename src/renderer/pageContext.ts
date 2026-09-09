@@ -24,6 +24,8 @@ export type RendererPageContext = PageContextServer & {
   initialDirectorySnapshot?: DirectoryPageSnapshot;
   initialMarketplaceSnapshot?: MarketplaceSnapshot;
   initialMarketplaceListing?: import("@/types/database").MarketplaceListing | null;
+  initialMarketplaceSeller?: import("@/services/marketplace").MarketplaceSellerPage | null;
+  initialMarketplaceBusinessSeller?: import("@/services/marketplace").MarketplaceBusinessSellerPage | null;
   isBusinessPage?: boolean;
   is404?: boolean;
   abortStatusCode?: number;

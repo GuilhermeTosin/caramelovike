@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMarketplaceRequestKey, marketplaceListingPath } from "@/lib/marketplaceSnapshot";
+import { buildMarketplaceRequestKey, marketplaceListingPath, marketplaceSellerPath } from "@/lib/marketplaceSnapshot";
 
 describe("marketplaceSnapshot", () => {
   it("normalizes accented city names in public URLs", () => {
@@ -14,5 +14,10 @@ describe("marketplaceSnapshot", () => {
     expect(key).toContain("condition=good");
     expect(key).toContain("countryCode=ca");
     expect(key).toContain("stateCode=qc");
+  });
+
+  it("builds a stable public seller profile path", () => {
+    expect(marketplaceSellerPath("550e8400-e29b-41d4-a716-446655440000"))
+      .toBe("/marketplace/vendedor/550e8400-e29b-41d4-a716-446655440000");
   });
 });

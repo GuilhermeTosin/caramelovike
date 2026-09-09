@@ -28,7 +28,7 @@ import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnap
 import { buildPublicSearchPageRequest, isPublicBusinessSearch, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
 import { buildDirectoryPagePath, buildDirectoryPageSnapshot, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import { DEFAULT_CATEGORY_SYNONYMS, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
-import { getMarketplaceCategories, getMarketplaceListingByPath, getMarketplacePage } from "@/services/marketplace";
+import { getMarketplaceCategories, getMarketplaceListingByPath, getMarketplacePage, getMarketplaceBusinessSellerPage, getMarketplaceSellerPage } from "@/services/marketplace";
 import { buildMarketplaceRequestKey, buildMarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
 import { DEFAULT_MARKETPLACE_DISTANCE_KM, normalizeMarketplaceDistance } from "@/lib/marketplaceCategories";
 
@@ -76,6 +76,8 @@ type PageContext = PageContextServer & {
   initialEvent?: CommunityEvent | null;
   initialMarketplaceSnapshot?: import("@/lib/marketplaceSnapshot").MarketplaceSnapshot;
   initialMarketplaceListing?: import("@/types/database").MarketplaceListing | null;
+  initialMarketplaceSeller?: import("@/services/marketplace").MarketplaceSellerPage | null;
+  initialMarketplaceBusinessSeller?: import("@/services/marketplace").MarketplaceBusinessSellerPage | null;
   isBusinessPage?: boolean;
   isEventPage?: boolean;
   isPrerendering?: boolean;
@@ -133,7 +135,11 @@ function isKnownAppPath(pathname: string) {
   if (pathname.startsWith("/eventos/")) return true;
   if (pathname.startsWith("/marketplace/")) {
     const parts = pathname.split("/").filter(Boolean);
-    return (parts[1] === "novo" && parts.length === 2) || (parts[1] === "editar" && parts.length === 3) || parts.length === 5;
+    return (parts[1] === "novo" && parts.length === 2)
+      || (parts[1] === "editar" && parts.length === 3)
+      || (parts[1] === "vendedor" && parts.length === 3)
+      || (parts[1] === "negocio" && parts.length === 3)
+      || parts.length === 5;
   }
   if (pathname.startsWith("/preview/negocio/")) return true;
   if (pathname.startsWith("/go/")) return true;
@@ -144,6 +150,8 @@ function parseMarketplacePath(pathname: string) {
   const parts = pathname.split("/").filter(Boolean);
   if (parts.length === 1 && parts[0] === "marketplace") return { kind: "index" as const };
   if (parts.length === 2 && parts[0] === "marketplace" && parts[1] === "novo") return { kind: "new" as const };
+  if (parts.length === 3 && parts[0] === "marketplace" && parts[1] === "vendedor") return { kind: "seller" as const, ownerId: parts[2] };
+  if (parts.length === 3 && parts[0] === "marketplace" && parts[1] === "negocio") return { kind: "business-seller" as const, businessId: parts[2] };
   if (parts.length === 5 && parts[0] === "marketplace") return { kind: "listing" as const, countryCode: parts[1], stateCode: parts[2], city: parts[3], slug: parts[4] };
   return null;
 }
@@ -368,6 +376,42 @@ export async function onBeforeRender(pageContext: PageContext) {
       console.error("[onBeforeRender] marketplace index failed:", error);
       return { pageContext: { initialMarketplaceSnapshot: buildMarketplaceSnapshot({ items: [], totalCount: 0 }, []), isBusinessPage: false } };
     }
+  }
+
+  if (marketplaceRoute?.kind === "seller") {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(marketplaceRoute.ownerId)) {
+      throw render(404);
+    }
+
+    let seller: import("@/services/marketplace").MarketplaceSellerPage | null;
+    try {
+      seller = await getMarketplaceSellerPage(marketplaceRoute.ownerId);
+    } catch (error) {
+      console.error("[onBeforeRender] marketplace seller lookup failed:", error);
+      if (isPrerendering) throw error;
+      throw render(503);
+    }
+
+    if (!seller && !isPrerendering) throw render(404);
+    return { pageContext: { initialMarketplaceSeller: seller, isBusinessPage: false } };
+  }
+
+  if (marketplaceRoute?.kind === "business-seller") {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(marketplaceRoute.businessId)) {
+      throw render(404);
+    }
+
+    let businessSeller: import("@/services/marketplace").MarketplaceBusinessSellerPage | null;
+    try {
+      businessSeller = await getMarketplaceBusinessSellerPage(marketplaceRoute.businessId);
+    } catch (error) {
+      console.error("[onBeforeRender] marketplace business seller lookup failed:", error);
+      if (isPrerendering) throw error;
+      throw render(503);
+    }
+
+    if (!businessSeller && !isPrerendering) throw render(404);
+    return { pageContext: { initialMarketplaceBusinessSeller: businessSeller, isBusinessPage: false } };
   }
 
   if (marketplaceRoute?.kind === "listing") {

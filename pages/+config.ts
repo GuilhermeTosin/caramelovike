@@ -22,6 +22,8 @@ export default {
     "initialEvent",
     "initialMarketplaceSnapshot",
     "initialMarketplaceListing",
+    "initialMarketplaceSeller",
+    "initialMarketplaceBusinessSeller",
     "isBusinessPage",
   ],
 } satisfies Config;

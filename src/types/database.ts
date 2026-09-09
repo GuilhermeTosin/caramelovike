@@ -132,6 +132,7 @@ export interface MarketplaceListingImage {
 export interface MarketplaceListing {
   id: string;
   owner_id: string;
+  seller_business_id?: string | null;
   listing_type: MarketplaceListingType;
   category_id: string;
   title: string;
@@ -157,6 +158,10 @@ export interface MarketplaceListing {
   owner_avatar?: string | null;
   owner_created_at?: string | null;
   owner_listing_count?: number;
+  seller_business_name?: string | null;
+  seller_business_logo?: string | null;
+  seller_business_path?: string | null;
+  seller_listing_count?: number;
   is_favorited?: boolean;
   category?: MarketplaceCategory;
 }

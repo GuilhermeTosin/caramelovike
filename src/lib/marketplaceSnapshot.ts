@@ -19,3 +19,11 @@ export function marketplaceListingPath(listing: Pick<MarketplaceListing, "countr
   const city = slugifyMarketplace(listing.city);
   return `/marketplace/${listing.country_code.toLowerCase()}/${listing.state_code.toLowerCase()}/${city}/${listing.slug}`;
 }
+
+export function marketplaceSellerPath(ownerId: string) {
+  return `/marketplace/vendedor/${encodeURIComponent(ownerId)}`;
+}
+
+export function marketplaceBusinessSellerPath(businessId: string) {
+  return `/marketplace/negocio/${encodeURIComponent(businessId)}`;
+}

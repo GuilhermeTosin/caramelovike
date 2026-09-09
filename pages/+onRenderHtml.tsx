@@ -36,6 +36,7 @@ type PageContext = RendererPageContext & {
   initialEvent?: CommunityEvent | null;
   isEventPage?: boolean;
   initialMarketplaceListing?: MarketplaceListing | null;
+  initialMarketplaceBusinessSeller?: import("@/services/marketplace").MarketplaceBusinessSellerPage | null;
 };
 
 function getPageUrlParts(urlOriginal?: string) {
@@ -124,6 +125,39 @@ function marketplaceListingJsonLd(listing: MarketplaceListing, canonicalUrl: str
       availability: listing.status === "active" ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
       url: canonicalUrl,
     } : undefined,
+  };
+}
+
+function marketplaceSellerJsonLd(seller: NonNullable<PageContext["initialMarketplaceSeller"]>, canonicalUrl: string) {
+  const name = seller.profile.name?.trim() || "Vendedor do Marketplace";
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "@id": canonicalUrl + "#profile",
+    url: canonicalUrl,
+    mainEntity: {
+      "@type": "Person",
+      "@id": canonicalUrl + "#person",
+      name,
+      image: seller.profile.avatar || undefined,
+      url: canonicalUrl,
+    },
+  };
+}
+
+function marketplaceBusinessSellerJsonLd(seller: NonNullable<PageContext["initialMarketplaceBusinessSeller"]>, canonicalUrl: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "@id": canonicalUrl + "#profile",
+    url: canonicalUrl,
+    mainEntity: {
+      "@type": "Organization",
+      "@id": canonicalUrl + "#organization",
+      name: seller.business.name,
+      logo: seller.business.logo_url || undefined,
+      url: canonicalUrl,
+    },
   };
 }
 
@@ -447,10 +481,12 @@ export function onRenderHtml(pageContext: PageContext) {
   const isEventPage = !!pageContext.isEventPage;
   const isDirectoryPage = !!parseDirectoryRoute(pathname);
   const isMarketplaceIndex = pathname === "/marketplace";
+  const isMarketplaceSeller = pathname.startsWith("/marketplace/vendedor/") && !!pageContext.initialMarketplaceSeller;
+  const isMarketplaceBusinessSeller = pathname.startsWith("/marketplace/negocio/") && !!pageContext.initialMarketplaceBusinessSeller;
   const isMarketplaceDetail = pathname.startsWith("/marketplace/") && !!pageContext.initialMarketplaceListing;
   const canonicalUrl = isEventPage && event
     ? buildEventCanonicalUrl(event.id)
-    : (isMarketplaceIndex || isMarketplaceDetail)
+    : (isMarketplaceIndex || isMarketplaceSeller || isMarketplaceBusinessSeller || isMarketplaceDetail)
       ? `https://www.caramelinho.com${pathname}`
     : getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
   const isErrorPage = !!pageContext.is404 || pageContext.abortStatusCode === 404 || pageContext.abortReason === "not-found";
@@ -460,6 +496,10 @@ export function onRenderHtml(pageContext: PageContext) {
     ? getErrorPageMeta()
     : isMarketplaceIndex
       ? { title: "Marketplace | Caramelinho", description: "Compre, venda e encontre produtos perto de você no Marketplace do Caramelinho." }
+      : isMarketplaceSeller && pageContext.initialMarketplaceSeller
+        ? { title: `${pageContext.initialMarketplaceSeller.profile.name?.trim() || "Vendedor"} | Marketplace | Caramelinho`, description: `Veja os anúncios ativos e as avaliações dos negócios de ${pageContext.initialMarketplaceSeller.profile.name?.trim() || "vendedor"} no Marketplace do Caramelinho.` }
+      : isMarketplaceBusinessSeller && pageContext.initialMarketplaceBusinessSeller
+        ? { title: `${pageContext.initialMarketplaceBusinessSeller.business.name} | Marketplace | Caramelinho`, description: `Veja os anúncios ativos e as avaliações de ${pageContext.initialMarketplaceBusinessSeller.business.name} no Marketplace do Caramelinho.` }
       : isMarketplaceDetail && pageContext.initialMarketplaceListing
         ? { title: `${pageContext.initialMarketplaceListing.title} | Marketplace | Caramelinho`, description: `${pageContext.initialMarketplaceListing.title} em ${pageContext.initialMarketplaceListing.city}. Veja preço, condição e entre em contato com o vendedor.` }
         : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || [], pageContext.initialDirectorySnapshot?.pageMeta);
@@ -490,12 +530,26 @@ export function onRenderHtml(pageContext: PageContext) {
       ? businessHeroAssets?.optimizedImageUrl || business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg"
       : isEventPage && event
       ? event.flyer_url || "https://www.caramelinho.com/og-image.jpg"
+      : isMarketplaceSeller && pageContext.initialMarketplaceSeller?.profile.avatar
+      ? pageContext.initialMarketplaceSeller.profile.avatar
+      : isMarketplaceBusinessSeller && pageContext.initialMarketplaceBusinessSeller?.business.logo_url
+      ? pageContext.initialMarketplaceBusinessSeller.business.logo_url
       : "https://www.caramelinho.com/og-image.jpg";
   const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, isErrorPage);
   const marketplaceListingStructuredData = isMarketplaceDetail && pageContext.initialMarketplaceListing
     ? marketplaceListingJsonLd(pageContext.initialMarketplaceListing, canonicalUrl)
     : null;
-  const jsonLd = isMarketplaceDetail && pageContext.initialMarketplaceListing
+  const jsonLd = isMarketplaceBusinessSeller && pageContext.initialMarketplaceBusinessSeller
+    ? [
+        { id: "website", data: buildWebsiteJsonLd() },
+        { id: "marketplace-business-seller", data: marketplaceBusinessSellerJsonLd(pageContext.initialMarketplaceBusinessSeller, canonicalUrl) },
+      ]
+    : isMarketplaceSeller && pageContext.initialMarketplaceSeller
+    ? [
+        { id: "website", data: buildWebsiteJsonLd() },
+        { id: "marketplace-seller", data: marketplaceSellerJsonLd(pageContext.initialMarketplaceSeller, canonicalUrl) },
+      ]
+    : isMarketplaceDetail && pageContext.initialMarketplaceListing
     ? [
         { id: "website", data: buildWebsiteJsonLd() },
         ...(marketplaceListingStructuredData ? [{ id: "marketplace-listing", data: marketplaceListingStructuredData }] : []),

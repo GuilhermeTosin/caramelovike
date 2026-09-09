@@ -27,6 +27,8 @@ type PageContext = {
   initialEvent?: CommunityEvent | null;
   initialMarketplaceSnapshot?: MarketplaceSnapshot;
   initialMarketplaceListing?: import("@/types/database").MarketplaceListing | null;
+  initialMarketplaceSeller?: import("@/services/marketplace").MarketplaceSellerPage | null;
+  initialMarketplaceBusinessSeller?: import("@/services/marketplace").MarketplaceBusinessSellerPage | null;
   isBusinessPage?: boolean;
 };
 
@@ -53,6 +55,8 @@ export function Page({ pageContext }: { pageContext?: PageContext }) {
       initialEvent={pageContext?.initialEvent || null}
       initialMarketplaceSnapshot={pageContext?.initialMarketplaceSnapshot}
       initialMarketplaceListing={pageContext?.initialMarketplaceListing || null}
+      initialMarketplaceSeller={pageContext?.initialMarketplaceSeller || null}
+      initialMarketplaceBusinessSeller={pageContext?.initialMarketplaceBusinessSeller || null}
       isBusinessPage={pageContext?.isBusinessPage || false}
     />
   );
