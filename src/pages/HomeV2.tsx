@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Building2, CalendarDays, Car, ChevronRight, GraduationCap, Hammer, HeartHandshake, HeartPulse, Landmark, Lock, MapPin, MapPinned, Megaphone, MoreHorizontal, Music, PawPrint, Plane, Scale, ShoppingBag, SprayCan, Star, Store, Tag, Truck, User, Users, UsersRound, Utensils } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Building2, CalendarDays, Car, ChevronRight, GraduationCap, Hammer, HeartHandshake, HeartPulse, Landmark, Lock, MapPin, MapPinned, Megaphone, MoreHorizontal, Music, PawPrint, Plane, Scale, ShoppingBag, SprayCan, Star, Store, Truck, User, UsersRound, Utensils } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,12 +10,12 @@ import { getHomeContent } from "@/data/homeContent";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { getCountryDisplayName } from "@/lib/locales";
-import { marketplaceListingPath, type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
+import { type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
 import { setSeoMeta } from "@/lib/seo";
 import { stripRichTextHtml } from "@/lib/richText";
 import { calculateDistance, DEFAULT_GEO_FALLBACK, getApproxGeoByIp } from "@/lib/utils/geo";
 import { buildBusinessUrl, getRecentBusinessesForRegion } from "@/services/businesses";
-import type { BusinessFrontend, MarketplaceListingType } from "@/types/database";
+import type { BusinessFrontend } from "@/types/database";
 
 type HomeV2Props = {
   initialFeaturedBusinesses?: BusinessFrontend[];
@@ -83,17 +83,7 @@ const HERO_BENEFITS = [
   },
 ] as const;
 
-const MARKETPLACE_TYPE_LABELS: Record<MarketplaceListingType, string> = {
-  selling: "À venda",
-  wanted: "Procurando",
-  giving_away: "Doando",
-};
-
-function formatListingPrice(listing: { listing_type: MarketplaceListingType; price: number | null; currency: string }) {
-  if (listing.listing_type !== "selling" && listing.price == null) return MARKETPLACE_TYPE_LABELS[listing.listing_type];
-  if (listing.price == null) return "Preço a combinar";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: listing.currency || "CAD" }).format(listing.price);
-}
+const HOME_EYEBROW_CLASS = "text-sm font-semibold uppercase leading-tight tracking-[0.1em] antialiased";
 
 function formatCount(count: number) {
   return new Intl.NumberFormat("pt-BR").format(count);
@@ -134,7 +124,6 @@ export default function HomeV2({
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const recentBusinesses = regionalRecentBusinesses.slice(0, 5);
   const featuredBusinesses = initialFeaturedBusinesses.slice(0, 3);
-  const heroListing = recentListings[0];
   const [recentBusinessIndex, setRecentBusinessIndex] = useState(0);
   const activeRecentBusiness = recentBusinesses.length > 0
     ? recentBusinesses[recentBusinessIndex % recentBusinesses.length]
@@ -211,7 +200,7 @@ export default function HomeV2({
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#fbfaf6] text-[#203940]">
+    <div className="min-h-screen bg-[#fbfaf6] text-[#203940] antialiased">
       <main>
         <section className="relative overflow-hidden border-b border-[#203940]/10 bg-[#f8f5eb]">
           <div className="pointer-events-none absolute -left-28 top-24 h-72 w-72 rounded-full bg-[#167348]/[0.06] blur-3xl" />
@@ -250,7 +239,7 @@ export default function HomeV2({
                     <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full border-[18px] border-[#e4b53d]/35" aria-hidden="true" />
                     <div className="relative flex h-full flex-col justify-between">
                       <div className="max-w-none">
-                        <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#167348]">Recém-chegados à comunidade</p>
+                        <p className={`${HOME_EYEBROW_CLASS} text-[#167348]`}>Recém-chegados à comunidade</p>
                         {activeRecentBusiness ? (
                           <div className="mt-4 rounded-xl border border-[#203940]/10 bg-white/80 p-4 shadow-sm sm:p-5">
                             <Link to={buildBusinessUrl(activeRecentBusiness)} className="group flex min-w-0 items-start gap-4 sm:gap-5">
@@ -306,33 +295,26 @@ export default function HomeV2({
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 pt-3">
-                    <Link to="/negocios" className="group rounded-xl bg-white p-4 transition-shadow hover:shadow-[0_8px_20px_rgba(32,57,64,0.12)]">
-                      <Store className="h-5 w-5 text-[#167348]" />
-                      <p className="mt-3 text-sm font-bold text-[#203940]">Serviços perto de você</p>
-                      <p className="mt-1 text-xs text-[#203940]/55">Explore o diretório</p>
+                    <Link to="/negocios" className="group flex min-h-[150px] min-w-0 flex-col justify-between rounded-xl border border-[#167348]/15 bg-white p-4 text-[#203940] transition-shadow hover:shadow-[0_8px_20px_rgba(22,115,72,0.14)]">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className={`${HOME_EYEBROW_CLASS} text-xs text-[#167348]`}>Diretório</span>
+                        <Store className="h-5 w-5 text-[#167348]" aria-hidden="true" />
+                      </div>
+                      <div>
+                        <span className="flex items-center gap-1.5 text-[0.95rem] font-bold leading-snug tracking-[-0.01em] antialiased">Negócios e serviços brasileiros perto de você <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" /></span>
+                        <span className="mt-1 block text-xs text-[#203940]/65">Encontre ajuda e conexões na sua região</span>
+                      </div>
                     </Link>
-                    {heroListing ? (
-                      <Link to={marketplaceListingPath(heroListing)} className="group min-w-0 rounded-xl bg-[#e7f0fb] p-4 transition-shadow hover:shadow-[0_8px_20px_rgba(0,92,169,0.16)]">
-                        <div className="h-12 w-12 overflow-hidden rounded-lg bg-white">
-                          {heroListing.images?.[0]?.image_url ? (
-                            <img src={getOptimizedImageUrl(heroListing.images[0].image_url, { width: 160, quality: 76, format: "webp" })} alt="" loading="lazy" className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="grid h-full place-items-center text-[#005ca9]"><ShoppingBag className="h-5 w-5" /></div>
-                          )}
-                        </div>
-                        <div className="mt-3 min-w-0">
-                          <p className="truncate text-sm font-bold text-[#153e68]">{heroListing.title}</p>
-                          <p className="mt-0.5 text-xs font-semibold text-[#005ca9]">{formatListingPrice(heroListing)}</p>
-                          <p className="mt-1 text-xs text-[#153e68]/60">Compre, venda ou desapegue</p>
-                        </div>
-                      </Link>
-                    ) : (
-                      <Link to={marketplaceHref} className="rounded-xl bg-[#e7f0fb] p-4 text-[#153e68] transition-shadow hover:shadow-[0_8px_20px_rgba(0,92,169,0.16)]">
-                        <ShoppingBag className="h-5 w-5 text-[#005ca9]" />
-                        <span className="mt-3 block text-sm font-bold">Conheça o Marketplace</span>
-                        <span className="mt-1 block text-xs text-[#153e68]/60">Compre, venda ou desapegue</span>
-                      </Link>
-                    )}
+                    <Link to={marketplaceHref} className="group flex min-h-[150px] min-w-0 flex-col justify-between rounded-xl border border-[#235d91]/15 bg-[#e7f0fb] p-4 text-[#153e68] transition-shadow hover:shadow-[0_8px_20px_rgba(0,92,169,0.16)]">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className={`${HOME_EYEBROW_CLASS} text-xs text-[#005ca9]`}>Marketplace</span>
+                        <ShoppingBag className="h-5 w-5 text-[#005ca9]" aria-hidden="true" />
+                      </div>
+                      <div>
+                        <span className="flex items-center gap-1.5 text-[0.95rem] font-bold leading-snug tracking-[-0.01em] antialiased">Explorar produtos <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" /></span>
+                        <span className="mt-1 block text-xs text-[#153e68]/65">Compre, venda ou desapegue</span>
+                      </div>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -359,7 +341,7 @@ export default function HomeV2({
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#c85f1a]">Marketplace da comunidade</p>
+                  <p className={`${HOME_EYEBROW_CLASS} text-[#c85f1a]`}>Marketplace da comunidade</p>
                   <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#203940] sm:text-4xl">Produtos recém-publicados</h2>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-[#203940]/60 sm:text-base">Compre, venda ou doe diretamente para brasileiros perto de você.</p>
                 </div>
@@ -378,7 +360,7 @@ export default function HomeV2({
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#167348]">Explore por categoria</p>
+                <p className={`${HOME_EYEBROW_CLASS} text-[#167348]`}>Explore por categoria</p>
                 <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#203940] sm:text-4xl">Encontre o que precisa</h2>
               </div>
             </div>
@@ -412,7 +394,7 @@ export default function HomeV2({
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#235d91]">Descubra novos lugares</p>
+                  <p className={`${HOME_EYEBROW_CLASS} text-[#235d91]`}>Descubra novos lugares</p>
                   <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#203940] sm:text-4xl">{homeText.featuredHeading}</h2>
                 </div>
                 <Link to="/negocios" className="inline-flex items-center gap-1.5 text-sm font-bold text-[#167348] hover:text-[#105a38]">Ver diretório completo <ArrowUpRight className="h-4 w-4" /></Link>
@@ -474,7 +456,7 @@ export default function HomeV2({
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#235d91]">Pelo mundo</p>
+                  <p className={`${HOME_EYEBROW_CLASS} text-[#235d91]`}>Pelo mundo</p>
                   <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#203940]">Cidades populares</h2>
                 </div>
                 <Link to="/negocios" className="inline-flex items-center gap-1.5 text-sm font-bold text-[#235d91] hover:text-[#193f63]">Explorar todas as cidades <ArrowUpRight className="h-4 w-4" /></Link>
@@ -511,7 +493,7 @@ export default function HomeV2({
               <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#167348_0%,#167348_33%,#e4b53d_33%,#e4b53d_66%,#235d91_66%,#235d91_100%)]" aria-hidden="true" />
               <div className="grid gap-6 px-5 py-7 sm:px-8 sm:py-8 lg:grid-cols-[minmax(12rem,0.7fr)_minmax(0,2.3fr)] lg:items-center lg:gap-8">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#167348]">Feito para a nossa jornada</p>
+                  <p className={`${HOME_EYEBROW_CLASS} text-[#167348]`}>Feito para a nossa jornada</p>
                   <h2 className="mt-2 text-2xl font-black leading-tight tracking-[-0.04em] text-[#203940]">Conexões que fazem a vida longe do Brasil ficar mais leve.</h2>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-[#203940]/10">
@@ -552,7 +534,7 @@ export default function HomeV2({
                     className="mt-1 h-40 w-40 shrink-0 object-contain sm:h-48 sm:w-48 lg:h-56 lg:w-56"
                   />
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#e8c867]">Faça parte da rede</p>
+                    <p className={`${HOME_EYEBROW_CLASS} text-[#e8c867]`}>Faça parte da rede</p>
                     <h2 className="mt-4 max-w-3xl text-3xl font-black tracking-[-0.04em] sm:text-4xl">Seu negócio também pode ser encontrado pela comunidade.</h2>
                     <p className="mt-4 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">Crie um perfil gratuito, apresente seus serviços e conecte-se com brasileiros no exterior.</p>
                   </div>

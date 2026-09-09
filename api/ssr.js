@@ -14,7 +14,10 @@ function render404Html() {
       :root { color-scheme: light; }
       body {
         margin: 0;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
         color: #111827;
         background: linear-gradient(180deg, #fffdf7 0%, #f7f7f2 100%);
         min-height: 100vh;
@@ -114,7 +117,10 @@ function render500Html() {
       :root { color-scheme: light; }
       body {
         margin: 0;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
         color: #111827;
         background: linear-gradient(180deg, #fffdf7 0%, #f7f7f2 100%);
         min-height: 100vh;
