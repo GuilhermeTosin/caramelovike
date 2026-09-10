@@ -96,6 +96,15 @@ function countryCodeToFlag(countryCode: string) {
   return String.fromCodePoint(...normalized.split("").map((letter) => regionalIndicatorA + letter.charCodeAt(0) - 65));
 }
 
+function mergeRecentBusinesses(current: BusinessFrontend[], additions: BusinessFrontend[]) {
+  const seen = new Set<string>();
+  return [...current, ...additions].filter((business) => {
+    if (seen.has(business.id)) return false;
+    seen.add(business.id);
+    return true;
+  });
+}
+
 export default function HomeV2({
   initialFeaturedBusinesses = [],
   initialRecentBusinesses = [],
@@ -120,9 +129,8 @@ export default function HomeV2({
       icon: HOME_CATEGORY_ICONS[category.id] || MoreHorizontal,
     }));
   const recentListings = initialMarketplaceSnapshot?.items.slice(0, 3) || [];
-  const [regionalRecentBusinesses, setRegionalRecentBusinesses] = useState(initialRecentBusinesses);
+  const [recentBusinesses, setRecentBusinesses] = useState(initialRecentBusinesses);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const recentBusinesses = regionalRecentBusinesses.slice(0, 5);
   const featuredBusinesses = initialFeaturedBusinesses.slice(0, 3);
   const [recentBusinessIndex, setRecentBusinessIndex] = useState(0);
   const activeRecentBusiness = recentBusinesses.length > 0
@@ -134,22 +142,25 @@ export default function HomeV2({
     let cancelled = false;
 
     const loadRegionalBusinesses = async () => {
-      const geo = await getApproxGeoByIp({
-        timeoutMs: 3000,
-        maxAgeMs: 24 * 60 * 60 * 1000,
-        fallback: DEFAULT_GEO_FALLBACK,
-      });
-      if (!geo || cancelled) return;
-      setUserCoords({ lat: geo.lat, lng: geo.lng });
-      setSearchLocation({
-        city: geo.city || "",
-        countryCode: geo.countryCode?.toLowerCase(),
-        stateCode: geo.stateCode?.toLowerCase(),
-        lat: geo.lat,
-        lng: geo.lng,
-      });
-
       try {
+        const geo = await getApproxGeoByIp({
+          timeoutMs: 3000,
+          maxAgeMs: 24 * 60 * 60 * 1000,
+          fallback: DEFAULT_GEO_FALLBACK,
+        });
+        if (!geo || cancelled) {
+          return;
+        }
+
+        setUserCoords({ lat: geo.lat, lng: geo.lng });
+        setSearchLocation({
+          city: geo.city || "",
+          countryCode: geo.countryCode?.toLowerCase(),
+          stateCode: geo.stateCode?.toLowerCase(),
+          lat: geo.lat,
+          lng: geo.lng,
+        });
+
         const regionalBusinesses = await getRecentBusinessesForRegion({
           city: geo.city,
           countryCode: geo.countryCode,
@@ -158,12 +169,11 @@ export default function HomeV2({
           originLng: geo.lng,
           limit: 5,
         });
-        if (!cancelled && regionalBusinesses.length > 0) {
-          setRegionalRecentBusinesses(regionalBusinesses);
-          setRecentBusinessIndex(0);
+        if (!cancelled) {
+          setRecentBusinesses((current) => mergeRecentBusinesses(current, regionalBusinesses));
         }
       } catch {
-        // Keep the SSR list when regional data is temporarily unavailable.
+        // Keep the immediately visible SSR list when regional data is unavailable.
       }
     };
 
@@ -256,7 +266,8 @@ export default function HomeV2({
                               </div>
                               <div className="min-w-0">
                                 <p className="line-clamp-2 text-xl font-bold leading-tight text-[#203940] sm:text-2xl">{activeRecentBusiness.name}</p>
-                                <p className="mt-1.5 truncate text-sm text-[#203940]/55">{getCityDisplayName(activeRecentBusiness.address.cityDisplayName || activeRecentBusiness.address.city, activeRecentBusiness.address.countryCode)}</p>
+                                <p className="mt-2 truncate text-sm font-semibold text-[#167348]">{homeText.categories.find((category) => category.id === activeRecentBusiness.categoryId)?.name || activeRecentBusiness.category}</p>
+                                <p className="mt-0.5 truncate text-sm text-[#203940]/55">{getCityDisplayName(activeRecentBusiness.address.cityDisplayName || activeRecentBusiness.address.city, activeRecentBusiness.address.countryCode)}, {getCountryDisplayName(activeRecentBusiness.address.countryCode, activeRecentBusiness.address.country)}</p>
                               </div>
                             </Link>
                             {recentBusinesses.length > 1 ? (

@@ -396,7 +396,7 @@ export default function SiteHeader({
   return (
     <>
       <header ref={headerRef} className="fixed inset-x-0 top-0 z-50 border-b border-[#203940]/10 bg-white/95 shadow-sm backdrop-blur-md">
-      <div className="absolute inset-x-0 bottom-0 h-1 bg-[linear-gradient(90deg,#167348_0%,#167348_33%,#e4b53d_33%,#e4b53d_66%,#235d91_66%,#235d91_100%)]" aria-hidden="true" />
+      <div className="absolute inset-x-0 -bottom-px h-1 bg-[linear-gradient(90deg,#167348_0%,#167348_33%,#e4b53d_33%,#e4b53d_66%,#235d91_66%,#235d91_100%)]" aria-hidden="true" />
       <div className="mx-auto grid h-20 max-w-[90rem] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
         <Link to="/" className="flex min-w-0 items-center gap-3">
           <img
