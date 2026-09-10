@@ -395,25 +395,25 @@ export default function SiteHeader({
 
   return (
     <>
-      <header ref={headerRef} className="fixed inset-x-0 top-0 z-50 border-b border-[#203940]/10 bg-white/95 shadow-sm backdrop-blur-md">
+      <header ref={headerRef} className="fixed inset-x-0 top-0 z-50 border-b border-[#203940]/10 bg-white shadow-sm">
       <div className="absolute inset-x-0 -bottom-px h-1 bg-[linear-gradient(90deg,#167348_0%,#167348_33%,#e4b53d_33%,#e4b53d_66%,#235d91_66%,#235d91_100%)]" aria-hidden="true" />
-      <div className="mx-auto grid h-20 max-w-[90rem] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto grid h-20 max-w-[90rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 sm:px-6 lg:grid-cols-[auto_1fr_auto] lg:px-8">
         <Link to="/" className="flex min-w-0 items-center gap-3">
           <img
             src="/logo-64.webp"
             srcSet="/logo-64.webp 64w, /logo-112.webp 112w"
-            sizes="(min-width: 640px) 56px, 48px"
+            sizes="64px"
             alt="Caramelinho logo"
             width="64"
             height="64"
             decoding="async"
-            className="h-12 w-12 object-contain sm:h-14 sm:w-14"
+            className="h-16 w-16 object-contain transition-transform duration-200 hover:scale-110"
           />
           <span className="min-w-0 leading-none">
-            <span className="block truncate text-xl font-black tracking-[-0.04em] sm:text-2xl">
-              Caramelinho<span className="text-[#c85f1a]">.</span>
+            <span className="block truncate antialiased text-2xl font-extrabold tracking-[-0.03em] text-[#b55518]">
+              Caramelinho<span className="text-[#111827]">.</span>
             </span>
-            <span className="mt-1 block truncate text-[9px] font-semibold tracking-[0.08em] text-[#203940]/60 sm:text-[10px]">
+            <span className="mt-1 block truncate text-[10px] font-bold tracking-[0.08em] text-[#203940]">
               O SEU FARO FORA DO BRASIL
             </span>
           </span>
@@ -477,7 +477,7 @@ export default function SiteHeader({
         <div className="hidden items-center justify-end gap-4 lg:flex">
           <SiteHeaderAuthActions className="flex min-w-[12rem] items-center justify-end gap-2" compact />
         </div>
-        <div className="lg:hidden">
+        <div className="flex justify-self-end lg:hidden">
           <MobileHeaderMenu />
         </div>
       </div>

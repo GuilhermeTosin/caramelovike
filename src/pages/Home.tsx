@@ -860,17 +860,22 @@ export default function Home({
       <section className="bg-muted text-foreground py-20 border-y border-border">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="flex items-center justify-center mx-auto mb-6">
-            <img
-              src="/brazil-map-pin-112.webp"
-              srcSet="/brazil-map-pin-112.webp 112w, /brazil-map-pin-168.webp 168w, /brazil-map-pin-224.webp 224w"
-              sizes="(min-width: 640px) 112px, 96px"
-              alt={"Ícone de localização com bandeira do Brasil"}
-              width={112}
-              height={112}
-              loading="lazy"
-              decoding="async"
-              className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
-            />
+            <picture>
+              <source
+                type="image/webp"
+                srcSet="/brazil-map-pin-256.webp 256w, /brazil-map-pin-512.webp 512w"
+                sizes="(min-width: 640px) 112px, 96px"
+              />
+              <img
+                src="/brazil-map-pin.png"
+                alt={"Ícone de localização com bandeira do Brasil"}
+                width={512}
+                height={512}
+                loading="lazy"
+                decoding="async"
+                className="h-24 w-24 object-contain sm:h-28 sm:w-28"
+              />
+            </picture>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold mb-4">
             <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>{homeText.ctaHeading}</span>

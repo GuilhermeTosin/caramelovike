@@ -533,17 +533,24 @@ export default function HomeV2({
             <div className="relative overflow-hidden rounded-2xl bg-[#173f35] px-6 py-10 text-white sm:px-10 sm:py-12 lg:px-14">
               <div className="absolute right-0 top-0 h-full w-2 bg-[linear-gradient(180deg,#167348_0%,#e4b53d_50%,#235d91_100%)]" />
               <div className="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
-                <div className="flex items-start gap-4 sm:gap-5">
-                  <img
-                    src="/brazil-map-pin.png"
-                    alt=""
-                    width="500"
-                    height="500"
-                    loading="lazy"
-                    decoding="async"
-                    aria-hidden="true"
-                    className="mt-1 h-40 w-40 shrink-0 object-contain sm:h-48 sm:w-48 lg:h-56 lg:w-56"
-                  />
+                <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:gap-5 sm:text-left">
+                  <picture className="mt-1 h-40 w-40 shrink-0 sm:h-48 sm:w-48 lg:h-56 lg:w-56">
+                    <source
+                      type="image/webp"
+                      srcSet="/brazil-map-pin-256.webp 256w, /brazil-map-pin-512.webp 512w"
+                      sizes="(min-width: 1024px) 224px, (min-width: 640px) 192px, 160px"
+                    />
+                    <img
+                      src="/brazil-map-pin.png"
+                      alt=""
+                      width="512"
+                      height="512"
+                      loading="lazy"
+                      decoding="async"
+                      aria-hidden="true"
+                      className="h-full w-full object-contain"
+                    />
+                  </picture>
                   <div>
                     <p className={`${HOME_EYEBROW_CLASS} text-[#e8c867]`}>Faça parte da rede</p>
                     <h2 className="mt-4 max-w-3xl text-3xl font-black tracking-[-0.04em] sm:text-4xl">Seu negócio também pode ser encontrado pela comunidade.</h2>

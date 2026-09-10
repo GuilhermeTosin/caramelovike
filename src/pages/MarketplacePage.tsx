@@ -24,6 +24,7 @@ type SharedProps = { initialSnapshot?: MarketplaceSnapshot; initialListing?: Mar
 
 const TYPE_LABELS: Record<MarketplaceListingType, string> = { selling: "Vendendo", wanted: "Procurando", giving_away: "Doando" };
 const CONDITION_LABELS: Record<MarketplaceCondition, string> = { new: "Novo", like_new: "Como novo", good: "Bom estado", used: "Usado", parts: "Para peças" };
+const MARKETPLACE_PAGE_SIZE = 12;
 
 function Header() {
   return null;
@@ -89,7 +90,7 @@ function MarketplaceDiscoveryHeader({
         </Button>
       </div>
 
-      <form onSubmit={onSubmit} className="mt-7 flex flex-col gap-2 rounded-2xl border border-[#203940]/12 bg-white/90 p-2 shadow-sm lg:flex-row">
+      <form onSubmit={onSubmit} className="mt-7 hidden flex-col gap-2 rounded-2xl border border-[#203940]/12 bg-white/90 p-2 shadow-sm xl:flex xl:flex-row">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#12633d]" aria-hidden="true" />
           <Input value={search} onChange={(event) => onSearchChange(event.target.value)} className="h-12 border-0 bg-transparent pl-12 text-base shadow-none focus-visible:ring-0" placeholder="O que você está procurando?" aria-label="Buscar produtos no Marketplace" />
@@ -117,6 +118,36 @@ function MarketplaceDiscoveryHeader({
         <Button type="submit" className="h-12 rounded-xl px-7 text-base">
           Buscar
         </Button>
+      </form>
+      <form onSubmit={onSubmit} className="mt-5 grid gap-3 rounded-2xl border border-[#203940]/12 bg-white/80 p-3 shadow-sm xl:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-[#203940]">Filtros</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Ajuste a localização e a distância.</p>
+          </div>
+          <MapPinned className="h-5 w-5 shrink-0 text-[#12633d]" aria-hidden="true" />
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="relative min-w-0">
+            <AddressAutocomplete
+              value={city}
+              onChange={onCityChange}
+              onPlaceSelected={onCitySelected}
+              mode="city"
+              placeholder="Em qual cidade?"
+              className="h-11 border-[#203940]/10 bg-transparent pl-4 text-sm shadow-none focus-visible:ring-0"
+            />
+          </div>
+          <label className="flex h-11 min-w-0 items-center gap-2 rounded-md border border-[#203940]/10 px-3 text-sm text-muted-foreground sm:w-40">
+            <MapPinned className="h-4 w-4 shrink-0 text-[#12633d]" aria-hidden="true" />
+            <span className="sr-only">Distância</span>
+            <select value={radiusKm} onChange={(event) => onRadiusChange(event.target.value)} className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm text-foreground outline-none focus:ring-0" aria-label="Distância da busca">
+              <option value="">Sem limite</option>
+              {MARKETPLACE_DISTANCE_OPTIONS.map((distance) => <option key={distance} value={String(distance)}>Até {distance} km</option>)}
+            </select>
+          </label>
+        </div>
+        <Button type="submit" className="h-11 rounded-xl">Aplicar filtros</Button>
       </form>
       {radiusError ? <p className="mt-2 text-sm text-amber-700">{radiusError}</p> : null}
 
@@ -150,6 +181,92 @@ function MarketplaceDiscoveryHeader({
         </div>
       </div>
     </section>
+  );
+}
+
+function MarketplaceMobileCategories({
+  categories,
+  selectedCategory,
+  onCategorySelect,
+}: {
+  categories: MarketplaceCategory[];
+  selectedCategory: string;
+  onCategorySelect: (slug: string) => void;
+}) {
+  return (
+    <nav className="mb-4 lg:hidden" aria-label="Categorias do Marketplace">
+      <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-max gap-2">
+          <button
+            type="button"
+            aria-pressed={!selectedCategory}
+            onClick={() => onCategorySelect("")}
+            className={`flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold whitespace-nowrap transition-colors ${!selectedCategory ? "border-[#12633d]/30 bg-[#eaf3ed] text-[#12633d]" : "border-border bg-white text-muted-foreground"}`}
+          >
+            <Tag className="h-3.5 w-3.5" aria-hidden="true" />
+            Todos
+          </button>
+          {categories.map((item) => {
+            const CategoryIcon = getMarketplaceCategoryIcon(item.slug);
+            const isSelected = selectedCategory === item.slug;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => onCategorySelect(item.slug)}
+                className={`flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold whitespace-nowrap transition-colors ${isSelected ? "border-[#12633d]/30 bg-[#eaf3ed] text-[#12633d]" : "border-border bg-white text-[#203940]"}`}
+              >
+                <CategoryIcon className="h-3.5 w-3.5 text-[#12633d]" aria-hidden="true" />
+                {item.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+function MarketplaceMobileRadiusFilter({
+  city,
+  radiusKm,
+  radiusError,
+  onRadiusChange,
+}: {
+  city: string;
+  radiusKm: string;
+  radiusError?: string;
+  onRadiusChange: (value: string) => void | Promise<void>;
+}) {
+  const hasCity = Boolean(city.trim());
+
+  return (
+    <>
+      <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <MapPinned className="h-4 w-4 shrink-0 text-[#12633d]" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#203940]">Distância</p>
+            <p className="truncate text-xs text-muted-foreground">{hasCity ? `Perto de ${city}` : "Escolha uma cidade no header"}</p>
+          </div>
+        </div>
+        <label className={`inline-flex h-9 shrink-0 items-center rounded-full border border-[#203940]/12 bg-white px-2.5 shadow-sm ${hasCity ? "text-[#203940]" : "text-muted-foreground/70"}`}>
+          <span className="sr-only">Raio da busca</span>
+          <select
+            value={radiusKm}
+            onChange={(event) => onRadiusChange(event.target.value)}
+            disabled={!hasCity}
+            className="h-full max-w-[9rem] border-0 bg-transparent text-xs font-semibold outline-none focus:ring-0 disabled:cursor-not-allowed"
+            aria-label="Raio da busca"
+          >
+            <option value="">Sem limite</option>
+            {MARKETPLACE_DISTANCE_OPTIONS.map((distance) => <option key={distance} value={String(distance)}>Até {distance} km</option>)}
+          </select>
+        </label>
+      </div>
+      {radiusError ? <p className="mb-4 text-xs text-amber-700 lg:hidden">{radiusError}</p> : null}
+    </>
   );
 }
 
@@ -209,28 +326,45 @@ function MarketplacePageView({
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-        <MarketplaceDiscoveryHeader
+      <main className="mx-auto max-w-7xl px-4 pb-8 pt-3 sm:px-6 sm:py-12 lg:px-8">
+        <MarketplaceMobileCategories
           categories={categories}
           selectedCategory={category}
-          search={search}
+          onCategorySelect={onCategorySelect}
+        />
+        <MarketplaceMobileRadiusFilter
           city={city}
           radiusKm={radiusKm}
           radiusError={radiusError}
-          onSearchChange={onSearchChange}
-          onCityChange={onCityChange}
-          onCitySelected={onCitySelected}
           onRadiusChange={onRadiusChange}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void onSubmit();
-          }}
-          onCategorySelect={onCategorySelect}
         />
+
+        <div className="hidden lg:block">
+          <MarketplaceDiscoveryHeader
+            categories={categories}
+            selectedCategory={category}
+            search={search}
+            city={city}
+            radiusKm={radiusKm}
+            radiusError={radiusError}
+            onSearchChange={onSearchChange}
+            onCityChange={onCityChange}
+            onCitySelected={onCitySelected}
+            onRadiusChange={onRadiusChange}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onSubmit();
+            }}
+            onCategorySelect={onCategorySelect}
+          />
+        </div>
 
         <div className="mb-6 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">{isLoading ? "Carregando anúncios..." : String(snapshot?.totalCount || 0) + (snapshot?.totalCount === 1 ? " anúncio encontrado" : " anúncios encontrados")}</p>
-          <Link to="/perfil?tab=marketplace" className="text-sm font-semibold text-primary hover:underline">Meus anúncios</Link>
+          <div className="flex items-center gap-4">
+            <Link to="/marketplace/novo" className="text-sm font-semibold text-primary hover:underline lg:hidden">+ Publicar anúncio</Link>
+            <Link to="/perfil?tab=marketplace" className="text-sm font-semibold text-primary hover:underline">Meus anúncios</Link>
+          </div>
         </div>
 
         {isLoading ? <Card className="p-12 text-center text-muted-foreground">Carregando anúncios...</Card> : snapshot?.items.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{snapshot.items.map((listing) => <MarketplaceListingCard key={listing.id} listing={listing} />)}</div> : <Card className="p-12 text-center"><Tag className="mx-auto mb-3 h-10 w-10 text-muted-foreground" /><h2 className="text-lg font-semibold">Nenhum anúncio encontrado</h2><p className="mt-2 text-sm text-muted-foreground">Tente outra busca ou publique o primeiro anúncio.</p></Card>}
@@ -380,7 +514,7 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
       originLat: appliedOriginLat ? Number(appliedOriginLat) : undefined,
       originLng: appliedOriginLng ? Number(appliedOriginLng) : undefined,
       page: appliedPage,
-      pageSize: 12,
+      pageSize: MARKETPLACE_PAGE_SIZE,
     };
     const requestKey = appliedRequestKey;
     if (initialSnapshot?.requestKey === requestKey) return;
@@ -408,8 +542,13 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
   const requestKey = appliedRequestKey;
   const visibleSnapshot = initialSnapshot?.requestKey === requestKey ? initialSnapshot : snapshot;
   const isLoading = !visibleSnapshot || visibleSnapshot.requestKey !== requestKey;
-  const totalPages = Math.max(1, Math.ceil((visibleSnapshot?.totalCount || 0) / 12));
-  const categories = visibleSnapshot?.categories?.length ? visibleSnapshot.categories : MARKETPLACE_CATEGORIES.map((category, index) => ({ ...category, id: category.slug, sort_order: index, is_active: true }));
+  const totalPages = Math.max(1, Math.ceil((visibleSnapshot?.totalCount || 0) / MARKETPLACE_PAGE_SIZE));
+  const fallbackCategories: MarketplaceCategory[] = MARKETPLACE_CATEGORIES.map((category, index) => ({ ...category, id: category.slug, sort_order: index, is_active: true }));
+  const categories = visibleSnapshot?.categories?.length ? [...visibleSnapshot.categories] : fallbackCategories;
+  const categorySlugs = new Set(categories.map((category) => category.slug));
+  for (const category of fallbackCategories) {
+    if (!categorySlugs.has(category.slug)) categories.push(category);
+  }
   const updateFilters = (next: MarketplaceFilterValues) => {
     const params = new URLSearchParams();
     if (next.search?.trim()) params.set("q", next.search.trim());

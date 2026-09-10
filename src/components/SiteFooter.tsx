@@ -29,23 +29,25 @@ export default function SiteFooter() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           <div className="md:col-span-2">
-            <div className="group flex items-center gap-2">
-              <div className="w-12 h-12 flex items-center justify-center">
+            <div className="flex items-center gap-3">
+              <div className="flex h-14 w-14 items-center justify-center sm:h-16 sm:w-16">
                 <img
                   src="/logo-64.webp"
                   srcSet="/logo-64.webp 64w, /logo-112.webp 112w"
-                  sizes="48px"
+                  sizes="(min-width: 640px) 64px, 56px"
                   alt="Caramelinho logo"
                   width={64}
                   height={64}
                   loading="lazy"
                   decoding="async"
-                  className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110"
+                  className="h-full w-full object-contain transition-transform duration-200 hover:scale-110"
                 />
               </div>
-              <div className="leading-tight">
-                <div className="font-extrabold text-base tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-[11px] font-semibold tracking-wide text-amber-200">{getSiteSlogan()}</div>
+              <div className="min-w-0 leading-none">
+                <div className="truncate text-xl font-black tracking-[-0.04em] text-[#f6e7c1] sm:text-2xl">
+                  Caramelinho<span className="text-[#c85f1a]">.</span>
+                </div>
+                <div className="mt-1 truncate text-[9px] font-semibold tracking-[0.08em] text-amber-200 sm:text-[10px]">{getSiteSlogan()}</div>
               </div>
             </div>
             <p className="mt-3 text-sm text-slate-300 max-w-md leading-relaxed">
