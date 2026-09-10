@@ -266,7 +266,7 @@ export default function SearchResults({
   const location = useLocation();
   const { session } = useAuth();
   const text = {
-        searchPlaceholder: "Buscar por produto ou serviço (Ex: coxinha)", locationPlaceholder: "Em qual cidade?", currentLocation: CURRENT_LOCATION_LABEL, submit: "Farejar", filters: "Filtros", map: "Mapa", list: "Lista", loading: "Carregando resultados...", noResults: "Nenhum resultado encontrado", clear: "Limpar filtros", backHome: "Voltar ao Início", loadingDescription: "Aguarde um instante enquanto preparamos os negócios para você.", country: "País", allCountries: "Todos os países", region: "Estado/Província", allRegions: "Todos os estados", city: "Cidade", allCities: "Todas as cidades", distance: "Distância", within: "Até", business: "negócio", found: "encontrado", allWorldwide: "Ver todos no mundo", regionalCategory: "Você está vendo resultados desta categoria na sua região.", locationRequired: "informe um local ou permita sua localização para usar raio", locatingReference: "localizando referência...", businessSearch: "Buscar negócios brasileiros", slogan: getSiteSlogan(),
+        searchPlaceholder: "Buscar por produto ou serviço (Ex: coxinha)", locationPlaceholder: "Em qual cidade?", currentLocation: CURRENT_LOCATION_LABEL, submit: "Farejar", filters: "Filtros", map: "Mapa", list: "Lista", loading: "Carregando resultados...", noResults: "Nenhum resultado encontrado", clear: "Limpar filtros", backHome: "Voltar ao Início", loadingDescription: "Aguarde um instante enquanto preparamos os negócios para você.", country: "País", region: "Estado/Província", allRegions: "Todos os estados", city: "Cidade", allCities: "Todas as cidades", distance: "Distância", within: "Até", business: "negócio", found: "encontrado", allWorldwide: "Ver todos no mundo", regionalCategory: "Você está vendo resultados desta categoria na sua região.", locationRequired: "informe um local ou permita sua localização para usar raio", locatingReference: "localizando referência...", businessSearch: "Buscar negócios brasileiros", slogan: getSiteSlogan(),
       };
   const communityText = {
         findsHeading: "Achadinhos da comunidade",
@@ -1481,36 +1481,50 @@ export default function SearchResults({
         </SelectContent>
       </Select>
 
-      <Select
-        value={countryFilter || "all"}
-        onValueChange={(v) => {
-          const params = getParamsForAdministrativeFilterChange();
-          if (v === "all") {
-            params.delete("pais");
-            params.delete("estado");
-            params.delete("cidade");
-          } else {
+      <div className="flex items-center gap-2">
+        <Select
+          value={countryFilter}
+          onValueChange={(v) => {
+            const params = getParamsForAdministrativeFilterChange();
             params.set("pais", v);
             params.delete("estado");
             params.delete("cidade");
-          }
-          setSearchParams(params);
-        }}
-      >
-        <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder={text.country} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{text.allCountries}</SelectItem>
-          {availableLocations
-            .filter((loc) => typeof loc?.countryCode === "string" && loc.countryCode.trim().length > 0)
-            .map((loc) => (
-              <SelectItem key={loc.countryCode} value={loc.countryCode}>
-                {getCountryDisplayName(loc.countryCode, loc.countryName)}
-              </SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
+            setSearchParams(params);
+          }}
+        >
+          <SelectTrigger className="h-9 flex-1 text-sm">
+            <SelectValue placeholder={text.country} />
+          </SelectTrigger>
+          <SelectContent>
+            {availableLocations
+              .filter((loc) => typeof loc?.countryCode === "string" && loc.countryCode.trim().length > 0)
+              .map((loc) => (
+                <SelectItem key={loc.countryCode} value={loc.countryCode}>
+                  {getCountryDisplayName(loc.countryCode, loc.countryName)}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+        {countryFilter ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            aria-label="Remover filtro de país"
+            title="Remover filtro de país"
+            onClick={() => {
+              const params = getParamsForAdministrativeFilterChange();
+              params.delete("pais");
+              params.delete("estado");
+              params.delete("cidade");
+              setSearchParams(params);
+            }}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        ) : null}
+      </div>
 
       {selectedCountryData && (
         <Select

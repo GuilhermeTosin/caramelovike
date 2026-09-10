@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import {
   buildBusinessUrl,
   getCountryName,
+  getPublicBusinessDirectoryIndex,
   getStateDisplayName,
   resolveCanonicalLocationSlug,
 } from "@/services/businesses";
@@ -16,6 +17,7 @@ import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import { DIRECTORY_CATEGORY_MINIMUM_BUSINESSES } from "@/lib/directoryCategories";
 import {
   buildDirectoryPagePath,
+  buildDirectoryPageSnapshot,
   type DirectoryLevel,
   type DirectoryPageSnapshot,
 } from "@/lib/directorySnapshot";
@@ -36,12 +38,62 @@ function getLocationLabel(business: BusinessFrontend) {
   return parts.join(", ") || ("Localização não informada");
 }
 
+let clientDirectoryIndexCache: BusinessFrontend[] | null = null;
+let clientDirectoryIndexRequest: Promise<BusinessFrontend[]> | null = null;
+
+function getCachedPublicBusinessDirectoryIndex() {
+  if (clientDirectoryIndexCache) return Promise.resolve(clientDirectoryIndexCache);
+  if (!clientDirectoryIndexRequest) {
+    clientDirectoryIndexRequest = getPublicBusinessDirectoryIndex()
+      .then((businesses) => {
+        clientDirectoryIndexCache = businesses;
+        return businesses;
+      })
+      .finally(() => {
+        clientDirectoryIndexRequest = null;
+      });
+  }
+  return clientDirectoryIndexRequest;
+}
+
 export default function BusinessDirectoryPage({ initialDirectorySnapshot }: BusinessDirectoryPageProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const [clientSnapshot, setClientSnapshot] = useState<DirectoryPageSnapshot | null>(null);
+  const [directoryLoadError, setDirectoryLoadError] = useState(false);
+  const [directoryRetry, setDirectoryRetry] = useState(0);
   const initialSnapshotMatchesPath = initialDirectorySnapshot?.pathname === pathname;
-  const snapshot = initialSnapshotMatchesPath ? initialDirectorySnapshot : null;
-  const loadingBusinesses = !snapshot;
+  const snapshot = initialSnapshotMatchesPath
+    ? initialDirectorySnapshot || null
+    : clientSnapshot?.pathname === pathname
+      ? clientSnapshot
+      : null;
+
+  useEffect(() => {
+    if (initialSnapshotMatchesPath) return;
+    let active = true;
+    setDirectoryLoadError(false);
+
+    void getCachedPublicBusinessDirectoryIndex()
+      .then((businesses) => {
+        if (!active) return;
+        const nextSnapshot = buildDirectoryPageSnapshot(pathname, businesses);
+        if (!nextSnapshot) {
+          setDirectoryLoadError(true);
+          return;
+        }
+        setClientSnapshot(nextSnapshot);
+      })
+      .catch(() => {
+        if (active) setDirectoryLoadError(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [directoryRetry, initialSnapshotMatchesPath, pathname]);
+
+  const loadingBusinesses = !snapshot && !directoryLoadError;
 
   useEffect(() => {
     if (!snapshot) return;
@@ -149,10 +201,17 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
           </section>
         )}
 
-        {!loadingBusinesses && !snapshot && (
+        {directoryLoadError && !snapshot && (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
-            <h2 className="text-xl font-bold">{"Página não encontrada"}</h2>
-            <p className="mt-2 text-muted-foreground">{"Não encontramos esta página no diretório público."}</p>
+            <h2 className="text-xl font-bold">{"Não foi possível carregar o diretório"}</h2>
+            <p className="mt-2 text-muted-foreground">{"Tente novamente em instantes para carregar os países com negócios publicados."}</p>
+            <button
+              type="button"
+              className="mt-4 rounded-md border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"
+              onClick={() => setDirectoryRetry((current) => current + 1)}
+            >
+              {"Tentar novamente"}
+            </button>
           </section>
         )}
 
