@@ -216,20 +216,20 @@ export default function HomeV2({
           <div className="pointer-events-none absolute -left-28 top-24 h-72 w-72 rounded-full bg-[#167348]/[0.06] blur-3xl" />
           <div className="pointer-events-none absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-[#e4b53d]/[0.09] blur-3xl" />
 
-          <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-            <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
-              <div className="min-w-0">
-                <h1 className="w-full max-w-[35rem] break-words pr-4 text-[2.65rem] font-black leading-[1.08] tracking-[-0.055em] text-[#203940] sm:text-6xl lg:text-[3.75rem]">
+          <div className="relative mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
+            <div className="grid min-w-0 grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-20">
+              <div className="min-w-0 max-w-full">
+                <h1 className="m-0 w-full max-w-full break-words pr-0 text-[clamp(2rem,10.5vw,2.65rem)] font-black leading-[1.08] tracking-[-0.05em] [overflow-wrap:anywhere] text-[#203940] sm:pr-4 sm:text-6xl lg:text-[3.75rem]">
                   Encontre <span className="hero-gradient-phrase">negócios e produtos brasileiros</span> no mundo todo
                 </h1>
-                <p className="mt-6 max-w-2xl text-base leading-7 text-[#203940]/70 sm:text-lg">
+                <p className="mt-6 w-full max-w-full break-words text-base leading-7 text-[#203940]/70 sm:max-w-2xl sm:text-lg">
                   Descubra profissionais, serviços, eventos e produtos da comunidade brasileira, reunidos em um só lugar.
                 </p>
-                <div className="mt-9 flex flex-wrap gap-3">
-                  <Link to="/negocios" className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#167348] px-5 text-sm font-bold text-white transition-shadow hover:shadow-[0_8px_20px_rgba(22,115,72,0.22)]">
+                <div className="mt-9 flex max-w-full flex-wrap gap-3">
+                  <Link to="/negocios" className="inline-flex h-11 max-w-full items-center gap-2 rounded-lg bg-[#167348] px-5 text-sm font-bold text-white transition-shadow hover:shadow-[0_8px_20px_rgba(22,115,72,0.22)]">
                     Explorar negócios <ArrowRight className="h-4 w-4" />
                   </Link>
-                  <Link to={marketplaceHref} className="inline-flex h-11 items-center gap-2 rounded-lg border border-[#203940]/15 bg-white px-5 text-sm font-bold text-[#203940] transition-shadow hover:shadow-[0_8px_20px_rgba(32,57,64,0.12)]">
+                  <Link to={marketplaceHref} className="inline-flex h-11 max-w-full items-center gap-2 rounded-lg border border-[#203940]/15 bg-white px-5 text-sm font-bold text-[#203940] transition-shadow hover:shadow-[0_8px_20px_rgba(32,57,64,0.12)]">
                     Ver produtos <ShoppingBag className="h-4 w-4" />
                   </Link>
                 </div>

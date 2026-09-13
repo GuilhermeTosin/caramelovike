@@ -182,12 +182,6 @@ export async function sendMessage(
 
   if (!msg) return null;
 
-  // Atualizar last_message na conversa
-  await supabase
-    .from("conversations")
-    .update({ last_message: text, last_message_at: new Date().toISOString() })
-    .eq("id", conversationId);
-
   // Buscar nome do remetente
   const { data: profile } = await supabase
     .from("profiles")

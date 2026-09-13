@@ -397,8 +397,8 @@ export default function SiteHeader({
     <>
       <header ref={headerRef} className="fixed inset-x-0 top-0 z-50 border-b border-[#203940]/10 bg-white shadow-sm">
       <div className="absolute inset-x-0 -bottom-px h-1 bg-[linear-gradient(90deg,#167348_0%,#167348_33%,#e4b53d_33%,#e4b53d_66%,#235d91_66%,#235d91_100%)]" aria-hidden="true" />
-      <div className="mx-auto grid h-20 max-w-[90rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 sm:px-6 lg:grid-cols-[auto_1fr_auto] lg:px-8">
-        <Link to="/" className="flex min-w-0 items-center gap-3">
+      <div className="mx-auto grid h-16 max-w-[90rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 sm:px-6 lg:grid-cols-[auto_1fr_auto] lg:gap-4 lg:px-8 lg:h-20">
+        <Link to="/" className="flex min-w-0 items-center gap-2 lg:gap-3">
           <img
             src="/logo-64.webp"
             srcSet="/logo-64.webp 64w, /logo-112.webp 112w"
@@ -407,13 +407,13 @@ export default function SiteHeader({
             width="64"
             height="64"
             decoding="async"
-            className="h-16 w-16 object-contain transition-transform duration-200 hover:scale-110"
+            className="h-14 w-14 object-contain transition-transform duration-200 hover:scale-110 lg:h-16 lg:w-16"
           />
           <span className="min-w-0 leading-none">
-            <span className="block truncate antialiased text-2xl font-extrabold tracking-[-0.03em] text-[#b55518]">
+            <span className="block truncate antialiased text-[1.35rem] font-extrabold tracking-[-0.03em] text-[#b55518] lg:text-2xl">
               Caramelinho<span className="text-[#111827]">.</span>
             </span>
-            <span className="mt-1 block truncate text-[10px] font-bold tracking-[0.08em] text-[#203940]">
+            <span className="mt-0.5 block truncate text-[8px] font-bold tracking-[0.07em] text-[#203940] lg:mt-1 lg:text-[10px] lg:tracking-[0.08em]">
               O SEU FARO FORA DO BRASIL
             </span>
           </span>
@@ -482,9 +482,9 @@ export default function SiteHeader({
         </div>
       </div>
 
-      <form onSubmit={handleSearch} className="border-t border-[#203940]/10 px-4 py-2.5 lg:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-[auto_1fr_auto] gap-1 rounded-xl border border-[#203940]/12 bg-[#fbfcfa] p-1 shadow-sm">
-          <div className="flex items-center border-r border-[#203940]/10 pr-1">
+      <form onSubmit={handleSearch} className="border-t border-[#203940]/10 px-3 py-1.5 lg:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-[auto_minmax(0,1fr)_auto] gap-0.5 rounded-lg border border-[#203940]/12 bg-[#fbfcfa] p-0.5 shadow-sm">
+          <div className="flex items-center border-r border-[#203940]/10 pr-0.5">
             {SEARCH_MODES.map((mode) => {
               const ModeIcon = mode === "businesses" ? Store : mode === "events" ? CalendarDays : ShoppingBag;
               const isActive = searchMode === mode;
@@ -497,7 +497,7 @@ export default function SiteHeader({
                   title={modeText.label}
                   aria-pressed={isActive}
                   onClick={() => setSearchMode(mode)}
-                  className={`grid h-10 w-10 place-items-center rounded-lg transition-shadow ${isActive ? "bg-[#eaf3ed] text-[#12633d]" : "text-[#203940]/45 hover:shadow-[0_4px_12px_rgba(32,57,64,0.12)]"}`}
+                  className={`grid h-8 w-8 place-items-center rounded-md transition-shadow ${isActive ? "bg-[#eaf3ed] text-[#12633d]" : "text-[#203940]/45 hover:shadow-[0_4px_12px_rgba(32,57,64,0.12)]"}`}
                 >
                   <ModeIcon className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -513,19 +513,19 @@ export default function SiteHeader({
             disableLocalSuggestions
             placeholder={activeSearchMode.placeholder}
             icon="search"
-            inputClassName="h-10 border-0 bg-transparent text-sm text-[#203940] shadow-none focus-visible:ring-0"
+            inputClassName="h-9 border-0 bg-transparent text-[13px] text-[#203940] shadow-none focus-visible:ring-0 !pl-10 !pr-9"
           />
-          <Button type="submit" aria-label={activeSearchMode.ctaLabel} title={activeSearchMode.ctaLabel} className="h-10 w-10 rounded-lg caramelo-gradient p-0 text-white hover:shadow-[0_6px_16px_rgba(32,57,64,0.2)]">
+          <Button type="submit" aria-label={activeSearchMode.ctaLabel} title={activeSearchMode.ctaLabel} className="h-9 w-9 rounded-lg caramelo-gradient p-0 text-white hover:shadow-[0_6px_16px_rgba(32,57,64,0.2)]">
             <Search className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
         <SearchInputWithSuggestions
-          className="mx-auto mt-2 max-w-lg rounded-xl border border-[#203940]/12 bg-[#fbfcfa] shadow-sm"
+          className="mx-auto mt-1.5 h-9 max-w-lg rounded-lg border border-[#203940]/12 bg-[#fbfcfa] shadow-sm"
           value={location}
           onChange={handleLocationChange}
           suggestions={citySuggestions}
           maxSuggestions={3}
-          placeholder="Em qual cidade?"
+          placeholder="Localização"
           icon="location"
           useGooglePlaces
           portalSuggestions
@@ -533,7 +533,7 @@ export default function SiteHeader({
           isLoading={locating}
           currentLocationLabel="Usar minha localização"
           onSubmit={handleLocationSubmit}
-          inputClassName="h-10 border-0 bg-transparent text-sm text-[#203940] shadow-none focus-visible:ring-0"
+          inputClassName="h-9 border-0 bg-transparent text-[13px] text-[#203940] shadow-none focus-visible:ring-0 !pl-10 !pr-9"
         />
       </form>
       </header>

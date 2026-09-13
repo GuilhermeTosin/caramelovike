@@ -19,6 +19,7 @@ $env
 .npm-cache/
 build/
 supabase/.temp/
+supabase/production-schema.sql
 
 node_modules
 dist
