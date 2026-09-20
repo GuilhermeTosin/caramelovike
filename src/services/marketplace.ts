@@ -571,18 +571,56 @@ export async function updateMarketplaceReportStatus(id: string, status: Marketpl
   return { ok: !error, error: error?.message };
 }
 
-export async function getSimilarMarketplaceListings(listing: MarketplaceListing, limit = 4) {
-  const { data } = await supabase
+export type MarketplaceRelatedListings = {
+  items: MarketplaceListing[];
+  source: "seller" | "region";
+};
+
+export async function getMarketplaceRelatedListings(listing: MarketplaceListing, limit = 4): Promise<MarketplaceRelatedListings> {
+  let sellerQuery = supabase
     .from("marketplace_listings")
     .select(MARKETPLACE_LIST_SELECT)
     .eq("status", "active")
-    .eq("category_id", listing.category_id)
+    .neq("id", listing.id);
+
+  if (listing.seller_business_id) {
+    sellerQuery = sellerQuery.eq("seller_business_id", listing.seller_business_id);
+  } else {
+    sellerQuery = sellerQuery.eq("owner_id", listing.owner_id).is("seller_business_id", null);
+  }
+
+  const { data: sellerRows, error: sellerError } = await sellerQuery
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit);
+
+  if (sellerError) {
+    console.warn("[Marketplace] Falha ao carregar anuncios do vendedor; usando fallback regional:", sellerError);
+  }
+  if (sellerRows?.length) {
+    return {
+      items: await enrichListings((sellerRows || []) as unknown as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false }),
+      source: "seller",
+    };
+  }
+
+  const { data: regionRows, error: regionError } = await supabase
+    .from("marketplace_listings")
+    .select(MARKETPLACE_LIST_SELECT)
+    .eq("status", "active")
+    .eq("country_code", listing.country_code)
+    .eq("state_code", listing.state_code)
     .eq("city_normalized", normalizeMarketplaceCity(listing.city))
     .neq("id", listing.id)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(limit);
-  return enrichListings((data || []) as unknown as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false });
+
+  if (regionError) console.warn("[Marketplace] Falha ao carregar anuncios da regiao:", regionError);
+  return {
+    items: await enrichListings((regionRows || []) as unknown as MarketplaceListing[], { includeOwnerProfile: false, includeOwnerStats: false }),
+    source: "region",
+  };
 }
 
 export async function addMarketplaceListingImages(listingId: string, imageUrls: string[]) {

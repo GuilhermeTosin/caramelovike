@@ -24,6 +24,37 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-20 19:44:05 -04:00
+
+- Status: concluido em 2026-09-20 19:46:36 -04:00.
+- Solicitacao: priorizar na pagina do anuncio outros anuncios do mesmo
+  vendedor e usar anuncios da mesma regiao como fallback quando nao houver
+  outro anuncio desse vendedor.
+- Diagnostico: ja existia o bloco `Anuncios semelhantes`, mas a consulta atual
+  filtrava somente categoria e cidade, sem distinguir vendedor ou fallback.
+- Estrategia: consultar primeiro o mesmo vendedor visivel no anuncio, usando o
+  negocio quando o anuncio estiver vinculado a negocio e o proprietario quando
+  for anuncio pessoal; se vazio, consultar cidade, estado e pais, excluindo o
+  anuncio atual.
+- Riscos: o fallback pode misturar categorias, pois a prioridade solicitada e
+  a regiao; a consulta continua limitada a quatro cards para preservar a
+  densidade e o egress da pagina.
+- Implementacao:
+  - `src/services/marketplace.ts`: substituida a consulta generica por
+    `getMarketplaceRelatedListings`, com prioridade para o mesmo negocio ou
+    proprietario e fallback por cidade, estado e pais.
+  - `src/pages/MarketplacePage.tsx`: bloco agora usa os rotulos `Mais anuncios
+    de ...` ou `Anuncios da mesma regiao`, conforme a origem dos resultados.
+- Validacao automatica:
+  - `npm run verify`: passou; 22 arquivos e 104 testes.
+  - `npm run lint`: passou sem erros.
+  - `npm run build`: passou; permanece apenas o aviso tolerado e preexistente
+    de top-level await em `src/pages/BusinessPageRoute.tsx:7`.
+  - `git diff --check`: passou.
+- Validacao manual: no localhost, o anuncio `Livro blah` exibiu `Mais anuncios
+  de Testengocio` com outro anuncio do mesmo vendedor.
+- Nenhuma migration ou etapa externa e necessaria.
+
 ### 2026-09-20 19:37:37 -04:00
 
 - Status: concluido.

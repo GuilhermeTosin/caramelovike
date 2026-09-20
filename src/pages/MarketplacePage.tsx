@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { setSeoMeta } from "@/lib/seo";
 import { DEFAULT_MARKETPLACE_DISTANCE_KM, MARKETPLACE_CATEGORIES, MARKETPLACE_DISTANCE_OPTIONS, normalizeMarketplaceDistance, normalizeMarketplaceKeywords } from "@/lib/marketplaceCategories";
 import { buildMarketplaceRequestKey, marketplaceBusinessSellerPath, marketplaceListingPath, marketplaceSellerPath, type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
-import { contactMarketplaceSeller, createMarketplaceListing, getMarketplaceCategories, getMarketplaceListingByOwner, getMarketplaceListingByPath, getMarketplacePage, getMarketplaceBusinessSellerPage, getMarketplaceSellerBusinesses, getMarketplaceSellerPage, getSimilarMarketplaceListings, replaceMarketplaceListingImages, reportMarketplaceListing, toggleMarketplaceFavorite, updateMarketplaceListing, type MarketplaceBusinessSellerPage, type MarketplaceFilters, type MarketplaceSellerBusinessOption, type MarketplaceSellerPage } from "@/services/marketplace";
+import { contactMarketplaceSeller, createMarketplaceListing, getMarketplaceCategories, getMarketplaceListingByOwner, getMarketplaceListingByPath, getMarketplacePage, getMarketplaceBusinessSellerPage, getMarketplaceRelatedListings, getMarketplaceSellerBusinesses, getMarketplaceSellerPage, replaceMarketplaceListingImages, reportMarketplaceListing, toggleMarketplaceFavorite, updateMarketplaceListing, type MarketplaceBusinessSellerPage, type MarketplaceFilters, type MarketplaceRelatedListings, type MarketplaceSellerBusinessOption, type MarketplaceSellerPage } from "@/services/marketplace";
 import { generateImagePath, removePublicImageUrls, uploadImage } from "@/services/storage";
 import { getCurrencyCodeForCountry } from "@/lib/currency";
 import { geocodeAddress } from "@/lib/google-maps";
@@ -1042,7 +1042,7 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
   const params = useParams<{ countryCode: string; stateCode: string; city: string; slug: string }>();
   const { session } = useAuth();
   const [listing, setListing] = useState<MarketplaceListing | null>(initialListing || null);
-  const [similar, setSimilar] = useState<MarketplaceListing[]>([]);
+  const [related, setRelated] = useState<MarketplaceRelatedListings>({ items: [], source: "region" });
   const [message, setMessage] = useState("");
   const [reportReason, setReportReason] = useState<MarketplaceReport["reason"]>("other");
   const [reportDetails, setReportDetails] = useState("");
@@ -1064,7 +1064,7 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
       .finally(() => { if (active) setListingLoading(false); });
     return () => { active = false; };
   }, [initialListing, params.city, params.countryCode, params.slug, params.stateCode]);
-  useEffect(() => { if (!listing) return; setSeoMeta(`${listing.title} | Marketplace | Caramelinho`, `${listing.title} em ${listing.city}. Veja preço, condição e entre em contato com o vendedor no Marketplace do Caramelinho.`); void getSimilarMarketplaceListings(listing).then(setSimilar); }, [listing]);
+  useEffect(() => { if (!listing) return; setSeoMeta(`${listing.title} | Marketplace | Caramelinho`, `${listing.title} em ${listing.city}. Veja preço, condição e entre em contato com o vendedor no Marketplace do Caramelinho.`); void getMarketplaceRelatedListings(listing).then(setRelated); }, [listing]);
   if (listingLoading) return <div className="min-h-screen bg-background" aria-busy="true" aria-label="Carregando anúncio"><Header /><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><div className="animate-pulse space-y-5"><div className="aspect-video rounded-xl bg-muted/60" /><div className="h-8 w-2/3 rounded bg-muted/60" /><div className="h-4 w-1/2 rounded bg-muted/50" /><div className="h-32 rounded bg-muted/40" /></div></main></div>;
   if (!listing) return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-3xl px-4 py-20 text-center"><h1 className="text-2xl font-bold">Anúncio não encontrado</h1><p className="mt-2 text-muted-foreground">Este anúncio pode ter sido removido ou não está mais disponível.</p><Button asChild className="mt-6"><Link to="/marketplace">Voltar ao Marketplace</Link></Button></main></div>;
   const images = listing.images || [];
@@ -1243,11 +1243,13 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
 
         {notice ? <p className="mt-6 rounded-lg bg-secondary p-3 text-sm">{notice}</p> : null}
 
-        {similar.length ? (
-          <section className="mt-14" aria-labelledby="similar-listings-heading">
-            <h2 id="similar-listings-heading" className="mb-5 text-2xl font-bold">Anúncios semelhantes</h2>
+        {related.items.length ? (
+          <section className="mt-14" aria-labelledby="related-listings-heading">
+            <h2 id="related-listings-heading" className="mb-5 text-2xl font-bold">
+              {related.source === "seller" ? `Mais anúncios de ${sellerName}` : "Anúncios da mesma região"}
+            </h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
-              {similar.map((item) => <MarketplaceListingCard key={item.id} listing={item} />)}
+              {related.items.map((item) => <MarketplaceListingCard key={item.id} listing={item} />)}
             </div>
           </section>
         ) : null}
