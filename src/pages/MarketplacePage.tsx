@@ -17,8 +17,9 @@ import { generateImagePath, removePublicImageUrls, uploadImage } from "@/service
 import { getCurrencyCodeForCountry } from "@/lib/currency";
 import { geocodeAddress } from "@/lib/google-maps";
 import { DEFAULT_GEO_FALLBACK, getApproxGeoByIp } from "@/lib/utils/geo";
-import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
+import { getOptimizedImageUrl } from "@/lib/images";
 import MarketplaceListingCard from "@/components/MarketplaceListingCard";
+import MarketplaceListingGallery from "@/components/MarketplaceListingGallery";
 import type { MarketplaceCategory, MarketplaceCondition, MarketplaceListing, MarketplaceListingType, MarketplaceReport } from "@/types/database";
 
 type SharedProps = { initialSnapshot?: MarketplaceSnapshot; initialListing?: MarketplaceListing | null; initialSeller?: MarketplaceSellerPage | null; initialBusinessSeller?: MarketplaceBusinessSellerPage | null };
@@ -367,7 +368,7 @@ function MarketplacePageView({
           </div>
         </div>
 
-        {isLoading ? <Card className="p-12 text-center text-muted-foreground">Carregando anúncios...</Card> : snapshot?.items.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{snapshot.items.map((listing) => <MarketplaceListingCard key={listing.id} listing={listing} />)}</div> : <Card className="p-12 text-center"><Tag className="mx-auto mb-3 h-10 w-10 text-muted-foreground" /><h2 className="text-lg font-semibold">Nenhum anúncio encontrado</h2><p className="mt-2 text-sm text-muted-foreground">Tente outra busca ou publique o primeiro anúncio.</p></Card>}
+        {isLoading ? <Card className="p-12 text-center text-muted-foreground">Carregando anúncios...</Card> : snapshot?.items.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">{snapshot.items.map((listing) => <MarketplaceListingCard key={listing.id} listing={listing} />)}</div> : <Card className="p-12 text-center"><Tag className="mx-auto mb-3 h-10 w-10 text-muted-foreground" /><h2 className="text-lg font-semibold">Nenhum anúncio encontrado</h2><p className="mt-2 text-sm text-muted-foreground">Tente outra busca ou publique o primeiro anúncio.</p></Card>}
 
         <div className="mt-8 flex items-center justify-center gap-3">
           <Button variant="outline" size="icon" disabled={page <= 1 || isLoading} onClick={() => onPageChange(page - 1)} aria-label="Página anterior">
@@ -913,7 +914,187 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
   const sellerListingCount = listing.seller_listing_count ?? listing.owner_listing_count ?? 0;
   const handleContact = async () => { if (!message.trim()) return; const result = await contactMarketplaceSeller(listing, message); setNotice(result.ok ? "Mensagem enviada. Você pode continuar a conversa na sua conta." : result.error || "Não foi possível enviar a mensagem."); if (result.ok) setMessage(""); };
   const handleFavorite = async () => { const next = !favorite; const result = await toggleMarketplaceFavorite(listing.id, next); if (result.ok) setFavorite(next); else setNotice(result.error || "Faça login para salvar anúncios."); };
-  return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><Link to="/marketplace" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" />Marketplace</Link><div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]"><section><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{images.length ? images.map((image, index) => <img key={image.id} src={getOptimizedImageUrl(image.image_url, { width: index === 0 ? 1200 : 720, quality: 78, format: "webp" })} srcSet={getOptimizedImageSrcSet(image.image_url, [480, 720, 1200], 78)} sizes="(min-width: 1024px) 60vw, 100vw" alt={`${listing.title} - foto ${index + 1}`} loading={index === 0 ? "eager" : "lazy"} decoding="async" className="aspect-square w-full rounded-xl object-cover sm:first:col-span-2 sm:first:row-span-2" />) : <div className="col-span-full flex aspect-video items-center justify-center rounded-xl bg-secondary text-muted-foreground"><Tag className="h-16 w-16" /></div>}</div><div className="mt-8"><div className="flex flex-wrap items-center gap-2"><Badge>{TYPE_LABELS[listing.listing_type]}</Badge>{listing.condition ? <Badge variant="secondary">{CONDITION_LABELS[listing.condition]}</Badge> : null}<Badge variant="secondary">{listing.category?.name || "Marketplace"}</Badge></div><h1 className="mt-4 break-words text-3xl font-extrabold tracking-tight sm:text-4xl">{listing.title}</h1><p className="mt-3 text-2xl font-bold text-primary">{formatPrice(listing)}</p><div className="mt-4 flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" />{listingLocation(listing)}</div><div className="prose prose-sm mt-8 max-w-none whitespace-pre-wrap break-words text-foreground"><p>{listing.description}</p></div>{listing.keywords?.length ? <div className="mt-6 flex flex-wrap gap-2">{listing.keywords.map((keyword) => <Badge key={keyword} variant="secondary">#{keyword}</Badge>)}</div> : null}{getYouTubeEmbedUrl(listing.video_url) ? <section className="mt-8"><h2 className="mb-3 text-xl font-bold">Vídeo do anúncio</h2><div className="aspect-video overflow-hidden rounded-xl bg-secondary"><iframe src={getYouTubeEmbedUrl(listing.video_url) || undefined} title={`${listing.title} - vídeo`} loading="lazy" className="h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div></section> : null}<div className="mt-8 flex flex-wrap gap-3"><Button variant={favorite ? "default" : "outline"} onClick={handleFavorite}><Heart className={`mr-2 h-4 w-4 ${favorite ? "fill-current" : ""}`} />{favorite ? "Salvo" : "Salvar"}</Button><Button variant="outline" onClick={() => void navigator.clipboard?.writeText(window.location.href).then(() => setNotice("Link copiado."))}><Share2 className="mr-2 h-4 w-4" />Compartilhar</Button></div></div></section><aside className="space-y-5"><Card className="p-5"><h2 className="text-lg font-bold">Fale com o vendedor</h2>{session ? <><Textarea value={message} onChange={(event) => setMessage(event.target.value)} className="mt-4" rows={4} placeholder="Olá! Tenho interesse neste anúncio." /><Button className="mt-3 w-full" onClick={() => void handleContact()}><MessageCircle className="mr-2 h-4 w-4" />Enviar mensagem</Button></> : <><p className="mt-2 text-sm text-muted-foreground">Entre na sua conta para iniciar uma conversa segura sem expor seu e-mail ou telefone.</p><Button asChild className="mt-4 w-full"><Link to="/entrar">Entrar para conversar</Link></Button></>} </Card><Card className="p-5"><div className="flex items-center gap-3">{sellerAvatar ? <img src={getOptimizedImageUrl(sellerAvatar, { width: 160, quality: 72, format: "webp" })} alt={sellerName} className="h-11 w-11 rounded-full object-cover" /> : <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary"><User className="h-5 w-5" /></div>}<div><Link to={sellerPath} className="font-semibold text-primary hover:underline">{sellerName}</Link><p className="text-xs text-muted-foreground">{sellerListingCount} anúncio(s) ativo(s)</p>{listing.seller_business_id ? <p className="text-xs text-muted-foreground">Anunciando como negócio</p> : <p className="text-xs text-muted-foreground">{accountAgeLabel(listing.owner_created_at)}</p>}</div></div><p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><CalendarDays className="h-4 w-4" />Publicado em {new Date(listing.created_at).toLocaleDateString("pt-BR")}</p></Card><Card className="p-5"><h2 className="flex items-center gap-2 font-semibold"><ShieldAlert className="h-4 w-4" />Denunciar anúncio</h2><select value={reportReason} onChange={(event) => setReportReason(event.target.value as MarketplaceReport["reason"])} className="mt-3 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="fraud">Golpe/fraude</option><option value="prohibited">Produto proibido</option><option value="spam">Spam</option><option value="duplicate">Anúncio duplicado</option><option value="misleading">Informação enganosa</option><option value="offensive">Conteúdo ofensivo</option><option value="other">Outro</option></select><Textarea value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} className="mt-3" rows={3} placeholder="Descreva o problema (opcional)." /><Button variant="outline" className="mt-3 w-full" onClick={async () => { const result = await reportMarketplaceListing(listing.id, reportReason, reportDetails); setNotice(result.ok ? "Denúncia enviada para análise." : result.error || "Não foi possível denunciar."); }}>Enviar denúncia</Button></Card></aside></div>{notice ? <p className="mt-6 rounded-lg bg-secondary p-3 text-sm">{notice}</p> : null}{similar.length ? <section className="mt-14"><h2 className="mb-5 text-2xl font-bold">Anúncios semelhantes</h2><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{similar.map((item) => <MarketplaceListingCard key={item.id} listing={item} />)}</div></section> : null}</main><SiteFooter /></div>;
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
+        <Link to="/marketplace" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" />
+          Marketplace
+        </Link>
+
+        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.7fr)] lg:gap-10 xl:gap-12">
+          <section aria-labelledby="listing-gallery-heading" className="min-w-0">
+            <h2 id="listing-gallery-heading" className="sr-only">Fotos do anúncio</h2>
+            <MarketplaceListingGallery images={images} title={listing.title} />
+          </section>
+
+          <aside aria-label="Informações do anúncio" className="min-w-0 space-y-5">
+            <Card className="border-border/70 p-5 sm:p-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge>{TYPE_LABELS[listing.listing_type]}</Badge>
+                {listing.condition ? <Badge variant="secondary">{CONDITION_LABELS[listing.condition]}</Badge> : null}
+                <Badge variant="secondary">{listing.category?.name || "Marketplace"}</Badge>
+              </div>
+              <h1 className="mt-4 break-words text-3xl font-extrabold tracking-tight sm:text-4xl">{listing.title}</h1>
+              <p className="mt-4 text-3xl font-extrabold tracking-tight text-primary">{formatPrice(listing)}</p>
+              <div className="mt-4 flex items-start gap-2 text-sm text-muted-foreground">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{listingLocation(listing)}</span>
+              </div>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Button variant={favorite ? "default" : "outline"} onClick={handleFavorite}>
+                  <Heart className={favorite ? "h-4 w-4 fill-current" : "h-4 w-4"} />
+                  {favorite ? "Salvo" : "Salvar"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void navigator.clipboard?.writeText(window.location.href).then(() => setNotice("Link copiado."))}
+                >
+                  <Share2 className="h-4 w-4" />
+                  Compartilhar
+                </Button>
+              </div>
+            </Card>
+
+            <Card className="border-border/70 p-5 sm:p-6">
+              <h2 className="text-lg font-bold">Fale com o vendedor</h2>
+              {session ? (
+                <>
+                  <Textarea
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    className="mt-4"
+                    rows={4}
+                    placeholder="Olá! Tenho interesse neste anúncio."
+                  />
+                  <Button className="mt-3 w-full" onClick={() => void handleContact()}>
+                    <MessageCircle className="h-4 w-4" />
+                    Enviar mensagem
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Entre na sua conta para iniciar uma conversa segura sem expor seu e-mail ou telefone.
+                  </p>
+                  <Button asChild className="mt-4 w-full">
+                    <Link to="/entrar">Entrar para conversar</Link>
+                  </Button>
+                </>
+              )}
+            </Card>
+
+            <Card className="border-border/70 p-5 sm:p-6">
+              <div className="flex items-center gap-3">
+                {sellerAvatar ? (
+                  <img
+                    src={getOptimizedImageUrl(sellerAvatar, { width: 160, quality: 72, format: "webp" })}
+                    alt={sellerName}
+                    className="h-12 w-12 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+                    <User className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Anunciado por</p>
+                  <Link to={sellerPath} className="font-semibold text-primary hover:underline">{sellerName}</Link>
+                  <p className="text-xs text-muted-foreground">{sellerListingCount} anúncio(s) ativo(s)</p>
+                  {listing.seller_business_id ? (
+                    <p className="text-xs text-muted-foreground">Anunciando como negócio</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">{accountAgeLabel(listing.owner_created_at)}</p>
+                  )}
+                </div>
+              </div>
+              <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                Publicado em {new Date(listing.created_at).toLocaleDateString("pt-BR")}
+              </p>
+            </Card>
+
+            <Card className="border-border/70 p-5 sm:p-6">
+              <h2 className="text-lg font-bold">Descrição</h2>
+              <div className="prose prose-sm mt-4 max-w-none whitespace-pre-wrap break-words text-foreground">
+                <p>{listing.description}</p>
+              </div>
+              {listing.keywords?.length ? (
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {listing.keywords.map((keyword) => <Badge key={keyword} variant="secondary">#{keyword}</Badge>)}
+                </div>
+              ) : null}
+              {getYouTubeEmbedUrl(listing.video_url) ? (
+                <section className="mt-8">
+                  <h3 className="mb-3 text-base font-bold">Vídeo do anúncio</h3>
+                  <div className="aspect-video overflow-hidden rounded-xl bg-secondary">
+                    <iframe
+                      src={getYouTubeEmbedUrl(listing.video_url) || undefined}
+                      title={listing.title + " - vídeo"}
+                      loading="lazy"
+                      className="h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  </div>
+                </section>
+              ) : null}
+            </Card>
+
+            <Card className="border-border/70 p-5 sm:p-6">
+              <h2 className="flex items-center gap-2 font-semibold">
+                <ShieldAlert className="h-4 w-4" aria-hidden="true" />
+                Denunciar anúncio
+              </h2>
+              <select
+                value={reportReason}
+                onChange={(event) => setReportReason(event.target.value as MarketplaceReport["reason"])}
+                className="mt-3 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="fraud">Golpe/fraude</option>
+                <option value="prohibited">Produto proibido</option>
+                <option value="spam">Spam</option>
+                <option value="duplicate">Anúncio duplicado</option>
+                <option value="misleading">Informação enganosa</option>
+                <option value="offensive">Conteúdo ofensivo</option>
+                <option value="other">Outro</option>
+              </select>
+              <Textarea
+                value={reportDetails}
+                onChange={(event) => setReportDetails(event.target.value)}
+                className="mt-3"
+                rows={3}
+                placeholder="Descreva o problema (opcional)."
+              />
+              <Button
+                variant="outline"
+                className="mt-3 w-full"
+                onClick={async () => {
+                  const result = await reportMarketplaceListing(listing.id, reportReason, reportDetails);
+                  setNotice(result.ok ? "Denúncia enviada para análise." : result.error || "Não foi possível denunciar.");
+                }}
+              >
+                Enviar denúncia
+              </Button>
+            </Card>
+          </aside>
+        </div>
+
+        {notice ? <p className="mt-6 rounded-lg bg-secondary p-3 text-sm">{notice}</p> : null}
+
+        {similar.length ? (
+          <section className="mt-14" aria-labelledby="similar-listings-heading">
+            <h2 id="similar-listings-heading" className="mb-5 text-2xl font-bold">Anúncios semelhantes</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+              {similar.map((item) => <MarketplaceListingCard key={item.id} listing={item} />)}
+            </div>
+          </section>
+        ) : null}
+      </main>
+      <SiteFooter />
+    </div>
+  );
 }
 
 export function MarketplaceSellerPage({ initialSeller }: { initialSeller?: MarketplaceSellerPage | null }) {
@@ -940,7 +1121,7 @@ export function MarketplaceSellerPage({ initialSeller }: { initialSeller?: Marke
   }, [seller]);
 
   if (loading) {
-    return <div className="min-h-screen bg-background" aria-busy="true" aria-label="Carregando perfil do vendedor"><Header /><main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><div className="h-32 animate-pulse rounded-2xl bg-muted/60" /><div className="h-8 w-56 animate-pulse rounded bg-muted/60" /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{Array.from({ length: 5 }).map((_, index) => <div key={index} className="aspect-square animate-pulse rounded-xl bg-muted/50" />)}</div></main></div>;
+    return <div className="min-h-screen bg-background" aria-busy="true" aria-label="Carregando perfil do vendedor"><Header /><main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><div className="h-32 animate-pulse rounded-2xl bg-muted/60" /><div className="h-8 w-56 animate-pulse rounded bg-muted/60" /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{Array.from({ length: 5 }).map((_, index) => <div key={index} className="aspect-square animate-pulse rounded-xl bg-muted/50" />)}</div></main></div>;
   }
 
   if (!seller) {
@@ -948,7 +1129,7 @@ export function MarketplaceSellerPage({ initialSeller }: { initialSeller?: Marke
   }
 
   const sellerName = seller.profile.name?.trim() || "Vendedor";
-  return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><Link to="/marketplace" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" />Marketplace</Link><Card className="mb-10 overflow-hidden border-border"><div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-8">{seller.profile.avatar ? <img src={seller.profile.avatar} alt={`Foto de ${sellerName}`} className="h-20 w-20 rounded-full object-cover" /> : <div className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-muted-foreground"><User className="h-9 w-9" aria-hidden="true" /></div>}<div><h1 className="text-3xl font-extrabold tracking-tight text-foreground">{sellerName}</h1><p className="mt-2 text-muted-foreground">{seller.listings.length} anúncio(s) ativo(s) no Marketplace</p>{seller.profile.created_at ? <p className="mt-1 text-sm text-muted-foreground">No Caramelinho desde {new Date(seller.profile.created_at).toLocaleDateString("pt-BR")}</p> : null}</div></div></Card><section aria-labelledby="seller-listings-heading"><div className="flex items-end justify-between gap-4"><h2 id="seller-listings-heading" className="text-2xl font-bold text-foreground">Anúncios ativos</h2><span className="text-sm text-muted-foreground">{seller.listings.length} no total</span></div>{seller.listings.length ? <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{seller.listings.map((item) => <MarketplaceListingCard key={item.id} listing={item} />)}</div> : <Card className="mt-5 p-8 text-center text-muted-foreground">Este vendedor não possui anúncios ativos no momento.</Card>}</section><section className="mt-12" aria-labelledby="seller-reviews-heading"><div className="flex items-end justify-between gap-4"><h2 id="seller-reviews-heading" className="text-2xl font-bold text-foreground">Avaliações dos negócios</h2><span className="text-sm text-muted-foreground">{seller.reviews.length} no total</span></div>{seller.reviews.length ? <div className="mt-5 grid gap-4 md:grid-cols-2">{seller.reviews.map((review) => <Card key={review.id} className="p-5"><div className="flex items-start justify-between gap-4"><div className="flex min-w-0 items-center gap-3">{review.user_avatar ? <img src={review.user_avatar} alt="" className="h-9 w-9 rounded-full object-cover" /> : <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold">{review.user_name.charAt(0)}</div>}<div className="min-w-0"><p className="truncate font-semibold">{review.user_name}</p><Link to={review.businessSlug} className="truncate text-sm text-primary hover:underline">{review.businessName}</Link></div></div><div className="flex shrink-0 text-amber-500" aria-label={`${review.rating} de 5 estrelas`}>{Array.from({ length: 5 }).map((_, index) => <Star key={index} className={`h-4 w-4 ${index < review.rating ? "fill-current" : "text-muted-foreground/20"}`} aria-hidden="true" />)}</div></div>{review.comment ? <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{review.comment}</p> : null}<p className="mt-3 text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString("pt-BR")}</p></Card>)}</div> : <Card className="mt-5 p-8 text-center text-muted-foreground">Os negócios deste vendedor ainda não receberam avaliações.</Card>}</section></main><SiteFooter /></div>;
+  return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><Link to="/marketplace" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" />Marketplace</Link><Card className="mb-10 overflow-hidden border-border"><div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-8">{seller.profile.avatar ? <img src={seller.profile.avatar} alt={`Foto de ${sellerName}`} className="h-20 w-20 rounded-full object-cover" /> : <div className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-muted-foreground"><User className="h-9 w-9" aria-hidden="true" /></div>}<div><h1 className="text-3xl font-extrabold tracking-tight text-foreground">{sellerName}</h1><p className="mt-2 text-muted-foreground">{seller.listings.length} anúncio(s) ativo(s) no Marketplace</p>{seller.profile.created_at ? <p className="mt-1 text-sm text-muted-foreground">No Caramelinho desde {new Date(seller.profile.created_at).toLocaleDateString("pt-BR")}</p> : null}</div></div></Card><section aria-labelledby="seller-listings-heading"><div className="flex items-end justify-between gap-4"><h2 id="seller-listings-heading" className="text-2xl font-bold text-foreground">Anúncios ativos</h2><span className="text-sm text-muted-foreground">{seller.listings.length} no total</span></div>{seller.listings.length ? <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{seller.listings.map((item) => <MarketplaceListingCard key={item.id} listing={item} />)}</div> : <Card className="mt-5 p-8 text-center text-muted-foreground">Este vendedor não possui anúncios ativos no momento.</Card>}</section><section className="mt-12" aria-labelledby="seller-reviews-heading"><div className="flex items-end justify-between gap-4"><h2 id="seller-reviews-heading" className="text-2xl font-bold text-foreground">Avaliações dos negócios</h2><span className="text-sm text-muted-foreground">{seller.reviews.length} no total</span></div>{seller.reviews.length ? <div className="mt-5 grid gap-4 md:grid-cols-2">{seller.reviews.map((review) => <Card key={review.id} className="p-5"><div className="flex items-start justify-between gap-4"><div className="flex min-w-0 items-center gap-3">{review.user_avatar ? <img src={review.user_avatar} alt="" className="h-9 w-9 rounded-full object-cover" /> : <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold">{review.user_name.charAt(0)}</div>}<div className="min-w-0"><p className="truncate font-semibold">{review.user_name}</p><Link to={review.businessSlug} className="truncate text-sm text-primary hover:underline">{review.businessName}</Link></div></div><div className="flex shrink-0 text-amber-500" aria-label={`${review.rating} de 5 estrelas`}>{Array.from({ length: 5 }).map((_, index) => <Star key={index} className={`h-4 w-4 ${index < review.rating ? "fill-current" : "text-muted-foreground/20"}`} aria-hidden="true" />)}</div></div>{review.comment ? <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{review.comment}</p> : null}<p className="mt-3 text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString("pt-BR")}</p></Card>)}</div> : <Card className="mt-5 p-8 text-center text-muted-foreground">Os negócios deste vendedor ainda não receberam avaliações.</Card>}</section></main><SiteFooter /></div>;
 }
 
 export function MarketplaceBusinessSellerPage({ initialBusinessSeller }: { initialBusinessSeller?: MarketplaceBusinessSellerPage | null }) {
@@ -974,7 +1155,7 @@ export function MarketplaceBusinessSellerPage({ initialBusinessSeller }: { initi
   }, [seller]);
 
   if (loading) {
-    return <div className="min-h-screen bg-background" aria-busy="true" aria-label="Carregando página do negócio"><Header /><main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><div className="h-32 animate-pulse rounded-2xl bg-muted/60" /><div className="h-8 w-56 animate-pulse rounded bg-muted/60" /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{Array.from({ length: 5 }).map((_, index) => <div key={index} className="aspect-square animate-pulse rounded-xl bg-muted/50" />)}</div></main></div>;
+    return <div className="min-h-screen bg-background" aria-busy="true" aria-label="Carregando página do negócio"><Header /><main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><div className="h-32 animate-pulse rounded-2xl bg-muted/60" /><div className="h-8 w-56 animate-pulse rounded bg-muted/60" /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{Array.from({ length: 5 }).map((_, index) => <div key={index} className="aspect-square animate-pulse rounded-xl bg-muted/50" />)}</div></main></div>;
   }
 
   if (!seller) {
@@ -982,5 +1163,5 @@ export function MarketplaceBusinessSellerPage({ initialBusinessSeller }: { initi
   }
 
   const businessName = seller.business.name.trim() || "Negócio";
-  return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><Link to="/marketplace" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" />Marketplace</Link><Card className="mb-10 overflow-hidden border-border"><div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-8">{seller.business.logo_url ? <img src={seller.business.logo_url} alt={`Logo de ${businessName}`} className="h-20 w-20 rounded-xl object-cover" /> : <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-secondary text-muted-foreground"><Package className="h-9 w-9" aria-hidden="true" /></div>}<div><p className="text-sm font-medium text-primary">Anunciante comercial</p><h1 className="text-3xl font-extrabold tracking-tight text-foreground">{businessName}</h1><p className="mt-2 text-muted-foreground">{seller.listings.length} anúncio(s) ativo(s) no Marketplace</p><Link to={seller.business.publicPath} className="mt-2 inline-flex text-sm text-primary hover:underline">Ver página do negócio</Link></div></div></Card><section aria-labelledby="business-seller-listings-heading"><div className="flex items-end justify-between gap-4"><h2 id="business-seller-listings-heading" className="text-2xl font-bold text-foreground">Anúncios ativos</h2><span className="text-sm text-muted-foreground">{seller.listings.length} no total</span></div>{seller.listings.length ? <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{seller.listings.map((item) => <MarketplaceListingCard key={item.id} listing={item} />)}</div> : <Card className="mt-5 p-8 text-center text-muted-foreground">Este negócio não possui anúncios ativos no momento.</Card>}</section><section className="mt-12" aria-labelledby="business-seller-reviews-heading"><div className="flex items-end justify-between gap-4"><h2 id="business-seller-reviews-heading" className="text-2xl font-bold text-foreground">Avaliações do negócio</h2><span className="text-sm text-muted-foreground">{seller.reviews.length} no total</span></div>{seller.reviews.length ? <div className="mt-5 grid gap-4 md:grid-cols-2">{seller.reviews.map((review) => <Card key={review.id} className="p-5"><div className="flex items-start justify-between gap-4"><div className="flex min-w-0 items-center gap-3">{review.user_avatar ? <img src={review.user_avatar} alt="" className="h-9 w-9 rounded-full object-cover" /> : <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold">{review.user_name.charAt(0)}</div>}<div className="min-w-0"><p className="truncate font-semibold">{review.user_name}</p><Link to={review.businessSlug} className="truncate text-sm text-primary hover:underline">{review.businessName}</Link></div></div><div className="flex shrink-0 text-amber-500" aria-label={`${review.rating} de 5 estrelas`}>{Array.from({ length: 5 }).map((_, index) => <Star key={index} className={`h-4 w-4 ${index < review.rating ? "fill-current" : "text-muted-foreground/20"}`} aria-hidden="true" />)}</div></div>{review.comment ? <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{review.comment}</p> : null}<p className="mt-3 text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString("pt-BR")}</p></Card>)}</div> : seller.reviewsUnavailable ? <Card className="mt-5 p-8 text-center text-muted-foreground">As avaliações estão temporariamente indisponíveis.</Card> : <Card className="mt-5 p-8 text-center text-muted-foreground">Este negócio ainda não recebeu avaliações.</Card>}</section></main><SiteFooter /></div>;
+  return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><Link to="/marketplace" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" />Marketplace</Link><Card className="mb-10 overflow-hidden border-border"><div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-8">{seller.business.logo_url ? <img src={seller.business.logo_url} alt={`Logo de ${businessName}`} className="h-20 w-20 rounded-xl object-cover" /> : <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-secondary text-muted-foreground"><Package className="h-9 w-9" aria-hidden="true" /></div>}<div><p className="text-sm font-medium text-primary">Anunciante comercial</p><h1 className="text-3xl font-extrabold tracking-tight text-foreground">{businessName}</h1><p className="mt-2 text-muted-foreground">{seller.listings.length} anúncio(s) ativo(s) no Marketplace</p><Link to={seller.business.publicPath} className="mt-2 inline-flex text-sm text-primary hover:underline">Ver página do negócio</Link></div></div></Card><section aria-labelledby="business-seller-listings-heading"><div className="flex items-end justify-between gap-4"><h2 id="business-seller-listings-heading" className="text-2xl font-bold text-foreground">Anúncios ativos</h2><span className="text-sm text-muted-foreground">{seller.listings.length} no total</span></div>{seller.listings.length ? <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{seller.listings.map((item) => <MarketplaceListingCard key={item.id} listing={item} />)}</div> : <Card className="mt-5 p-8 text-center text-muted-foreground">Este negócio não possui anúncios ativos no momento.</Card>}</section><section className="mt-12" aria-labelledby="business-seller-reviews-heading"><div className="flex items-end justify-between gap-4"><h2 id="business-seller-reviews-heading" className="text-2xl font-bold text-foreground">Avaliações do negócio</h2><span className="text-sm text-muted-foreground">{seller.reviews.length} no total</span></div>{seller.reviews.length ? <div className="mt-5 grid gap-4 md:grid-cols-2">{seller.reviews.map((review) => <Card key={review.id} className="p-5"><div className="flex items-start justify-between gap-4"><div className="flex min-w-0 items-center gap-3">{review.user_avatar ? <img src={review.user_avatar} alt="" className="h-9 w-9 rounded-full object-cover" /> : <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold">{review.user_name.charAt(0)}</div>}<div className="min-w-0"><p className="truncate font-semibold">{review.user_name}</p><Link to={review.businessSlug} className="truncate text-sm text-primary hover:underline">{review.businessName}</Link></div></div><div className="flex shrink-0 text-amber-500" aria-label={`${review.rating} de 5 estrelas`}>{Array.from({ length: 5 }).map((_, index) => <Star key={index} className={`h-4 w-4 ${index < review.rating ? "fill-current" : "text-muted-foreground/20"}`} aria-hidden="true" />)}</div></div>{review.comment ? <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{review.comment}</p> : null}<p className="mt-3 text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString("pt-BR")}</p></Card>)}</div> : seller.reviewsUnavailable ? <Card className="mt-5 p-8 text-center text-muted-foreground">As avaliações estão temporariamente indisponíveis.</Card> : <Card className="mt-5 p-8 text-center text-muted-foreground">Este negócio ainda não recebeu avaliações.</Card>}</section></main><SiteFooter /></div>;
 }

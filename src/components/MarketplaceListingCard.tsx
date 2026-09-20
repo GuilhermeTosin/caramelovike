@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import { MarketplaceImageFrame } from "@/components/MarketplaceListingGallery";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { marketplaceListingPath } from "@/lib/marketplaceSnapshot";
 import { getMarketplaceFavoriteIds, toggleMarketplaceFavorite } from "@/services/marketplace";
@@ -95,23 +96,20 @@ export default function MarketplaceListingCard({ listing, onFavoriteChange }: Ma
   return (
     <Card className="relative h-full overflow-hidden border-border transition-shadow hover:shadow-lg">
       <Link to={marketplaceListingPath(listing)} className="group block h-full">
-        <div className="aspect-square overflow-hidden bg-secondary">
-          {image ? (
-            <img
-              src={optimizedImage || undefined}
+        {image ? (
+            <MarketplaceImageFrame
+              src={optimizedImage || image}
               srcSet={imageSrcSet}
-              sizes="(min-width: 1280px) 240px, (min-width: 640px) 30vw, 50vw"
+              sizes="(min-width: 1280px) 300px, (min-width: 640px) 30vw, 50vw"
               alt={listing.title}
               loading="lazy"
-              decoding="async"
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="aspect-[4/5] bg-secondary sm:aspect-[4/3]"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
+            <div className="flex aspect-[4/5] items-center justify-center bg-secondary text-muted-foreground sm:aspect-[4/3]">
               <Tag className="h-9 w-9" aria-hidden="true" />
             </div>
           )}
-        </div>
         <div className="space-y-1.5 p-3">
           <h2 className="line-clamp-2 pr-8 text-sm font-semibold leading-snug text-foreground">{listing.title}</h2>
           <p className="text-base font-bold text-primary">{formatPrice(listing)}</p>

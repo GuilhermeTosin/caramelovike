@@ -1,0 +1,111 @@
+# Registro de Implementacoes
+
+Este arquivo e o registro operacional do projeto. Toda implementacao, correcao,
+refatoracao, migration, ajuste de configuracao ou alteracao visual deve ser
+registrada aqui.
+
+## Protocolo Obrigatorio
+
+Antes de iniciar qualquer alteracao:
+
+1. Consultar este arquivo e os registros mais recentes.
+2. Verificar o estado atual do worktree e as convencoes existentes.
+3. Registrar o objetivo, o escopo, os riscos e a estrategia prevista.
+
+Depois de concluir a alteracao:
+
+1. Atualizar a mesma entrada com os arquivos modificados.
+2. Registrar testes executados e seus resultados.
+3. Registrar migrations, configuracoes externas ou etapas manuais pendentes.
+4. Registrar riscos residuais e a decisao de deploy.
+
+Padrao de data e hora: `YYYY-MM-DD HH:mm:ss -04:00`, horario de Toronto. O
+registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
+
+## Entradas
+
+### 2026-09-20 18:54:50 -04:00
+
+- Status: em andamento.
+- Solicitacao: adaptar o detalhe do anuncio no desktop para uma composicao
+  inspirada no Facebook Marketplace, com galeria maior a esquerda e informacoes
+  do produto, vendedor e acoes a direita.
+- Objetivo tecnico: melhorar a hierarquia de compra e reduzir a distancia entre
+  foto, preco, contato e confianca no vendedor, sem alterar o comportamento
+  mobile nem o contrato de dados.
+- Estrategia: manter `MarketplaceListingGallery`, reorganizar o detalhe em uma
+  grade desktop com coluna visual dominante e painel de informacoes, preservar
+  uma coluna no mobile e manter anuncios semelhantes abaixo do bloco principal.
+- Riscos: excesso de altura no painel direito, perda de legibilidade em telas
+  menores e necessidade de conferir anuncios com uma ou varias fotos.
+- Escopo: somente layout, responsividade e hierarquia visual; sem migration,
+  alteracao de egress ou nova chamada ao Supabase.
+- Status final: concluido em 2026-09-20 19:01:24 -04:00.
+- Implementacao:
+  - `src/pages/MarketplacePage.tsx`: detalhe reorganizado em duas colunas a
+    partir de `lg`, com galeria dominante a esquerda e resumo, preco,
+    localizacao, salvar, compartilhar, contato, vendedor, descricao e denuncia
+    na coluna direita.
+  - O mobile permanece em fluxo de uma coluna por meio do grid responsivo;
+    anuncios semelhantes continuam abaixo do bloco principal.
+- Validacao automatica:
+  - `npm run verify`: passou; TypeScript OK, 22 arquivos de teste e 104 testes.
+  - `npm run lint`: passou sem erros.
+  - `npm run build`: passou; permanece apenas o aviso tolerado e preexistente
+    de top-level await em `src/pages/BusinessPageRoute.tsx:7`.
+- Validacao no browser local:
+  - O detalhe real do anuncio carregou com coluna visual de aproximadamente
+    `659px`, painel de informacoes de `360px` e imagem principal de `659x659px`
+    no viewport `1138px`.
+  - A arvore de acessibilidade exibiu titulo, preco, acoes, contato, vendedor,
+    descricao e denuncia na nova ordem.
+  - A galeria continuou abrindo pelo botao `Ampliar foto 1 de 1` e fechando com
+    `Escape`.
+  - Nenhum erro ou warning foi capturado no console durante o teste.
+- Migrations/configuracoes externas: nenhuma.
+- Riscos residuais: falta repetir a validacao visual final em 360, 375 e 390px
+  com anuncios de varias proporcoes, varias fotos e sem foto. A galeria agora
+  faz a foto unica ocupar toda a coluna e preserva o mosaico para varias fotos.
+- Decisao de deploy: apto para homologacao no escopo desta alteracao; nao houve
+  commit nem deploy automatico.
+
+### 2026-09-20 18:32:05 -04:00
+
+- Status: em andamento.
+- Solicitação: ampliar a presença visual da foto dos anúncios no Marketplace,
+  principalmente no mobile, e oferecer uma lupa/zoom no hover ou equivalente.
+- Objetivo técnico: aumentar a área útil das imagens sem perder legibilidade,
+  oferecer zoom por hover/foco no desktop e uma interação de ampliação por toque
+  no mobile, com carregamento otimizado das imagens.
+- Estratégia: extrair uma galeria reutilizável, reduzir a densidade da grade em
+  telas grandes, usar proporções mais favoráveis no mobile e abrir uma galeria
+  modal acessível no clique/toque.
+- Documentação: este registro passa a ser a fonte obrigatória para as próximas
+  implementações do projeto.
+- Status final: concluido em 2026-09-20 18:45:34 -04:00.
+- Implementacao:
+  - `src/components/MarketplaceListingGallery.tsx`: galeria reutilizavel com
+    imagem principal maior, `srcset` WebP, zoom visual em hover/foco, modal por
+    clique/toque, navegacao por teclado, `Escape` e controles acessiveis.
+  - `src/components/MarketplaceListingCard.tsx`: area da foto em proporcao
+    `4/5` no mobile e `4/3` a partir de telas maiores, com `sizes` alinhado a
+    grade de quatro colunas no desktop.
+  - `src/pages/MarketplacePage.tsx`: galeria aplicada ao detalhe do anuncio e
+    menor densidade nas grades de resultados, vendedores e negocios.
+- Validacao automatica:
+  - `npm run lint`: passou sem erros.
+  - `npm run verify`: passou; TypeScript OK, 22 arquivos de teste e 104 testes.
+  - `npm run build`: passou; o Vite manteve apenas o aviso tolerado e preexistente
+    de top-level await em `src/pages/BusinessPageRoute.tsx:7`.
+- Validacao no browser local:
+  - `/marketplace` carregou com dois anuncios; as fotos observadas no viewport
+    desktop mediram aproximadamente `254x191px` e usaram `srcset`.
+  - O detalhe exibiu o botao `Ampliar foto 1 de 1`, abriu o modal acessivel e
+    fechou corretamente com `Escape`.
+  - Console do browser sem erros ou warnings capturados durante o teste.
+- Migrations/configuracoes externas: nenhuma.
+- Riscos residuais: a validacao visual final deve ser repetida em dispositivos
+  reais ou emulado em 360, 375, 390 e desktop para conferir imagens de varias
+  proporcoes e anuncios sem foto.
+- Decisao de deploy: apto para homologacao no escopo desta alteracao; nao houve
+  commit nem deploy automatico.
