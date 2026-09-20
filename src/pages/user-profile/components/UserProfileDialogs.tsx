@@ -15,8 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import RichTextEditor from "@/components/RichTextEditor";
 import ProfileCompletionCard from "@/components/ProfileCompletionCard";
-import { getPrimaryActivityCustomPlaceholder, getPrimaryActivityLabel, getPrimaryActivityOptions, OTHER_PRIMARY_ACTIVITY_ID } from "@/lib/businessActivities";
-import { getHomeContent } from "@/data/homeContent";
+import { getPrimaryActivityCustomPlaceholder, getPrimaryActivityOptions, OTHER_PRIMARY_ACTIVITY_ID } from "@/lib/businessActivities";
 import type { AddressResult } from "@/components/AddressAutocomplete";
 import type { BusinessFrontend, BusinessEvent, Promotion } from "@/types/database";
 import type { BusinessHour } from "@/pages/user-profile/types";
@@ -219,8 +218,6 @@ export default function UserProfileDialogs({
   handleConfirmDeleteMyBusiness,
 }: UserProfileDialogsProps) {
   const businessCouponDatePickerRef = useRef<HTMLInputElement>(null);
-  const locale = "pt-BR";
-
   const ui = (portuguese: string) => portuguese;
   const editProfileCompletionData = {
     name: editFormData.name,

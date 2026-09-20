@@ -215,8 +215,6 @@ export default function AddressAutocomplete({
   mode = "address",
   className,
 }: AddressAutocompleteProps) {
-  const locale = "pt-BR";
-
   const inputPlaceholder = placeholder || ("Digite o endereço...");
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);

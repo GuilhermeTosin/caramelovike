@@ -62,9 +62,6 @@ export default function ProfileTab({
   onConfirmPasswordChange,
   onChangePassword,
 }: ProfileTabProps) {
-  const locale = "pt-BR";
-
-  const text = null;
   return (
     <TabsContent value="perfil" className="mt-0">
       <Card className="p-6 border-border max-w-2xl">

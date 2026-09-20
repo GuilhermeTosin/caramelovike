@@ -41,8 +41,6 @@ export default function MessagesTab({
   onMessageTextChange,
   onSendMessage,
 }: MessagesTabProps) {
-  const locale = "pt-BR";
-
   return (
     <TabsContent value="mensagens" className="mt-0">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

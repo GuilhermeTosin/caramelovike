@@ -18,8 +18,6 @@ export default function EditReviewDialog({
   onChange,
   onSave,
 }: EditReviewDialogProps) {
-  const locale = "pt-BR";
-
   return (
     <Dialog open={!!editingReview} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>

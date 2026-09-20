@@ -38,8 +38,6 @@ type BusinessesTabProps = {
 };
 
 function BusinessProfileScoreBadge({ business }: { business: BusinessFrontend }) {
-  const locale = "pt-BR";
-
   const profileScore = getBusinessProfileScore(getBusinessProfileCompletionData(business));
 
   if (profileScore === 100) {
@@ -71,8 +69,6 @@ function BusinessContentButton({
   onOpenMenu: (business: BusinessFrontend) => void;
   onOpenServices: (business: BusinessFrontend) => void;
 }) {
-  const locale = "pt-BR";
-
   const isFoodBusiness = getCategoryId(business.category) === "food";
   const hasContent = isFoodBusiness
     ? hasNamedItems(business.menu) || Boolean(business.menuPdfUrl?.trim())
@@ -127,8 +123,6 @@ export default function BusinessesTab({
   onOpenVerificationModal,
   onDeleteMyBusiness,
 }: BusinessesTabProps) {
-  const locale = "pt-BR";
-
   const homeText = getHomeContent();
   const hasActiveBusiness = myBusinesses.some((business) => business.moderationStatus !== "rejected");
   const canCreateBusiness = canManageMultipleBusinesses || !hasActiveBusiness;

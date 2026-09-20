@@ -14,8 +14,6 @@ export default function DeleteReviewDialog({
   onClose,
   onDelete,
 }: DeleteReviewDialogProps) {
-  const locale = "pt-BR";
-
   return (
     <Dialog open={!!confirmDeleteReview} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>

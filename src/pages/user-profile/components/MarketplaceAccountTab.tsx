@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getOptimizedImageUrl } from "@/lib/images";
+import { getMarketplaceListingStatusLabel } from "@/lib/marketplaceStatus";
 import {
   getMarketplaceListingsByOwner,
   updateMarketplaceListingStatus,
@@ -101,7 +102,7 @@ export default function MarketplaceAccountTab({ ownerId }: { ownerId: string }) 
                     </Link>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                       <span>{listing.city}</span>
-                      <Badge variant="secondary">{listing.status}</Badge>
+                      <Badge variant="secondary">{getMarketplaceListingStatusLabel(listing.status)}</Badge>
                     </div>
                     {listing.status === "removed" ? (
                       <p className="mt-2 text-xs text-destructive">Este anúncio foi removido pela moderação.</p>

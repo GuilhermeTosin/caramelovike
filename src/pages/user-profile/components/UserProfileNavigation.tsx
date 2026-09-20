@@ -21,8 +21,6 @@ export default function UserProfileNavigation({
   onTabChange,
   onLogout,
 }: UserProfileNavigationProps) {
-  const locale = "pt-BR";
-
   const text = {
     navigation: "Navegação do perfil", select: "Selecione uma seção", profile: "Meu Perfil", businesses: "Meu negócio", events: "Meus Eventos", marketplace: "Meus anúncios", marketplaceFavorites: "Anúncios favoritos", verifications: "Verificações", businessReview: "Análise de negócios", allBusinesses: "Todos os negócios", users: "Usuários", reports: "Denúncias", highlights: "Destaques", search: "Busca", quality: "Qualidade", reviews: "Avaliações", messages: "Mensagens", signOut: "Sair",
   };

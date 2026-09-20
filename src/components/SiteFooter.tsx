@@ -6,8 +6,6 @@ import { getSiteSlogan } from "@/lib/locales";
 
 export default function SiteFooter() {
   const navigate = useNavigate();
-  const locale = "pt-BR";
-
   const [isLocatingSearch, setIsLocatingSearch] = useState(false);
 
   const handleNearbySearch = async (event: React.MouseEvent<HTMLAnchorElement>) => {

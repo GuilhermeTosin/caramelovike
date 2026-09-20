@@ -14,7 +14,7 @@ import {
   slugify,
   updateBusiness,
 } from "@/services/businesses";
-import { getCommunityEventsByOwner, replaceBusinessLinkedEvents } from "@/services/events";
+import { replaceBusinessLinkedEvents } from "@/services/events";
 import { generateImagePath, uploadImage } from "@/services/storage";
 import type { BusinessEvent, BusinessFrontend, Promotion } from "@/types/database";
 import { sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";

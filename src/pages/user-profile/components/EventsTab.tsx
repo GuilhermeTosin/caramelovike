@@ -13,7 +13,6 @@ import { getCountryName, getStateDisplayName } from "@/services/businesses";
 import { formatIsoToBr, normalizeDateForInput } from "@/pages/user-profile/utils";
 import type { CommunityEvent, BusinessFrontend } from "@/types/database";
 import type { CommunityEventForm } from "@/pages/user-profile/types";
-import { getCountryDisplayName } from "@/lib/locales";
 
 type EventsTabProps = {
   editingCommunityEventId: string | null;
@@ -46,8 +45,6 @@ export default function EventsTab({
   onStartEditCommunityEvent,
   onDeleteCommunityEvent,
 }: EventsTabProps) {
-  const locale = "pt-BR";
-
   const text = {
         title: "Meus Eventos",
         edit: "Editar evento",

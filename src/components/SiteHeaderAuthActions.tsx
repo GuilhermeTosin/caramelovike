@@ -12,8 +12,6 @@ export default function SiteHeaderAuthActions({
   compact = false,
 }: SiteHeaderAuthActionsProps) {
   const { session, unreadMessages, isLoading } = useAuth();
-  const locale = "pt-BR";
-
 
   const messageIconClassName = compact ? "w-4 h-4" : "w-5 h-5";
   const unreadBadgeClassName = compact ? "w-3.5 h-3.5 bg-primary text-[9px]" : "w-4 h-4 bg-primary text-[10px]";

@@ -25,20 +25,11 @@ const CATEGORY_OPTIONS: Array<{ value: CommunityFindCategory; label: string }> =
   { value: "outros", label: "Outros" },
 ];
 
-const CATEGORY_LABELS_EN: Record<CommunityFindCategory, string> = {
-  comida: "Food",
-  beleza: "Beauty",
-  casa: "Home",
-  outros: "Other",
-};
-
 type Props = {
   onCreated?: () => void;
 };
 
 export default function AddCommunityFindForm({ onCreated }: Props) {
-  const locale = "pt-BR";
-
   const text = {
         required: "Preencha o nome do produto, o nome do local e o endereço.",
         uploadError: "Não foi possível enviar a foto do achadinho.",

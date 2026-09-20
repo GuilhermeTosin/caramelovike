@@ -151,8 +151,8 @@ function extractSitemapUrls(xml) {
 async function run() {
   const home = await request("/");
   assertIndexablePage("/", home);
-  assert(home.includes("Neg\u00f3cios Cadastrados"), "/ is missing the server-rendered business count.");
-  assert(home.includes("Categorias para explorar"), "/ is missing the server-rendered category count.");
+  assert(home.includes(">negócios</p>"), "/ is missing the server-rendered business count.");
+  assert(home.includes(">categorias</p>"), "/ is missing the server-rendered category count.");
   assert(!home.includes("2.5K+"), "/ must not render the retired static review count.");
 
   for (const staticPath of ["/sobre", "/contato", "/privacidade", "/termos", "/negocio-verificado"]) {
