@@ -85,7 +85,7 @@ function MarketplaceDiscoveryHeader({
           <h1 className="text-3xl font-extrabold tracking-tight text-[#203940] sm:text-5xl">Encontre produtos perto de você</h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">Compre, venda ou encontre produtos brasileiros e usados na sua região.</p>
         </div>
-        <Button asChild className="caramelo-gradient w-full text-white sm:w-auto">
+        <Button asChild className="caramelo-gradient w-full whitespace-nowrap text-white sm:w-auto">
           <Link to="/marketplace/novo">+ Publicar anúncio</Link>
         </Button>
       </div>
@@ -361,9 +361,8 @@ function MarketplacePageView({
 
         <div className="mb-6 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">{isLoading ? "Carregando anúncios..." : String(snapshot?.totalCount || 0) + (snapshot?.totalCount === 1 ? " anúncio encontrado" : " anúncios encontrados")}</p>
-          <div className="flex items-center gap-4">
-            <Link to="/marketplace/novo" className="text-sm font-semibold text-primary hover:underline lg:hidden">+ Publicar anúncio</Link>
-            <Link to="/perfil?tab=marketplace" className="text-sm font-semibold text-primary hover:underline">Meus anúncios</Link>
+          <div className="hidden items-center gap-4 lg:flex">
+            <Link to="/perfil?tab=marketplace" className="shrink-0 whitespace-nowrap text-sm font-semibold text-primary hover:underline">Meus anúncios</Link>
           </div>
         </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ChevronRight, LogIn, Menu, MessageCircle, Search, Store, User, X } from "lucide-react";
+import { ChevronRight, LogIn, Menu, MessageCircle, PackagePlus, Search, Store, Tag, User, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildMarketplaceSearchPath, useSearchLocation } from "@/contexts/SearchLocationContext";
@@ -55,6 +55,24 @@ export default function MobileHeaderMenu({ showSearchLink = false }: MobileHeade
         >
           <Store className="h-4 w-4 text-muted-foreground" />
           <span>Marketplace</span>
+        </Link>
+        <div className="my-1 h-px bg-border" />
+
+        <Link
+          to="/marketplace/novo"
+          onClick={closeMenu}
+          className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+        >
+          <PackagePlus className="h-4 w-4 text-muted-foreground" />
+          <span>Publicar anúncio</span>
+        </Link>
+        <Link
+          to="/perfil?tab=marketplace"
+          onClick={closeMenu}
+          className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+        >
+          <Tag className="h-4 w-4 text-muted-foreground" />
+          <span>Meus anúncios</span>
         </Link>
         <div className="my-1 h-px bg-border" />
 

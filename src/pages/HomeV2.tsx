@@ -219,24 +219,24 @@ export default function HomeV2({
           <div className="relative mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
             <div className="grid min-w-0 grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-20">
               <div className="min-w-0 max-w-full">
-                <h1 className="m-0 w-full max-w-full break-words pr-0 text-[clamp(2rem,10.5vw,2.65rem)] font-black leading-[1.08] tracking-[-0.05em] [overflow-wrap:anywhere] text-[#203940] sm:pr-4 sm:text-6xl lg:text-[3.75rem]">
+                <h1 className="m-0 w-full max-w-full break-words pr-0 text-[clamp(2rem,9.4vw,2.4rem)] font-black leading-[1.08] tracking-[-0.045em] [overflow-wrap:anywhere] text-[#203940] sm:pr-4 sm:text-6xl lg:text-[3.75rem]">
                   Encontre <span className="hero-gradient-phrase">negócios e produtos brasileiros</span> no mundo todo
                 </h1>
                 <p className="mt-6 w-full max-w-full break-words text-base leading-7 text-[#203940]/70 sm:max-w-2xl sm:text-lg">
                   Descubra profissionais, serviços, eventos e produtos da comunidade brasileira, reunidos em um só lugar.
                 </p>
                 <div className="mt-9 flex max-w-full flex-wrap gap-3">
-                  <Link to="/negocios" className="inline-flex h-11 max-w-full items-center gap-2 rounded-lg bg-[#167348] px-5 text-sm font-bold text-white transition-shadow hover:shadow-[0_8px_20px_rgba(22,115,72,0.22)]">
+                  <Link to="/negocios" className="inline-flex h-11 w-full max-w-full items-center justify-center gap-2 rounded-lg bg-[#167348] px-5 text-sm font-bold text-white transition-shadow hover:shadow-[0_8px_20px_rgba(22,115,72,0.22)] sm:w-48">
                     Explorar negócios <ArrowRight className="h-4 w-4" />
                   </Link>
-                  <Link to={marketplaceHref} className="inline-flex h-11 max-w-full items-center gap-2 rounded-lg border border-[#203940]/15 bg-white px-5 text-sm font-bold text-[#203940] transition-shadow hover:shadow-[0_8px_20px_rgba(32,57,64,0.12)]">
+                  <Link to={marketplaceHref} className="inline-flex h-11 w-full max-w-full items-center justify-center gap-2 rounded-lg border border-[#203940]/15 bg-white px-5 text-sm font-bold text-[#203940] transition-shadow hover:shadow-[0_8px_20px_rgba(32,57,64,0.12)] sm:w-48">
                     Ver produtos <ShoppingBag className="h-4 w-4" />
                   </Link>
                 </div>
-                <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[#203940]/60">
-                  <span className="inline-flex items-center gap-2"><Store className="h-4 w-4 text-[#167348]" aria-hidden="true" />Negócios brasileiros</span>
-                  <span className="inline-flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-[#e4b53d]" aria-hidden="true" />Produtos da comunidade</span>
-                  <span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4 text-[#235d91]" aria-hidden="true" />Eventos locais</span>
+                <div className="mt-8 grid gap-2 text-[#203940]/70 sm:flex sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-2 sm:text-sm">
+                  <span className="inline-flex min-h-11 w-full items-center gap-3 rounded-xl border border-[#203940]/10 bg-white/65 px-3 py-2.5 text-base shadow-sm sm:min-h-0 sm:w-auto sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:shadow-none"><Store className="h-5 w-5 shrink-0 text-[#167348] sm:h-4 sm:w-4" aria-hidden="true" />Negócios brasileiros</span>
+                  <span className="inline-flex min-h-11 w-full items-center gap-3 rounded-xl border border-[#203940]/10 bg-white/65 px-3 py-2.5 text-base shadow-sm sm:min-h-0 sm:w-auto sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:shadow-none"><ShoppingBag className="h-5 w-5 shrink-0 text-[#e4b53d] sm:h-4 sm:w-4" aria-hidden="true" />Produtos da comunidade</span>
+                  <span className="inline-flex min-h-11 w-full items-center gap-3 rounded-xl border border-[#203940]/10 bg-white/65 px-3 py-2.5 text-base shadow-sm sm:min-h-0 sm:w-auto sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:shadow-none"><CalendarDays className="h-5 w-5 shrink-0 text-[#235d91] sm:h-4 sm:w-4" aria-hidden="true" />Eventos locais</span>
                 </div>
               </div>
 
