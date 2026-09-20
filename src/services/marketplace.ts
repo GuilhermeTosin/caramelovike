@@ -51,6 +51,10 @@ export type MarketplaceListingInput = {
 
 export type MarketplacePage = { items: MarketplaceListing[]; totalCount: number };
 
+export type MarketplacePageOptions = {
+  includeFavorites?: boolean;
+};
+
 const MARKETPLACE_CATEGORY_SELECT = "id,slug,name,sort_order,is_active";
 const MARKETPLACE_LIST_SELECT = "id,owner_id,seller_business_id,listing_type,category_id,title,price,currency,condition,country_code,state_code,city,neighborhood,lat,lng,slug,status,view_count,created_at,updated_at,category:marketplace_categories(id,slug,name,sort_order,is_active)";
 const MARKETPLACE_DETAIL_SELECT = "*,category:marketplace_categories(*)";
@@ -189,7 +193,7 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
   });
 }
 
-export async function getMarketplacePage(filters: MarketplaceFilters = {}): Promise<MarketplacePage> {
+export async function getMarketplacePage(filters: MarketplaceFilters = {}, options: MarketplacePageOptions = {}): Promise<MarketplacePage> {
   const page = Math.max(1, filters.page || 1);
   const pageSize = Math.min(48, Math.max(1, filters.pageSize || 12));
   let categoryId = "";
@@ -235,7 +239,7 @@ export async function getMarketplacePage(filters: MarketplaceFilters = {}): Prom
     const orderedRows = ids.map((id) => rowsById.get(id)).filter(Boolean) as unknown as MarketplaceListing[];
     const totalCount = Number((radiusRows as Array<{ total_count?: number }>)[0]?.total_count || 0);
     return {
-      items: await enrichListings(orderedRows, { includeOwnerProfile: false, includeOwnerStats: false }),
+      items: await enrichListings(orderedRows, { includeOwnerProfile: false, includeOwnerStats: false, includeFavorites: options.includeFavorites }),
       totalCount,
     };
   }
@@ -275,6 +279,7 @@ export async function getMarketplacePage(filters: MarketplaceFilters = {}): Prom
     items: await enrichListings((result.data || []) as unknown as MarketplaceListing[], {
       includeOwnerProfile: false,
       includeOwnerStats: false,
+      includeFavorites: options.includeFavorites,
     }),
     totalCount: result.count,
   };

@@ -54,10 +54,24 @@ type TimedCache<T> = {
 // SSR render while keeping newly published businesses visible shortly after.
 const PUBLIC_DIRECTORY_CACHE_TTL_MS = 10 * 60 * 1000;
 const PUBLIC_SEARCH_METADATA_CACHE_TTL_MS = 15 * 60 * 1000;
+const MARKETPLACE_SSR_TIMEOUT_MS = 1500;
 let publicDirectoryCache: TimedCache<BusinessFrontend[]> | null = null;
 let publicDirectoryRequest: Promise<BusinessFrontend[]> | null = null;
 let publicSearchMetadataCache: TimedCache<PublicSearchMetadata> | null = null;
 let publicSearchMetadataRequest: Promise<PublicSearchMetadata> | null = null;
+
+async function resolveWithin<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timeoutId = setTimeout(() => resolve(null), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
 
 type PageContext = PageContextServer & {
   urlOriginal?: string;
@@ -264,7 +278,12 @@ async function getPublicSearchData(urlOriginal?: string) {
 async function getPublicHomeData() {
   const [businesses, marketplacePage] = await Promise.all([
     getPublicBusinessesForSsr(),
-    getMarketplacePage({ page: 1, pageSize: 3 }).catch(() => ({ items: [], totalCount: 0 })),
+    resolveWithin(
+      getMarketplacePage({ page: 1, pageSize: 3 }, { includeFavorites: false }),
+      MARKETPLACE_SSR_TIMEOUT_MS,
+    )
+      .then((page) => page || { items: [], totalCount: 0 })
+      .catch(() => ({ items: [], totalCount: 0 })),
   ]);
   const [featuredBusinesses, searchMetadata] = await Promise.all([
     getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[]),
@@ -352,7 +371,7 @@ export async function onBeforeRender(pageContext: PageContext) {
           ? DEFAULT_MARKETPLACE_DISTANCE_KM
           : radiusKm;
       const requestKey = buildMarketplaceRequestKey(search, category, listingType, marketplacePage, city, minPrice, maxPrice, condition, countryCode, stateCode, noRadius ? "none" : effectiveRadiusKm ? String(effectiveRadiusKm) : "", originLat, originLng);
-      const [page, categories] = await Promise.all([
+      const marketplaceData = await resolveWithin(Promise.all([
         getMarketplacePage({
           search,
           category,
@@ -368,9 +387,17 @@ export async function onBeforeRender(pageContext: PageContext) {
           originLng: originLng ? Number(originLng) : undefined,
           page: marketplacePage,
           pageSize: 12,
-        }),
+        }, { includeFavorites: false }),
         getMarketplaceCategories(),
-      ]);
+      ]), MARKETPLACE_SSR_TIMEOUT_MS);
+
+      // The Marketplace is fully hydrated in the browser. Do not hold the
+      // first HTML response hostage to a cold database query.
+      if (!marketplaceData) {
+        return { pageContext: { isBusinessPage: false } };
+      }
+
+      const [page, categories] = marketplaceData;
       return { pageContext: { initialMarketplaceSnapshot: buildMarketplaceSnapshot(page, categories, search, requestKey), isBusinessPage: false } };
     } catch (error) {
       console.error("[onBeforeRender] marketplace index failed:", error);
