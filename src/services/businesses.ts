@@ -733,7 +733,7 @@ async function hydratePublicSearchBusinessIds(ids: string[]): Promise<BusinessFr
     .from("businesses")
     .select([
       "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "description",
-      "hero_image", "logo_url", "city", "city_slug", "location_id", "state",
+      "hero_image", "logo_url", "street", "city", "city_slug", "location_id", "state",
       "country", "country_code", "state_code", "postal_code", "lat", "lng", "attendance_type",
       "is_vegan_friendly", "is_vegetarian_friendly", "is_gluten_free_friendly", "average_rating",
       "owner_verified", "owner_verified_until", "created_at", "updated_at",
