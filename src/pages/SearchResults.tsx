@@ -1848,7 +1848,7 @@ export default function SearchResults({
                             className="w-full h-36 object-cover cursor-pointer transition-all duration-500 ease-out"
                             style={{ opacity: findImageLoaded ? 1 : 0 }}
                             loading={prioritizeImage ? "eager" : "lazy"}
-                            fetchPriority={prioritizeImage ? "high" : "low"}
+                            fetchpriority={prioritizeImage ? "high" : "low"}
                             decoding="async"
                             onClick={async () => {
                               await openCommunityFindDialog(find);
@@ -2026,7 +2026,7 @@ export default function SearchResults({
                           className="w-full h-full object-cover group-hover:scale-[1.02] transition-all duration-500 ease-out"
                           style={{ opacity: eventImageLoaded ? 1 : 0 }}
                           loading={prioritizeImage ? "eager" : "lazy"}
-                          fetchPriority={prioritizeImage ? "high" : "low"}
+                          fetchpriority={prioritizeImage ? "high" : "low"}
                           decoding="async"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
@@ -2113,7 +2113,7 @@ export default function SearchResults({
                         className="w-full h-full object-cover group-hover:scale-[1.02] transition-all duration-500 ease-out"
                         style={{ opacity: businessCardImageLoaded ? 1 : 0 }}
                         loading={prioritizeImage ? "eager" : "lazy"}
-                        fetchPriority={prioritizeImage ? "high" : "low"}
+                        fetchpriority={prioritizeImage ? "high" : "low"}
                         decoding="async"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />

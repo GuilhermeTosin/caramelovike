@@ -729,7 +729,7 @@ export default function Home({
                       alt={biz.name}
                       className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
                       loading={prioritizeImage ? "eager" : "lazy"}
-                      fetchPriority={prioritizeImage ? "high" : "low"}
+                      fetchpriority={prioritizeImage ? "high" : "low"}
                       decoding="async"
                     />
                     <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
