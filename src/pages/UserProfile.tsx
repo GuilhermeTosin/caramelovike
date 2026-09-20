@@ -60,6 +60,7 @@ export default function UserProfile() {
 
   const { session, user, isLoading, logout, refreshUnread, unreadMessages, refreshSession, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const isAdmin = session?.role === "admin" || user?.role === "admin";
+  const canManageMultipleBusinesses = isAdmin || session?.role === "editor" || user?.role === "editor";
   const canManageUsers = isAdmin && String(user?.email || session?.email || "").trim().toLowerCase() === USER_MANAGEMENT_ADMIN_EMAIL;
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
@@ -704,6 +705,7 @@ export default function UserProfile() {
               filteredMyBusinesses={filteredMyBusinesses}
               myBusinessesTotalPages={myBusinessesTotalPages}
               safeMyBusinessesPage={safeMyBusinessesPage}
+              canManageMultipleBusinesses={!!canManageMultipleBusinesses}
               getMyVerificationStatusByBusiness={getMyVerificationStatusByBusiness}
               getCategoryLabel={getCategoryLabel}
               myBusinessesSearch={myBusinessesSearch}

@@ -29,6 +29,7 @@ import {
   getCountryName,
   getStateDisplayName,
   getCategoryId,
+  getBusinessCreationEligibility,
   getBusinessesByOwner,
   getBusinessShortSlug,
   isBusinessSlugAvailable,
@@ -142,6 +143,7 @@ export default function BusinessWizardPage() {
   const { session } = useAuth();
   const editingBusinessId = (searchParams.get("editBusinessId") || "").trim();
   const isEditMode = !!editingBusinessId;
+  const canManageMultipleBusinesses = session?.role === "admin" || session?.role === "editor";
   const [step, setStep] = useState<WizardStep>(1);
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingStep, setIsChangingStep] = useState(false);
@@ -149,6 +151,7 @@ export default function BusinessWizardPage() {
   const stepTransitionInProgressRef = useRef(false);
   const loadedEditBusinessKeyRef = useRef<string | null>(null);
   const [loadingEditBusiness, setLoadingEditBusiness] = useState(false);
+  const [checkingBusinessEligibility, setCheckingBusinessEligibility] = useState(!isEditMode);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
   const [checkingSlug, setCheckingSlug] = useState(false);
   const [onlineCityResolved, setOnlineCityResolved] = useState(false);
@@ -212,6 +215,37 @@ export default function BusinessWizardPage() {
   const [heroRemoved, setHeroRemoved] = useState(false);
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
   const [galleryTouched, setGalleryTouched] = useState(false);
+
+  useEffect(() => {
+    if (!session || isEditMode || canManageMultipleBusinesses) {
+      setCheckingBusinessEligibility(false);
+      return;
+    }
+
+    let active = true;
+    setCheckingBusinessEligibility(true);
+
+    void getBusinessCreationEligibility(session.userId)
+      .then((eligibility) => {
+        if (!active) return;
+        if (!eligibility.allowed) {
+          toast.info(eligibility.reason || "Sua conta ja possui um negocio ativo.");
+          navigate("/perfil?tab=negocios", { replace: true });
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        toast.error("Nao foi possivel validar sua conta. Tente novamente.");
+        navigate("/perfil?tab=negocios", { replace: true });
+      })
+      .finally(() => {
+        if (active) setCheckingBusinessEligibility(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canManageMultipleBusinesses, isEditMode, navigate, session]);
 
   const progress = useMemo(() => Math.round((step / TOTAL_STEPS) * 100), [step]);
   const profileCompletionData = useMemo(() => ({
@@ -738,6 +772,13 @@ export default function BusinessWizardPage() {
           return;
         }
       } else {
+        const eligibility = await getBusinessCreationEligibility(session.userId);
+        if (!eligibility.allowed) {
+          toast.info(eligibility.reason || "Sua conta ja possui um negocio ativo.");
+          navigate("/perfil?tab=negocios", { replace: true });
+          return;
+        }
+
         const created = await createBusiness(session.userId, { ...payload, photos: [] });
         if (!created) {
           toast.error(message("Não foi possível criar o negócio."));
@@ -814,6 +855,20 @@ export default function BusinessWizardPage() {
           <Card className="p-8 text-center">
             <h1 className="text-2xl font-bold">{"Carregando edição..."}</h1>
             <p className="text-muted-foreground mt-2">{"Buscando os dados do negócio para preencher o wizard."}</p>
+          </Card>
+        </main>
+        <SiteFooter />
+      </div>
+    );
+  }
+
+  if (!isEditMode && checkingBusinessEligibility) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="max-w-3xl mx-auto px-4 py-16">
+          <Card className="p-8 text-center">
+            <h1 className="text-2xl font-bold">{"Verificando sua conta..."}</h1>
+            <p className="mt-2 text-muted-foreground">{"Estamos confirmando se voce ja possui um negocio ativo."}</p>
           </Card>
         </main>
         <SiteFooter />

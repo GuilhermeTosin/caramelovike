@@ -1437,6 +1437,50 @@ export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFro
   });
 }
 
+export type BusinessCreationEligibility = {
+  allowed: boolean;
+  reason?: string;
+};
+
+export async function getBusinessCreationEligibility(ownerId: string): Promise<BusinessCreationEligibility> {
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", ownerId)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error("[getBusinessCreationEligibility] Profile query failed:", profileError);
+    return { allowed: false, reason: "Nao foi possivel validar as permissoes da conta." };
+  }
+
+  const role = profile?.role || "user";
+  if (role === "admin" || role === "editor") {
+    return { allowed: true };
+  }
+
+  const { data: businesses, error: businessesError } = await supabase
+    .from("businesses")
+    .select("id, moderation_status")
+    .eq("owner_id", ownerId)
+    .or("moderation_status.neq.rejected,moderation_status.is.null")
+    .limit(1);
+
+  if (businessesError) {
+    console.error("[getBusinessCreationEligibility] Business query failed:", businessesError);
+    return { allowed: false, reason: "Nao foi possivel verificar seu negocio atual." };
+  }
+
+  if ((businesses || []).length > 0) {
+    return {
+      allowed: false,
+      reason: "Sua conta ja possui um negocio ativo. Edite-o pelo perfil ou aguarde a analise.",
+    };
+  }
+
+  return { allowed: true };
+}
+
 export type BusinessLocationResolution = {
   citySlug: string;
   locationId?: string;
@@ -1570,6 +1614,12 @@ export async function createBusiness(
 ): Promise<BusinessFrontend | null> {
 
   if (!data.primaryActivity.trim()) return null;
+
+  const eligibility = await getBusinessCreationEligibility(ownerId);
+  if (!eligibility.allowed) {
+    console.warn("[createBusiness] Creation blocked:", eligibility.reason);
+    return null;
+  }
 
   const officialSlug = await generateUniqueOfficialBusinessSlug(data.name);
   if (!officialSlug) return null;

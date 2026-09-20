@@ -23,6 +23,7 @@ type BusinessesTabProps = {
   filteredMyBusinesses: BusinessFrontend[];
   myBusinessesTotalPages: number;
   safeMyBusinessesPage: number;
+  canManageMultipleBusinesses: boolean;
   getMyVerificationStatusByBusiness: (businessId: string) => string | null;
   getCategoryLabel: (category: string) => string;
   myBusinessesSearch: string;
@@ -113,6 +114,7 @@ export default function BusinessesTab({
   filteredMyBusinesses,
   myBusinessesTotalPages,
   safeMyBusinessesPage,
+  canManageMultipleBusinesses,
   getMyVerificationStatusByBusiness,
   getCategoryLabel,
   myBusinessesSearch,
@@ -128,20 +130,24 @@ export default function BusinessesTab({
   const locale = "pt-BR";
 
   const homeText = getHomeContent();
+  const hasActiveBusiness = myBusinesses.some((business) => business.moderationStatus !== "rejected");
+  const canCreateBusiness = canManageMultipleBusinesses || !hasActiveBusiness;
   return (
     <TabsContent value="negocios" className="mt-0">
       <div className="mb-8 rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">{"Meus negócios"}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{"Gerencie e encontre rapidamente seus negócios cadastrados."}</p>
+            <h2 className="text-2xl font-bold text-foreground">{canManageMultipleBusinesses ? "Meus negócios" : "Meu negócio"}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{canManageMultipleBusinesses ? "Gerencie e encontre rapidamente seus negócios cadastrados." : "Gerencie seu negócio publicado no Caramelinho."}</p>
           </div>
-          <Link to={"/negocio/wizard"} className="w-full sm:w-auto">
-            <Button size="sm" className="w-full sm:w-auto">
-              <Plus className="mr-1 h-3.5 w-3.5" />
-              {"Adicionar novo negócio"}
-            </Button>
-          </Link>
+          {canCreateBusiness ? (
+            <Link to={"/negocio/wizard"} className="w-full sm:w-auto">
+              <Button size="sm" className="w-full sm:w-auto">
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                {"Adicionar novo negócio"}
+              </Button>
+            </Link>
+          ) : null}
         </div>
 
         <div className="relative mt-5 w-full max-w-xl">
