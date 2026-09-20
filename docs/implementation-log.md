@@ -24,6 +24,21 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-20 19:37:37 -04:00
+
+- Status: concluido.
+- Solicitacao: no detalhe do anuncio, mostrar a descricao imediatamente apos
+  titulo, preco e demais dados principais, seguida do contato com o vendedor,
+  tanto no desktop quanto no mobile.
+- Implementacao: `src/pages/MarketplacePage.tsx` reordenado para resumo,
+  descricao, contato, vendedor e denuncia; o mesmo fluxo responsivo e mantido
+  em todas as larguras.
+- Validacao executada: `npm run verify` passou; 22 arquivos e 104 testes.
+  `npm run lint` e `git diff --check` tambem passaram. O browser localhost
+  confirmou a ordem Resumo, Descricao e Fale com o vendedor.
+- Risco residual: nenhum comportamento de dados, autenticacao ou envio de
+  mensagem foi alterado.
+
 ### 2026-09-20 19:13:43 -04:00
 
 - Status: em andamento.

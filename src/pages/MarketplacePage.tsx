@@ -1118,6 +1118,33 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
             </Card>
 
             <Card className="border-border/70 p-5 sm:p-6">
+              <h2 className="text-lg font-bold">Descrição</h2>
+              <div className="prose prose-sm mt-4 max-w-none whitespace-pre-wrap break-words text-foreground">
+                <p>{listing.description}</p>
+              </div>
+              {listing.keywords?.length ? (
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {listing.keywords.map((keyword) => <Badge key={keyword} variant="secondary">#{keyword}</Badge>)}
+                </div>
+              ) : null}
+              {getYouTubeEmbedUrl(listing.video_url) ? (
+                <section className="mt-8">
+                  <h3 className="mb-3 text-base font-bold">Vídeo do anúncio</h3>
+                  <div className="aspect-video overflow-hidden rounded-xl bg-secondary">
+                    <iframe
+                      src={getYouTubeEmbedUrl(listing.video_url) || undefined}
+                      title={listing.title + " - vídeo"}
+                      loading="lazy"
+                      className="h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  </div>
+                </section>
+              ) : null}
+            </Card>
+
+            <Card className="border-border/70 p-5 sm:p-6">
               <h2 className="text-lg font-bold">Fale com o vendedor</h2>
               {session ? (
                 <>
@@ -1173,33 +1200,6 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
                 <CalendarDays className="h-4 w-4" aria-hidden="true" />
                 Publicado em {new Date(listing.created_at).toLocaleDateString("pt-BR")}
               </p>
-            </Card>
-
-            <Card className="border-border/70 p-5 sm:p-6">
-              <h2 className="text-lg font-bold">Descrição</h2>
-              <div className="prose prose-sm mt-4 max-w-none whitespace-pre-wrap break-words text-foreground">
-                <p>{listing.description}</p>
-              </div>
-              {listing.keywords?.length ? (
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {listing.keywords.map((keyword) => <Badge key={keyword} variant="secondary">#{keyword}</Badge>)}
-                </div>
-              ) : null}
-              {getYouTubeEmbedUrl(listing.video_url) ? (
-                <section className="mt-8">
-                  <h3 className="mb-3 text-base font-bold">Vídeo do anúncio</h3>
-                  <div className="aspect-video overflow-hidden rounded-xl bg-secondary">
-                    <iframe
-                      src={getYouTubeEmbedUrl(listing.video_url) || undefined}
-                      title={listing.title + " - vídeo"}
-                      loading="lazy"
-                      className="h-full w-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
-                  </div>
-                </section>
-              ) : null}
             </Card>
 
             <Card className="border-border/70 p-5 sm:p-6">
