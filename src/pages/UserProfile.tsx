@@ -58,7 +58,7 @@ import { useBusinessManagement } from "@/pages/user-profile/hooks/useBusinessMan
 export default function UserProfile() {
   const navigate = useNavigate();
 
-  const { session, user, isLoading, logout, refreshUnread, unreadMessages, refreshSession } = useAuth();
+  const { session, user, isLoading, logout, refreshUnread, unreadMessages, refreshSession, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const isAdmin = session?.role === "admin" || user?.role === "admin";
   const canManageUsers = isAdmin && String(user?.email || session?.email || "").trim().toLowerCase() === USER_MANAGEMENT_ADMIN_EMAIL;
   const [searchParams] = useSearchParams();
@@ -495,12 +495,12 @@ export default function UserProfile() {
 
   const handleChangePassword = async () => {
     const email = user?.email || session?.email || "";
-    if (!email) {
+    if (!email && !isPasswordRecovery) {
       toast.error("Nao foi possivel identificar o e-mail da conta.");
       return;
     }
-    if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
-      toast.error("Preencha a senha atual, a nova senha e a confirmacao.");
+    if ((!isPasswordRecovery && !currentPassword.trim()) || !newPassword.trim() || !confirmPassword.trim()) {
+      toast.error(isPasswordRecovery ? "Preencha a nova senha e a confirmacao." : "Preencha a senha atual, a nova senha e a confirmacao.");
       return;
     }
     if (newPassword.length < 6) {
@@ -513,15 +513,17 @@ export default function UserProfile() {
     }
 
     setIsChangingPassword(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password: currentPassword,
-    });
+    if (!isPasswordRecovery) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      });
 
-    if (signInError) {
-      setIsChangingPassword(false);
-      toast.error("Senha atual incorreta.");
-      return;
+      if (signInError) {
+        setIsChangingPassword(false);
+        toast.error("Senha atual incorreta.");
+        return;
+      }
     }
 
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
@@ -535,6 +537,7 @@ export default function UserProfile() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+    clearPasswordRecovery();
     toast.success("Senha atualizada com sucesso.");
   };
 
@@ -673,6 +676,7 @@ export default function UserProfile() {
               newPassword={newPassword}
               confirmPassword={confirmPassword}
               isChangingPassword={isChangingPassword}
+              isPasswordRecovery={isPasswordRecovery}
               onStartEdit={() => {
                 setIsEditing(true);
                 setEditName(user.name);

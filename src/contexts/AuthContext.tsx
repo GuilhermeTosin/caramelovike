@@ -5,14 +5,61 @@ import { getUnreadCount } from "@/services/messages";
 import type { UserFrontend, AuthSessionFrontend } from "@/types/database";
 import type { Session } from "@supabase/supabase-js";
 
+const PASSWORD_RECOVERY_STORAGE_KEY = "caramelinho:password-recovery";
+const PASSWORD_RECOVERY_MAX_AGE_MS = 30 * 60 * 1000;
+
+function hasPasswordRecoveryUrl() {
+  if (typeof window === "undefined") return false;
+
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const searchParams = new URLSearchParams(window.location.search);
+  return (
+    hashParams.get("type")?.toLowerCase() === "recovery" ||
+    searchParams.get("type")?.toLowerCase() === "recovery"
+  );
+}
+
+function readPasswordRecoveryMarker() {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const markedAt = Number(window.sessionStorage.getItem(PASSWORD_RECOVERY_STORAGE_KEY));
+    return Number.isFinite(markedAt) && Date.now() - markedAt < PASSWORD_RECOVERY_MAX_AGE_MS;
+  } catch {
+    return false;
+  }
+}
+
+function markPasswordRecovery() {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(PASSWORD_RECOVERY_STORAGE_KEY, String(Date.now()));
+  } catch {
+    // The auth event remains enough for the current render if storage is unavailable.
+  }
+}
+
+function clearPasswordRecoveryMarker() {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.removeItem(PASSWORD_RECOVERY_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures; the in-memory state is still cleared.
+  }
+}
+
 interface AuthContextType {
   session: AuthSessionFrontend | null;
   user: UserFrontend | null;
   isLoading: boolean;
   unreadMessages: number;
+  isPasswordRecovery: boolean;
   refreshSession: () => void;
   refreshUnread: () => void;
   logout: () => Promise<void>;
+  clearPasswordRecovery: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -22,6 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserFrontend | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(
+    () => hasPasswordRecoveryUrl() || readPasswordRecoveryMarker(),
+  );
   
   // Ref para evitar m?ltiplas chamadas simult?neas de carregamento de perfil
   const loadingUserIdRef = useRef<string | null>(null);
@@ -134,6 +184,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, supaSession) => {
+        if (event === "PASSWORD_RECOVERY") {
+          markPasswordRecovery();
+          setIsPasswordRecovery(true);
+        }
+
+        if (event === "SIGNED_OUT") {
+          clearPasswordRecoveryMarker();
+          setIsPasswordRecovery(false);
+        }
+
         const s = buildSession(supaSession);
 
         // Supabase may emit TOKEN_REFRESHED and SIGNED_IN when the browser
@@ -183,14 +243,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
+    clearPasswordRecoveryMarker();
+    setIsPasswordRecovery(false);
     setSession(null);
     loadedUserIdRef.current = null;
     setUser(null);
     setUnreadMessages(0);
   }, []);
 
+  const clearPasswordRecovery = useCallback(() => {
+    clearPasswordRecoveryMarker();
+    setIsPasswordRecovery(false);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ session, user, isLoading, unreadMessages, refreshSession, refreshUnread, logout }}>
+    <AuthContext.Provider value={{ session, user, isLoading, unreadMessages, isPasswordRecovery, refreshSession, refreshUnread, logout, clearPasswordRecovery }}>
       {children}
     </AuthContext.Provider>
   );

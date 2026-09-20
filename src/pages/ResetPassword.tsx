@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Mail, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 function getAppOrigin(): string {
   if (typeof window === "undefined") return "https://www.caramelinho.com";
@@ -13,26 +14,27 @@ function getAppOrigin(): string {
 }
 
 export default function ResetPassword() {
+  const { isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isRecoverySession, setIsRecoverySession] = useState(false);
+  const hasRecoveryUrl = typeof window !== "undefined" && (() => {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const searchParams = new URLSearchParams(window.location.search);
+    return (
+      hashParams.get("type")?.toLowerCase() === "recovery" ||
+      searchParams.get("type")?.toLowerCase() === "recovery" ||
+      !!hashParams.get("access_token")
+    );
+  })();
+  const isRecoverySession = isPasswordRecovery || hasRecoveryUrl;
   const text = {
     saving: "Salvando...", savePassword: "Salvar nova senha", sendLink: "Enviar link de redefinição", emailRequired: "Informe seu e-mail.", linkSent: "Enviamos o link de redefinição para seu e-mail.", passwordsRequired: "Preencha os dois campos de senha.", passwordLength: "A nova senha deve ter pelo menos 6 caracteres.", mismatch: "As senhas não conferem.", updated: "Senha atualizada com sucesso. Você já pode entrar.",
     titleRecovery: "Definir nova senha", titleRequest: "Esqueci minha senha", recoveryDescription: "Digite sua nova senha para concluir a recuperação.", requestDescription: "Informe seu e-mail para receber o link de redefinição.", newPassword: "Nova senha", newPlaceholder: "Digite a nova senha", confirmPassword: "Confirmar nova senha", confirmPlaceholder: "Repita a nova senha", back: "Voltar para entrar",
   };
-
-  useEffect(() => {
-    const hash = typeof window !== "undefined" ? window.location.hash : "";
-    const params = new URLSearchParams(hash.replace(/^#/, ""));
-    const type = (params.get("type") || "").toLowerCase();
-    const hasToken = !!params.get("access_token");
-    const timer = window.setTimeout(() => setIsRecoverySession(type === "recovery" || hasToken), 0);
-    return () => window.clearTimeout(timer);
-  }, []);
 
   const submitLabel = isLoading ? text.saving : (isRecoverySession ? text.savePassword : text.sendLink);
 
@@ -80,6 +82,7 @@ export default function ResetPassword() {
       return;
     }
     setInfo(text.updated);
+    clearPasswordRecovery();
     setNewPassword("");
     setNewPasswordConfirm("");
   };

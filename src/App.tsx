@@ -1,7 +1,8 @@
-import { BrowserRouter, Navigate, Route, Routes, StaticRouter, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, StaticRouter, useLocation, useNavigate } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
@@ -57,6 +58,20 @@ function ScrollToTop() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [pathname, search]);
+
+  return null;
+}
+
+function PasswordRecoveryRedirect() {
+  const { isPasswordRecovery } = useAuth();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    if (isPasswordRecovery && pathname !== "/redefinir-senha") {
+      navigate("/redefinir-senha", { replace: true });
+    }
+  }, [isPasswordRecovery, navigate, pathname]);
 
   return null;
 }
@@ -164,6 +179,7 @@ export default function App({
       <AppRouter router={router} location={location}>
         <SearchLocationProvider>
           <ScrollToTop />
+          <PasswordRecoveryRedirect />
           <CanonicalManager isBusinessPage={isBusinessPage} />
           <GoogleAnalytics />
           <SiteHeader

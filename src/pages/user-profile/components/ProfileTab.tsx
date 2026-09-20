@@ -20,6 +20,7 @@ type ProfileTabProps = {
   newPassword: string;
   confirmPassword: string;
   isChangingPassword: boolean;
+  isPasswordRecovery: boolean;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onAvatarFileChange: (file: File | null) => void;
@@ -47,6 +48,7 @@ export default function ProfileTab({
   newPassword,
   confirmPassword,
   isChangingPassword,
+  isPasswordRecovery,
   onStartEdit,
   onCancelEdit,
   onAvatarFileChange,
@@ -193,19 +195,27 @@ export default function ProfileTab({
           </div>
         </div>
 
+        {isPasswordRecovery && (
+          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Você entrou pelo link de recuperação. Defina uma nova senha sem informar a senha anterior.
+          </p>
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Label htmlFor="currentPassword">{"Senha atual"}</Label>
-            <Input
-              id="currentPassword"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => onCurrentPasswordChange(e.target.value)}
-              autoComplete="current-password"
-              className="mt-1"
-              placeholder={"Digite sua senha atual"}
-            />
-          </div>
+          {!isPasswordRecovery && (
+            <div className="sm:col-span-2">
+              <Label htmlFor="currentPassword">{"Senha atual"}</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => onCurrentPasswordChange(e.target.value)}
+                autoComplete="current-password"
+                className="mt-1"
+                placeholder={"Digite sua senha atual"}
+              />
+            </div>
+          )}
           <div>
             <Label htmlFor="newPassword">{"Nova senha"}</Label>
             <Input
@@ -239,7 +249,7 @@ export default function ProfileTab({
             disabled={isChangingPassword}
           >
             <Lock className="w-4 h-4 mr-2" />
-            {isChangingPassword ? ("Atualizando...") : ("Alterar senha")}
+            {isChangingPassword ? ("Atualizando...") : (isPasswordRecovery ? "Definir nova senha" : "Alterar senha")}
           </Button>
         </div>
       </Card>
