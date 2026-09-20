@@ -69,7 +69,15 @@ function PasswordRecoveryRedirect() {
 
   useEffect(() => {
     if (isPasswordRecovery && pathname !== "/redefinir-senha") {
-      navigate("/redefinir-senha", { replace: true });
+      navigate(`/redefinir-senha${window.location.hash}`, { replace: true });
+      return;
+    }
+
+    if (pathname === "/redefinir-senha" || typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    if (params.get("error") || params.get("error_code") || params.get("error_description")) {
+      navigate(`/redefinir-senha${window.location.hash}`, { replace: true });
     }
   }, [isPasswordRecovery, navigate, pathname]);
 

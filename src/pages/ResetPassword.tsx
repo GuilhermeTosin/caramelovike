@@ -13,12 +13,28 @@ function getAppOrigin(): string {
   return `${window.location.protocol}//${window.location.host}`;
 }
 
+function getRecoveryErrorMessage(): string {
+  if (typeof window === "undefined") return "";
+
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const errorCode = params.get("error_code");
+  if (errorCode === "otp_expired") {
+    return "Este link expirou ou já foi utilizado. Solicite um novo link de redefinição para continuar.";
+  }
+
+  if (params.get("error") || errorCode || params.get("error_description")) {
+    return "Não foi possível validar este link. Solicite um novo link de redefinição para continuar.";
+  }
+
+  return "";
+}
+
 export default function ResetPassword() {
   const { isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(getRecoveryErrorMessage);
   const [info, setInfo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const hasRecoveryUrl = typeof window !== "undefined" && (() => {
