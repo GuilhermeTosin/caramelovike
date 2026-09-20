@@ -24,6 +24,57 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-20 19:13:43 -04:00
+
+- Status: em andamento.
+- Solicitacao: melhorar a galeria do detalhe do anuncio com foto principal,
+  miniaturas abaixo, setas de navegacao e fundo desfocado; permitir edicao
+  completa das fotos no formulario de anuncio.
+- Objetivo tecnico: tornar a navegacao visual previsivel em desktop e mobile,
+  aproximar a experiencia do padrao de marketplaces maduros e impedir que a
+  edicao de titulo e dados deixe as fotos fora de sincronia.
+- Estrategia: manter uma unica foto principal responsiva, carregar as demais
+  em miniaturas horizontais, usar o mesmo indice no visualizador ampliado e
+  atualizar as imagens por uma RPC transacional validada pelo proprietario.
+- Riscos: falha durante upload ou sincronizacao pode gerar arquivos orfaos;
+  a limpeza sera feita somente depois da confirmacao do banco, e novos uploads
+  serao removidos quando a salvacao falhar.
+- Escopo previsto: `MarketplaceListingGallery`, formulario de edicao,
+  servico de marketplace e uma migration de seguranca para substituir as
+  imagens mantendo ordem e limite de oito fotos.
+- Status final: concluido em 2026-09-20 19:29:06 -04:00.
+- Implementacao:
+  - `src/components/MarketplaceListingGallery.tsx`: galeria com uma foto
+    principal, miniaturas horizontais abaixo, setas para anterior/proxima,
+    navegacao por teclado, contador, zoom e fundo desfocado no detalhe e no
+    visualizador ampliado.
+  - `src/pages/MarketplacePage.tsx`: formulario de edicao agora carrega as
+    fotos existentes e permite adicionar ate oito imagens, excluir, reordenar
+    por arraste ou setas e definir a primeira como principal.
+  - `src/services/marketplace.ts`: chamada para substituir a lista de URLs
+    mantendo a ordem enviada.
+  - `supabase/migrations/00054_replace_marketplace_listing_images.sql`: RPC
+    `SECURITY INVOKER` que valida `auth.uid()`, limita a oito fotos e troca as
+    linhas em uma operacao protegida por RLS.
+- Validacao automatica:
+  - `npm run typecheck`: passou.
+  - `npm test`: passou; 22 arquivos e 104 testes.
+  - `npm run lint`: passou sem erros.
+  - `npm run build`: passou; permanece apenas o aviso tolerado e preexistente
+    de top-level await em `src/pages/BusinessPageRoute.tsx:7`.
+  - `git diff --check`: passou.
+- Validacao manual: detalhe do anuncio aberto no localhost; galeria em duas
+  colunas conferida, foto ampliada aberta e fundo desfocado visivel. O anuncio
+  usado para teste possui apenas uma foto, portanto a navegacao entre varias
+  fotos foi validada por codigo e typecheck, mas nao por clique com dados reais.
+- Etapa manual pendente: aplicar a migration `00054` no projeto Supabase antes
+  de usar a gravacao de fotos em producao. Sem ela, o formulario continua
+  carregando, mas a RPC de sincronizacao retornara erro.
+- Risco residual: se a limpeza de um arquivo antigo no Storage falhar depois
+  da confirmacao do banco, a foto deixa de ser publicada, mas pode permanecer
+  temporariamente como arquivo orfao no bucket; o frontend registra esse caso
+  no console para limpeza posterior.
+
 ### 2026-09-20 18:54:50 -04:00
 
 - Status: em andamento.

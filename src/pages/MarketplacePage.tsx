@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { setSeoMeta } from "@/lib/seo";
 import { DEFAULT_MARKETPLACE_DISTANCE_KM, MARKETPLACE_CATEGORIES, MARKETPLACE_DISTANCE_OPTIONS, normalizeMarketplaceDistance, normalizeMarketplaceKeywords } from "@/lib/marketplaceCategories";
 import { buildMarketplaceRequestKey, marketplaceBusinessSellerPath, marketplaceListingPath, marketplaceSellerPath, type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
-import { contactMarketplaceSeller, createMarketplaceListing, getMarketplaceCategories, getMarketplaceListingByOwner, getMarketplaceListingByPath, getMarketplacePage, getMarketplaceBusinessSellerPage, getMarketplaceSellerBusinesses, getMarketplaceSellerPage, getSimilarMarketplaceListings, reportMarketplaceListing, toggleMarketplaceFavorite, updateMarketplaceListing, type MarketplaceBusinessSellerPage, type MarketplaceFilters, type MarketplaceSellerBusinessOption, type MarketplaceSellerPage } from "@/services/marketplace";
+import { contactMarketplaceSeller, createMarketplaceListing, getMarketplaceCategories, getMarketplaceListingByOwner, getMarketplaceListingByPath, getMarketplacePage, getMarketplaceBusinessSellerPage, getMarketplaceSellerBusinesses, getMarketplaceSellerPage, getSimilarMarketplaceListings, replaceMarketplaceListingImages, reportMarketplaceListing, toggleMarketplaceFavorite, updateMarketplaceListing, type MarketplaceBusinessSellerPage, type MarketplaceFilters, type MarketplaceSellerBusinessOption, type MarketplaceSellerPage } from "@/services/marketplace";
 import { generateImagePath, removePublicImageUrls, uploadImage } from "@/services/storage";
 import { getCurrencyCodeForCountry } from "@/lib/currency";
 import { geocodeAddress } from "@/lib/google-maps";
@@ -23,6 +23,13 @@ import MarketplaceListingGallery from "@/components/MarketplaceListingGallery";
 import type { MarketplaceCategory, MarketplaceCondition, MarketplaceListing, MarketplaceListingType, MarketplaceReport } from "@/types/database";
 
 type SharedProps = { initialSnapshot?: MarketplaceSnapshot; initialListing?: MarketplaceListing | null; initialSeller?: MarketplaceSellerPage | null; initialBusinessSeller?: MarketplaceBusinessSellerPage | null };
+
+type MarketplaceEditImageItem = {
+  key: string;
+  kind: "existing" | "new";
+  imageUrl: string;
+  file?: File;
+};
 
 const TYPE_LABELS: Record<MarketplaceListingType, string> = { selling: "Vendendo", wanted: "Procurando", giving_away: "Doando" };
 const CONDITION_LABELS: Record<MarketplaceCondition, string> = { new: "Novo", like_new: "Como novo", good: "Bom estado", used: "Usado", parts: "Para peças" };
@@ -861,9 +868,31 @@ export function MarketplaceEditPage() {
   const [videoUrl, setVideoUrl] = useState("");
   const [city, setCity] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
+  const [imageItems, setImageItems] = useState<MarketplaceEditImageItem[]>([]);
+  const [draggingImageIndex, setDraggingImageIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => { if (!id || !session?.userId) return; void getMarketplaceListingByOwner(id, session.userId).then((item) => { setListing(item); if (item) { setTitle(item.title); setDescription(item.description); setPrice(item.price == null ? "" : String(item.price)); setCurrency(item.currency); setCondition(item.condition || ""); setKeywords(item.keywords || []); setVideoUrl(item.video_url || ""); setCity(item.city); setNeighborhood(item.neighborhood || ""); setSellerBusinessId(item.seller_business_id || ""); } }); }, [id, session?.userId]);
+  const previewUrls = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!id || !session?.userId) return;
+    void getMarketplaceListingByOwner(id, session.userId).then((item) => {
+      setListing(item);
+      if (!item) return;
+      setTitle(item.title);
+      setDescription(item.description);
+      setPrice(item.price == null ? "" : String(item.price));
+      setCurrency(item.currency);
+      setCondition(item.condition || "");
+      setKeywords(item.keywords || []);
+      setVideoUrl(item.video_url || "");
+      setCity(item.city);
+      setNeighborhood(item.neighborhood || "");
+      setSellerBusinessId(item.seller_business_id || "");
+      setImageItems((item.images || []).map((image) => ({ key: image.id, kind: "existing" as const, imageUrl: image.image_url })));
+    });
+  }, [id, session?.userId]);
+
   useEffect(() => {
     if (!session?.userId) return;
     let active = true;
@@ -872,12 +901,143 @@ export function MarketplaceEditPage() {
       .catch((sellerBusinessError) => console.warn("[Marketplace] Não foi possível carregar os negócios para edição:", sellerBusinessError));
     return () => { active = false; };
   }, [session?.userId]);
+
+  useEffect(() => () => {
+    previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    previewUrls.current.clear();
+  }, []);
+
   if (!session) return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-2xl font-bold">Entre para editar seu anúncio</h1><Button asChild className="mt-6"><Link to="/entrar">Entrar</Link></Button></main></div>;
   if (!listing) return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-2xl font-bold">Carregando anúncio...</h1><p className="mt-2 text-muted-foreground">Se o anúncio não existir ou não pertencer à sua conta, ele não poderá ser editado.</p></main></div>;
-  const save = async (event: React.FormEvent) => { event.preventDefault(); setError(""); if (title.trim().length < 3 || description.trim().length < 10 || !city.trim()) { setError("Preencha título, descrição e cidade."); return; } const normalizedPrice = price.trim().replace(",", "."); const numericPrice = normalizedPrice ? Number(normalizedPrice) : null; if (listing.listing_type === "selling" && (!normalizedPrice || numericPrice === null || !Number.isFinite(numericPrice) || numericPrice < 0)) { setError("Informe um preço válido para um anúncio à venda."); return; } if (videoUrl.trim() && !getYouTubeEmbedUrl(videoUrl)) { setError("Informe um link válido de vídeo do YouTube."); return; } setSaving(true); const result = await updateMarketplaceListing(listing.id, session.userId, { sellerBusinessId: sellerBusinessId || null, title, description, price: listing.listing_type === "selling" ? numericPrice : null, currency, condition: condition || null, city, neighborhood, keywords, videoUrl }); setSaving(false); if (!result.ok) { setError(result.error || "Não foi possível salvar."); return; } navigate(marketplaceListingPath(result.listing || listing)); };
-  return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12"><Link to="/perfil?tab=marketplace" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" />Voltar aos meus anúncios</Link><Card className="p-5 sm:p-8"><h1 className="text-3xl font-extrabold">Editar anúncio</h1><form onSubmit={save} className="mt-8 space-y-5"><div className="rounded-lg border border-border/70 bg-muted/20 p-3"><label className="block space-y-2 text-sm font-medium">Publicar como<select value={sellerBusinessId} onChange={(event) => setSellerBusinessId(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3"><option value="">Meu perfil</option>{sellerBusinesses.map((business) => <option key={business.id} value={business.id}>{business.name}</option>)}</select></label><p className="mt-2 text-xs text-muted-foreground">O anúncio continua pertencendo à sua conta, mas pode ser apresentado com a identidade de um negócio autorizado.</p></div><label className="block space-y-2 text-sm font-medium">Título<Input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={140} /></label><label className="block space-y-2 text-sm font-medium">Descrição<Textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} rows={7} /></label><div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium">{listing.listing_type === "selling" ? "Preço" : "Preço (opcional)"}<Input value={price} onChange={(event) => setPrice(event.target.value)} inputMode="decimal" disabled={listing.listing_type !== "selling"} /></label><label className="space-y-2 text-sm font-medium">Moeda<Input value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase().slice(0, 3))} maxLength={3} /></label><label className="space-y-2 text-sm font-medium">Condição<select value={condition} onChange={(event) => setCondition(event.target.value as MarketplaceCondition | "")} className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3"><option value="">Não informado</option>{Object.entries(CONDITION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="space-y-2 text-sm font-medium">Cidade<Input value={city} onChange={(event) => setCity(event.target.value)} /></label><label className="space-y-2 text-sm font-medium">Bairro/região<Input value={neighborhood} onChange={(event) => setNeighborhood(event.target.value)} /></label></div><MarketplaceFormSection icon={Youtube} title="Como as pessoas encontram seu anúncio" description="Palavras-chave e um vídeo ajudam a explicar melhor o produto." tone="blue"><div className="space-y-5"><MarketplaceKeywordsField value={keywords} onChange={setKeywords} /><label className="block space-y-2 text-sm font-medium">Link do vídeo no YouTube (opcional)<Input type="url" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." /></label><p className="text-xs text-muted-foreground">Um vídeo pode mostrar detalhes, funcionamento ou o estado real do produto e aumentar a confiança de quem está vendo o anúncio.</p></div></MarketplaceFormSection>{error ? <p className="text-sm text-destructive">{error}</p> : null}<Button type="submit" disabled={saving} className="w-full">{saving ? "Salvando..." : "Salvar alterações"}</Button></form></Card></main><SiteFooter /></div>;
-}
 
+  const addImageFiles = (selectedFiles: FileList | null) => {
+    if (!selectedFiles) return;
+    const files = Array.from(selectedFiles).filter((file) => file.type.startsWith("image/"));
+    setImageItems((current) => {
+      const keys = new Set(current.map((item) => item.kind === "new" ? item.key : item.imageUrl));
+      const additions = files.filter((file) => !keys.has(file.name + ":" + file.size + ":" + file.lastModified)).map((file) => {
+        const preview = URL.createObjectURL(file);
+        previewUrls.current.add(preview);
+        return { key: file.name + ":" + file.size + ":" + file.lastModified, kind: "new" as const, imageUrl: preview, file };
+      });
+      const next = [...current, ...additions].slice(0, 8);
+      additions.filter((item) => !next.includes(item)).forEach((item) => {
+        URL.revokeObjectURL(item.imageUrl);
+        previewUrls.current.delete(item.imageUrl);
+      });
+      return next;
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setImageItems((current) => {
+      const item = current[index];
+      if (item?.kind === "new") {
+        URL.revokeObjectURL(item.imageUrl);
+        previewUrls.current.delete(item.imageUrl);
+      }
+      return current.filter((_, currentIndex) => currentIndex !== index);
+    });
+  };
+
+  const moveImage = (fromIndex: number, toIndex: number) => {
+    setImageItems((current) => {
+      if (fromIndex < 0 || toIndex < 0 || fromIndex >= current.length || toIndex >= current.length) return current;
+      const next = [...current];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
+    if (title.trim().length < 3 || description.trim().length < 10 || !city.trim()) {
+      setError("Preencha título, descrição e cidade.");
+      return;
+    }
+    const normalizedPrice = price.trim().replace(",", ".");
+    const numericPrice = normalizedPrice ? Number(normalizedPrice) : null;
+    if (listing.listing_type === "selling" && (!normalizedPrice || numericPrice === null || !Number.isFinite(numericPrice) || numericPrice < 0)) {
+      setError("Informe um preço válido para um anúncio à venda.");
+      return;
+    }
+    if (videoUrl.trim() && !getYouTubeEmbedUrl(videoUrl)) {
+      setError("Informe um link válido de vídeo do YouTube.");
+      return;
+    }
+
+    setSaving(true);
+    const uploadedUrls: string[] = [];
+    const newItems = imageItems.filter((item): item is MarketplaceEditImageItem & { kind: "new"; file: File } => item.kind === "new" && !!item.file);
+    const cleanupUploads = async () => {
+      if (uploadedUrls.length) await removePublicImageUrls("business-images", uploadedUrls);
+    };
+
+    try {
+      const uploadedByKey = new Map<string, string>();
+      for (const item of newItems) {
+        const uploadedUrl = await uploadImage("business-images", "marketplace/" + session.userId + "/" + generateImagePath(listing.id, "photo", item.file.name), item.file);
+        if (!uploadedUrl) {
+          await cleanupUploads();
+          setError("Não foi possível enviar uma das novas fotos. Tente novamente.");
+          return;
+        }
+        uploadedUrls.push(uploadedUrl);
+        uploadedByKey.set(item.key, uploadedUrl);
+      }
+
+      const finalImageUrls = imageItems.map((item) => item.kind === "existing" ? item.imageUrl : uploadedByKey.get(item.key)).filter((url): url is string => !!url);
+      if (finalImageUrls.length !== imageItems.length) {
+        await cleanupUploads();
+        setError("Não foi possível preparar todas as fotos. Tente novamente.");
+        return;
+      }
+
+      const result = await updateMarketplaceListing(listing.id, session.userId, {
+        sellerBusinessId: sellerBusinessId || null,
+        title,
+        description,
+        price: listing.listing_type === "selling" ? numericPrice : null,
+        currency,
+        condition: condition || null,
+        city,
+        neighborhood,
+        keywords,
+        videoUrl,
+      });
+      if (!result.ok) {
+        await cleanupUploads();
+        setError(result.error || "Não foi possível salvar.");
+        return;
+      }
+
+      const imageResult = await replaceMarketplaceListingImages(listing.id, finalImageUrls);
+      if (!imageResult.ok) {
+        await cleanupUploads();
+        setError("Os dados foram salvos, mas não foi possível atualizar as fotos: " + (imageResult.error || "tente novamente."));
+        return;
+      }
+
+      const oldUrls = (listing.images || []).map((image) => image.image_url);
+      const removedUrls = oldUrls.filter((url) => !finalImageUrls.includes(url));
+      if (removedUrls.length) {
+        const cleanupResult = await removePublicImageUrls("business-images", removedUrls);
+        if (!cleanupResult.ok) console.warn("[Marketplace] Fotos antigas não removidas do storage:", cleanupResult.error);
+      }
+      navigate(marketplaceListingPath(result.listing || listing));
+    } catch (saveError) {
+      await cleanupUploads();
+      console.error("[Marketplace] Falha ao salvar edição:", saveError);
+      setError("Não foi possível salvar o anúncio agora. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12"><Link to="/perfil?tab=marketplace" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" />Voltar aos meus anúncios</Link><Card className="p-5 sm:p-8"><h1 className="text-3xl font-extrabold">Editar anúncio</h1><form onSubmit={save} className="mt-8 space-y-5"><div className="rounded-lg border border-border/70 bg-muted/20 p-3"><label className="block space-y-2 text-sm font-medium">Publicar como<select value={sellerBusinessId} onChange={(event) => setSellerBusinessId(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3"><option value="">Meu perfil</option>{sellerBusinesses.map((business) => <option key={business.id} value={business.id}>{business.name}</option>)}</select></label><p className="mt-2 text-xs text-muted-foreground">O anúncio continua pertencendo à sua conta, mas pode ser apresentado com a identidade de um negócio autorizado.</p></div><MarketplaceFormSection icon={Images} title="Fotos do anúncio" description="Adicione até 8 fotos. A primeira é a principal; reordene, remova ou acrescente fotos antes de salvar." tone="slate"><label className="block cursor-pointer rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted-foreground transition-colors hover:bg-muted/20"><Upload className="mx-auto mb-2 h-5 w-5 text-primary" />Adicionar fotos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(event) => { addImageFiles(event.target.files); event.currentTarget.value = ""; }} /><span className="mt-2 block font-medium text-foreground">{imageItems.length}/8 foto(s) no anúncio</span><span className="mt-1 block text-xs">JPG, PNG ou WebP. A ordem abaixo será a ordem pública.</span></label>{imageItems.length ? <div className="mt-5 space-y-2"><p className="text-sm font-medium">Fotos atuais e novas</p><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{imageItems.map((item, index) => <div key={item.key} draggable onDragStart={() => setDraggingImageIndex(index)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (draggingImageIndex !== null) moveImage(draggingImageIndex, index); setDraggingImageIndex(null); }} onDragEnd={() => setDraggingImageIndex(null)} className={"group relative overflow-hidden rounded-lg border bg-secondary " + (draggingImageIndex === index ? "border-primary opacity-60" : "border-border")}><img src={item.imageUrl} alt={listing.title + " - foto " + (index + 1)} className="aspect-square w-full object-cover" /><div className="absolute left-1 top-1 rounded bg-black/65 p-1 text-white" title="Arraste para reordenar"><GripVertical className="h-4 w-4" aria-hidden="true" /></div><div className="absolute right-1 top-1 flex gap-1"><button type="button" aria-label={"Mover foto " + (index + 1) + " para a esquerda"} disabled={index === 0} onClick={() => moveImage(index, index - 1)} className="rounded-full bg-black/70 p-1 text-white hover:bg-black/90 disabled:opacity-35"><ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" /></button><button type="button" aria-label={"Mover foto " + (index + 1) + " para a direita"} disabled={index === imageItems.length - 1} onClick={() => moveImage(index, index + 1)} className="rounded-full bg-black/70 p-1 text-white hover:bg-black/90 disabled:opacity-35"><ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></button><button type="button" aria-label={"Excluir foto " + (index + 1)} onClick={() => removeImage(index)} className="rounded-full bg-black/70 p-1 text-white hover:bg-red-600"><X className="h-3.5 w-3.5" aria-hidden="true" /></button></div>{index === 0 ? <span className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 text-center text-xs font-semibold text-white">Principal</span> : null}{item.kind === "new" ? <span className="absolute bottom-7 left-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-white">Nova</span> : null}</div>)}</div><p className="text-xs text-muted-foreground">No celular, use as setas para reordenar. No desktop, também é possível arrastar as miniaturas.</p></div> : <p className="mt-4 rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">Nenhuma foto selecionada. Você pode salvar o anúncio sem imagens.</p>}</MarketplaceFormSection><MarketplaceFormSection icon={FileText} title="Detalhes do produto" description="Atualize as informações que aparecem no anúncio." tone="blue"><div className="space-y-4"><label className="block space-y-2 text-sm font-medium">Título<Input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={140} /></label><label className="block space-y-2 text-sm font-medium">Descrição<Textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} rows={7} /></label></div></MarketplaceFormSection><MarketplaceFormSection icon={CircleDollarSign} title="Preço e condição" description="Atualize preço, moeda e condição do produto." tone="amber"><div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium">{listing.listing_type === "selling" ? "Preço" : "Preço (opcional)"}<Input value={price} onChange={(event) => setPrice(event.target.value)} inputMode="decimal" disabled={listing.listing_type !== "selling"} /></label><label className="space-y-2 text-sm font-medium">Moeda<Input value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase().slice(0, 3))} maxLength={3} /></label><label className="space-y-2 text-sm font-medium">Condição<select value={condition} onChange={(event) => setCondition(event.target.value as MarketplaceCondition | "")} className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3"><option value="">Não informado</option>{Object.entries(CONDITION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="space-y-2 text-sm font-medium">Cidade<Input value={city} onChange={(event) => setCity(event.target.value)} /></label><label className="space-y-2 text-sm font-medium">Bairro/região<Input value={neighborhood} onChange={(event) => setNeighborhood(event.target.value)} /></label></div></MarketplaceFormSection><MarketplaceFormSection icon={Youtube} title="Como as pessoas encontram seu anúncio" description="Palavras-chave e um vídeo ajudam a explicar melhor o produto." tone="blue"><div className="space-y-5"><MarketplaceKeywordsField value={keywords} onChange={setKeywords} /><label className="block space-y-2 text-sm font-medium">Link do vídeo no YouTube (opcional)<Input type="url" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." /></label><p className="text-xs text-muted-foreground">Um vídeo pode mostrar detalhes, funcionamento ou o estado real do produto e aumentar a confiança de quem está vendo o anúncio.</p></div></MarketplaceFormSection>{error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-destructive">{error}</p> : null}<Button type="submit" disabled={saving} className="w-full">{saving ? "Salvando..." : "Salvar alterações"}</Button></form></Card></main><SiteFooter /></div>;
+}
 export function MarketplaceListingPage({ initialListing }: SharedProps) {
   const params = useParams<{ countryCode: string; stateCode: string; city: string; slug: string }>();
   const { session } = useAuth();

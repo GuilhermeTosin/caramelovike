@@ -591,6 +591,15 @@ export async function addMarketplaceListingImages(listingId: string, imageUrls: 
   return { ok: !error, error: error?.message };
 }
 
+export async function replaceMarketplaceListingImages(listingId: string, imageUrls: string[]) {
+  const normalizedUrls = imageUrls.map((imageUrl) => imageUrl.trim()).filter(Boolean).slice(0, 8);
+  const { error } = await supabase.rpc("replace_marketplace_listing_images", {
+    p_listing_id: listingId,
+    p_image_urls: normalizedUrls,
+  });
+  return { ok: !error, error: error?.message };
+}
+
 export async function updateMarketplaceListingStatus(id: string, status: MarketplaceListingStatus) {
   const { error } = await supabase.from("marketplace_listings").update({ status }).eq("id", id);
   return { ok: !error, error: error?.message };
