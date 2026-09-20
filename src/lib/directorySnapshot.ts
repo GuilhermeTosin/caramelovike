@@ -1,9 +1,11 @@
 import type { BusinessFrontend } from "@/types/database";
-import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
+import { getCategoryLabel, getCountryName, getStateDisplayName, slugify, type PublicDirectoryAggregate } from "@/services/businesses";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getDirectoryInsights, type DirectoryInsights } from "@/lib/directoryInsights";
-import { getDirectoryPageMeta, type DirectoryPageMeta } from "@/lib/seo/directoryMeta";
+import { getDirectoryPageMeta, getDirectoryPageMetaFromAggregate, type DirectoryPageMeta } from "@/lib/seo/directoryMeta";
 import {
+  DIRECTORY_CATEGORIES,
+  DIRECTORY_CATEGORY_MINIMUM_BUSINESSES,
   DIRECTORY_PAGE_SIZE,
   getDirectoryBusinessCitySlug,
   getDirectoryCategoryBusinesses,
@@ -268,5 +270,121 @@ export function buildDirectoryPageSnapshot(
     pageBusinesses: currentBusinesses
       .slice((safePage - 1) * DIRECTORY_PAGE_SIZE, safePage * DIRECTORY_PAGE_SIZE)
       .map(compactDirectoryBusiness),
+  };
+}
+
+export function buildDirectoryPageSnapshotFromAggregate(
+  pathname: string,
+  aggregate: PublicDirectoryAggregate,
+): DirectoryPageSnapshot | null {
+  const route = parseDirectoryRoute(pathname);
+  if (!route) return null;
+
+  const category = route.categorySlug ? getDirectoryCategoryBySlug(route.categorySlug) : null;
+  const level: DirectoryLevel = route.categorySlug
+    ? "categoryBusinesses"
+    : !route.countryCode
+      ? "countries"
+      : !route.stateCode
+        ? "states"
+        : !route.citySlug
+          ? "cities"
+          : "businesses";
+  const stateLabel = aggregate.stateCounts.find((item) => item.code === route.stateCode)?.label
+    || getStateDisplayName(route.countryCode, route.stateCode)
+    || route.stateCode.toUpperCase();
+  const cityLabel = aggregate.cityCounts.find((item) => item.slug === route.citySlug)?.label
+    || getCityDisplayName(route.citySlug, route.countryCode)
+    || route.citySlug;
+  const labels = {
+    country: getCountryName(route.countryCode) || route.countryCode.toUpperCase(),
+    state: stateLabel,
+    city: cityLabel,
+  };
+  const gridItems: DirectoryNavigationItem[] = level === "countries"
+    ? aggregate.countryCounts.map((item) => ({
+      label: getCountryName(item.code) || item.code.toUpperCase(),
+      href: buildDirectoryPagePath({ ...route, countryCode: item.code, stateCode: "", citySlug: "", categorySlug: "", page: 1 }),
+      count: item.count,
+    }))
+    : level === "states"
+      ? aggregate.stateCounts.map((item) => ({
+        label: item.label || getStateDisplayName(route.countryCode, item.code) || item.code.toUpperCase(),
+        href: buildDirectoryPagePath({ ...route, stateCode: item.code, citySlug: "", categorySlug: "", page: 1 }),
+        count: item.count,
+      }))
+      : level === "cities"
+        ? aggregate.cityCounts.map((item) => ({
+          label: item.label || item.slug,
+          href: buildDirectoryPagePath({ ...route, citySlug: item.slug, categorySlug: "", page: 1 }),
+          count: item.count,
+        }))
+        : [];
+  const relatedCities = level === "businesses"
+    ? aggregate.cityCounts
+      .filter((item) => item.slug !== route.citySlug)
+      .map((item) => ({
+        label: item.label || item.slug,
+        href: buildDirectoryPagePath({ ...route, citySlug: item.slug, categorySlug: "", page: 1 }),
+        count: item.count,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"))
+      .slice(0, 6)
+    : [];
+  const categoryDefinitions = new Map(DIRECTORY_CATEGORIES.map((item) => [item.categoryId, item]));
+  const categoryInsights = aggregate.categoryCounts
+    .map((item) => {
+      const categoryDefinition = categoryDefinitions.get(item.key);
+      return {
+        key: item.key,
+        label: categoryDefinition?.label || getCategoryLabel(item.key),
+        slug: categoryDefinition?.slug,
+        count: item.count,
+        isIndexable: Boolean(route.countryCode && route.stateCode && route.citySlug && categoryDefinition?.slug && item.count >= DIRECTORY_CATEGORY_MINIMUM_BUSINESSES),
+      };
+    })
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"));
+  const insights: DirectoryInsights | null = level === "categoryBusinesses"
+    ? null
+    : {
+      totalBusinesses: aggregate.scopeTotal,
+      totalActivities: categoryInsights.length,
+      verifiedBusinesses: aggregate.scopeVerifiedTotal,
+      latestCreatedAt: aggregate.scopeLatestCreatedAt,
+      categories: categoryInsights,
+    };
+  const countryBusinesses = aggregate.stateCounts.reduce((sum, item) => sum + item.count, 0);
+  const stateBusinesses = route.stateCode
+    ? route.citySlug
+      ? aggregate.cityCounts.reduce((sum, item) => sum + item.count, 0)
+      : aggregate.scopeTotal
+    : 0;
+  const pageMeta = getDirectoryPageMetaFromAggregate(pathname, {
+    countryBusinesses,
+    stateBusinesses,
+    cityBusinesses: aggregate.scopeTotal,
+    categoryBusinesses: category ? aggregate.currentTotal : 0,
+    stateCount: aggregate.stateCounts.length,
+    cityCount: aggregate.cityCounts.length,
+    labels,
+  }) || {
+    heading: "Negócios brasileiros no exterior por país",
+    title: "Negócios brasileiros no exterior por país | Caramelinho.com",
+    description: "Encontre negócios brasileiros no exterior por país, estado e cidade.",
+  };
+
+  return {
+    pathname,
+    level,
+    route: { ...route, page: Math.min(Math.max(1, route.page), aggregate.totalPages) },
+    category: category ? { slug: category.slug, label: category.label } : null,
+    labels,
+    pageMeta,
+    insights,
+    gridItems,
+    relatedCities,
+    totalBusinesses: level === "categoryBusinesses" || level === "businesses" ? aggregate.currentTotal : 0,
+    totalPages: aggregate.totalPages,
+    pageBusinesses: aggregate.pageBusinesses.map(compactDirectoryBusiness),
   };
 }

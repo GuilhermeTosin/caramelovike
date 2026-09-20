@@ -523,6 +523,139 @@ export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFronten
   return (await attachLocationDisplayNames(rows)).map((row) => toFrontend(row));
 }
 
+export type PublicDirectoryCount = {
+  code?: string;
+  key?: string;
+  slug?: string;
+  label?: string;
+  count: number;
+};
+
+export type PublicDirectoryAggregate = {
+  routeExists: boolean;
+  countryCounts: Array<{ code: string; count: number }>;
+  stateCounts: Array<{ code: string; label: string; count: number }>;
+  cityCounts: Array<{ slug: string; label: string; count: number }>;
+  categoryCounts: Array<{ key: string; count: number }>;
+  scopeTotal: number;
+  scopeVerifiedTotal: number;
+  scopeLatestCreatedAt?: string;
+  currentTotal: number;
+  totalPages: number;
+  pageBusinesses: BusinessFrontend[];
+};
+
+type PublicDirectoryRpcPayload = {
+  route_exists?: boolean;
+  country_counts?: PublicDirectoryCount[];
+  state_counts?: PublicDirectoryCount[];
+  city_counts?: PublicDirectoryCount[];
+  category_counts?: PublicDirectoryCount[];
+  scope_total?: number;
+  scope_verified_total?: number;
+  scope_latest_created_at?: string | null;
+  current_total?: number;
+  total_pages?: number;
+  page_businesses?: Record<string, unknown>[];
+};
+
+function toPublicDirectoryBusiness(row: Record<string, unknown>): BusinessFrontend {
+  const attendanceType = row.attendance_type === "online" || row.attendance_type === "hibrido"
+    ? row.attendance_type
+    : "presencial";
+  const numericCoordinate = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+  return toFrontend({
+    id: String(row.id || ""),
+    owner_id: String(row.owner_id || ""),
+    name: String(row.name || ""),
+    slug: String(row.slug || ""),
+    category_id: String(row.category_id || "other"),
+    primary_activity: typeof row.primary_activity === "string" ? row.primary_activity : null,
+    primary_activity_custom: typeof row.primary_activity_custom === "string" ? row.primary_activity_custom : null,
+    description: "",
+    hero_image: typeof row.hero_image === "string" ? row.hero_image : null,
+    logo_url: typeof row.logo_url === "string" ? row.logo_url : null,
+    street: typeof row.street === "string" ? row.street : null,
+    city: typeof row.city === "string" ? row.city : null,
+    city_slug: typeof row.city_slug === "string" ? row.city_slug : null,
+    location_id: typeof row.location_id === "string" ? row.location_id : null,
+    location_display_name_pt_br: typeof row.location_display_name_pt_br === "string" ? row.location_display_name_pt_br : null,
+    state: typeof row.state === "string" ? row.state : null,
+    country: typeof row.country === "string" ? row.country : null,
+    country_code: typeof row.country_code === "string" ? row.country_code : null,
+    state_code: typeof row.state_code === "string" ? row.state_code : null,
+    postal_code: typeof row.postal_code === "string" ? row.postal_code : null,
+    lat: numericCoordinate(row.lat),
+    lng: numericCoordinate(row.lng),
+    attendance_type: attendanceType,
+    services: [],
+    service_items: [],
+    keywords: [],
+    menu: [],
+    photos: [],
+    phone: null,
+    email: null,
+    website: null,
+    instagram: null,
+    facebook: null,
+    whatsapp: null,
+    reviews: [],
+    average_rating: typeof row.average_rating === "number" ? row.average_rating : 0,
+    owner_verified: row.owner_verified === true,
+    owner_verified_until: typeof row.owner_verified_until === "string" ? row.owner_verified_until : null,
+    moderation_status: "approved",
+    created_at: typeof row.created_at === "string" ? row.created_at : "",
+    updated_at: typeof row.updated_at === "string" ? row.updated_at : undefined,
+  } as Business);
+}
+
+export async function getPublicBusinessDirectoryAggregate(params: {
+  countryCode?: string;
+  stateCode?: string;
+  citySlug?: string;
+  categoryId?: string;
+  page?: number;
+}): Promise<PublicDirectoryAggregate> {
+  const { data, error } = await supabase.rpc("get_public_business_directory", {
+    p_country_code: params.countryCode || null,
+    p_state_code: params.stateCode || null,
+    p_city_slug: params.citySlug || null,
+    p_category_id: params.categoryId || null,
+    p_page: Math.max(1, Math.floor(params.page || 1)),
+    p_page_size: 10,
+  });
+
+  if (error) throw error;
+
+  const payload = (data || {}) as unknown as PublicDirectoryRpcPayload;
+  const counts = (value: unknown): PublicDirectoryCount[] => Array.isArray(value) ? value : [];
+  const numberValue = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+  return {
+    routeExists: payload.route_exists !== false,
+    countryCounts: counts(payload.country_counts)
+      .map((item) => ({ code: String(item.code || ""), count: numberValue(item.count) }))
+      .filter((item) => item.code),
+    stateCounts: counts(payload.state_counts)
+      .map((item) => ({ code: String(item.code || ""), label: String(item.label || item.code || ""), count: numberValue(item.count) }))
+      .filter((item) => item.code),
+    cityCounts: counts(payload.city_counts)
+      .map((item) => ({ slug: String(item.slug || ""), label: String(item.label || item.slug || ""), count: numberValue(item.count) }))
+      .filter((item) => item.slug),
+    categoryCounts: counts(payload.category_counts)
+      .map((item) => ({ key: String(item.key || ""), count: numberValue(item.count) }))
+      .filter((item) => item.key),
+    scopeTotal: numberValue(payload.scope_total),
+    scopeVerifiedTotal: numberValue(payload.scope_verified_total),
+    scopeLatestCreatedAt: typeof payload.scope_latest_created_at === "string" ? payload.scope_latest_created_at : undefined,
+    currentTotal: numberValue(payload.current_total),
+    totalPages: Math.max(1, numberValue(payload.total_pages) || 1),
+    pageBusinesses: (Array.isArray(payload.page_businesses) ? payload.page_businesses : [])
+      .map((row) => toPublicDirectoryBusiness(row)),
+  };
+}
+
 export async function getRecentBusinessesForRegion(params: {
   city?: string;
   countryCode?: string;

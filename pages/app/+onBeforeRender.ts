@@ -2,6 +2,7 @@ import type { PageContextServer } from "vike/types";
 import { redirect, render } from "vike/abort";
 import {
   getBusinessesByPublicSearchRpc,
+  getPublicBusinessDirectoryAggregate,
   getPublicBusinessDirectoryIndex,
   getSimilarBusinessesForBusiness,
   getAvailableLocations,
@@ -19,14 +20,11 @@ import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import { getCommunityEventById } from "@/services/events";
 import {
   DIRECTORY_CATEGORY_MINIMUM_BUSINESSES,
-  DIRECTORY_PAGE_SIZE,
-  getDirectoryBusinessCitySlug,
   getDirectoryCategoryBySlug,
-  getDirectoryCategoryBusinesses,
 } from "@/lib/directoryCategories";
 import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnapshot";
 import { buildPublicSearchPageRequest, isPublicBusinessSearch, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
-import { buildDirectoryPagePath, buildDirectoryPageSnapshot, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
+import { buildDirectoryPagePath, buildDirectoryPageSnapshotFromAggregate, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import { DEFAULT_CATEGORY_SYNONYMS, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import { getMarketplaceCategories, getMarketplaceListingByPath, getMarketplacePage, getMarketplaceBusinessSellerPage, getMarketplaceSellerPage } from "@/services/marketplace";
 import { buildMarketplaceRequestKey, buildMarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
@@ -512,52 +510,36 @@ export async function onBeforeRender(pageContext: PageContext) {
     const directoryRoute = parseDirectoryRoute(pathname);
     if (!directoryRoute) throw render(404);
 
-    const businesses = await getPublicBusinessesForSsr();
     const countryCode = normalizeCode(directoryRoute.countryCode);
     const stateCode = normalizeCode(directoryRoute.stateCode);
     const citySlug = slugify(directoryRoute.citySlug || "");
+    const category = directoryRoute.categorySlug
+      ? getDirectoryCategoryBySlug(directoryRoute.categorySlug)
+      : null;
 
-    const countryBusinesses = countryCode
-      ? businesses.filter((business) => normalizeCode(business.address.countryCode) === countryCode)
-      : businesses;
-    if (countryCode && countryBusinesses.length === 0) throw render(404);
-
-    const stateBusinesses = stateCode
-      ? countryBusinesses.filter((business) => normalizeCode(business.address.stateCode) === stateCode)
-      : countryBusinesses;
-    if (stateCode && stateBusinesses.length === 0) throw render(404);
+    if (directoryRoute.categorySlug && !category) throw render(404);
 
     if (citySlug) {
       const canonicalCitySlug = await resolveCanonicalLocationSlug(countryCode, stateCode, citySlug).catch(() => null);
       if (canonicalCitySlug && canonicalCitySlug !== citySlug) {
         throw redirect(buildDirectoryPagePath({ ...directoryRoute, citySlug: canonicalCitySlug }), 301);
       }
-
-      const cityBusinesses = stateBusinesses.filter(
-        (business) => getDirectoryBusinessCitySlug(business) === citySlug,
-      );
-      if (cityBusinesses.length === 0) throw render(404);
-
-      const category = directoryRoute.categorySlug
-        ? getDirectoryCategoryBySlug(directoryRoute.categorySlug)
-        : null;
-      const currentBusinesses = directoryRoute.categorySlug
-        ? category
-          ? getDirectoryCategoryBusinesses(businesses, countryCode, stateCode, citySlug, category)
-          : []
-        : cityBusinesses;
-
-      if (directoryRoute.categorySlug && (!category || currentBusinesses.length < DIRECTORY_CATEGORY_MINIMUM_BUSINESSES)) {
-        throw render(404);
-      }
-
-      const totalPages = Math.max(1, Math.ceil(currentBusinesses.length / DIRECTORY_PAGE_SIZE));
-      if (directoryRoute.page < 1 || directoryRoute.page > totalPages) throw render(404);
     }
+
+    const aggregate = await getPublicBusinessDirectoryAggregate({
+      countryCode,
+      stateCode,
+      citySlug,
+      categoryId: category?.categoryId,
+      page: directoryRoute.page,
+    });
+    if (!aggregate.routeExists) throw render(404);
+    if (citySlug && category && aggregate.currentTotal < DIRECTORY_CATEGORY_MINIMUM_BUSINESSES) throw render(404);
+    if (citySlug && (directoryRoute.page < 1 || directoryRoute.page > aggregate.totalPages)) throw render(404);
 
     return {
       pageContext: {
-        initialDirectorySnapshot: buildDirectoryPageSnapshot(pathname, businesses) || undefined,
+        initialDirectorySnapshot: buildDirectoryPageSnapshotFromAggregate(pathname, aggregate) || undefined,
         initialBusiness: null,
         isBusinessPage: false,
       },

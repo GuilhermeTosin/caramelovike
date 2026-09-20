@@ -4,7 +4,7 @@ import SiteFooter from "@/components/SiteFooter";
 import {
   buildBusinessUrl,
   getCountryName,
-  getPublicBusinessDirectoryIndex,
+  getPublicBusinessDirectoryAggregate,
   getStateDisplayName,
   resolveCanonicalLocationSlug,
 } from "@/services/businesses";
@@ -17,10 +17,12 @@ import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import { DIRECTORY_CATEGORY_MINIMUM_BUSINESSES } from "@/lib/directoryCategories";
 import {
   buildDirectoryPagePath,
-  buildDirectoryPageSnapshot,
+  buildDirectoryPageSnapshotFromAggregate,
+  parseDirectoryRoute,
   type DirectoryLevel,
   type DirectoryPageSnapshot,
 } from "@/lib/directorySnapshot";
+import { getDirectoryCategoryBySlug } from "@/lib/directoryCategories";
 import Pagination from "@/components/Pagination";
 import { getLocalizedDirectoryMeta } from "@/lib/directoryLocale";
 import { getCountryDisplayName } from "@/lib/locales";
@@ -36,24 +38,6 @@ function getLocationLabel(business: BusinessFrontend) {
     getCountryDisplayName(business.address.countryCode || business.address.country, getCountryName(business.address.countryCode || business.address.country)),
   ].filter(Boolean);
   return parts.join(", ") || ("Localização não informada");
-}
-
-let clientDirectoryIndexCache: BusinessFrontend[] | null = null;
-let clientDirectoryIndexRequest: Promise<BusinessFrontend[]> | null = null;
-
-function getCachedPublicBusinessDirectoryIndex() {
-  if (clientDirectoryIndexCache) return Promise.resolve(clientDirectoryIndexCache);
-  if (!clientDirectoryIndexRequest) {
-    clientDirectoryIndexRequest = getPublicBusinessDirectoryIndex()
-      .then((businesses) => {
-        clientDirectoryIndexCache = businesses;
-        return businesses;
-      })
-      .finally(() => {
-        clientDirectoryIndexRequest = null;
-      });
-  }
-  return clientDirectoryIndexRequest;
 }
 
 export default function BusinessDirectoryPage({ initialDirectorySnapshot }: BusinessDirectoryPageProps) {
@@ -73,11 +57,30 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
     if (initialSnapshotMatchesPath) return;
     let active = true;
     setDirectoryLoadError(false);
+    const route = parseDirectoryRoute(pathname);
+    const category = route?.categorySlug ? getDirectoryCategoryBySlug(route.categorySlug) : null;
 
-    void getCachedPublicBusinessDirectoryIndex()
-      .then((businesses) => {
+    if (!route || (route.categorySlug && !category)) {
+      setDirectoryLoadError(true);
+      return () => {
+        active = false;
+      };
+    }
+
+    void getPublicBusinessDirectoryAggregate({
+      countryCode: route.countryCode,
+      stateCode: route.stateCode,
+      citySlug: route.citySlug,
+      categoryId: category?.categoryId,
+      page: route.page,
+    })
+      .then((aggregate) => {
         if (!active) return;
-        const nextSnapshot = buildDirectoryPageSnapshot(pathname, businesses);
+        if (!aggregate.routeExists) {
+          setDirectoryLoadError(true);
+          return;
+        }
+        const nextSnapshot = buildDirectoryPageSnapshotFromAggregate(pathname, aggregate);
         if (!nextSnapshot) {
           setDirectoryLoadError(true);
           return;
