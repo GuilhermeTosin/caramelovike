@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { marketplaceListingPath } from "@/lib/marketplaceSnapshot";
 import { getMarketplaceFavoriteIds, toggleMarketplaceFavorite } from "@/services/marketplace";
 import type { MarketplaceListing } from "@/types/database";
@@ -34,6 +35,12 @@ type MarketplaceListingCardProps = {
 
 export default function MarketplaceListingCard({ listing, onFavoriteChange }: MarketplaceListingCardProps) {
   const image = listing.images?.[0]?.image_url;
+  const optimizedImage = image
+    ? getOptimizedImageUrl(image, { width: 640, quality: 72, format: "webp" })
+    : null;
+  const imageSrcSet = image
+    ? getOptimizedImageSrcSet(image, [320, 480, 640], 72)
+    : undefined;
   const { session, isLoading: authLoading } = useAuth();
   const [favorite, setFavorite] = useState(!!listing.is_favorited);
   const [savingFavorite, setSavingFavorite] = useState(false);
@@ -91,9 +98,12 @@ export default function MarketplaceListingCard({ listing, onFavoriteChange }: Ma
         <div className="aspect-square overflow-hidden bg-secondary">
           {image ? (
             <img
-              src={image}
+              src={optimizedImage || undefined}
+              srcSet={imageSrcSet}
+              sizes="(min-width: 1280px) 240px, (min-width: 640px) 30vw, 50vw"
               alt={listing.title}
               loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : (

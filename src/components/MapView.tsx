@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
-import type { BusinessFrontend, CommunityFindWithVote } from "@/types/database";
+import type { BusinessMapMarker, CommunityFindWithVote } from "@/types/database";
 import { MapPin, Loader2, AlertCircle, AtSign, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { buildBusinessUrl } from "@/services/businesses";
 
 interface MapViewProps {
-  businesses: BusinessFrontend[];
+  businesses: BusinessMapMarker[];
   communityFinds?: CommunityFindWithVote[];
   center?: { lat: number; lng: number };
   zoom?: number;
@@ -18,7 +18,7 @@ type ApproximateBusinessGroup = {
   key: string;
   city: string;
   position: MapPoint;
-  businesses: BusinessFrontend[];
+  businesses: BusinessMapMarker[];
 };
 
 export default function MapView({ businesses, communityFinds = [], center, zoom = 11 }: MapViewProps) {
@@ -337,7 +337,7 @@ function hasValidCoordinates(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
 }
 
-function hasExactMapLocation(business: BusinessFrontend): boolean {
+function hasExactMapLocation(business: BusinessMapMarker): boolean {
   return (
     business.attendanceType !== "online" &&
     Boolean(business.address.street?.trim()) &&
@@ -345,7 +345,7 @@ function hasExactMapLocation(business: BusinessFrontend): boolean {
   );
 }
 
-function groupApproximateBusinesses(businesses: BusinessFrontend[]): ApproximateBusinessGroup[] {
+function groupApproximateBusinesses(businesses: BusinessMapMarker[]): ApproximateBusinessGroup[] {
   const groups = new Map<string, ApproximateBusinessGroup>();
 
   businesses.forEach((business) => {
@@ -410,7 +410,7 @@ function addMarkerClickListeners(
   });
 }
 
-function buildMarkerUrl(business: BusinessFrontend): string {
+function buildMarkerUrl(business: BusinessMapMarker): string {
   return buildBusinessUrl(business);
 }
 

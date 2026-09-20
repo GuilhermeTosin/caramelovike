@@ -611,13 +611,24 @@ export default function Home({
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
               {recentMarketplaceListings.map((listing) => {
                 const image = listing.images?.[0]?.image_url;
+                const optimizedImage = image
+                  ? getOptimizedImageUrl(image, { width: 320, quality: 70, format: "webp" })
+                  : null;
                 return (
                   <Link key={listing.id} to={marketplaceListingPath(listing)} className="group block">
                     <Card className="h-full overflow-hidden border-amber-100 bg-white/90 transition-shadow hover:shadow-lg">
                       <div className="flex gap-4 p-3">
                         <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-secondary sm:h-28 sm:w-28">
                           {image ? (
-                            <img src={image} alt={listing.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                            <img
+                              src={optimizedImage || undefined}
+                              srcSet={image ? getOptimizedImageSrcSet(image, [160, 240, 320], 70) : undefined}
+                              sizes="(min-width: 640px) 112px, 96px"
+                              alt={listing.title}
+                              loading="lazy"
+                              decoding="async"
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
                           ) : (
                             <div className="flex h-full items-center justify-center text-amber-600/70">
                               <Tag className="h-8 w-8" />

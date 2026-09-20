@@ -327,6 +327,24 @@ export interface BusinessFrontend {
   updatedAt?: string;
 }
 
+export interface BusinessMapMarker {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  attendanceType: "presencial" | "online" | "hibrido";
+  address: {
+    street: string;
+    city: string;
+    citySlug?: string;
+    cityDisplayName?: string;
+    countryCode: string;
+    stateCode: string;
+    lat: number;
+    lng: number;
+  };
+}
+
 export type FeaturedScopeType = "city" | "state" | "country" | "global";
 export type FeaturedPlacementStatus = "active" | "paused" | "expired";
 

@@ -36,8 +36,8 @@ import { preloadBusinessPageAssets, preloadBusinessPageChunk } from "@/pages/Bus
 import {
   BUSINESS_CATEGORY_OPTIONS,
   buildBusinessUrl,
-  getAllBusinesses,
-  getAllBusinessesByPublicSearchRpc,
+  getAllBusinessMapMarkersByPublicSearchRpc,
+  getAllPublicBusinesses,
   getPublicBusinessSearchIndex,
   getAvailableLocations,
   getCategoryId,
@@ -47,7 +47,7 @@ import {
 } from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { DEFAULT_CATEGORY_SYNONYMS, getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
-import type { BusinessFrontend, CommunityEvent } from "@/types/database";
+import type { BusinessFrontend, BusinessMapMarker, CommunityEvent } from "@/types/database";
 import { resolveInitialSearchBusinesses } from "@/lib/search/searchBusinessSnapshot";
 import {
   buildPublicSearchPageRequest,
@@ -419,7 +419,7 @@ export default function SearchResults({
   );
   const [rpcFallbackMode, setRpcFallbackMode] = useState(false);
   const [businessSearchError, setBusinessSearchError] = useState<string | null>(null);
-  const [mapBusinesses, setMapBusinesses] = useState<BusinessFrontend[] | null>(null);
+  const [mapBusinesses, setMapBusinesses] = useState<BusinessMapMarker[] | null>(null);
   const [mapBusinessesLoading, setMapBusinessesLoading] = useState(false);
   const [mapBusinessesError, setMapBusinessesError] = useState<string | null>(null);
   const [showCommunityFindForm, setShowCommunityFindForm] = useState(false);
@@ -707,7 +707,7 @@ export default function SearchResults({
       setMapBusinesses(null);
       setMapBusinessesError(null);
       try {
-        const businesses = await getAllBusinessesByPublicSearchRpc(fullMapSearchRequest);
+        const businesses = await getAllBusinessMapMarkersByPublicSearchRpc(fullMapSearchRequest);
         if (active) setMapBusinesses(businesses);
       } catch {
         if (active) setMapBusinessesError("Não foi possível carregar todos os negócios no mapa.");
@@ -749,7 +749,7 @@ export default function SearchResults({
         } else {
           const businesses = hasSeededBusinessPool
             ? initialBusinessPool
-            : await getAllBusinesses();
+            : await getAllPublicBusinesses();
           if (!active) return;
           setAllBusinesses(businesses);
           setRpcTotalCount(null);
@@ -780,7 +780,7 @@ export default function SearchResults({
         // Event mode still needs its legacy business context until it receives
         // the same paginated backend as the public business search.
         try {
-          const businesses = await getAllBusinesses();
+          const businesses = await getAllPublicBusinesses();
           if (!active) return;
           setAllBusinesses(businesses);
           setRpcTotalCount(null);

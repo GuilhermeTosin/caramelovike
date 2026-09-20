@@ -9,6 +9,9 @@ import type {
   FeaturedScopeType,
 } from "@/types/database";
 
+const FEATURED_PLACEMENT_SELECT = "id,business_id,scope_type,country_code,state_code,city,category,starts_at,ends_at,priority,status,notes,price_cents,created_at,updated_at";
+const FEATURED_BUSINESS_SELECT = "id,owner_id,name,slug,category_id,primary_activity,primary_activity_custom,description,hero_image,logo_url,street,city,city_slug,state,country,country_code,state_code,postal_code,lat,lng,attendance_type,average_rating,owner_verified,owner_verified_until,moderation_status,created_at,updated_at";
+
 export interface FeaturedRegion {
   countryCode?: string;
   stateCode?: string;
@@ -111,7 +114,7 @@ export async function deleteFeaturedPlacement(id: string): Promise<{ ok: boolean
 async function getActiveFeaturedPlacements(): Promise<FeaturedPlacementFrontend[]> {
   const { data, error } = await supabase
     .from("featured_placements")
-    .select("*")
+    .select(FEATURED_PLACEMENT_SELECT)
     .eq("status", "active")
     .order("priority", { ascending: false })
     .order("created_at", { ascending: false });
@@ -127,7 +130,7 @@ async function getActiveFeaturedPlacements(): Promise<FeaturedPlacementFrontend[
 
   const { data: businesses, error: businessesError } = await supabase
     .from("businesses")
-    .select("*")
+    .select(FEATURED_BUSINESS_SELECT)
     .in("id", businessIds);
 
   if (businessesError || !businesses) {

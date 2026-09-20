@@ -1,11 +1,31 @@
 import { supabase } from "@/lib/supabase";
-import type { Business, BusinessFrontend, Review } from "@/types/database";
-import type { CommunityEvent } from "@/types/database";
+import type { Business, BusinessFrontend, BusinessMapMarker, CommunityEvent, Review } from "@/types/database";
 import { getFollowLinksBusinessIds } from "@/services/searchPreferences";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
 import type { PublicSearchPageRequest } from "@/lib/search/publicSearchPage";
 import { fetchInFilterBatches } from "@/lib/supabaseBatches";
+
+const PUBLIC_EVENT_SELECT = "id,owner_id,business_id,title,description,date,location,is_free,price,flyer_url,ticket_url,status,created_at,updated_at";
+const PUBLIC_BUSINESS_SELECT = [
+  "id", "owner_id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom",
+  "description", "hero_image", "logo_url", "street", "city", "city_slug", "location_id", "state",
+  "country", "country_code", "state_code", "postal_code", "lat", "lng", "attendance_type", "services",
+  "service_items", "keywords", "menu", "is_vegan_friendly", "is_vegetarian_friendly", "is_gluten_free_friendly",
+  "average_rating", "owner_verified", "owner_verified_until", "moderation_status", "created_at", "updated_at",
+].join(",");
+const PUBLIC_BUSINESS_DETAIL_SELECT = [
+  "id", "owner_id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom",
+  "description", "hero_image", "logo_url", "street", "city", "city_slug", "location_id", "state",
+  "country", "country_code", "state_code", "postal_code", "lat", "lng", "attendance_type", "services",
+  "service_items", "keywords", "menu", "menu_pdf_url", "is_brazilian_owned", "serves_portuguese",
+  "is_vegan_friendly", "is_vegetarian_friendly", "is_gluten_free_friendly", "photos", "phone", "email",
+  "website", "instagram", "facebook", "whatsapp", "reviews", "average_rating", "owner_verified",
+  "owner_verified_until", "moderation_status", "moderation_reviewed_at", "moderation_reviewed_by",
+  "opening_hours", "promotions", "events", "created_at", "updated_at",
+].join(",");
+const PUBLIC_REVIEW_SELECT = "id,business_id,user_id,user_name,rating,comment,created_at";
+const PUBLIC_MAP_BUSINESS_SELECT = "id,name,slug,category_id,street,city,city_slug,country_code,state_code,lat,lng,attendance_type";
 
 export const BUSINESS_CATEGORY_OPTIONS = [
   { id: "food", label: "Restaurantes e Alimentação" },
@@ -609,7 +629,7 @@ export async function getPublicBusinessSearchIndex(): Promise<BusinessFrontend[]
 
   const linkedEvents = await fetchInFilterBatches<CommunityEvent>(
     rows.map((business) => business.id),
-    (batch) => supabase.from("events").select("*").in("business_id", batch).eq("status", "published"),
+    (batch) => supabase.from("events").select(PUBLIC_EVENT_SELECT).in("business_id", batch).eq("status", "published"),
     "public-search-events",
   );
 
@@ -662,7 +682,7 @@ export async function getSimilarBusinessesForBusiness(
   );
 }
 
-export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
+async function getAllBusinessesWithSelect(selectColumns: string): Promise<BusinessFrontend[]> {
   const pageSize = 1000;
   const businessRows: Business[] = [];
 
@@ -670,13 +690,13 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
     const to = from + pageSize - 1;
     const { data } = await supabase
       .from("businesses")
-      .select("*")
+      .select(selectColumns)
       .or("moderation_status.eq.approved,moderation_status.is.null")
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .range(from, to);
 
-    const pageRows = (data || []) as Business[];
+    const pageRows = (data || []) as unknown as Business[];
     businessRows.push(...pageRows);
     if (pageRows.length < pageSize) break;
   }
@@ -693,7 +713,7 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
     ),
     fetchInFilterBatches<CommunityEvent>(
       businessIds,
-      (batch) => supabase.from("events").select("*").in("business_id", batch).eq("status", "published"),
+      (batch) => supabase.from("events").select(PUBLIC_EVENT_SELECT).in("business_id", batch).eq("status", "published"),
       "all-business-events",
     ),
     getFollowLinksBusinessIds(),
@@ -726,18 +746,20 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
   );
 }
 
+export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
+  return getAllBusinessesWithSelect("*");
+}
+
+export async function getAllPublicBusinesses(): Promise<BusinessFrontend[]> {
+  return getAllBusinessesWithSelect(PUBLIC_BUSINESS_SELECT);
+}
+
 async function hydratePublicSearchBusinessIds(ids: string[]): Promise<BusinessFrontend[]> {
   if (ids.length === 0) return [];
 
   const { data, error } = await supabase
     .from("businesses")
-    .select([
-      "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom", "description",
-      "hero_image", "logo_url", "street", "city", "city_slug", "location_id", "state",
-      "country", "country_code", "state_code", "postal_code", "lat", "lng", "attendance_type",
-      "is_vegan_friendly", "is_vegetarian_friendly", "is_gluten_free_friendly", "average_rating",
-      "owner_verified", "owner_verified_until", "created_at", "updated_at",
-    ].join(","))
+    .select(PUBLIC_BUSINESS_SELECT)
     .or("moderation_status.eq.approved,moderation_status.is.null")
     .in("id", ids);
 
@@ -753,9 +775,14 @@ async function hydratePublicSearchBusinessIds(ids: string[]): Promise<BusinessFr
   return ids.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[];
 }
 
-export async function getBusinessesByPublicSearchRpc(
+type PublicSearchBusinessIds = {
+  ids: string[];
+  totalCount: number;
+};
+
+async function getPublicSearchBusinessIds(
   params: PublicSearchPageRequest,
-): Promise<{ items: BusinessFrontend[]; totalCount: number }> {
+): Promise<PublicSearchBusinessIds> {
   const { data, error } = await supabase.rpc("search_public_businesses", {
     p_limit: Math.max(1, Math.min(params.limit, 100)),
     p_offset: Math.max(0, (params.page - 1) * params.limit),
@@ -810,10 +837,98 @@ export async function getBusinessesByPublicSearchRpc(
     totalCount = Number(firstPageRows[0]?.total_count || 0);
   }
 
+  return { ids, totalCount };
+}
+
+export async function getBusinessesByPublicSearchRpc(
+  params: PublicSearchPageRequest,
+): Promise<{ items: BusinessFrontend[]; totalCount: number }> {
+  const { ids, totalCount } = await getPublicSearchBusinessIds(params);
   return {
     items: await hydratePublicSearchBusinessIds(ids),
     totalCount,
   };
+}
+
+function toBusinessMapMarker(row: {
+  id: string;
+  name: string;
+  slug: string;
+  category_id?: string | null;
+  street?: string | null;
+  city?: string | null;
+  city_slug?: string | null;
+  country_code?: string | null;
+  state_code?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  attendance_type?: string | null;
+}): BusinessMapMarker {
+  const attendanceType = row.attendance_type === "online" || row.attendance_type === "hibrido"
+    ? row.attendance_type
+    : "presencial";
+  const city = String(row.city || "");
+
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    category: getCategoryLabel(String(row.category_id || "")),
+    attendanceType,
+    address: {
+      street: String(row.street || ""),
+      city,
+      citySlug: String(row.city_slug || ""),
+      cityDisplayName: getCityDisplayName(city, row.country_code),
+      countryCode: String(row.country_code || ""),
+      stateCode: String(row.state_code || ""),
+      lat: Number(row.lat || 0),
+      lng: Number(row.lng || 0),
+    },
+  };
+}
+
+export async function getAllBusinessMapMarkersByPublicSearchRpc(
+  params: Omit<PublicSearchPageRequest, "page" | "limit" | "key">,
+): Promise<BusinessMapMarker[]> {
+  const pageSize = 100;
+  const markers: BusinessMapMarker[] = [];
+  let page = 1;
+  let fetched = 0;
+  let totalCount: number;
+
+  while (true) {
+    const pageResult = await getPublicSearchBusinessIds({
+      ...params,
+      page,
+      limit: pageSize,
+      key: "map",
+    });
+    totalCount = pageResult.totalCount;
+    if (pageResult.ids.length === 0) break;
+
+    const { data, error } = await supabase
+      .from("businesses")
+      .select(PUBLIC_MAP_BUSINESS_SELECT)
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .in("id", pageResult.ids);
+
+    if (error) throw error;
+
+    const byId = new Map(
+      ((data || []) as Array<Parameters<typeof toBusinessMapMarker>[0]>).map((row) => [row.id, toBusinessMapMarker(row)]),
+    );
+    pageResult.ids.forEach((id) => {
+      const marker = byId.get(id);
+      if (marker) markers.push(marker);
+    });
+
+    fetched += pageResult.ids.length;
+    if (pageResult.ids.length < pageSize || fetched >= totalCount) break;
+    page += 1;
+  }
+
+  return markers;
 }
 
 export async function getAllBusinessesByPublicSearchRpc(
@@ -889,11 +1004,11 @@ export async function getBusinessesByRadiusRpc(params: {
 
   const { data: physicalRows } = await supabase
     .from("businesses")
-    .select("*")
+    .select(PUBLIC_BUSINESS_SELECT)
     .or("moderation_status.eq.approved,moderation_status.is.null")
     .in("id", orderedIds);
 
-  const physical = (physicalRows || []) as Business[];
+  const physical = (physicalRows || []) as unknown as Business[];
 
   const ownerIds = [...new Set(physical.map((b: Business) => b.owner_id))];
   const businessIds = physical.map((b) => b.id);
@@ -905,7 +1020,7 @@ export async function getBusinessesByRadiusRpc(params: {
     ),
     fetchInFilterBatches<CommunityEvent>(
       businessIds,
-      (batch) => supabase.from("events").select("*").in("business_id", batch).eq("status", "published"),
+      (batch) => supabase.from("events").select(PUBLIC_EVENT_SELECT).in("business_id", batch).eq("status", "published"),
       "radius-search-events",
     ),
     getFollowLinksBusinessIds(),
@@ -1058,7 +1173,7 @@ export async function getBusinessBySlug(
 ): Promise<BusinessFrontend | null> {
   const { data } = await supabase
     .from("businesses")
-    .select("*")
+    .select(PUBLIC_BUSINESS_DETAIL_SELECT)
     .or("moderation_status.eq.approved,moderation_status.is.null")
     .eq("country_code", countryCode.toLowerCase())
     .eq("state_code", stateCode.toLowerCase())
@@ -1068,7 +1183,7 @@ export async function getBusinessBySlug(
 
   if (!data) return null;
 
-  const biz = data as Business;
+  const biz = data as unknown as Business;
   const { data: profile } = await supabase
     .from("profiles")
     .select("name")
@@ -1077,7 +1192,7 @@ export async function getBusinessBySlug(
 
   const { data: reviews } = await supabase
     .from("reviews")
-    .select("*")
+    .select(PUBLIC_REVIEW_SELECT)
     .eq("business_id", biz.id)
     .order("created_at", { ascending: false });
 
@@ -1105,7 +1220,7 @@ export async function getBusinessBySlug(
 
   const { data: linkedEventsRows } = await supabase
     .from("events")
-    .select("*")
+    .select(PUBLIC_EVENT_SELECT)
     .eq("business_id", biz.id)
     .eq("status", "published");
 
@@ -1122,7 +1237,7 @@ export async function getBusinessByCountryAndSlug(
 ): Promise<BusinessFrontend | null> {
   const { data } = await supabase
     .from("businesses")
-    .select("*")
+    .select(PUBLIC_BUSINESS_DETAIL_SELECT)
     .or("moderation_status.eq.approved,moderation_status.is.null")
     .eq("country_code", countryCode.toLowerCase())
     .eq("slug", slug)
@@ -1130,7 +1245,7 @@ export async function getBusinessByCountryAndSlug(
 
   if (!data) return null;
 
-  const biz = data as Business;
+  const biz = data as unknown as Business;
   const { data: profile } = await supabase
     .from("profiles")
     .select("name")
@@ -1139,7 +1254,7 @@ export async function getBusinessByCountryAndSlug(
 
   const { data: reviews } = await supabase
     .from("reviews")
-    .select("*")
+    .select(PUBLIC_REVIEW_SELECT)
     .eq("business_id", biz.id)
     .order("created_at", { ascending: false });
 
@@ -1162,7 +1277,7 @@ export async function getBusinessById(
   id: string,
   options?: { includeUnapproved?: boolean }
 ): Promise<BusinessFrontend | null> {
-  let query = supabase.from("businesses").select("*").eq("id", id);
+  let query = supabase.from("businesses").select(PUBLIC_BUSINESS_DETAIL_SELECT).eq("id", id);
   if (!options?.includeUnapproved) {
     query = query.or("moderation_status.eq.approved,moderation_status.is.null");
   }
@@ -1170,7 +1285,7 @@ export async function getBusinessById(
   const { data } = await query.maybeSingle();
   if (!data) return null;
 
-  const biz = data as Business;
+  const biz = data as unknown as Business;
   const { data: profile } = await supabase
     .from("profiles")
     .select("name")
@@ -1179,7 +1294,7 @@ export async function getBusinessById(
 
   const { data: reviews } = await supabase
     .from("reviews")
-    .select("*")
+    .select(PUBLIC_REVIEW_SELECT)
     .eq("business_id", biz.id)
     .order("created_at", { ascending: false });
 
@@ -1195,7 +1310,7 @@ export async function getBusinessById(
 
   const { data: linkedEventsRows } = await supabase
     .from("events")
-    .select("*")
+    .select(PUBLIC_EVENT_SELECT)
     .eq("business_id", biz.id)
     .eq("status", "published");
 
@@ -1220,24 +1335,24 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
   if (shortLink?.business_id) {
     const { data: linkedBusiness } = await supabase
       .from("businesses")
-      .select("*")
+      .select(PUBLIC_BUSINESS_DETAIL_SELECT)
       .or("moderation_status.eq.approved,moderation_status.is.null")
       .eq("id", shortLink.business_id)
       .maybeSingle();
-    data = (linkedBusiness as Business | null) ?? null;
+    data = (linkedBusiness as unknown as Business | null) ?? null;
   }
 
   // Fallback para links legados (/go usando businesses.slug antigo)
   if (!data) {
     const { data: legacy } = await supabase
       .from("businesses")
-      .select("*")
+      .select(PUBLIC_BUSINESS_DETAIL_SELECT)
       .or("moderation_status.eq.approved,moderation_status.is.null")
       .eq("slug", normalizedSlug)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    data = (legacy as Business | null) ?? null;
+    data = (legacy as unknown as Business | null) ?? null;
   }
 
   if (!data) return null;
