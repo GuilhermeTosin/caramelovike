@@ -1,6 +1,7 @@
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { dangerouslySkipEscape, escapeInject } from "vike/server";
+import { preloadAppRoute } from "@/appRouteModules";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import type { RendererPageContext } from "@/renderer/pageContext";
 import { getSiteContent } from "@/data/siteContent";
@@ -471,12 +472,13 @@ function buildDirectoryBreadcrumbJsonLd(
   return { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: item.item })) };
 }
 
-export function onRenderHtml(pageContext: PageContext) {
+export async function onRenderHtml(pageContext: PageContext) {
   const { Page } = pageContext;
+  const { pathname } = getPageUrlParts(pageContext.urlOriginal);
+  await preloadAppRoute(pathname);
   const pageHtml = renderToString(<Page pageContext={pageContext} />);
   const business = pageContext.initialBusiness || null;
   const event = pageContext.initialEvent || null;
-  const { pathname } = getPageUrlParts(pageContext.urlOriginal);
   const isBusinessPage = !!pageContext.isBusinessPage;
   const isEventPage = !!pageContext.isEventPage;
   const isDirectoryPage = !!parseDirectoryRoute(pathname);

@@ -11,27 +11,38 @@ import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import type { PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
 import type { MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
 import { DEFAULT_CATEGORY_SYNONYMS } from "@/services/searchPreferences";
-import HomeV2 from "@/pages/HomeV2";
-import SearchResults from "@/pages/SearchResults";
-import BusinessDirectoryPage from "@/pages/BusinessDirectoryPage";
-import Register from "@/pages/Register";
-import Login from "@/pages/Login";
-import ResetPassword from "@/pages/ResetPassword";
-import UserProfile from "@/pages/UserProfile";
-import VerifiedBusinessInfo from "@/pages/VerifiedBusinessInfo";
-import EventPage from "@/pages/EventPage";
-import BusinessShortLink from "@/pages/BusinessShortLink";
-import BusinessWizardPage from "@/pages/BusinessWizardPage";
-import AboutPage from "@/pages/AboutPage";
-import ContactPage from "@/pages/ContactPage";
-import PrivacyPage from "@/pages/PrivacyPage";
-import TermsPage from "@/pages/TermsPage";
-import NotFound from "@/pages/NotFound";
 import BusinessPageRoute from "@/pages/BusinessPageRoute";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import SiteHeader from "@/components/SiteHeader";
-import MarketplacePage, { MarketplaceBusinessSellerPage, MarketplaceCreatePage, MarketplaceEditPage, MarketplaceListingPage, MarketplaceSellerPage } from "@/pages/MarketplacePage";
 import { SearchLocationProvider } from "@/contexts/SearchLocationContext";
+import {
+  AboutPage,
+  BusinessDirectoryPage,
+  BusinessShortLink,
+  BusinessWizardPage,
+  ContactPage,
+  EventPage,
+  HomeV2,
+  Login,
+  MarketplaceBusinessSellerPage,
+  MarketplaceCreatePage,
+  MarketplaceEditPage,
+  MarketplaceListingPage,
+  MarketplacePage,
+  MarketplaceSellerPage,
+  NotFound,
+  PrivacyPage,
+  Register,
+  ResetPassword,
+  SearchResults,
+  TermsPage,
+  UserProfile,
+  VerifiedBusinessInfo,
+} from "@/appRouteModules";
+
+function RouteLoading() {
+  return <div className="min-h-[40vh]" aria-busy="true" aria-label="Carregando página" />;
+}
 
 const VercelAnalytics = lazy(async () => {
   const module = await import("@vercel/analytics/react");
@@ -195,6 +206,7 @@ export default function App({
             initialSearchSuggestions={initialSearchSuggestions}
           />
           <div className="pt-[var(--site-header-height)]">
+          <Suspense fallback={<RouteLoading />}>
           <Routes>
           <Route
             path="/"
@@ -256,6 +268,7 @@ export default function App({
           <Route path="/:countryCode/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
           </div>
         </SearchLocationProvider>
       </AppRouter>

@@ -1,6 +1,7 @@
 import React from "react";
 import { hydrateRoot } from "react-dom/client";
 import type { RendererPageContext } from "@/renderer/pageContext";
+import { preloadAppRoute } from "@/appRouteModules";
 import { preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
 
 function getPathname(urlOriginal?: string) {
@@ -10,7 +11,6 @@ function getPathname(urlOriginal?: string) {
 function isBusinessRoute(pathname: string) {
   return (
     pathname.startsWith("/preview/negocio/") ||
-    pathname.startsWith("/go/") ||
     /^\/[a-z]{2}\/[^/]+$/i.test(pathname) ||
     /^\/[a-z]{2}\/[a-z]{2}\/[^/]+\/[^/]+$/i.test(pathname)
   );
@@ -25,6 +25,8 @@ export async function onRenderClient(pageContext: RendererPageContext & { Page: 
   }
 
   const pathname = getPathname(pageContext.urlOriginal);
+
+  await preloadAppRoute(pathname);
 
   if (isBusinessRoute(pathname)) {
     await preloadBusinessPageChunk();
