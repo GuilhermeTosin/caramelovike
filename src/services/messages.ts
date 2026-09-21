@@ -11,6 +11,11 @@ export type ConversationContext =
   | { type: "business" }
   | { type: "marketplace"; listingId: string };
 
+export type MessagePage = {
+  messages: MessageFrontend[];
+  hasMore: boolean;
+};
+
 export async function getOrCreateConversation(
   senderId: string,
   receiverId: string,
@@ -138,13 +143,13 @@ export async function getConversationsForUser(
   const [{ data: conversations }, { data: allParticipants }] = await Promise.all([
     supabase
       .from("conversations")
-      .select("*")
+      .select("id, business_id, business_name, context_type, marketplace_listing_id, last_message, last_message_at, created_at")
       .in("id", convIds)
       .order("last_message_at", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase
       .from("conversation_participants")
-      .select("*")
+      .select("conversation_id, user_id")
       .in("conversation_id", convIds),
   ]);
 
@@ -168,13 +173,50 @@ export async function getMessagesForConversation(
 ): Promise<MessageFrontend[]> {
   const { data: msgs } = await supabase
     .from("messages")
-    .select("*")
+    .select("id, conversation_id, sender_id, text, created_at, read")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
 
   if (!msgs) return [];
 
-  // Buscar nomes dos remetentes
+  return mapMessagesToFrontend(msgs as Message[]);
+}
+
+export async function getMessagePageForConversation(
+  conversationId: string,
+  options: { before?: string; limit?: number } = {}
+): Promise<MessagePage> {
+  const limit = Math.min(Math.max(options.limit || 50, 1), 100);
+  let query = supabase
+    .from("messages")
+    .select("id, conversation_id, sender_id, text, created_at, read")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(limit + 1);
+
+  if (options.before) {
+    query = query.lt("created_at", options.before);
+  }
+
+  const { data: msgs, error } = await query;
+  if (error) {
+    console.error("[getMessagePageForConversation] Erro ao buscar mensagens:", error);
+    return { messages: [], hasMore: false };
+  }
+
+  const rows = (msgs || []) as Message[];
+  const hasMore = rows.length > limit;
+  const page = rows.slice(0, limit).reverse();
+  return {
+    messages: await mapMessagesToFrontend(page),
+    hasMore,
+  };
+}
+
+async function mapMessagesToFrontend(msgs: Message[]): Promise<MessageFrontend[]> {
+  if (!msgs.length) return [];
+
+  // Buscar nomes dos remetentes somente para a pagina carregada.
   const senderIds = [...new Set((msgs as Message[]).map((m) => m.sender_id))];
   const { data: profiles } = await supabase
     .from("profiles")
@@ -185,7 +227,7 @@ export async function getMessagesForConversation(
     (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
   );
 
-  return (msgs as Message[]).map((m) => ({
+  return msgs.map((m) => ({
     id: m.id,
     conversationId: m.conversation_id,
     senderId: m.sender_id,

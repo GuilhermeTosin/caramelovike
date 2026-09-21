@@ -5,7 +5,7 @@ import { getProfilesByIds } from "@/services/profiles";
 import {
   getConversationPartner,
   getConversationsForUser,
-  getMessagesForConversation,
+  getMessagePageForConversation,
   markConversationAsRead,
   sendMessage,
   subscribeToMessages,
@@ -40,6 +40,8 @@ type MarketplaceChatState = {
   conversationsLoading: boolean;
   active: MarketplaceChatConversation | null;
   messages: MessageFrontend[];
+  hasMoreMessages: boolean;
+  loadingOlderMessages: boolean;
   loading: boolean;
   minimized: boolean;
   sending: boolean;
@@ -55,6 +57,7 @@ type MarketplaceChatContextValue = {
   openMarketplaceChat: (options: OpenMarketplaceChatOptions) => Promise<void>;
   openMarketplaceChatInbox: () => Promise<void>;
   selectMarketplaceChat: (conversation: MarketplaceChatConversation) => Promise<void>;
+  loadOlderMarketplaceChatMessages: () => Promise<void>;
   backToMarketplaceChatInbox: () => Promise<void>;
   closeMarketplaceChat: () => void;
   minimizeMarketplaceChat: () => void;
@@ -127,7 +130,7 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     unsubscribe();
-    setChat({ view: "inbox", conversations: [], conversationsLoading: true, active: null, messages: [], loading: false, minimized: false, sending: false });
+    setChat({ view: "inbox", conversations: [], conversationsLoading: true, active: null, messages: [], hasMoreMessages: false, loadingOlderMessages: false, loading: false, minimized: false, sending: false });
 
     const conversations = await getConversationsForUser(userId);
     const items = await buildConversationItems(conversations, userId);
@@ -158,20 +161,22 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
         conversationsLoading: false,
         active: conversationItem,
         messages: [],
+        hasMoreMessages: false,
+        loadingOlderMessages: false,
         loading: true,
         minimized: false,
         sending: false,
       };
     });
 
-    const [messages] = await Promise.all([
-      getMessagesForConversation(conversationItem.conversation.id),
+    const [{ messages, hasMore }] = await Promise.all([
+      getMessagePageForConversation(conversationItem.conversation.id),
       markConversationAsRead(conversationItem.conversation.id, userId),
     ]);
     if (requestIdRef.current !== requestId) return;
 
     setChat((current) => current && current.active?.conversation.id === conversationItem.conversation.id
-      ? { ...current, messages, loading: false }
+      ? { ...current, messages, hasMoreMessages: hasMore, loadingOlderMessages: false, loading: false }
       : current);
     refreshUnread();
 
@@ -191,6 +196,29 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
     if (requestIdRef.current === requestId) subscriptionRef.current = subscription;
     else subscription.unsubscribe();
   }, [refreshUnread, session?.userId, unsubscribe]);
+
+  const loadOlderMarketplaceChatMessages = useCallback(async () => {
+    const conversationId = chat?.active?.conversation.id;
+    const oldestMessageAt = chat?.messages[0]?.createdAt;
+    if (!conversationId || !oldestMessageAt || !chat.hasMoreMessages || chat.loadingOlderMessages) return;
+
+    setChat((current) => current && current.active?.conversation.id === conversationId
+      ? { ...current, loadingOlderMessages: true }
+      : current);
+
+    const page = await getMessagePageForConversation(conversationId, { before: oldestMessageAt });
+    setChat((current) => {
+      if (!current || current.active?.conversation.id !== conversationId) return current;
+      const existingIds = new Set(current.messages.map((message) => message.id));
+      const olderMessages = page.messages.filter((message) => !existingIds.has(message.id));
+      return {
+        ...current,
+        messages: [...olderMessages, ...current.messages],
+        hasMoreMessages: page.hasMore,
+        loadingOlderMessages: false,
+      };
+    });
+  }, [chat?.active?.conversation.id, chat?.hasMoreMessages, chat?.loadingOlderMessages, chat?.messages, session?.userId]);
 
   const openMarketplaceChat = useCallback(async ({ conversation, listing }: OpenMarketplaceChatOptions) => {
     const conversationItem: MarketplaceChatConversation = {
@@ -256,6 +284,7 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
         openMarketplaceChat,
         openMarketplaceChatInbox,
         selectMarketplaceChat,
+        loadOlderMarketplaceChatMessages,
         backToMarketplaceChatInbox,
         closeMarketplaceChat,
         minimizeMarketplaceChat: () => setChat((current) => current ? { ...current, minimized: true } : current),

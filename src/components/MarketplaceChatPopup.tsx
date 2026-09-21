@@ -29,6 +29,7 @@ export default function MarketplaceChatPopup() {
   const {
     chat,
     selectMarketplaceChat,
+    loadOlderMarketplaceChatMessages,
     backToMarketplaceChatInbox,
     closeMarketplaceChat,
     minimizeMarketplaceChat,
@@ -37,10 +38,12 @@ export default function MarketplaceChatPopup() {
   } = useMarketplaceChat();
   const [draft, setDraft] = useState("");
   const messagesRef = useRef<HTMLDivElement>(null);
+  const preservedScrollRef = useRef<{ height: number; top: number } | null>(null);
 
   useEffect(() => {
     const container = messagesRef.current;
     if (!container || !chat || chat.view !== "conversation") return;
+    if (preservedScrollRef.current) return;
     container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [chat?.view, chat?.active?.conversation.id, chat?.messages.length]);
 
@@ -133,6 +136,22 @@ export default function MarketplaceChatPopup() {
     if (sent) setDraft("");
   };
 
+  const loadOlderMessages = async () => {
+    const container = messagesRef.current;
+    if (container) {
+      preservedScrollRef.current = { height: container.scrollHeight, top: container.scrollTop };
+    }
+    await loadOlderMarketplaceChatMessages();
+    requestAnimationFrame(() => {
+      const currentContainer = messagesRef.current;
+      const previousScroll = preservedScrollRef.current;
+      if (currentContainer && previousScroll) {
+        currentContainer.scrollTop = currentContainer.scrollHeight - previousScroll.height + previousScroll.top;
+      }
+      preservedScrollRef.current = null;
+    });
+  };
+
   const contextContent = (
     <>
       {contextImageUrl ? <img src={getOptimizedImageUrl(contextImageUrl, { width: 96, quality: 65, format: "webp" })} alt="" className="h-12 w-12 rounded-lg object-cover" loading="lazy" /> : <span className="grid h-12 w-12 place-items-center rounded-lg bg-secondary text-muted-foreground"><MessageCircle className="h-5 w-5" aria-hidden="true" /></span>}
@@ -172,6 +191,16 @@ export default function MarketplaceChatPopup() {
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#f5f7f6] px-4 py-4" ref={messagesRef} aria-live="polite">
         {chat.loading ? <p className="py-8 text-center text-sm text-muted-foreground">Carregando conversa...</p> : null}
         {!chat.loading && !chat.messages.length ? <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma mensagem nesta conversa ainda.</p> : null}
+        {!chat.loading && chat.hasMoreMessages ? (
+          <button
+            type="button"
+            onClick={() => void loadOlderMessages()}
+            disabled={chat.loadingOlderMessages}
+            className="mx-auto block rounded-full border border-[#12633d]/20 bg-white px-3 py-1.5 text-xs font-semibold text-[#12633d] hover:bg-[#eaf3ed] disabled:cursor-wait disabled:opacity-60"
+          >
+            {chat.loadingOlderMessages ? "Carregando mensagens anteriores..." : "Carregar mensagens anteriores"}
+          </button>
+        ) : null}
         {chat.messages.map((item) => {
           const isMine = item.senderId === session?.userId;
           return (

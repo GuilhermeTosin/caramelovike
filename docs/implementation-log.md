@@ -24,6 +24,24 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-20 20:54:29 -04:00
+
+- Status: concluido em 2026-09-20 20:58:31 -04:00.
+- Solicitacao: acelerar o carregamento do popup quando uma conversa possui muitas mensagens.
+- Diagnostico: ao selecionar uma conversa, o popup buscava todo o historico em uma unica consulta e renderizava todas as mensagens imediatamente.
+- Escopo: carregar somente as mensagens mais recentes no popup, permitir carregar mensagens antigas sob demanda e preservar a rolagem ao inserir o historico anterior; manter `Perfil > Mensagens` compativel.
+- Riscos: a paginacao usa `created_at` como cursor; mensagens com o mesmo timestamp podem exigir uma consulta posterior se o volume for extremo. O historico completo do perfil nao sera alterado nesta etapa.
+- Estrategia: adicionar uma funcao de pagina de mensagens com limite e cursor, usar uma pagina inicial de 50 mensagens no popup, adicionar estado de mensagens antigas e um controle acessivel no topo da conversa.
+- Implementacao:
+  - `src/services/messages.ts`: adiciona `getMessagePageForConversation`, limita a pagina inicial a 50 mensagens e retorna somente as colunas necessarias; a leitura completa existente do perfil permanece compativel.
+  - `src/contexts/MarketplaceChatContext.tsx`: usa a pagina inicial, controla `hasMoreMessages` e carrega mensagens anteriores sem reiniciar a conversa.
+  - `src/components/MarketplaceChatPopup.tsx`: adiciona o controle `Carregar mensagens anteriores` e preserva a posicao de rolagem ao inserir o historico antigo.
+- Validacao: `npm run typecheck` passou; `npm test` passou com 22 arquivos e 104 testes; `npm run lint` passou; `npm run build` passou com 8 documentos pre-renderizados; `git diff --check` passou.
+- Validacao manual: a pagina do anuncio foi recarregada no browser local apos o build e continuou renderizando sem erro visivel. O carregamento autenticado do popup precisa ser conferido com uma conta que tenha uma conversa longa.
+- Migrations/configuracoes externas: nenhuma; a alteracao e somente de consulta e estado do frontend.
+- Riscos residuais: o cursor usa `created_at`; em caso raro de muitos registros com o mesmo timestamp, a paginacao pode exigir uma consulta adicional. O build continua emitindo o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`.
+- Decisao de deploy: pronto para teste autenticado e envio para `dev`.
+
 ### 2026-09-20 20:31:54 -04:00
 
 - Status: concluido em 2026-09-20 20:44:35 -04:00.
