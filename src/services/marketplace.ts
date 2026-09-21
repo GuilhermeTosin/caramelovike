@@ -666,10 +666,11 @@ export async function contactMarketplaceSeller(listing: MarketplaceListing, mess
   const senderId = await getCurrentUserId();
   if (!senderId) return { ok: false, error: "Faça login para entrar em contato com o vendedor." };
   if (senderId === listing.owner_id) return { ok: false, error: "Você não pode enviar mensagem para si mesmo." };
-  const conversation = await getOrCreateConversation(senderId, listing.owner_id, undefined, `Marketplace: ${listing.title}`);
+  const conversation = await getOrCreateConversation(senderId, listing.owner_id, listing.seller_business_id || undefined, listing.seller_business_name || `Marketplace: ${listing.title}`);
   if (!conversation) return { ok: false, error: "Não foi possível iniciar a conversa." };
   const { error } = await supabase.from("messages").insert({ conversation_id: conversation.id, sender_id: senderId, text: message.trim() });
-  return { ok: !error, error: error?.message };
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, conversation };
 }
 
 export async function reportMarketplaceListing(listingId: string, reason: string, details: string) {

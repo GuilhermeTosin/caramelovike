@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import AddressAutocomplete, { type AddressResult } from "@/components/AddressAutocomplete";
 import SiteFooter from "@/components/SiteFooter";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMarketplaceChat } from "@/contexts/MarketplaceChatContext";
+import { toast } from "sonner";
 import { setSeoMeta } from "@/lib/seo";
 import { DEFAULT_MARKETPLACE_DISTANCE_KM, MARKETPLACE_CATEGORIES, MARKETPLACE_DISTANCE_OPTIONS, normalizeMarketplaceDistance, normalizeMarketplaceKeywords } from "@/lib/marketplaceCategories";
 import { buildMarketplaceRequestKey, marketplaceBusinessSellerPath, marketplaceListingPath, marketplaceSellerPath, type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
@@ -1041,6 +1043,7 @@ export function MarketplaceEditPage() {
 export function MarketplaceListingPage({ initialListing }: SharedProps) {
   const params = useParams<{ countryCode: string; stateCode: string; city: string; slug: string }>();
   const { session } = useAuth();
+  const { openMarketplaceChat } = useMarketplaceChat();
   const [listing, setListing] = useState<MarketplaceListing | null>(initialListing || null);
   const [related, setRelated] = useState<MarketplaceRelatedListings>({ items: [], source: "region" });
   const [message, setMessage] = useState("");
@@ -1072,7 +1075,27 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
   const sellerAvatar = listing.seller_business_logo || listing.owner_avatar;
   const sellerPath = listing.seller_business_id ? marketplaceBusinessSellerPath(listing.seller_business_id) : marketplaceSellerPath(listing.owner_id);
   const sellerListingCount = listing.seller_listing_count ?? listing.owner_listing_count ?? 0;
-  const handleContact = async () => { if (!message.trim()) return; const result = await contactMarketplaceSeller(listing, message); setNotice(result.ok ? "Mensagem enviada. Você pode continuar a conversa na sua conta." : result.error || "Não foi possível enviar a mensagem."); if (result.ok) setMessage(""); };
+  const handleContact = async () => {
+    if (!message.trim()) return;
+    const result = await contactMarketplaceSeller(listing, message);
+    if (!result.ok) {
+      toast.error(result.error || "Não foi possível enviar a mensagem.");
+      return;
+    }
+    setMessage("");
+    toast.success("Mensagem enviada. A conversa foi aberta.");
+    await openMarketplaceChat({
+      conversation: result.conversation,
+      listing: {
+        id: listing.id,
+        title: listing.title,
+        price: formatPrice(listing),
+        imageUrl: images[0]?.image_url || null,
+        href: marketplaceListingPath(listing),
+        sellerName,
+      },
+    });
+  };
   const handleFavorite = async () => { const next = !favorite; const result = await toggleMarketplaceFavorite(listing.id, next); if (result.ok) setFavorite(next); else setNotice(result.error || "Faça login para salvar anúncios."); };
   return (
     <div className="min-h-screen bg-background">

@@ -2,6 +2,8 @@ import { BrowserRouter, Navigate, Route, Routes, StaticRouter, useLocation, useN
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { MarketplaceChatProvider } from "@/contexts/MarketplaceChatContext";
+import MarketplaceChatPopup from "@/components/MarketplaceChatPopup";
 import { useAuth } from "@/contexts/AuthContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
@@ -195,6 +197,7 @@ export default function App({
 }: AppProps = {}) {
   return (
     <AuthProvider>
+      <MarketplaceChatProvider>
       <AppRouter router={router} location={location}>
         <SearchLocationProvider>
           <ScrollToTop />
@@ -272,8 +275,10 @@ export default function App({
           </div>
         </SearchLocationProvider>
       </AppRouter>
+      <MarketplaceChatPopup />
       <Toaster richColors position="top-center" />
       <DeferredAnalytics />
+      </MarketplaceChatProvider>
     </AuthProvider>
   );
 }

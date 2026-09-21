@@ -24,6 +24,26 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-20 19:54:00 -04:00
+
+- Status: concluido em 2026-09-20 19:59:02 -04:00.
+- Solicitacao: confirmar o envio de mensagem ao vendedor e abrir uma conversa flutuante no canto inferior direito, mantendo o historico em Perfil > Mensagens.
+- Diagnostico: `contactMarketplaceSeller` criava ou reutilizava a conversa e inseria a mensagem, mas a pagina apenas mostrava um aviso local; nao havia uma camada global para carregar o historico, responder ou acompanhar novas mensagens.
+- Escopo: adicionar contexto global de chat autenticado, popup responsivo com contexto do anuncio, confirmacao por toast, carregamento do historico, envio de novas mensagens e assinatura realtime; preservar o fluxo existente do perfil.
+- Riscos: uma segunda assinatura realtime pode existir quando o usuario abrir a mesma conversa no perfil; o popup sera limitado a uma conversa por vez e reutilizara as mesmas funcoes, RLS e `conversation_id`, sem criar uma tabela ou politica nova.
+- Estrategia: integrar o popup no `AuthProvider`, abrir o chat somente apos o envio bem-sucedido, carregar a conversa pelo servico existente, marcar mensagens como lidas enquanto o popup estiver aberto e manter a area permanente do perfil inalterada.
+- Implementacao:
+  - `src/contexts/MarketplaceChatContext.tsx`: estado global autenticado, carregamento do historico, envio, leitura, realtime, minimizar e fechar.
+  - `src/components/MarketplaceChatPopup.tsx`: popup responsivo no canto inferior direito no desktop e como painel inferior no mobile, com contexto do anuncio e link para a pagina do produto.
+  - `src/pages/MarketplacePage.tsx`: confirmacao por toast e abertura do popup apos o primeiro envio bem-sucedido.
+  - `src/services/marketplace.ts`: retorno da conversa criada/reutilizada e preservacao do negocio associado ao anuncio.
+  - `src/App.tsx`: montagem global do provedor e do popup sem remover a caixa de entrada do perfil.
+- Validacao: `npm run typecheck` passou; `npx eslint` nos arquivos alterados passou; `npm test` passou com 22 arquivos e 104 testes; `npm run build` passou com pre-renderizacao concluida; `git diff --check` passou.
+- Validacao manual: a pagina do anuncio foi aberta no browser local sem autenticacao e continuou renderizando; o fluxo autenticado de envio, resposta e realtime precisa ser validado com uma conta real, pois a sessao disponivel estava deslogada.
+- Migrations/configuracoes externas: nenhuma migration ou alteracao de RLS necessaria; a implementacao reutiliza `conversations`, `messages`, `conversation_participants` e as funcoes existentes.
+- Riscos residuais: o build ainda emite o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`; o popup deve ser validado com dois usuarios para confirmar a entrega realtime no ambiente de desenvolvimento.
+- Decisao de deploy: pronto para revisao funcional autenticada; nao promover sem validar o envio com vendedor e comprador em duas sessoes.
+
 ### 2026-09-20 19:44:05 -04:00
 
 - Status: concluido em 2026-09-20 19:46:36 -04:00.
