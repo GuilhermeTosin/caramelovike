@@ -244,10 +244,14 @@ export interface Business {
   updated_at?: string;
 }
 
+export type ConversationContextType = "legacy" | "business" | "marketplace";
+
 export interface Conversation {
   id: string;
   business_id: string | null;
   business_name: string | null;
+  context_type: ConversationContextType;
+  marketplace_listing_id: string | null;
   last_message: string | null;
   last_message_at: string | null;
   created_at: string;
@@ -455,6 +459,8 @@ export interface ConversationFrontend {
   participants: string[];
   businessId?: string;
   businessName?: string;
+  contextType?: ConversationContextType;
+  marketplaceListingId?: string;
   lastMessage?: string;
   lastMessageAt?: string;
   createdAt: string;

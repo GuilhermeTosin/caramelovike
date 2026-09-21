@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { MessageCircle, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMarketplaceChat } from "@/contexts/MarketplaceChatContext";
 type SiteHeaderAuthActionsProps = {
   className?: string;
   compact?: boolean;
@@ -12,6 +13,7 @@ export default function SiteHeaderAuthActions({
   compact = false,
 }: SiteHeaderAuthActionsProps) {
   const { session, unreadMessages, isLoading } = useAuth();
+  const { openMarketplaceChatInbox } = useMarketplaceChat();
 
   const messageIconClassName = compact ? "w-4 h-4" : "w-5 h-5";
   const unreadBadgeClassName = compact ? "w-3.5 h-3.5 bg-primary text-[9px]" : "w-4 h-4 bg-primary text-[10px]";
@@ -32,18 +34,23 @@ export default function SiteHeaderAuthActions({
         </div>
       ) : session ? (
         <div className="flex w-48 items-center justify-end gap-1.5">
-          <Link to={"/perfil?tab=mensagens"} className="relative group">
-            <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10">
+          <div className="relative">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => void openMarketplaceChatInbox()}
+              aria-label="Abrir mensagens"
+              className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10"
+            >
               <MessageCircle className={messageIconClassName} />
               {unreadMessages > 0 && (
-                <span
-                  className={`absolute top-0 right-0 ${unreadBadgeClassName} text-white font-bold rounded-full flex items-center justify-center border-2 border-white`}
-                >
+                <span className={`absolute top-0 right-0 ${unreadBadgeClassName} text-white font-bold rounded-full flex items-center justify-center border-2 border-white`}>
                   {unreadMessages > 9 ? "9+" : unreadMessages}
                 </span>
               )}
             </Button>
-          </Link>
+          </div>
           <Link to={"/perfil"}>
             <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-full border-border px-3 hover:bg-secondary sm:h-10 sm:gap-2">
               <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">

@@ -24,6 +24,62 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-20 20:31:54 -04:00
+
+- Status: concluido em 2026-09-20 20:44:35 -04:00.
+- Solicitacao: impedir que mensagens enviadas a anuncios sejam misturadas com conversas do negocio e garantir que novas mensagens do negocio aparecam no popup global e em Perfil > Mensagens.
+- Diagnostico: `getOrCreateConversation` filtrava somente pelos participantes e ignorava `business_id`; alem disso, o Marketplace passava o negocio anunciante como contexto, permitindo reutilizar uma conversa do negocio. Historicos antigos ja misturados nao possuem metadado por mensagem para separacao automatica segura.
+- Escopo: corrigir a selecao de conversas por contexto, separar novos chats de anuncios dos chats de negocios, preservar a listagem da inbox e documentar o tratamento do historico legado.
+- Riscos: conversas legadas contaminadas permanecem como estao ate uma decisao de limpeza; separar automaticamente mensagens antigas poderia apagar ou ocultar comunicacoes legitimas.
+- Estrategia revisada: adicionar `context_type` e `marketplace_listing_id` em `conversations`; a nova RPC validara participantes, dono do negocio/anuncio e criara conversas distintas para `business` e `marketplace`; a RPC antiga permanecera disponivel para compatibilidade, criando registros `legacy`. O frontend consultara apenas o mesmo contexto e rotulara historicos antigos como conversa legada, sem apagar ou reatribuir mensagens.
+- Implementacao:
+  - `supabase/migrations/00055_conversation_context.sql`: adiciona o contexto persistente, o vinculo opcional ao anuncio, indices e a RPC protegida `create_conversation_with_context`; preserva a RPC antiga para bundles em transicao.
+  - `src/services/messages.ts`: seleciona e cria conversas por contexto, convertendo os metadados para o frontend.
+  - `src/services/marketplace.ts`: cria chats de anuncios somente com `context_type = marketplace` e `marketplace_listing_id`, sem reutilizar o negocio anunciante.
+  - `src/pages/BusinessPage.tsx`: cria chats diretos com `context_type = business` e abre a conversa global.
+  - `src/contexts/MarketplaceChatContext.tsx` e `src/pages/user-profile/components/MessagesTab.tsx`: exibem conversas legadas como historicas, evitando apresenta-las como conversas atuais do negocio.
+  - `src/types/database.ts`: adiciona os tipos de contexto e os campos persistidos.
+- Validacao: `npm run typecheck` passou; `npm test` passou com 22 arquivos e 104 testes; `npm run lint` passou; lint direcionado passou; `npm run build` passou com 8 documentos pre-renderizados; `git diff --check` passou.
+- Validacao manual: a pagina do anuncio foi recarregada no browser local e continuou renderizando sem tela branca ou erro visivel. O fluxo autenticado de envio precisa ser repetido apos aplicar a migration, pois o browser de validacao estava sem sessao.
+- Migrations/configuracoes externas: aplicar `supabase/migrations/00055_conversation_context.sql` no projeto Supabase antes de publicar o bundle. Nao apagar nem reclassificar automaticamente conversas antigas; apos o deploy, uma conversa de negocio nova deve ser criada e aparecer tanto no popup quanto em Perfil > Mensagens.
+- Riscos residuais: historicos antigos que misturaram anuncio e negocio continuam juntos, mas sao rotulados como `Conversa antiga`; separar mensagens antigas exige uma decisao de negocio ou metadado adicional. O build ainda emite o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`.
+- Decisao de deploy: pronto para homologacao autenticada depois da migration; somente entao enviar o bundle para `dev`.
+
+### 2026-09-20 20:11:37 -04:00
+
+- Status: concluido em 2026-09-20 20:20:42 -04:00.
+- Solicitacao: abrir o popup pelo icone de mensagens do header, permitir escolher qualquer conversa disponivel e incluir conversas iniciadas em paginas de negocios, alem das conversas de anuncios.
+- Diagnostico: o popup atual aceitava somente o contexto de um anuncio e o header redirecionava diretamente para o perfil; as conversas de negocios ja estavam persistidas em `conversations`, mas nao eram carregadas no popup.
+- Escopo: carregar conversas e perfis parceiros no contexto global, adicionar lista/selecionamento de chats, adaptar o popup para conversas com e sem anuncio, conectar os icones de mensagens desktop/mobile e abrir conversas de negocios pelo mesmo painel.
+- Riscos: conversas antigas sem `business_name` precisam de um rotulo generico; a consulta de parceiros adiciona uma leitura compacta de perfis ao abrir o inbox, sem carregar mensagens ate o usuario selecionar uma conversa.
+- Estrategia: reutilizar `getConversationsForUser`, `getConversationPartner`, `getProfilesByIds`, RLS e realtime existentes; manter uma unica assinatura para a conversa ativa e preservar `Perfil > Mensagens` como inbox completo.
+- Implementacao:
+  - `src/contexts/MarketplaceChatContext.tsx`: inbox global, selecao de conversas, parceiros, leitura, envio e realtime para qualquer `conversation_id`.
+  - `src/components/MarketplaceChatPopup.tsx`: lista de chats, conversa ativa, retorno ao inbox, contexto de negocio/anuncio e fallback para conversas antigas.
+  - `src/components/SiteHeaderAuthActions.tsx`: icone desktop abre o popup em vez de navegar diretamente para o perfil.
+  - `src/components/MobileHeaderMenu.tsx`: item de mensagens do menu mobile abre o mesmo popup.
+  - `src/pages/BusinessPage.tsx`: iniciar conversa com negocio abre o popup global, mantendo login e perfil como fluxos complementares.
+- Validacao: `npm run typecheck` passou; lint dos arquivos alterados passou; `npm test` passou com 22 arquivos e 104 testes; `npm run build` passou com pre-renderizacao concluida; `git diff --check` passou.
+- Validacao manual: a rota do anuncio foi recarregada no browser local e permaneceu renderizando sem erros; o teste de clique no header e envio precisa de sessao autenticada, que nao estava disponivel no browser.
+- Migrations/configuracoes externas: nenhuma; a implementacao reutiliza as tabelas, RLS e canais realtime existentes.
+- Riscos residuais: o build continua emitindo o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`; conversas antigas vinculadas a anuncios de negocio exibem o nome do negocio quando nao possuem metadado especifico do anuncio.
+- Decisao de deploy: pronto para teste autenticado com conversas de negocio e Marketplace antes do envio para `dev`.
+
+### 2026-09-20 20:06:05 -04:00
+
+- Status: concluido em 2026-09-20 20:07:32 -04:00.
+- Solicitacao: corrigir a tela branca ao enviar a primeira mensagem no popup do Marketplace.
+- Diagnostico: `MarketplaceChatPopup` usa `Link`, mas estava montado fora de `AppRouter`; ao abrir o popup, o React Router tentava ler `basename` de um contexto inexistente.
+- Escopo: mover somente a montagem visual do popup para dentro do router, mantendo o estado e a assinatura realtime no provedor global.
+- Riscos: baixo; a alteracao nao muda persistencia, RLS, conversas, mensagens ou comportamento do perfil.
+- Estrategia: manter `MarketplaceChatProvider` acima do router para preservar o chat entre navegacoes e renderizar `MarketplaceChatPopup` como filho de `AppRouter` para fornecer o contexto de navegacao ao `Link` do anuncio.
+- Implementacao: `src/App.tsx` agora renderiza `MarketplaceChatPopup` dentro de `AppRouter`; o provedor continua acima do router e preserva o estado global do chat.
+- Validacao: `npm run typecheck`, lint dos arquivos envolvidos, `git diff --check` e `npm run build` passaram; a suite do build passou com 22 arquivos e 104 testes.
+- Validacao manual: a rota do anuncio foi recarregada no browser local e renderizou normalmente, sem a excecao de `basename`; o envio autenticado deve ser repetido com uma conta real.
+- Migrations/configuracoes externas: nenhuma.
+- Riscos residuais: permanece o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`; nao foi possivel testar o envio autenticado porque a sessao do browser estava deslogada.
+- Decisao de deploy: correcao pronta para novo teste autenticado; apos confirmar o envio, pode ser enviada para `dev`.
+
 ### 2026-09-20 19:54:00 -04:00
 
 - Status: concluido em 2026-09-20 19:59:02 -04:00.

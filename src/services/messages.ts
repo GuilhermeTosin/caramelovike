@@ -7,18 +7,30 @@ import type {
   MessageFrontend,
 } from "@/types/database";
 
+export type ConversationContext =
+  | { type: "business" }
+  | { type: "marketplace"; listingId: string };
+
 export async function getOrCreateConversation(
   senderId: string,
   receiverId: string,
   businessId?: string,
-  businessName?: string
+  businessName?: string,
+  context?: ConversationContext
 ): Promise<ConversationFrontend | null> {
   if (!senderId || !receiverId) {
     console.error("[getOrCreateConversation] IDs ausentes:", { senderId, receiverId });
     return null;
   }
 
-  // Buscar conversa existente entre os dois participantes
+  const requestedContext = context || (businessId ? { type: "business" as const } : undefined);
+  const requestedContextType = requestedContext?.type || "legacy";
+  const requestedMarketplaceListingId = requestedContext?.type === "marketplace"
+    ? requestedContext.listingId
+    : null;
+
+  // Buscar conversas existentes entre os dois participantes. O contexto e
+  // parte da identidade: um anuncio nao pode reutilizar o chat do negocio.
   const { data: existing } = await supabase
     .from("conversation_participants")
     .select("conversation_id")
@@ -33,21 +45,31 @@ export async function getOrCreateConversation(
       .in("conversation_id", senderConvIds);
 
     if (receiverParticipation && receiverParticipation.length > 0) {
-      // Filtrar por business_id se fornecido, para garantir que estamos na conversa certa
-      // No Caramelinho, geralmente temos apenas uma conversa entre User e Business
-      const convId = receiverParticipation[0].conversation_id;
-      const { data: conv, error: errConvSelect } = await supabase
+      const sharedConvIds = receiverParticipation.map((cp) => cp.conversation_id);
+      const { data: conversations, error: errConvSelect } = await supabase
         .from("conversations")
         .select("*")
-        .eq("id", convId)
-        .maybeSingle();
+        .in("id", sharedConvIds);
 
       if (errConvSelect) {
         console.error("[getOrCreateConversation] Erro ao buscar conversa existente:", errConvSelect);
       }
 
-      if (conv) {
-        return toConversationFrontend(conv as Conversation, [senderId, receiverId]);
+      const matchingConversation = (conversations as Conversation[] | null)?.find((conversation) => {
+        if (requestedContextType === "business") {
+          return conversation.context_type === "business" && conversation.business_id === businessId;
+        }
+        if (requestedContextType === "marketplace") {
+          return conversation.context_type === "marketplace"
+            && conversation.marketplace_listing_id === requestedMarketplaceListingId;
+        }
+        return (conversation.context_type === "legacy" || !conversation.context_type)
+          && !conversation.business_id
+          && (conversation.business_name || null) === (businessName?.trim() || null);
+      });
+
+      if (matchingConversation) {
+        return toConversationFrontend(matchingConversation, [senderId, receiverId]);
       }
     }
   }
@@ -69,13 +91,22 @@ export async function getOrCreateConversation(
     return null;
   }
 
-  // Criar nova conversa via RPC (mais robusto com RLS)
-  const { data: convId, error: errRpc } = await supabase
-    .rpc("create_conversation_with_participants", {
-      p_business_id: businessId || null,
-      p_business_name: businessName || null,
-      p_participant_ids: [senderId, receiverId]
-    });
+  // Criar nova conversa via RPC (mais robusto com RLS). Contextos atuais usam
+  // uma RPC dedicada; a antiga fica somente como fallback de compatibilidade.
+  const rpcResult = requestedContextType === "legacy"
+    ? await supabase.rpc("create_conversation_with_participants", {
+        p_business_id: null,
+        p_business_name: businessName || null,
+        p_participant_ids: [senderId, receiverId],
+      })
+    : await supabase.rpc("create_conversation_with_context", {
+        p_business_id: requestedContextType === "business" ? businessId || null : null,
+        p_business_name: businessName || null,
+        p_participant_ids: [senderId, receiverId],
+        p_context_type: requestedContextType,
+        p_marketplace_listing_id: requestedMarketplaceListingId,
+      });
+  const { data: convId, error: errRpc } = rpcResult;
 
   if (errRpc || !convId) {
     console.error("[getOrCreateConversation] Erro ao criar conversa via RPC:", errRpc);
@@ -298,6 +329,8 @@ function toConversationFrontend(
     participants,
     businessId: conv.business_id || undefined,
     businessName: conv.business_name || undefined,
+    contextType: conv.context_type || "legacy",
+    marketplaceListingId: conv.marketplace_listing_id || undefined,
     lastMessage: conv.last_message || undefined,
     lastMessageAt: conv.last_message_at || undefined,
     createdAt: conv.created_at,

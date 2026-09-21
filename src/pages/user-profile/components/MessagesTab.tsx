@@ -53,7 +53,16 @@ export default function MessagesTab({
             </Card>
           ) : (
             <div className="space-y-2">
-              {conversations.map((conv) => (
+              {conversations.map((conv) => {
+                const partnerName = conversationPartners[conv.id]?.name;
+                const conversationName = conv.contextType === "legacy"
+                  ? partnerName || "Conversa antiga"
+                  : partnerName || conv.businessName || "Conversa";
+                const contextLabel = conv.contextType === "legacy"
+                  ? "Conversa antiga"
+                  : conv.businessName;
+
+                return (
                 <button
                   type="button"
                   key={conv.id}
@@ -82,7 +91,7 @@ export default function MessagesTab({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-semibold text-sm truncate">
-                          {conversationPartners[conv.id]?.name || conv.businessName || ("Conversa")}
+                          {conversationName}
                         </p>
                         {conv.lastMessageAt ? (
                           <span className="text-[11px] text-muted-foreground whitespace-nowrap">
@@ -93,9 +102,9 @@ export default function MessagesTab({
                           </span>
                         ) : null}
                       </div>
-                      {conv.businessName ? (
+                      {contextLabel ? (
                         <p className="text-[11px] text-primary/80 truncate mt-0.5">
-                          Em: {conv.businessName}
+                          Em: {contextLabel}
                         </p>
                       ) : null}
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
@@ -104,7 +113,8 @@ export default function MessagesTab({
                     </div>
                   </div>
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -114,7 +124,9 @@ export default function MessagesTab({
             <Card className="border-border h-[500px] flex flex-col">
               <div className="p-4 border-b border-border flex items-center justify-between">
                 <p className="font-semibold text-sm">
-                  {selectedConv.businessName || ("Conversa")}
+                  {selectedConv.contextType === "legacy"
+                    ? "Conversa antiga"
+                    : selectedConv.businessName || "Conversa"}
                 </p>
                 <Button
                   variant="ghost"

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { ChevronRight, LogIn, Menu, MessageCircle, PackagePlus, Search, Store, Tag, User, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMarketplaceChat } from "@/contexts/MarketplaceChatContext";
 import { buildMarketplaceSearchPath, useSearchLocation } from "@/contexts/SearchLocationContext";
 
 type MobileHeaderMenuProps = {
@@ -10,6 +11,7 @@ type MobileHeaderMenuProps = {
 
 export default function MobileHeaderMenu({ showSearchLink = false }: MobileHeaderMenuProps) {
   const { session, unreadMessages, isLoading } = useAuth();
+  const { openMarketplaceChatInbox } = useMarketplaceChat();
   const { searchLocation } = useSearchLocation();
   const { pathname, search } = useLocation();
   const menuRef = useRef<HTMLDetailsElement>(null);
@@ -97,10 +99,10 @@ export default function MobileHeaderMenu({ showSearchLink = false }: MobileHeade
               </span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </Link>
-            <Link
-              to={"/perfil?tab=mensagens"}
-              onClick={closeMenu}
-              className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            <button
+              type="button"
+              onClick={() => { closeMenu(); void openMarketplaceChatInbox(); }}
+              className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
             >
               <span className="relative grid h-8 w-8 place-items-center rounded-full bg-secondary">
                 <MessageCircle className="h-4 w-4 text-foreground" />
@@ -112,7 +114,7 @@ export default function MobileHeaderMenu({ showSearchLink = false }: MobileHeade
               </span>
               <span className="flex-1 text-sm font-medium">{"Mensagens"}</span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            </Link>
+            </button>
           </div>
         ) : (
           <div className="space-y-1">

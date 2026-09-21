@@ -274,8 +274,8 @@ export default function App({
           </Suspense>
           </div>
         </SearchLocationProvider>
+        <MarketplaceChatPopup />
       </AppRouter>
-      <MarketplaceChatPopup />
       <Toaster richColors position="top-center" />
       <DeferredAnalytics />
       </MarketplaceChatProvider>

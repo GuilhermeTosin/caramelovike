@@ -42,6 +42,7 @@ import { createBusinessReport } from "@/services/reports";
 import type { BusinessFrontend } from "@/types/database";
 import { getRichTextBlockClassName, sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMarketplaceChat, type MarketplaceChatConversation } from "@/contexts/MarketplaceChatContext";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setJsonLd, setRobots } from "@/lib/seo";
@@ -243,6 +244,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const navigate = useNavigate();
   const location = useLocation();
   const { session, user, refreshUnread } = useAuth();
+  const { selectMarketplaceChat } = useMarketplaceChat();
 
   const routeState = location.state as BusinessPageLocationState;
   const currentPathname = location.pathname;
@@ -607,11 +609,25 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       return;
     }
 
-    const conversation = await getOrCreateConversation(session.userId, business.ownerId, business.id, business.name);
+    const conversation = await getOrCreateConversation(
+      session.userId,
+      business.ownerId,
+      business.id,
+      business.name,
+      { type: "business" },
+    );
     if (conversation) {
       refreshUnread();
-      navigate("/perfil?tab=mensagens");
       toast.success(`Conversa com ${business.ownerName} iniciada!`);
+      const conversationItem: MarketplaceChatConversation = {
+        conversation,
+        partnerName: business.ownerName || "Negocio",
+        contextTitle: business.name,
+        contextSubtitle: "Negocio",
+        contextImageUrl: business.logoUrl,
+        contextHref: buildLocalizedBusinessUrl(business),
+      };
+      await selectMarketplaceChat(conversationItem);
     } else {
       toast.error("Erro ao iniciar conversa.");
     }

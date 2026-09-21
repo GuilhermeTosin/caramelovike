@@ -1,7 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { getMessagesForConversation, markConversationAsRead, sendMessage, subscribeToMessages } from "@/services/messages";
+import { getProfilesByIds } from "@/services/profiles";
+import {
+  getConversationPartner,
+  getConversationsForUser,
+  getMessagesForConversation,
+  markConversationAsRead,
+  sendMessage,
+  subscribeToMessages,
+} from "@/services/messages";
 import type { ConversationFrontend, MessageFrontend } from "@/types/database";
 
 export type MarketplaceChatListing = {
@@ -13,9 +21,24 @@ export type MarketplaceChatListing = {
   sellerName: string;
 };
 
-type MarketplaceChatState = {
+export type MarketplaceChatConversation = {
   conversation: ConversationFrontend;
-  listing: MarketplaceChatListing;
+  partnerName: string;
+  partnerAvatar?: string | null;
+  contextTitle: string;
+  contextSubtitle: string;
+  contextImageUrl?: string | null;
+  contextHref?: string;
+  contextPrice?: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+};
+
+type MarketplaceChatState = {
+  view: "inbox" | "conversation";
+  conversations: MarketplaceChatConversation[];
+  conversationsLoading: boolean;
+  active: MarketplaceChatConversation | null;
   messages: MessageFrontend[];
   loading: boolean;
   minimized: boolean;
@@ -30,6 +53,9 @@ type OpenMarketplaceChatOptions = {
 type MarketplaceChatContextValue = {
   chat: MarketplaceChatState | null;
   openMarketplaceChat: (options: OpenMarketplaceChatOptions) => Promise<void>;
+  openMarketplaceChatInbox: () => Promise<void>;
+  selectMarketplaceChat: (conversation: MarketplaceChatConversation) => Promise<void>;
+  backToMarketplaceChatInbox: () => Promise<void>;
   closeMarketplaceChat: () => void;
   minimizeMarketplaceChat: () => void;
   restoreMarketplaceChat: () => void;
@@ -37,6 +63,42 @@ type MarketplaceChatContextValue = {
 };
 
 const MarketplaceChatContext = createContext<MarketplaceChatContextValue | null>(null);
+
+function getConversationContext(conversation: ConversationFrontend, partnerName: string) {
+  const businessName = conversation.businessName?.trim();
+  if (conversation.contextType === "marketplace") {
+    return {
+      title: (businessName || "").replace(/^Marketplace:\s*/, "").replace(/\s+\[[^\]]+\]$/, "") || "Anuncio do Marketplace",
+      subtitle: "Anuncio do Marketplace",
+    };
+  }
+  if (conversation.contextType === "business") {
+    return { title: businessName || "Negocio", subtitle: "Negocio" };
+  }
+  return { title: partnerName || "Conversa antiga", subtitle: "Conversa antiga" };
+}
+
+async function buildConversationItems(conversations: ConversationFrontend[], userId: string) {
+  const partnerIds = conversations.map((conversation) => getConversationPartner(conversation, userId));
+  const profiles = await getProfilesByIds(partnerIds);
+  const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
+
+  return conversations.map((conversation) => {
+    const partnerId = getConversationPartner(conversation, userId);
+    const profile = profilesById.get(partnerId);
+    const partnerName = profile?.name?.trim() || conversation.businessName?.trim() || "Contato";
+    const context = getConversationContext(conversation, partnerName);
+    return {
+      conversation,
+      partnerName,
+      partnerAvatar: profile?.avatar || null,
+      contextTitle: context.title,
+      contextSubtitle: context.subtitle,
+      lastMessage: conversation.lastMessage,
+      lastMessageAt: conversation.lastMessageAt,
+    } satisfies MarketplaceChatConversation;
+  });
+}
 
 export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
   const { session, refreshUnread } = useAuth();
@@ -55,7 +117,28 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
     setChat(null);
   }, [unsubscribe]);
 
-  const openMarketplaceChat = useCallback(async ({ conversation, listing }: OpenMarketplaceChatOptions) => {
+  const openMarketplaceChatInbox = useCallback(async () => {
+    const userId = session?.userId;
+    if (!userId) {
+      toast.error("Entre na sua conta para ver suas mensagens.");
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    unsubscribe();
+    setChat({ view: "inbox", conversations: [], conversationsLoading: true, active: null, messages: [], loading: false, minimized: false, sending: false });
+
+    const conversations = await getConversationsForUser(userId);
+    const items = await buildConversationItems(conversations, userId);
+    if (requestIdRef.current !== requestId) return;
+
+    setChat((current) => current && requestIdRef.current === requestId
+      ? { ...current, conversations: items, conversationsLoading: false }
+      : current);
+  }, [session?.userId, unsubscribe]);
+
+  const selectMarketplaceChat = useCallback(async (conversationItem: MarketplaceChatConversation) => {
     const userId = session?.userId;
     if (!userId) {
       toast.error("Entre na sua conta para continuar a conversa.");
@@ -65,43 +148,70 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     unsubscribe();
-    setChat({ conversation, listing, messages: [], loading: true, minimized: false, sending: false });
+    setChat((current) => {
+      const conversations = current?.conversations.some((item) => item.conversation.id === conversationItem.conversation.id)
+        ? current.conversations
+        : [conversationItem, ...(current?.conversations || [])];
+      return {
+        view: "conversation",
+        conversations,
+        conversationsLoading: false,
+        active: conversationItem,
+        messages: [],
+        loading: true,
+        minimized: false,
+        sending: false,
+      };
+    });
 
     const [messages] = await Promise.all([
-      getMessagesForConversation(conversation.id),
-      markConversationAsRead(conversation.id, userId),
+      getMessagesForConversation(conversationItem.conversation.id),
+      markConversationAsRead(conversationItem.conversation.id, userId),
     ]);
-
     if (requestIdRef.current !== requestId) return;
 
-    setChat((current) => current && current.conversation.id === conversation.id
+    setChat((current) => current && current.active?.conversation.id === conversationItem.conversation.id
       ? { ...current, messages, loading: false }
       : current);
     refreshUnread();
 
-    const subscription = subscribeToMessages(conversation.id, (incomingMessage) => {
+    const subscription = subscribeToMessages(conversationItem.conversation.id, (incomingMessage) => {
       setChat((current) => {
-        if (!current || current.conversation.id !== conversation.id || current.messages.some((message) => message.id === incomingMessage.id)) {
+        if (!current || current.active?.conversation.id !== conversationItem.conversation.id || current.messages.some((message) => message.id === incomingMessage.id)) {
           return current;
         }
         return { ...current, messages: [...current.messages, incomingMessage] };
       });
 
       if (incomingMessage.senderId !== userId) {
-        void markConversationAsRead(conversation.id, userId).then(refreshUnread);
+        void markConversationAsRead(conversationItem.conversation.id, userId).then(refreshUnread);
       }
     });
 
-    if (requestIdRef.current === requestId) {
-      subscriptionRef.current = subscription;
-    } else {
-      subscription.unsubscribe();
-    }
+    if (requestIdRef.current === requestId) subscriptionRef.current = subscription;
+    else subscription.unsubscribe();
   }, [refreshUnread, session?.userId, unsubscribe]);
+
+  const openMarketplaceChat = useCallback(async ({ conversation, listing }: OpenMarketplaceChatOptions) => {
+    const conversationItem: MarketplaceChatConversation = {
+      conversation,
+      partnerName: listing.sellerName,
+      contextTitle: listing.title,
+      contextSubtitle: "Anuncio do Marketplace",
+      contextImageUrl: listing.imageUrl,
+      contextHref: listing.href,
+      contextPrice: listing.price,
+    };
+    await selectMarketplaceChat(conversationItem);
+  }, [selectMarketplaceChat]);
+
+  const backToMarketplaceChatInbox = useCallback(async () => {
+    await openMarketplaceChatInbox();
+  }, [openMarketplaceChatInbox]);
 
   const sendMarketplaceChatMessage = useCallback(async (text: string) => {
     const userId = session?.userId;
-    const conversationId = chat?.conversation.id;
+    const conversationId = chat?.active?.conversation.id;
     const trimmedText = text.trim();
     if (!userId || !conversationId || !trimmedText) return false;
 
@@ -110,19 +220,28 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
 
     if (!message) {
       toast.error("Nao foi possivel enviar a mensagem.");
-      setChat((current) => current && current.conversation.id === conversationId ? { ...current, sending: false } : current);
+      setChat((current) => current && current.active?.conversation.id === conversationId ? { ...current, sending: false } : current);
       return false;
     }
 
     setChat((current) => {
-      if (!current || current.conversation.id !== conversationId || current.messages.some((item) => item.id === message.id)) {
+      if (!current || current.active?.conversation.id !== conversationId || current.messages.some((item) => item.id === message.id)) {
         return current;
       }
-      return { ...current, messages: [...current.messages, message], sending: false };
+      const updateItem = (item: MarketplaceChatConversation) => item.conversation.id === conversationId
+        ? { ...item, lastMessage: message.text, lastMessageAt: message.createdAt }
+        : item;
+      return {
+        ...current,
+        messages: [...current.messages, message],
+        active: updateItem(current.active),
+        conversations: current.conversations.map(updateItem),
+        sending: false,
+      };
     });
     toast.success("Mensagem enviada.");
     return true;
-  }, [chat?.conversation.id, session?.userId]);
+  }, [chat?.active?.conversation.id, session?.userId]);
 
   useEffect(() => {
     if (!session?.userId && chat) closeMarketplaceChat();
@@ -135,6 +254,9 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
       value={{
         chat,
         openMarketplaceChat,
+        openMarketplaceChatInbox,
+        selectMarketplaceChat,
+        backToMarketplaceChatInbox,
         closeMarketplaceChat,
         minimizeMarketplaceChat: () => setChat((current) => current ? { ...current, minimized: true } : current),
         restoreMarketplaceChat: () => setChat((current) => current ? { ...current, minimized: false } : current),
