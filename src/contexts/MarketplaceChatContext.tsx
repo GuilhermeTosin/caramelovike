@@ -89,7 +89,9 @@ async function buildConversationItems(conversations: ConversationFrontend[], use
   return conversations.map((conversation) => {
     const partnerId = getConversationPartner(conversation, userId);
     const profile = profilesById.get(partnerId);
-    const partnerName = profile?.name?.trim() || conversation.businessName?.trim() || "Contato";
+    const partnerName = profile?.name?.trim()
+      || (conversation.closedAt ? "Responsável anterior" : conversation.businessName?.trim())
+      || "Contato";
     const context = getConversationContext(conversation, partnerName);
     return {
       conversation,
@@ -242,6 +244,10 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
     const conversationId = chat?.active?.conversation.id;
     const trimmedText = text.trim();
     if (!userId || !conversationId || !trimmedText) return false;
+    if (chat?.active?.conversation.closedAt) {
+      toast.info("Esta conversa foi encerrada. Inicie uma nova pela página do negócio.");
+      return false;
+    }
 
     setChat((current) => current ? { ...current, sending: true } : current);
     const message = await sendMessage(conversationId, userId, trimmedText);

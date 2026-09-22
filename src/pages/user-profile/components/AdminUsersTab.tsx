@@ -73,7 +73,7 @@ export default function AdminUsersTab({
     if (!selectedUser || selectedUser.id === adminUserId) return;
 
     const confirmed = window.confirm(
-      "Transferir " + businessName + " para a sua conta? O usuário atual perderá o acesso de proprietário.",
+      "Transferir " + businessName + " para a sua conta? O usuário atual perderá o acesso de proprietário. As conversas antigas serão encerradas e o histórico não será compartilhado com o novo responsável.",
     );
     if (!confirmed) return;
 

@@ -24,6 +24,97 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-22 18:54:06 -04:00
+
+- Status: concluido localmente em 2026-09-22 18:58:49 -04:00; deploy pendente.
+- Solicitacao: impedir que a geolocalizacao aproximada resolvida pelo IP de um visitante seja servida a outro por cache compartilhado/CDN.
+- Diagnostico: `api/geoip.ts` responde com `s-maxage=300` e `stale-while-revalidate=3600`; assim a chave compartilhada pela URL pode reutilizar dados de IP de outro visitante.
+- Escopo: definir politicas no-store para browser e caches CDN no endpoint, evitar cache HTTP no fetch do cliente, cobrir ambos em teste automatizado e atualizar este registro e o achado 11 da auditoria.
+- Implementacao: `src/lib/geoipCachePolicy.ts` centraliza `Cache-Control: private, no-store`, `CDN-Cache-Control: no-store`, `Vercel-CDN-Cache-Control: no-store`, `Pragma` e `Expires`; `api/geoip.ts` aplica esses cabecalhos antes de qualquer retorno. `src/lib/utils/geo.ts` envia `cache: no-store`, incluindo quando um endpoint customizado estiver configurado. `src/lib/geoipCache.test.ts` verifica a politica e a opcao do fetch.
+- Validacao local: `npm run typecheck`, ESLint direcionado, `npm test` (24 arquivos, 110 testes), `npm run build` e `git diff --check` passaram. O build reportou o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`; o sitemap alterado pelo prebuild foi restaurado.
+- Configuracao externa/risco residual: nenhuma alteracao de CDN externo. O endpoint deste projeto passa a impedir novos armazenamentos; respostas que o CDN armazenou com a politica antiga podem continuar disponiveis ate invalidacao ou expiracao do stale window. Um endpoint externo configurado controla os proprios cabecalhos de resposta, embora o cliente agora solicite `no-store`.
+- Decisao de deploy: codigo pronto localmente. Apos publicar, invalidar o cache de `/api/geoip` se o CDN permitir; caso contrario, aguardar a expiracao das respostas antigas e confirmar os cabecalhos no dominio implantado.
+
+### 2026-09-22 18:31:06 -04:00
+
+- Status: concluido localmente em 2026-09-22 18:47:54 -04:00; migration remota pendente.
+- Solicitacao: revogar acesso de ex-proprietarios a conversas apos transferencia de negocio e impedir que o novo proprietario herde historico antigo; avaliar o vinculo entre chats, contas e negocios.
+- Diagnostico: tres caminhos de transferencia (duas RPCs SQL e endpoint admin) adicionam o novo dono como participante, sem remover participantes anteriores. O acesso a mensagens e controlado por `conversation_participants.user_id`; `business_id` e tambem armazenado como contexto comercial.
+- Escopo: manter usuario/conta como principal de autorizacao e negocio como contexto; fechar conversas de negocio na troca de owner, remover participantes antigos e impedir novos membros/mensagens; preservar historico somente para o cliente iniciador; exibir encerramento nas interfaces popup e Perfil > Mensagens; corrigir dados legados transferidos.
+- Riscos: funcoes SQL/PostgREST e policies efetivas podem divergir do historico versionado; limpeza de conversas antigas precisa distinguir clientes de donos. Transferencias devem permanecer atomicas e nao bloquear chats de Marketplace independentes do negocio.
+- Decisao de modelo: a conta do usuario continua sendo a identidade de acesso, registrada em `conversation_participants.user_id`; o negocio continua associado como contexto (`business_id`) para identificar a origem da conversa e criar novos chats com o responsavel atual. Transferir um negocio nao transfere a identidade nem o historico.
+- Implementacao: `supabase/migrations/00059_close_business_chats_on_transfer.sql` adiciona iniciador/encerramento, corrige conversas legadas com sinais de transferencia, encerra e remove os participantes antigos em toda troca de titularidade, bloqueia novos participantes e mensagens em chats fechados, e redefine as RPCs de criacao/transferencia sem herdar chats. `api/admin-users.ts` remove a inclusao do novo dono via API. `src/services/messages.ts`, `src/types/database.ts`, `src/contexts/MarketplaceChatContext.tsx`, `src/components/MarketplaceChatPopup.tsx`, `src/pages/user-profile/hooks/useInboxAndReviews.ts` e `src/pages/user-profile/components/MessagesTab.tsx` tratam chats fechados como somente leitura. `AdminUsersTab.tsx` e `OwnershipAdminTab.tsx` avisam sobre o efeito da transferencia. O achado 5 em `docs/security-audit-2026-09-20.md` foi atualizado.
+- Comportamento: conversas antigas de negocio sao fechadas; o historico legado fica disponivel somente ao iniciador identificado pelo autor da primeira mensagem, sem participacao do antigo ou novo responsavel. Novos contatos do negocio criam/reutilizam uma conversa aberta com o dono atual. Conversas de anuncios do Marketplace nao sao alteradas pela transferencia do negocio.
+- Validacao local: `npm run typecheck`, `npm test` (23 arquivos, 108 testes), ESLint direcionado aos arquivos de API/servicos/UI, `npm run build` e `git diff --check` passaram. O build reportou o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`.
+- Migrations/configuracoes externas: nenhuma migration foi executada. Nao ha PostgreSQL local, `psql` ou Docker neste ambiente; a migration 00059 foi revisada estaticamente, nao executada em banco. Antes de publicar o frontend/API, revisar e aplicar em ordem as migrations pendentes 00056-00059 no ambiente apropriado, conferir schema/RLS efetivos e testar transferencias por claim, e-mail e endpoint admin; confirmar que ex-dono e novo dono nao leem/enviam no chat legado, que o cliente iniciador ainda le historico sem enviar, e que um novo contato cria chat com o dono atual.
+- Riscos residuais: o backfill legado infere o cliente pelo autor da primeira mensagem, convencao usada pelos fluxos da aplicacao; conversas legadas criadas fora desse fluxo precisam de revisao. O banco remoto nao foi consultado nem alterado, portanto nao afirmar corrigido em producao antes da migration e dos testes de autorizacao.
+- Decisao de deploy: codigo e migration prontos localmente; deploy bloqueado ate aplicacao e verificacao da migration no banco, incluindo as migrations de seguranca anteriores que ainda estejam pendentes.
+
+### 2026-09-22 18:16:14 -04:00
+
+- Status: concluido localmente em 2026-09-22 18:23:14 -04:00; migration remota pendente.
+- Solicitacao: impedir coleta publica dos campos pessoais de profiles, em especial telefone e localizacao, mantendo os dados publicos estritamente necessarios ao produto.
+- Diagnostico: policies versionadas permitem SELECT irrestrito na tabela `profiles`, que contem dados privados e publicos; varios fluxos publicos consultam diretamente essa tabela.
+- Escopo: introduzir uma view de perfil publico com allowlist de colunas; restringir SELECT direto na tabela base a proprietario/admin; redirecionar consultas publicas de negocios, marketplace, mensagens, avaliacoes e achadinhos; atualizar relatorio de seguranca.
+- Riscos: grants e policies reais de producao podem divergir das migrations. Policies de leitura permissivas adicionais podem reabrir acesso a usuarios autenticados se nao houver um teto restritivo. A view deve preservar os campos necessarios ao perfil publico do vendedor.
+- Estrategia: migration aditiva que remove grants anonimos da tabela base, garante RLS de leitura privada e teto restritivo autenticado, e concede apenas a view publica; validar tipos, testes e diff localmente. Nao aplicar migration remota sem preflight de schema e grants.
+- Implementacao: `supabase/migrations/00058_protect_private_profile_data.sql` remove a policy de leitura publica, revoga permissao anonima inclusive grants por coluna, limita a leitura da tabela base ao proprio usuario/admin com policy permissiva e teto restritivo, e expoe `id`, `name`, `avatar` e `created_at` pela view `public_profiles`. `src/services/profiles.ts`, `messages.ts`, `marketplace.ts`, `businesses.ts` e `communityFinds.ts` usam a view para leituras publicas; leitura de perfil completo e role continuam na tabela base sob RLS. `docs/security-audit-readonly.sql` ganhou verificacoes de grants/view e o achado 4 do relatorio foi atualizado.
+- Validacao: `npm run typecheck`, `npm test` (23 arquivos, 108 testes), ESLint direcionado aos cinco services, `npm run build` e `git diff --check` passaram. Build gera o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`; sitemap alterado pelo prebuild foi restaurado.
+- Migrations/configuracoes externas: nenhuma migration foi aplicada ao banco remoto. Aplicar `00058_protect_private_profile_data.sql` apenas depois de confirmar no SQL Editor a existencia de `public.is_admin()`, colunas e grants atuais; executar as verificacoes em `docs/security-audit-readonly.sql` apos a aplicacao.
+- Riscos residuais: sem PostgreSQL local/psql/Docker, a migration nao foi executada nem testada contra grants/policies reais. Confirmar que anon nao le `profiles` nem `phone`/`location`, autenticado comum le somente a propria linha, admin le todas e ambos conseguem ler a view publica antes de promover o frontend. O deploy do frontend depende da view existir.
+- Decisao de deploy: correcao pronta localmente; banco de producao nao esta protegido ate a migration ser aplicada e os quatro cenarios de leitura serem verificados.
+
+### 2026-09-22 17:59:12 -04:00
+
+- Status: concluido localmente em 2026-09-22 18:08:05 -04:00; migration remota pendente.
+- Solicitacao: bloquear a leitura publica de negocios nao aprovados e impedir que o SSR por ID exponha eventos em rascunho/arquivados ou ligados a negocios nao aprovados.
+- Diagnostico: a policy publica versionada permite SELECT de todas as linhas em businesses; o endpoint `api/ssr-dynamic.ts` usa service role e consulta eventos por ID sem filtro de status. A tabela `events` nao tem schema/RLS completo nas migrations versionadas.
+- Escopo: impor limite de leitura RLS para negocios e eventos; manter acesso privado de proprietarios, admins e editores atribuídos; filtrar e validar status no endpoint SSR; adicionar regressao para os casos reproduzidos.
+- Riscos: as migrations nao definem completamente a tabela `events`; habilitar RLS sem preservar os fluxos de escrita quebraria publicacao/edicao. Dados remotos nao serao consultados ou alterados.
+- Implementacao: `supabase/migrations/00057_restrict_unpublished_content.sql` substitui o SELECT publico amplo de negocios e acrescenta ceilings RLS para tambem neutralizar policies permissivas manuais; anonimos veem apenas negocios aprovados e usuarios autenticados mantem acesso a negocios proprios, administrados ou aprovados. Ativa RLS em `events`, restringe leituras anonimas a eventos publicados de negocios aprovados (ou eventos sem negocio), preserva leitura/gestao privada para donos, admins e editores atribuidos, e concede grants compativeis com esses caminhos. `api/ssr-dynamic.ts` filtra e valida status/negocio associado mesmo com service role e marca as respostas como no-store. `src/lib/ssrDynamicSecurity.test.ts` reproduz cenarios publicados e privados. O relatorio de auditoria foi atualizado.
+- Validacao: `npm run typecheck`, `npm test` (23 arquivos, 108 testes), ESLint direcionado e `npm run build` passaram. O build manteve o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`.
+- Migrations/configuracoes externas: aplicar `00057_restrict_unpublished_content.sql` somente depois de confirmar o schema e as policies/grants existentes por consulta de leitura. Nenhuma migration foi aplicada ao banco remoto nesta tarefa.
+- Riscos residuais: a tabela `events` nao tem definicao completa nas migrations versionadas e esta sem banco PostgreSQL local/psql/Docker para validar a migration. A migration assume os campos `status`, `owner_id` e `business_id` usados pelo codigo; confirmar colunas, RLS e comportamento dos fluxos com usuarios/editores/admins em producao antes da aplicacao. O no-store evita novas respostas SSR em cache, mas nao purga cache previamente gerado por deploys antigos.
+- Decisao de deploy: codigo pronto para revisao; nao aplicar a migration nem considerar producao corrigida antes da preflight somente-leitura e da verificacao dos fluxos de escrita.
+
+### 2026-09-22 17:42:35 -04:00
+
+- Status: concluido localmente em 2026-09-22 17:46:22 -04:00; migration remota pendente.
+- Solicitacao: impedir que proprietarios e editores alterem campos administrativos de negocios diretamente pela API.
+- Diagnostico: policies RLS autorizam a edicao da linha do negocio, mas nao restringem por coluna `moderation_status`, metadados de revisao, selo de verificacao ou `average_rating`; a UI nao constitui controle de seguranca.
+- Escopo: adicionar protecao no banco para moderacao, verificacao, nota agregada e titularidade; manter aprovacao administrativa, transferencia confiavel e recalculo automatico da nota.
+- Riscos: uma validacao muito ampla poderia quebrar o fluxo de moderacao/verificacao ou o trigger de avaliacoes. As migrations nao contem definicao completa da tabela de pedidos de verificacao; production-schema.sql continua vazio.
+- Implementacao: `supabase/migrations/00056_protect_business_admin_fields.sql` adiciona trigger BEFORE INSERT/UPDATE, limita campos administrativos a admin/service_role, normaliza novos negocios de usuarios comuns como pendentes e nao verificados, bloqueia mudanca de titularidade por nao-admin, grava autor/horario das decisoes de moderacao no banco, exige solicitacao aprovada e validade futura para verificacao, e protege `average_rating` com um marcador interno executado somente pelo trigger de avaliacoes. Adiciona policy de UPDATE para administradores, preservando o fluxo atual do painel autenticado. Atualiza `docs/security-audit-2026-09-20.md` para marcar o achado como corrigido localmente, sujeito a aplicacao e verificacao remotas.
+- Validacao: `npm run typecheck`, `npm test` (22 arquivos, 104 testes) e `git diff --check` passaram. A migration SQL nao foi executada nem validada por PostgreSQL local porque este ambiente nao tem `psql`/Docker.
+- Migrations/configuracoes externas: aplicar `00056_protect_business_admin_fields.sql` em dev e testar diretamente as escritas como anon, usuario comum, editor e admin antes de promover. Nenhuma migration foi aplicada ao Supabase remoto nesta tarefa.
+- Riscos residuais: as definicoes completas de `business_verification_requests` e grants efetivos remotos nao estao versionados neste checkout. A migration usa `business_id` e `status`, colunas referenciadas pela migration `00024`; confirmar compatibilidade com schema atual antes de aplicar. Nao declarar producao protegida ate validar no banco.
+- Decisao de deploy: codigo pronto para aplicar em dev; producao nao liberada ate completar testes de autorizacao e confirmar o schema remoto.
+
+### 2026-09-22 17:33:59 -04:00
+
+- Status: concluido em 2026-09-22 17:35:33 -04:00.
+- Solicitacao: corrigir o XSS no JSON-LD do endpoint `api/ssr-dynamic.ts`.
+- Diagnostico: `JSON.stringify` sozinho nao protege strings inseridas dentro de uma tag `<script>`; o texto `</script>` vindo de dados persistidos pode encerrar o bloco JSON-LD.
+- Escopo: codificar caracteres que podem sair do contexto de script antes da interpolacao HTML e revisar o endpoint para garantir ausencia do literal `<` na serializacao.
+- Riscos: minimo; os escapes Unicode sao interpretados como os mesmos caracteres pelo parser JSON/JSON-LD e nao alteram o dado apresentado semanticamente.
+- Estrategia: introduzir helper puro para serializacao segura reutilizavel e usa-lo no endpoint legado; validar com typecheck, lint direcionado e revisao do diff.
+- Implementacao: `src/lib/safeScriptJson.ts` converte caracteres de HTML/script para escapes Unicode; `api/ssr-dynamic.ts` usa o helper para todos os dados JSON-LD inseridos no HTML. O payload original e preservado semanticamente pelo parser JSON.
+- Validacao: `npm run typecheck`, ESLint direcionado ao endpoint e helper, e `git diff --check` passaram. Nao rodei testes nem build nesta solicitacao.
+- Documentacao: o achado 1 em `docs/security-audit-2026-09-20.md` agora registra a correcao local e sua validacao estatica; os outros achados de seguranca continuam abertos.
+- Riscos residuais: nao validei o deploy remoto nem executei o antigo payload contra producao. A correcao local precisa ser publicada para proteger a rota implantada.
+- Decisao de deploy: codigo pronto para revisao e envio; nao corrigir outros achados da auditoria neste escopo.
+
+### 2026-09-20 21:10:28 -04:00
+
+- Status: auditoria local concluida em 2026-09-20 21:13:18 -04:00; nenhuma correcao funcional aplicada.
+- Solicitacao: auditoria aprofundada de seguranca, com problemas classificados por importancia.
+- Escopo: migrations 00001-00055, RLS e grants, RPCs, autenticacao, APIs administrativas e publicas, SSR, mensagens, uploads, dependencias e configuracao de deploy.
+- Estrategia: revisao estatica e reproducoes locais com dados simulados; sem alterar banco remoto ou enviar mensagens reais. Produzir relatorio e SQL somente de leitura para conferir o estado de producao.
+- Limites: `supabase/production-schema.sql` esta vazio; as migrations nao comprovam os grants, triggers e policies atualmente instalados em producao.
+- Entregas: `docs/security-audit-2026-09-20.md` (11 achados priorizados, evidencias, cenarios, correcoes e limites) e `docs/security-audit-readonly.sql` (inspecao remota de metadados sem alteracao de dados).
+- Validacao: handler SSR real executado localmente com fetch simulado confirmou script injetado no HTML e retorno de evento draft; npm audit completo e somente producao reportaram zero advisories; git diff --check passou. Nenhum teste de escrita foi executado no banco remoto.
+- Pendencias: confirmar schema e configuracao de producao, aplicar correcoes P1 e executar regressao de autorizacao com contas de teste em ambiente descartavel antes do deploy. A auditoria nao autoriza promover a versao como segura.
+
 ### 2026-09-20 20:54:29 -04:00
 
 - Status: concluido em 2026-09-20 20:58:31 -04:00.

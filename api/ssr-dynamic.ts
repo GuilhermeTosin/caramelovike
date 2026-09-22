@@ -1,4 +1,16 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { serializeJsonForHtmlScript } from "../src/lib/safeScriptJson";
+
+type VercelRequest = {
+  query: Record<string, string | string[] | undefined>;
+  headers: Record<string, string | string[] | undefined>;
+};
+
+type VercelResponse = {
+  setHeader(name: string, value: string): void;
+  status(code: number): VercelResponse;
+  send(body: string): VercelResponse;
+  json(body: unknown): VercelResponse;
+};
 
 type BusinessRow = {
   id: string;
@@ -24,6 +36,7 @@ type BusinessRow = {
   facebook: string | null;
   average_rating: number | null;
   opening_hours: string[] | null;
+  moderation_status?: string | null;
 };
 
 type ReviewRow = {
@@ -34,7 +47,9 @@ type ReviewRow = {
 };
 
 const BUSINESS_SELECT =
-  "id,name,slug,description,category_id,hero_image,logo_url,street,city,state,country,country_code,state_code,postal_code,lat,lng,phone,email,website,instagram,facebook,average_rating,opening_hours";
+  "id,name,slug,description,category_id,hero_image,logo_url,street,city,state,country,country_code,state_code,postal_code,lat,lng,phone,email,website,instagram,facebook,average_rating,opening_hours,moderation_status";
+const NO_STORE_BROWSER_CACHE = "private, no-store, max-age=0, must-revalidate";
+const NO_STORE_CDN_CACHE = "no-store";
 
 type EventRow = {
   id: string;
@@ -45,6 +60,7 @@ type EventRow = {
   price: string | null;
   flyer_url: string | null;
   business_id: string | null;
+  status: "draft" | "published" | "archived" | null;
 };
 
 function env(name: string) {
@@ -177,6 +193,10 @@ async function fetchJson<T>(url: string, key: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function isPublicBusiness(business: BusinessRow): boolean {
+  return business.moderation_status == null || business.moderation_status === "approved";
+}
+
 async function getBusinessBySlugCountry(slug: string, countryCode: string): Promise<BusinessRow | null> {
   const url = getSupabaseUrl();
   const key = getServiceRoleKey();
@@ -189,7 +209,8 @@ async function getBusinessBySlugCountry(slug: string, countryCode: string): Prom
     `&or=(moderation_status.eq.approved,moderation_status.is.null)` +
     `&limit=1`;
   const rows = await fetchJson<BusinessRow[]>(endpoint, key);
-  return rows[0] || null;
+  const business = rows[0] || null;
+  return business && isPublicBusiness(business) ? business : null;
 }
 
 async function getBusinessByShortSlug(slug: string): Promise<BusinessRow | null> {
@@ -203,7 +224,8 @@ async function getBusinessByShortSlug(slug: string): Promise<BusinessRow | null>
     `&or=(moderation_status.eq.approved,moderation_status.is.null)` +
     `&limit=1`;
   const rows = await fetchJson<BusinessRow[]>(endpoint, key);
-  return rows[0] || null;
+  const business = rows[0] || null;
+  return business && isPublicBusiness(business) ? business : null;
 }
 
 async function getBusinessReviews(businessId: string): Promise<ReviewRow[]> {
@@ -225,20 +247,25 @@ async function getEventById(eventId: string): Promise<{ event: EventRow | null; 
   if (!url || !key) throw new Error("missing_env");
   const eventEndpoint =
     `${url}/rest/v1/events?` +
-    `select=id,title,description,date,location,price,flyer_url,business_id` +
+    `select=id,title,description,date,location,price,flyer_url,business_id,status` +
     `&id=eq.${encodeURIComponent(eventId)}` +
+    `&status=eq.published` +
     `&limit=1`;
   const events = await fetchJson<EventRow[]>(eventEndpoint, key);
   const event = events[0] || null;
-  if (!event?.business_id) return { event, business: null };
+  if (!event || event.status !== "published") return { event: null, business: null };
+  if (!event.business_id) return { event, business: null };
 
   const bizEndpoint =
     `${url}/rest/v1/businesses?` +
     `select=${BUSINESS_SELECT}` +
     `&id=eq.${encodeURIComponent(event.business_id)}` +
+    `&or=(moderation_status.eq.approved,moderation_status.is.null)` +
     `&limit=1`;
   const businesses = await fetchJson<BusinessRow[]>(bizEndpoint, key);
-  return { event, business: businesses[0] || null };
+  const business = businesses[0] || null;
+  if (!business || !isPublicBusiness(business)) return { event: null, business: null };
+  return { event, business };
 }
 
 function renderHtml(input: {
@@ -253,7 +280,9 @@ function renderHtml(input: {
   const description = htmlEscape(input.description);
   const canonical = htmlEscape(input.canonicalUrl);
   const image = htmlEscape(input.imageUrl);
-  const jsonLd = input.jsonLd ? `<script type="application/ld+json">${JSON.stringify(input.jsonLd)}</script>` : "";
+  const jsonLd = input.jsonLd
+    ? `<script type="application/ld+json">${serializeJsonForHtmlScript(input.jsonLd)}</script>`
+    : "";
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
@@ -393,7 +422,7 @@ async function renderBusinessResponse(base: string, business: BusinessRow, title
     jsonLd,
   });
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+  res.setHeader("Cache-Control", NO_STORE_BROWSER_CACHE);
   res.setHeader("CDN-Cache-Control", cacheHeader);
   res.setHeader("Vercel-CDN-Cache-Control", cacheHeader);
   return res.status(200).send(html);
@@ -401,14 +430,14 @@ async function renderBusinessResponse(base: string, business: BusinessRow, title
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    res.setHeader("Cache-Control", NO_STORE_BROWSER_CACHE);
+    res.setHeader("CDN-Cache-Control", NO_STORE_CDN_CACHE);
+    res.setHeader("Vercel-CDN-Cache-Control", NO_STORE_CDN_CACHE);
+
     const base = baseUrl(req);
     const kind = String(req.query.kind || "");
-
-    const cdnCacheHeaderByKind =
-      kind === "event"
-        ? "s-maxage=300, stale-while-revalidate=3600"
-        : "s-maxage=3600, stale-while-revalidate=86400";
-    const browserCacheHeader = "public, max-age=0, must-revalidate";
+    const cdnCacheHeaderByKind = NO_STORE_CDN_CACHE;
+    const browserCacheHeader = NO_STORE_BROWSER_CACHE;
 
     if (kind === "go") {
       const businessSlug = String(req.query.businessSlug || "");

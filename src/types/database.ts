@@ -11,6 +11,13 @@ export interface Profile {
   created_at: string;
 }
 
+export interface PublicProfile {
+  id: string;
+  name: string;
+  avatar: string | null;
+  created_at?: string;
+}
+
 export interface MenuItem {
   name: string;
   price: string;
@@ -252,6 +259,9 @@ export interface Conversation {
   business_name: string | null;
   context_type: ConversationContextType;
   marketplace_listing_id: string | null;
+  initiator_id: string | null;
+  closed_at: string | null;
+  closed_reason: string | null;
   last_message: string | null;
   last_message_at: string | null;
   created_at: string;
@@ -461,6 +471,7 @@ export interface ConversationFrontend {
   businessName?: string;
   contextType?: ConversationContextType;
   marketplaceListingId?: string;
+  closedAt?: string;
   lastMessage?: string;
   lastMessageAt?: string;
   createdAt: string;

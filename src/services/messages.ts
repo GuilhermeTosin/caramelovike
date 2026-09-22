@@ -61,6 +61,7 @@ export async function getOrCreateConversation(
       }
 
       const matchingConversation = (conversations as Conversation[] | null)?.find((conversation) => {
+        if (conversation.closed_at) return false;
         if (requestedContextType === "business") {
           return conversation.context_type === "business" && conversation.business_id === businessId;
         }
@@ -73,7 +74,7 @@ export async function getOrCreateConversation(
           && (conversation.business_name || null) === (businessName?.trim() || null);
       });
 
-      if (matchingConversation) {
+      if (matchingConversation && requestedContextType === "legacy") {
         return toConversationFrontend(matchingConversation, [senderId, receiverId]);
       }
     }
@@ -81,7 +82,7 @@ export async function getOrCreateConversation(
 
   // Verificar se o destinatário existe como profile
   const { data: receiverProfile, error: errProfile } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("id")
     .eq("id", receiverId)
     .maybeSingle();
@@ -143,7 +144,7 @@ export async function getConversationsForUser(
   const [{ data: conversations }, { data: allParticipants }] = await Promise.all([
     supabase
       .from("conversations")
-      .select("id, business_id, business_name, context_type, marketplace_listing_id, last_message, last_message_at, created_at")
+      .select("id, business_id, business_name, context_type, marketplace_listing_id, initiator_id, closed_at, closed_reason, last_message, last_message_at, created_at")
       .in("id", convIds)
       .order("last_message_at", { ascending: false })
       .order("created_at", { ascending: false }),
@@ -219,7 +220,7 @@ async function mapMessagesToFrontend(msgs: Message[]): Promise<MessageFrontend[]
   // Buscar nomes dos remetentes somente para a pagina carregada.
   const senderIds = [...new Set((msgs as Message[]).map((m) => m.sender_id))];
   const { data: profiles } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("id, name")
     .in("id", senderIds);
 
@@ -257,7 +258,7 @@ export async function sendMessage(
 
   // Buscar nome do remetente
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("name")
     .eq("id", senderId)
     .maybeSingle();
@@ -329,7 +330,7 @@ export function subscribeToMessages(
       async (payload) => {
         // Buscar nome do remetente para a nova mensagem
         const { data: profile } = await supabase
-          .from("profiles")
+          .from("public_profiles")
           .select("name")
           .eq("id", payload.new.sender_id)
           .maybeSingle();
@@ -373,6 +374,7 @@ function toConversationFrontend(
     businessName: conv.business_name || undefined,
     contextType: conv.context_type || "legacy",
     marketplaceListingId: conv.marketplace_listing_id || undefined,
+    closedAt: conv.closed_at || undefined,
     lastMessage: conv.last_message || undefined,
     lastMessageAt: conv.last_message_at || undefined,
     createdAt: conv.created_at,

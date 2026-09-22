@@ -86,7 +86,7 @@ export function useInboxAndReviews({ sessionUserId, refreshUnread }: UseInboxAnd
         return [
           conv.id,
           {
-            name: profile?.name || conv.businessName || "Contato",
+            name: profile?.name || (conv.closedAt ? "Responsável anterior" : conv.businessName) || "Contato",
             avatar: profile?.avatar || "",
           },
         ] as const;
@@ -133,6 +133,10 @@ export function useInboxAndReviews({ sessionUserId, refreshUnread }: UseInboxAnd
 
   const handleSendMessage = async () => {
     if (!sessionUserId || !selectedConv || !messageText.trim()) return;
+    if (selectedConv.closedAt) {
+      toast.info("Esta conversa foi encerrada. Inicie uma nova pela página do negócio.");
+      return;
+    }
     setSendingMsg(true);
     const message = await sendMessage(selectedConv.id, sessionUserId, messageText.trim());
     if (message) {

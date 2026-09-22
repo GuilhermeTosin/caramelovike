@@ -841,7 +841,7 @@ async function getAllBusinessesWithSelect(selectColumns: string): Promise<Busine
   const [profiles, linkedEvents, followLinkIds, enrichedBusinessRows] = await Promise.all([
     fetchInFilterBatches<{ id: string; name: string }>(
       ownerIds,
-      (batch) => supabase.from("profiles").select("id, name").in("id", batch),
+      (batch) => supabase.from("public_profiles").select("id, name").in("id", batch),
       "all-business-profiles",
     ),
     fetchInFilterBatches<CommunityEvent>(
@@ -1148,7 +1148,7 @@ export async function getBusinessesByRadiusRpc(params: {
   const [profiles, linkedEvents, followLinkIds, businessRows] = await Promise.all([
     fetchInFilterBatches<{ id: string; name: string }>(
       ownerIds,
-      (batch) => supabase.from("profiles").select("id, name").in("id", batch),
+      (batch) => supabase.from("public_profiles").select("id, name").in("id", batch),
       "radius-search-profiles",
     ),
     fetchInFilterBatches<CommunityEvent>(
@@ -1318,7 +1318,7 @@ export async function getBusinessBySlug(
 
   const biz = data as unknown as Business;
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("name")
     .eq("id", biz.owner_id)
     .maybeSingle();
@@ -1334,7 +1334,7 @@ export async function getBusinessBySlug(
   ) as string[];
   const { data: reviewProfiles } =
     reviewUserIds.length > 0
-      ? await supabase.from("profiles").select("id, avatar").in("id", reviewUserIds)
+      ? await supabase.from("public_profiles").select("id, avatar").in("id", reviewUserIds)
       : { data: [] as Array<{ id: string; avatar: string | null }> };
   const reviewAvatarByUserId = new Map(
     (reviewProfiles || []).map((p: { id: string; avatar: string | null }) => [p.id, p.avatar || null])
@@ -1380,7 +1380,7 @@ export async function getBusinessByCountryAndSlug(
 
   const biz = data as unknown as Business;
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("name")
     .eq("id", biz.owner_id)
     .maybeSingle();
@@ -1420,7 +1420,7 @@ export async function getBusinessById(
 
   const biz = data as unknown as Business;
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("name")
     .eq("id", biz.owner_id)
     .maybeSingle();
@@ -1492,7 +1492,7 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
 
   const biz = data as Business;
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("name")
     .eq("id", biz.owner_id)
     .maybeSingle();
@@ -1620,7 +1620,7 @@ export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFro
 
   if (!data) return [];
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("name")
     .eq("id", ownerId)
     .maybeSingle();
@@ -2015,7 +2015,7 @@ export async function getPendingBusinessesForAdmin(): Promise<BusinessFrontend[]
   const ownerIds = [...new Set((data as Business[]).map((b) => b.owner_id))];
   const profiles = await fetchInFilterBatches<{ id: string; name: string }>(
     ownerIds,
-    (batch) => supabase.from("profiles").select("id, name").in("id", batch),
+    (batch) => supabase.from("public_profiles").select("id, name").in("id", batch),
     "pending-business-profiles",
   );
 

@@ -112,7 +112,7 @@ export default function MarketplaceChatPopup() {
                   <span className="truncate text-sm font-bold text-[#203940]">{item.contextTitle}</span>
                   {item.lastMessageAt ? <span className="shrink-0 text-[10px] text-muted-foreground">{formatConversationDate(item.lastMessageAt)}</span> : null}
                 </span>
-                <span className="block truncate text-xs text-primary">{item.contextSubtitle} · {item.partnerName}</span>
+                <span className="block truncate text-xs text-primary">{item.contextSubtitle} · {item.partnerName}{item.conversation.closedAt ? " · Encerrada" : ""}</span>
                 <span className="mt-1 block truncate text-xs text-muted-foreground">{item.lastMessage || "Nenhuma mensagem enviada ainda"}</span>
               </span>
             </button>
@@ -188,6 +188,12 @@ export default function MarketplaceChatPopup() {
 
       {active.contextHref ? <Link to={active.contextHref} className="flex shrink-0 items-center gap-3 border-b border-border bg-[#f8faf8] px-4 py-3 hover:bg-[#eef5ef]">{contextContent}</Link> : <div className="flex shrink-0 items-center gap-3 border-b border-border bg-[#f8faf8] px-4 py-3">{contextContent}</div>}
 
+      {active.conversation.closedAt ? (
+        <div role="status" className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          Esta conversa foi encerrada após a mudança de responsável. O histórico continua disponível; para falar com o responsável atual, inicie uma nova conversa pela página do negócio.
+        </div>
+      ) : null}
+
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#f5f7f6] px-4 py-4" ref={messagesRef} aria-live="polite">
         {chat.loading ? <p className="py-8 text-center text-sm text-muted-foreground">Carregando conversa...</p> : null}
         {!chat.loading && !chat.messages.length ? <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma mensagem nesta conversa ainda.</p> : null}
@@ -214,10 +220,12 @@ export default function MarketplaceChatPopup() {
         })}
       </div>
 
-      <form onSubmit={(event) => void submit(event)} className="flex shrink-0 items-center gap-2 border-t border-border bg-white p-3">
-        <Input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Escreva uma mensagem..." aria-label="Nova mensagem" disabled={chat.sending} className="min-w-0 flex-1" />
-        <Button type="submit" size="icon" disabled={chat.sending || !draft.trim()} aria-label="Enviar mensagem"><Send className="h-4 w-4" aria-hidden="true" /></Button>
-      </form>
+      {active.conversation.closedAt ? null : (
+        <form onSubmit={(event) => void submit(event)} className="flex shrink-0 items-center gap-2 border-t border-border bg-white p-3">
+          <Input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Escreva uma mensagem..." aria-label="Nova mensagem" disabled={chat.sending} className="min-w-0 flex-1" />
+          <Button type="submit" size="icon" disabled={chat.sending || !draft.trim()} aria-label="Enviar mensagem"><Send className="h-4 w-4" aria-hidden="true" /></Button>
+        </form>
+      )}
       <p className="shrink-0 bg-white px-4 pb-3 text-center text-[11px] text-muted-foreground">As mensagens tambem ficam disponiveis em Perfil &gt; Mensagens.</p>
     </section>
   );

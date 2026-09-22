@@ -144,7 +144,7 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
       ? supabase.from("marketplace_listing_images").select("id,listing_id,image_url,sort_order").in("listing_id", ids).order("sort_order")
       : Promise.resolve({ data: [] as MarketplaceListingImage[] }),
     includeOwnerProfile
-      ? supabase.from("profiles").select("id,name,avatar,created_at").in("id", ownerIds)
+      ? supabase.from("public_profiles").select("id,name,avatar,created_at").in("id", ownerIds)
       : Promise.resolve({ data: [] as Array<{ id: string; name?: string | null; avatar?: string | null; created_at?: string | null }> }),
     includeOwnerStats
       ? supabase.from("marketplace_listings").select("owner_id,seller_business_id").in("owner_id", ownerIds).eq("status", "active")
@@ -375,7 +375,7 @@ async function getSellerReviews(businesses: MarketplaceSellerBusiness[]) {
 
   const reviewUserIds = [...new Set((reviewRows || []).map((review) => review.user_id).filter((id): id is string => typeof id === "string" && id.length > 0))];
   const { data: reviewProfiles, error: reviewProfilesError } = reviewUserIds.length > 0
-    ? await supabase.from("profiles").select("id,avatar").in("id", reviewUserIds)
+    ? await supabase.from("public_profiles").select("id,avatar").in("id", reviewUserIds)
     : { data: [] as Array<{ id: string; avatar: string | null }>, error: null };
   const businessById = new Map(businesses.map((business) => [business.id, business]));
   const avatarByUserId = new Map((reviewProfiles || []).map((reviewProfile) => [reviewProfile.id, reviewProfile.avatar || null]));
@@ -404,7 +404,7 @@ export async function getMarketplaceSellerPage(ownerId: string): Promise<Marketp
   if (!normalizedOwnerId) return null;
 
   const [{ data: profile, error: profileError }, { data: listingRows, error: listingsError }] = await Promise.all([
-    supabase.from("profiles").select("id,name,avatar,created_at").eq("id", normalizedOwnerId).maybeSingle(),
+    supabase.from("public_profiles").select("id,name,avatar,created_at").eq("id", normalizedOwnerId).maybeSingle(),
     supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).eq("owner_id", normalizedOwnerId).is("seller_business_id", null).eq("status", "active").order("created_at", { ascending: false }).order("id", { ascending: false }),
   ]);
 

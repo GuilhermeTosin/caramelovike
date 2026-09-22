@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { applyGeoipNoStoreHeaders } from "../src/lib/geoipCachePolicy";
 
 type GeoResponse = {
   lat: number;
@@ -22,7 +23,7 @@ function getClientIp(req: VercelRequest): string | null {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=3600");
+  applyGeoipNoStoreHeaders(res);
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
   const ip = getClientIp(req);

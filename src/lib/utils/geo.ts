@@ -246,7 +246,7 @@ export async function getApproxGeoByIp(options?: {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await utf8Fetch(endpoint, { signal: controller.signal });
+    const res = await utf8Fetch(endpoint, { signal: controller.signal, cache: "no-store" });
     clearTimeout(timeout);
     if (!res.ok) {
       if (options?.fallback) return { ...options.fallback, source: "fallback" };

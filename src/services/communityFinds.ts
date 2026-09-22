@@ -60,7 +60,7 @@ export async function getActiveCommunityFinds(): Promise<CommunityFindWithVote[]
 
   const ownerIds = Array.from(new Set(finds.map((find) => find.user_id)));
   const { data: ownerProfiles } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("id, name")
     .in("id", ownerIds);
 
@@ -139,7 +139,7 @@ export async function getCommunityFindMessages(findId: string): Promise<Communit
   if (userIds.length === 0) return rows;
 
   const { data: profiles } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("id, name, avatar")
     .in("id", userIds);
 

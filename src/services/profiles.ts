@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { fetchInFilterBatches } from "@/lib/supabaseBatches";
-import type { Profile, UserFrontend } from "@/types/database";
+import type { Profile, PublicProfile, UserFrontend } from "@/types/database";
 
 export async function getProfileById(id: string): Promise<Profile | null> {
   const { data } = await supabase
@@ -11,14 +11,14 @@ export async function getProfileById(id: string): Promise<Profile | null> {
   return data;
 }
 
-export async function getProfilesByIds(ids: string[]): Promise<Profile[]> {
+export async function getProfilesByIds(ids: string[]): Promise<PublicProfile[]> {
   const uniqueIds = [...new Set(ids.filter(Boolean))];
   if (uniqueIds.length === 0) return [];
 
-  return fetchInFilterBatches<Profile>(
+  return fetchInFilterBatches<PublicProfile>(
     uniqueIds,
-    (batch) => supabase.from("profiles").select("*").in("id", batch),
-    "profiles-by-id",
+    (batch) => supabase.from("public_profiles").select("id,name,avatar").in("id", batch),
+    "public-profiles-by-id",
   );
 }
 

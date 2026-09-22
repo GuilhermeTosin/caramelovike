@@ -93,7 +93,9 @@ export default function MessagesTab({
                         <p className="font-semibold text-sm truncate">
                           {conversationName}
                         </p>
-                        {conv.lastMessageAt ? (
+                        {conv.closedAt ? (
+                          <span className="text-[11px] text-amber-800 whitespace-nowrap">Encerrada</span>
+                        ) : conv.lastMessageAt ? (
                           <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                             {new Date(conv.lastMessageAt).toLocaleDateString("pt-BR", {
                               day: "2-digit",
@@ -159,30 +161,38 @@ export default function MessagesTab({
                 ))}
                 {messages.length === 0 && (
                   <div className="text-center text-sm text-muted-foreground py-8">
-                    {"Nenhuma mensagem ainda. Envie a primeira!"}
+                    {selectedConv.closedAt
+                      ? "Esta conversa foi encerrada após a mudança de responsável."
+                      : "Nenhuma mensagem ainda. Envie a primeira!"}
                   </div>
                 )}
                 <div ref={messagesEndRef} />
               </div>
-              <div className="p-4 border-t border-border">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    onSendMessage();
-                  }}
-                  className="flex gap-2"
-                >
-                  <Input
-                    value={messageText}
-                    onChange={(e) => onMessageTextChange(e.target.value)}
-                    placeholder={"Digite sua mensagem..."}
-                    className="flex-1"
-                  />
-                  <Button type="submit" size="icon" disabled={!messageText.trim() || sendingMsg}>
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </form>
-              </div>
+              {selectedConv.closedAt ? (
+                <p role="status" className="border-t border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                  Conversa encerrada por mudança de responsável. Para falar com o responsável atual, inicie uma nova conversa pela página do negócio.
+                </p>
+              ) : (
+                <div className="p-4 border-t border-border">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      onSendMessage();
+                    }}
+                    className="flex gap-2"
+                  >
+                    <Input
+                      value={messageText}
+                      onChange={(e) => onMessageTextChange(e.target.value)}
+                      placeholder={"Digite sua mensagem..."}
+                      className="flex-1"
+                    />
+                    <Button type="submit" size="icon" disabled={!messageText.trim() || sendingMsg}>
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </form>
+                </div>
+              )}
             </Card>
           ) : (
             <Card className="border-border h-[500px] flex items-center justify-center">

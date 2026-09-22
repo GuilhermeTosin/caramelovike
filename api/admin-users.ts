@@ -438,34 +438,6 @@ async function transferBusinessOwnership(
     ),
   ];
 
-  syncTasks.push(
-    (async () => {
-      const conversations = await fetchJson<Array<{ id: string }>>(
-        config,
-        "/rest/v1/conversations?select=id&business_id=eq." + encodeURIComponent(businessId),
-      );
-      if (conversations.length === 0) return;
-
-      await fetchJson<Array<{ conversation_id: string; user_id: string }>>(
-        config,
-        "/rest/v1/conversation_participants?on_conflict=conversation_id,user_id",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Prefer: "resolution=ignore-duplicates,return=representation",
-          },
-          body: JSON.stringify(
-            conversations.map((conversation) => ({
-              conversation_id: conversation.id,
-              user_id: newOwner.id,
-            })),
-          ),
-        },
-      );
-    })(),
-  );
-
   const syncResults = await Promise.allSettled(syncTasks);
   for (const result of syncResults) {
     if (result.status === "rejected") {
