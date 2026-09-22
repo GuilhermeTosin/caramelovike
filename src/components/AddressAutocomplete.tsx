@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import GoogleMapsAttribution from "@/components/GoogleMapsAttribution";
 import { COUNTRIES, getCountryName } from "@/services/businesses";
 import { getMapsApiKey, isMapsApiAvailable, loadGoogleMapsApi, resolveCityPlaceId } from "@/lib/google-maps";
 
@@ -32,6 +33,7 @@ interface PlacesPrediction {
   place: string;
   text: string;
   secondaryText?: string;
+  prediction: google.maps.places.PlacePrediction;
 }
 
 type AddressComponentLike = {
@@ -224,8 +226,8 @@ export default function AddressAutocomplete({
   const containerRef = useRef<HTMLDivElement>(null);
   const key = getMapsApiKey();
   const apiAvailable = isMapsApiAvailable();
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
+  const sessionModeRef = useRef(mode);
   const requestSeqRef = useRef(0);
 
   const canAutocomplete = useMemo(() => apiAvailable && !!key && !disabled, [apiAvailable, key, disabled]);
@@ -242,6 +244,11 @@ export default function AddressAutocomplete({
   }, []);
 
   useEffect(() => {
+    if (sessionModeRef.current !== mode) {
+      autocompleteSessionTokenRef.current = null;
+      sessionModeRef.current = mode;
+    }
+
     if (!canAutocomplete) {
       Promise.resolve().then(() => {
         setSuggestions([]);
@@ -264,60 +271,35 @@ export default function AddressAutocomplete({
       setLoading(true);
 
       void loadGoogleMapsApi()
-        .then((maps) => {
+        .then(async (maps) => {
           if (requestId !== requestSeqRef.current) return;
 
-          const autocompleteService =
-            autocompleteServiceRef.current || new maps.places.AutocompleteService();
-          const placesService =
-            placesServiceRef.current || new maps.places.PlacesService(document.createElement("div"));
-          autocompleteServiceRef.current = autocompleteService;
-          placesServiceRef.current = placesService;
+          const places = await maps.importLibrary("places");
+          const sessionToken = autocompleteSessionTokenRef.current ?? new places.AutocompleteSessionToken();
+          autocompleteSessionTokenRef.current = sessionToken;
+          const request: google.maps.places.AutocompleteRequest = {
+            input: query,
+            includedPrimaryTypes: mode === "city" ? ["(cities)"] : ["geocode"],
+            language: "pt-BR",
+            sessionToken,
+          };
+          const { suggestions: results } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+          if (requestId !== requestSeqRef.current) return;
 
-          autocompleteService.getPlacePredictions(
-            {
-              input: query,
-              types: mode === "city" ? ["(cities)"] : ["geocode"],
-              language: "pt-BR",
-            },
-            (predictions, status) => {
-              if (requestId !== requestSeqRef.current) return;
+          const list = results
+            .flatMap((result) => result.placePrediction ? [result.placePrediction] : [])
+            .map((prediction) => ({
+              place: prediction.placeId,
+              text: prediction.mainText?.text || prediction.text.text,
+              secondaryText: prediction.secondaryText?.text || "",
+              prediction,
+            }))
+            .filter((item) => !!item.place && !!item.text)
+            .slice(0, 6);
 
-              if (
-                status !== maps.places.PlacesServiceStatus.OK ||
-                !predictions ||
-                predictions.length === 0
-              ) {
-                setSuggestions([]);
-                setOpen(false);
-                setLoading(false);
-                return;
-              }
-
-              const list: PlacesPrediction[] = predictions
-                .map((prediction: google.maps.places.AutocompletePrediction) => {
-                  const mainText = String(prediction.structured_formatting?.main_text || "").trim();
-                  const secondaryText = String(prediction.structured_formatting?.secondary_text || "").trim();
-                  const description = String(prediction.description || "").trim();
-                  const fallbackParts = description
-                    .split(",")
-                    .map((part) => part.trim())
-                    .filter(Boolean);
-
-                  return {
-                    place: String(prediction.place_id || ""),
-                    text: mainText || fallbackParts[0] || description,
-                    secondaryText: secondaryText || fallbackParts.slice(1).join(", "),
-                  };
-                })
-                .filter((item: PlacesPrediction) => !!item.place && !!item.text)
-                .slice(0, 6);
-
-              setSuggestions(list);
-              setOpen(hasInteracted && list.length > 0);
-              setLoading(false);
-            }
-          );
+          setSuggestions(list);
+          setOpen(hasInteracted && list.length > 0);
+          setLoading(false);
         })
         .catch(() => {
           if (requestId !== requestSeqRef.current) return;
@@ -343,29 +325,12 @@ export default function AddressAutocomplete({
     setLoading(true);
 
     try {
-      const maps = await loadGoogleMapsApi();
-      const placesService =
-        placesServiceRef.current || new maps.places.PlacesService(document.createElement("div"));
-      placesServiceRef.current = placesService;
-
-      const details = await new Promise<any>((resolve, reject) => {
-        placesService.getDetails(
-          {
-            placeId: prediction.place,
-            fields: ["formatted_address", "geometry", "address_components", "place_id", "name"],
-            language: "pt-BR",
-          },
-          (place, status) => {
-            if (status === maps.places.PlacesServiceStatus.OK && place) {
-              resolve(place);
-            } else {
-              reject(new Error("place_details_failed"));
-            }
-          }
-        );
+      const place = prediction.prediction.toPlace();
+      await place.fetchFields({
+        fields: ["formattedAddress", "location", "addressComponents", "id", "displayName"],
       });
 
-      const parsed = mapPlaceDetailsToAddress(details);
+      const parsed = mapPlaceDetailsToAddress(place);
       const cityPlaceId = mode === "city"
         ? prediction.place
         : await resolveCityPlaceId(parsed.lat, parsed.lng);
@@ -382,8 +347,10 @@ export default function AddressAutocomplete({
       };
       onChange(withFallbackAddress.formattedAddress);
       onPlaceSelected(withFallbackAddress);
+      autocompleteSessionTokenRef.current = null;
       inputRef.current?.blur();
     } catch {
+      autocompleteSessionTokenRef.current = null;
       // Mantém ao menos o texto selecionado, sem quebrar o formulário.
       onChange(label);
     } finally {
@@ -439,6 +406,7 @@ export default function AddressAutocomplete({
               </li>
             ))}
           </ul>
+          {suggestions.length > 0 ? <GoogleMapsAttribution /> : null}
         </div>
       ) : null}
 

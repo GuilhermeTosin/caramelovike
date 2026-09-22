@@ -52,4 +52,29 @@ describe("IP geolocation cache headers", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
     expect((fetchMock.mock.calls[0][0] as Request).cache).toBe("no-store");
   });
+
+  it("uses the current site origin instead of a configured Vercel preview API", async () => {
+    vi.stubGlobal("window", {
+      __CARAMELO_PUBLIC_ENV__: {
+        VITE_GEOIP_ENDPOINT:
+          "https://caramelocodex-d0drxegnn-contato-2501s-projects.vercel.app/api/geoip",
+      },
+      localStorage: { getItem: vi.fn(() => null), setItem: vi.fn() },
+      location: { origin: "https://www.caramelinho.com" },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ lat: 45.5, lng: -73.6 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getApproxGeoByIp({ forceRefresh: true });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect((fetchMock.mock.calls[0][0] as Request).url).toBe(
+      "https://www.caramelinho.com/api/geoip",
+    );
+  });
 });

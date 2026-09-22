@@ -76,11 +76,13 @@ Os numeros abaixo sao identificadores estaveis para solicitar correcoes.
 - Impacto: anotacoes administrativas e precos comerciais de campanhas ativas podem ser consultados diretamente se houver grant SELECT publico. Exposicao independe das colunas escolhidas pelo frontend.
 - Correcao: mover notas/precos para armazenamento administrativo ou expor uma view/RPC publica com somente os campos necessarios; revisar os grants reais.
 
-## 8. P2 - Reputacao e validade de achadinhos podem ser manipuladas
+## 8. P2 - Backend legado de achadinhos ainda aceitava acesso direto (mitigacao local; migration pendente)
 
-- Evidencia: `00019_community_finds.sql:24` define upvotes, downvotes e expires_at na mesma tabela; as policies de insert/update, linhas 123-137, verificam apenas user_id.
-- Cenario: proprietario pode informar diretamente contadores elevados e validade arbitraria. A interface de votos e seu indice unico nao impedem alteracoes diretas nos contadores.
-- Correcao: reservar contadores ao banco, derivar a validade no servidor e restringir colunas de insert/update. Rever tambem a funcao de recomputacao, que atualmente executa como invoker e depende das permissoes do votante.
+- Contexto: achadinhos foi substituido pelo Marketplace e a interface de busca fixa `isCommunityFindsMode = false` em `src/pages/SearchResults.tsx`; isso desativa o fluxo visivel, mas nao remove as tabelas nem seus grants no banco.
+- Evidencia: `00019_community_finds.sql:24` define `upvotes`, `downvotes` e `expires_at`; as policies de leitura/escrita estao nas linhas 117-141. Em 2026-09-22, o proprietario do projeto consultou grants de producao e confirmou `anon` com SELECT em `community_finds`/`community_find_messages`, e `authenticated` com grants de escrita nas tabelas legadas. A consulta de contagens retornou zero em `community_finds`, `community_find_votes`, `community_find_messages` e `community_find_reports`.
+- Impacto: nao afeta o Marketplace nem os fluxos atuais da interface, mas deixa uma API PostgREST legada acessivel; a adulteracao de colunas depende das policies RLS efetivamente instaladas. A ausencia de linhas reduz o impacto atual, mas novos registros poderiam ser criados enquanto os grants permanecerem.
+- Correcao local: `supabase/migrations/00060_lock_retired_community_finds.sql` revoga todos os privilegios de `PUBLIC`, `anon` e `authenticated` nas quatro tabelas e as permissoes de execucao das RPCs especificas, sem apagar tabelas/dados ou afetar `service_role`/`postgres`.
+- Limites e aceite: migration nao executada neste ambiente; a consulta de policies efetivas ainda deve ser conferida. Apos aplicar, testar que anon/authenticated recebem permissao negada nas quatro tabelas e na RPC, e validar que Marketplace e o restante do site continuam funcionando. As tabelas permanecem vazias/retidas ate uma decisao separada de remocao fisica.
 
 ## 9. P2 - Avaliacoes sem unicidade por autor e negocio
 

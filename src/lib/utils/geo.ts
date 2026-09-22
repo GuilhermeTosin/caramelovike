@@ -152,8 +152,11 @@ function resolveGeoipEndpoint(rawEndpoint: string): string | null {
     const currentOrigin = window.location.origin;
     const isCaramelinhoHost =
       resolved.hostname === "caramelinho.com" || resolved.hostname === "www.caramelinho.com";
+    const isRemoteVercelGeoipEndpoint =
+      resolved.hostname.toLowerCase().endsWith(".vercel.app") &&
+      resolved.pathname.replace(/\/+$/, "") === "/api/geoip";
 
-    if (isCaramelinhoHost && resolved.origin !== currentOrigin) {
+    if ((isCaramelinhoHost || isRemoteVercelGeoipEndpoint) && resolved.origin !== currentOrigin) {
       return new URL("/api/geoip", currentOrigin).toString();
     }
 

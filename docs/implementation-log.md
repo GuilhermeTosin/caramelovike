@@ -24,6 +24,29 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-22 19:26:55 -04:00
+
+- Status: concluido localmente em 2026-09-22 19:33:03 -04:00; deploy e configuracao Google pendentes.
+- Solicitacao: diagnosticar o erro HTTP 500 do GeoIP e o aviso de descontinuacao do autocomplete do Google Maps reportados no console.
+- Escopo: redirecionar configuracoes do endpoint `/api/geoip` hospedadas em outro hostname `vercel.app` para a origem atual; migrar os fluxos de autocomplete de busca e endereco das APIs Places legadas para o Places Autocomplete Data API; manter a consulta GeoIP sem cache e a interface/formularios existentes.
+- Implementacao: `src/lib/utils/geo.ts` agora converte um endpoint `/api/geoip` configurado em hostname remoto `*.vercel.app` para a mesma origem do site, evitando o acoplamento a um deployment preview; o teste de regressao cobre o host reportado e conserva `cache: no-store`. `SearchInputWithSuggestions.tsx` e `AddressAutocomplete.tsx` migraram de `Autocomplete`, `AutocompleteService` e `PlacesService` para `AutocompleteSuggestion.fetchAutocompleteSuggestions()` e `Place.fetchFields()`, mantendo previsao de cidades/enderecos, selecao e bias geografico. Os dois menus mostram atribuicao oficial Powered by Google.
+- Validacao: `npm run typecheck`, `npm test` (24 arquivos, 111 testes), ESLint direcionado aos cinco arquivos alterados, `npm run build` e `git diff --check` passaram. O build conserva o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`. A busca estatica nao encontrou chamadas restantes aos tres widgets/servicos legados migrados. O build regenerou `public/sitemaps/businesses-fallback.xml`; o script de sitemap foi executado ao final para retornar esse artefato ao estado-fonte.
+- Configuracoes externas pendentes: habilitar Places API (New) no projeto Google Cloud e permitir seu uso na restricao da chave; publicar para que a resolucao GeoIP passe a usar `/api/geoip` da origem atual. Nao ha acesso aos logs/configuracao Vercel nesta sessao. Se a origem atual ainda responder 500 apos o deploy, consultar Vercel Function Logs para a causa de inicializacao/execucao. Nenhuma configuracao externa foi alterada.
+- Riscos residuais: nao foi possivel validar a resposta remota do Vercel nem exercitar autocomplete com a chave real neste ambiente; a API Places nova falha fechada para sugestoes remotas se o pre-requisito de Cloud nao estiver configurado, mantendo texto/local fallback onde existente. `ERR_BLOCKED_BY_CLIENT` no endpoint `gen_204` permanece esperado quando extensoes de privacidade/adblock o bloqueiam.
+- Fora do escopo: `maps.googleapis.com/maps/api/mapsjs/gen_204` bloqueado pelo cliente e tratado como bloqueio de extensao/navegador, nao defeito do site.
+
+### 2026-09-22 19:14:33 -04:00
+
+- Status: concluido localmente em 2026-09-22 19:15:57 -04:00; migration remota pendente.
+- Solicitacao: encerrar o acesso direto ao backend legado de achadinhos, ja substituido pelo Marketplace.
+- Evidencia remota fornecida pelo usuario: as tabelas `community_finds`, `community_find_votes`, `community_find_messages` e `community_find_reports` existem, possuem grants a `anon`/`authenticated`, e cada uma retornou zero registros.
+- Escopo: migration forward/idempotente que remove privilegios de clientes nas quatro tabelas e nas RPCs especificas de achadinhos, sem apagar dados nem objetos; atualizar auditoria e registro.
+- Implementacao: `supabase/migrations/00060_lock_retired_community_finds.sql` revoga todos os privilegios de `PUBLIC`, `anon` e `authenticated` nas quatro tabelas legadas e as permissoes de execucao das tres funcoes de achadinhos. Mantem os grants de `service_role`/`postgres` e nao apaga dados, tabelas, policies ou funcoes. O achado 8 de `docs/security-audit-2026-09-20.md` agora diferencia a interface aposentada do backend ainda presente.
+- Validacao: `git diff --check` passou; revisao estatica da migration. O usuario reportou contagem zero nas quatro tabelas e grants atuais a `anon`/`authenticated`. Sem PostgreSQL/psql/Docker local, nao executei SQL nem validei a migration contra o banco.
+- Migrations/configuracoes externas: aplicar `00060_lock_retired_community_finds.sql` no SQL Editor Supabase. Depois, confirmar que anon e authenticated recebem permissao negada nas quatro tabelas e na RPC `vote_community_find`, e que as rotas do Marketplace permanecem normais. A migration nao apaga nada e pode ser seguida por uma remocao fisica separada, apos inspecionar dependencias.
+- Riscos residuais: a feature esta desativada na interface, mas codigo e objetos SQL legados permanecem no repositorio/banco; privilegios para `service_role` e `postgres` permanecem intencionalmente. A contagem zero e um resultado informado pelo usuario e pode mudar antes da aplicacao.
+- Decisao de deploy: mitigation pronta localmente; o acesso de clientes em producao so sera bloqueado depois de aplicar a migration e verificar grants/policies efetivos.
+
 ### 2026-09-22 18:54:06 -04:00
 
 - Status: concluido localmente em 2026-09-22 18:58:49 -04:00; deploy pendente.
