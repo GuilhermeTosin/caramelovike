@@ -24,6 +24,18 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-22 19:41:49 -04:00
+
+- Status: concluido localmente em 2026-09-22 19:45:11 -04:00; deploy no Vercel dev pendente.
+- Solicitacao: corrigir `/api/geoip` apos o Vercel dev continuar respondendo HTTP 500 mesmo com a chamada no mesmo dominio.
+- Diagnostico: a correcao de origem eliminou o endpoint preview externo, mas a funcao implantada ainda falha. A implementacao consulta ate tres provedores GeoIP externos sequencialmente e usa o handler tradicional `VercelRequest`/`VercelResponse`; Vercel fornece headers nativos de cidade, regiao, pais, latitude e longitude.
+- Escopo: usar exclusivamente os headers de geolocalizacao do Vercel, substituir o handler por Fetch API padrao, manter cabecalhos no-store e responder 204 quando nao houver coordenadas validas; cobrir comportamento por testes de endpoint.
+- Riscos: headers geograficos do Vercel nao existem em execucao local ou atras de certos proxies; nesses casos a API retorna 204 e o cliente deve usar seus fallbacks. Nao consultar nem expor IP bruto.
+- Implementacao: `api/geoip.ts` usa `x-vercel-ip-latitude`, `x-vercel-ip-longitude`, `x-vercel-ip-city`, `x-vercel-ip-country-region` e `x-vercel-ip-country`; remove os tres fetches externos e o import local, migra para o handler `fetch(Request)` atual do Vercel, valida limites geograficos, preserva no-store, responde 204 sem coordenadas e 405 fora de GET. `src/lib/geoipHandler.test.ts` cobre resposta valida, decodificacao de cidade, ausencia de headers sem egress, coordenadas invalidas, metodos e headers.
+- Validacao: `npm run build` passou; 25 arquivos/115 testes passaram; ESLint direcionado e `tsc` standalone para `api/geoip.ts` passaram; `git diff --check` passou. O build manteve o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx`. O sitemap gerado pelo build foi restaurado ao estado-fonte.
+- Configuracoes externas pendentes: publicar no Vercel dev. Apos deploy, verificar `/api/geoip`: esperado `200` com coordenadas aproximadas quando os headers estiverem presentes, ou `204` sem eles; nunca mais depende de ipapi/ipwho/ipinfo. Se continuar em 500, a falha ocorre antes da invocacao deste handler ou na configuracao de roteamento/build do projeto, e exige o log da funcao/deployment.
+- Riscos residuais: nao foi possivel executar o runtime de funcoes Vercel localmente nem confirmar a resposta do deployment sem CLI/logs; a plataforma fornece os headers documentados em deployments, mas um proxy externo pode alterar a localizacao aparente. A localizacao por IP permanece aproximada.
+
 ### 2026-09-22 19:26:55 -04:00
 
 - Status: concluido localmente em 2026-09-22 19:33:03 -04:00; deploy e configuracao Google pendentes.

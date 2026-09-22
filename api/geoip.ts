@@ -1,6 +1,3 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { applyGeoipNoStoreHeaders } from "../src/lib/geoipCachePolicy";
-
 type GeoResponse = {
   lat: number;
   lng: number;
@@ -9,83 +6,71 @@ type GeoResponse = {
   countryCode?: string;
 };
 
-function getClientIp(req: VercelRequest): string | null {
-  const xff = req.headers["x-forwarded-for"];
-  const xri = req.headers["x-real-ip"];
-  const cf = req.headers["cf-connecting-ip"];
+const GEOIP_NO_STORE_HEADERS = {
+  "Cache-Control": "private, no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
+} as const;
 
-  if (typeof xff === "string" && xff.trim()) return xff.split(",")[0].trim();
-  if (Array.isArray(xff) && xff.length > 0) return xff[0].split(",")[0].trim();
-  if (typeof xri === "string" && xri.trim()) return xri.trim();
-  if (typeof cf === "string" && cf.trim()) return cf.trim();
-
-  return null;
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  applyGeoipNoStoreHeaders(res);
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-
-  const ip = getClientIp(req);
+function readOptionalHeader(request: Request, name: string): string | undefined {
+  const value = request.headers.get(name)?.trim();
+  if (!value) return undefined;
 
   try {
-    if (ip) {
-      const r1 = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`);
-      if (r1.ok) {
-        const d1 = await r1.json();
-        const lat = Number(d1?.latitude);
-        const lng = Number(d1?.longitude);
-        if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          const payload: GeoResponse = {
-            lat,
-            lng,
-            city: String(d1?.city || "").trim() || undefined,
-            stateCode: String(d1?.region_code || "").trim().toLowerCase() || undefined,
-            countryCode: String(d1?.country_code || "").trim().toLowerCase() || undefined,
-          };
-          return res.status(200).json(payload);
-        }
-      }
-
-      const r2 = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`);
-      if (r2.ok) {
-        const d2 = await r2.json();
-        const lat = Number(d2?.latitude);
-        const lng = Number(d2?.longitude);
-        if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          const payload: GeoResponse = {
-            lat,
-            lng,
-            city: String(d2?.city || "").trim() || undefined,
-            stateCode: String(d2?.region_code || "").trim().toLowerCase() || undefined,
-            countryCode: String(d2?.country_code || "").trim().toLowerCase() || undefined,
-          };
-          return res.status(200).json(payload);
-        }
-      }
-
-      const r3 = await fetch(`https://ipinfo.io/${encodeURIComponent(ip)}/json`);
-      if (r3.ok) {
-        const d3 = await r3.json();
-        const loc = String(d3?.loc || "");
-        const [latRaw, lngRaw] = loc.split(",");
-        const lat = Number(latRaw);
-        const lng = Number(lngRaw);
-        if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          const payload: GeoResponse = {
-            lat,
-            lng,
-            city: String(d3?.city || "").trim() || undefined,
-            stateCode: String(d3?.region || "").trim().toLowerCase() || undefined,
-            countryCode: String(d3?.country || "").trim().toLowerCase() || undefined,
-          };
-          return res.status(200).json(payload);
-        }
-      }
-    }
-
-    return res.status(204).end();
+    return decodeURIComponent(value);
   } catch {
-    return res.status(204).end();
+    return value;
   }
 }
+
+function getGeoFromVercelHeaders(request: Request): GeoResponse | null {
+  const rawLatitude = request.headers.get("x-vercel-ip-latitude");
+  const rawLongitude = request.headers.get("x-vercel-ip-longitude");
+  if (!rawLatitude || !rawLongitude) return null;
+
+  const lat = Number(rawLatitude);
+  const lng = Number(rawLongitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return null;
+  }
+
+  const city = readOptionalHeader(request, "x-vercel-ip-city");
+  const stateCode = readOptionalHeader(request, "x-vercel-ip-country-region");
+  const countryCode = readOptionalHeader(request, "x-vercel-ip-country");
+
+  return {
+    lat,
+    lng,
+    ...(city ? { city } : {}),
+    ...(stateCode ? { stateCode: stateCode.toLowerCase() } : {}),
+    ...(countryCode ? { countryCode: countryCode.toLowerCase() } : {}),
+  };
+}
+
+function jsonResponse(payload: GeoResponse): Response {
+  const headers = new Headers(GEOIP_NO_STORE_HEADERS);
+  headers.set("Content-Type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(payload), { status: 200, headers });
+}
+
+function emptyResponse(status = 204, extraHeaders?: HeadersInit): Response {
+  const headers = new Headers(GEOIP_NO_STORE_HEADERS);
+  if (extraHeaders) new Headers(extraHeaders).forEach((value, name) => headers.set(name, value));
+  return new Response(null, { status, headers });
+}
+
+export default {
+  fetch(request: Request): Response {
+    if (request.method !== "GET") {
+      return emptyResponse(405, { Allow: "GET" });
+    }
+
+    try {
+      const geo = getGeoFromVercelHeaders(request);
+      return geo ? jsonResponse(geo) : emptyResponse();
+    } catch (error) {
+      console.error("[api/geoip] Failed to read Vercel geolocation headers", error);
+      return emptyResponse();
+    }
+  },
+};
