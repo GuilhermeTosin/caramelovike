@@ -181,7 +181,7 @@ export interface MarketplaceReport {
   details: string | null;
   status: "pending" | "reviewing" | "resolved" | "rejected";
   created_at: string;
-  listing?: Pick<MarketplaceListing, "id" | "title" | "city" | "country_code" | "state_code"> | null;
+  listing?: Pick<MarketplaceListing, "id" | "title" | "city" | "country_code" | "state_code" | "slug" | "status"> | null;
 }
 
 export interface Review {

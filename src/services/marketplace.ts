@@ -88,6 +88,36 @@ export type MarketplaceOwnerProfile = {
   created_at?: string | null;
 };
 
+const MARKETPLACE_PUBLIC_PROFILE_SELECT = "id,name,avatar,created_at";
+
+async function getMarketplacePublicProfiles(userIds: string[], select = MARKETPLACE_PUBLIC_PROFILE_SELECT) {
+  if (userIds.length === 0) return { profiles: [] as MarketplaceOwnerProfile[], unavailable: false };
+
+  const { data: publicProfiles, error: publicProfilesError } = await supabase
+    .from("public_profiles")
+    .select(select)
+    .in("id", userIds);
+  if (!publicProfilesError) {
+    return { profiles: (publicProfiles || []) as unknown as MarketplaceOwnerProfile[], unavailable: false };
+  }
+
+  // Compatibility while the public_profiles view migration is pending. Only
+  // public identity columns are selected; private profile fields stay excluded.
+  const { data: legacyProfiles, error: legacyProfilesError } = await supabase
+    .from("profiles")
+    .select(select)
+    .in("id", userIds);
+  if (!legacyProfilesError) {
+    return { profiles: (legacyProfiles || []) as unknown as MarketplaceOwnerProfile[], unavailable: false };
+  }
+
+  console.warn("[marketplace] Seller profile lookup failed.", {
+    publicProfilesError: publicProfilesError.message,
+    legacyProfilesError: legacyProfilesError.message,
+  });
+  return { profiles: [] as MarketplaceOwnerProfile[], unavailable: true };
+}
+
 export type MarketplaceSellerReview = {
   id: string;
   business_id: string;
@@ -139,13 +169,13 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
   const ids = rows.map((row) => row.id);
   const ownerIds = [...new Set(rows.map((row) => row.owner_id))];
   const businessIds = [...new Set(rows.map((row) => row.seller_business_id).filter((id): id is string => typeof id === "string" && id.length > 0))];
-  const [{ data: images }, { data: profiles }, { data: ownerListings }, { data: sellerBusinesses }] = await Promise.all([
+  const [{ data: images }, profileLookup, { data: ownerListings }, { data: sellerBusinesses }] = await Promise.all([
     includeImages
       ? supabase.from("marketplace_listing_images").select("id,listing_id,image_url,sort_order").in("listing_id", ids).order("sort_order")
       : Promise.resolve({ data: [] as MarketplaceListingImage[] }),
     includeOwnerProfile
-      ? supabase.from("public_profiles").select("id,name,avatar,created_at").in("id", ownerIds)
-      : Promise.resolve({ data: [] as Array<{ id: string; name?: string | null; avatar?: string | null; created_at?: string | null }> }),
+      ? getMarketplacePublicProfiles(ownerIds)
+      : Promise.resolve({ profiles: [] as MarketplaceOwnerProfile[], unavailable: false }),
     includeOwnerStats
       ? supabase.from("marketplace_listings").select("owner_id,seller_business_id").in("owner_id", ownerIds).eq("status", "active")
       : Promise.resolve({ data: [] as Array<{ owner_id: string; seller_business_id?: string | null }> }),
@@ -153,6 +183,7 @@ async function enrichListings(rows: MarketplaceListing[], options: EnrichOptions
       ? supabase.from("businesses").select("id,name,logo_url,slug,country_code,state_code,city,city_slug").in("id", businessIds)
       : Promise.resolve({ data: [] as MarketplaceSellerBusiness[] }),
   ]);
+  const profiles = profileLookup.profiles;
   const imagesById = new Map<string, MarketplaceListingImage[]>();
   (images || []).forEach((image) => imagesById.set(image.listing_id, [...(imagesById.get(image.listing_id) || []), image as MarketplaceListingImage]));
   const profileById = new Map<string, MarketplaceOwnerProfile>();
@@ -374,11 +405,9 @@ async function getSellerReviews(businesses: MarketplaceSellerBusiness[]) {
   }
 
   const reviewUserIds = [...new Set((reviewRows || []).map((review) => review.user_id).filter((id): id is string => typeof id === "string" && id.length > 0))];
-  const { data: reviewProfiles, error: reviewProfilesError } = reviewUserIds.length > 0
-    ? await supabase.from("public_profiles").select("id,avatar").in("id", reviewUserIds)
-    : { data: [] as Array<{ id: string; avatar: string | null }>, error: null };
+  const reviewProfileLookup = await getMarketplacePublicProfiles(reviewUserIds, "id,avatar");
   const businessById = new Map(businesses.map((business) => [business.id, business]));
-  const avatarByUserId = new Map((reviewProfiles || []).map((reviewProfile) => [reviewProfile.id, reviewProfile.avatar || null]));
+  const avatarByUserId = new Map(reviewProfileLookup.profiles.map((reviewProfile) => [reviewProfile.id, reviewProfile.avatar || null]));
   const reviews = (reviewRows || []).flatMap((review) => {
     const business = businessById.get(review.business_id);
     if (!business) return [];
@@ -396,20 +425,20 @@ async function getSellerReviews(businesses: MarketplaceSellerBusiness[]) {
     }];
   });
 
-  return { reviews, reviewsUnavailable: Boolean(reviewProfilesError) };
+  return { reviews, reviewsUnavailable: reviewProfileLookup.unavailable };
 }
 
 export async function getMarketplaceSellerPage(ownerId: string): Promise<MarketplaceSellerPage | null> {
   const normalizedOwnerId = ownerId.trim();
   if (!normalizedOwnerId) return null;
 
-  const [{ data: profile, error: profileError }, { data: listingRows, error: listingsError }] = await Promise.all([
-    supabase.from("public_profiles").select("id,name,avatar,created_at").eq("id", normalizedOwnerId).maybeSingle(),
+  const [profileLookup, { data: listingRows, error: listingsError }] = await Promise.all([
+    getMarketplacePublicProfiles([normalizedOwnerId]),
     supabase.from("marketplace_listings").select(MARKETPLACE_LIST_SELECT).eq("owner_id", normalizedOwnerId).is("seller_business_id", null).eq("status", "active").order("created_at", { ascending: false }).order("id", { ascending: false }),
   ]);
 
-  if (profileError) throw profileError;
   if (listingsError) throw listingsError;
+  const profile = profileLookup.profiles[0] || null;
 
   // A listing references auth.users directly. Keep the public seller page
   // usable even if an older account is missing its mirrored profile row.
@@ -561,14 +590,22 @@ export async function getMarketplaceListingsForAdmin() {
 }
 
 export async function getMarketplaceReportsForAdmin() {
-  const { data, error } = await supabase.from("marketplace_reports").select("*, listing:marketplace_listings(id,title,city,country_code,state_code)").order("created_at", { ascending: false }).limit(500);
+  const { data, error } = await supabase.from("marketplace_reports").select("*, listing:marketplace_listings(id,title,city,country_code,state_code,slug,status)").order("created_at", { ascending: false }).limit(500);
   if (error) throw error;
   return (data || []) as MarketplaceReport[];
 }
 
 export async function updateMarketplaceReportStatus(id: string, status: MarketplaceReport["status"]) {
-  const { error } = await supabase.from("marketplace_reports").update({ status }).eq("id", id);
-  return { ok: !error, error: error?.message };
+  const { data, error } = await supabase
+    .from("marketplace_reports")
+    .update({ status })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  return {
+    ok: !error && !!data,
+    error: error?.message || (!data ? "A denúncia não foi atualizada. Verifique as permissões de administração." : undefined),
+  };
 }
 
 export type MarketplaceRelatedListings = {

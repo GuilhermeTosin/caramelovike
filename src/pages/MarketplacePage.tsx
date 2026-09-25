@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Baby, BookOpen, Briefcase, CalendarDays, CarFront, ChevronLeft, ChevronRight, CircleDollarSign, Dumbbell, FileText, GripVertical, Guitar, Heart, Images, MapPin, MapPinned, MessageCircle, Package, PackagePlus, Search, Share2, ShieldAlert, Shirt, ShoppingBasket, Smartphone, Sofa, Sparkles, Star, Tag, Upload, User, Wrench, X, Youtube, type LucideIcon } from "lucide-react";
+import { AlertCircle, ArrowLeft, Baby, BookOpen, Briefcase, CalendarDays, CarFront, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Dumbbell, FileText, GripVertical, Guitar, Heart, Images, MapPin, MapPinned, MessageCircle, Package, PackagePlus, Search, Share2, ShieldAlert, Shirt, ShoppingBasket, Smartphone, Sofa, Sparkles, Star, Tag, Upload, User, Wrench, X, Youtube, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1049,6 +1049,8 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
   const [message, setMessage] = useState("");
   const [reportReason, setReportReason] = useState<MarketplaceReport["reason"]>("other");
   const [reportDetails, setReportDetails] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportFeedback, setReportFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [notice, setNotice] = useState("");
   const [favorite, setFavorite] = useState(!!initialListing?.is_favorited);
   const [listingLoading, setListingLoading] = useState(!initialListing);
@@ -1097,6 +1099,35 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
     });
   };
   const handleFavorite = async () => { const next = !favorite; const result = await toggleMarketplaceFavorite(listing.id, next); if (result.ok) setFavorite(next); else setNotice(result.error || "Faça login para salvar anúncios."); };
+  const handleReport = async () => {
+    if (reportSubmitting) return;
+    if (!session) {
+      const message = "Entre na sua conta para enviar uma denúncia.";
+      setReportFeedback({ type: "error", message });
+      toast.error(message);
+      return;
+    }
+    setReportSubmitting(true);
+    setReportFeedback(null);
+    try {
+      const result = await reportMarketplaceListing(listing.id, reportReason, reportDetails);
+      if (!result.ok) {
+        const message = result.error || "Não foi possível enviar a denúncia.";
+        setReportFeedback({ type: "error", message });
+        toast.error(message);
+        return;
+      }
+      setReportDetails("");
+      setReportFeedback({ type: "success", message: "Denúncia enviada. Nossa equipe vai analisar este anúncio." });
+      toast.success("Denúncia enviada para análise.", { duration: 5000 });
+    } catch {
+      const message = "Não foi possível enviar a denúncia. Tente novamente.";
+      setReportFeedback({ type: "error", message });
+      toast.error(message);
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -1232,8 +1263,12 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
               </h2>
               <select
                 value={reportReason}
-                onChange={(event) => setReportReason(event.target.value as MarketplaceReport["reason"])}
+                onChange={(event) => {
+                  setReportReason(event.target.value as MarketplaceReport["reason"]);
+                  setReportFeedback(null);
+                }}
                 className="mt-3 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                aria-label="Motivo da denúncia"
               >
                 <option value="fraud">Golpe/fraude</option>
                 <option value="prohibited">Produto proibido</option>
@@ -1245,21 +1280,37 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
               </select>
               <Textarea
                 value={reportDetails}
-                onChange={(event) => setReportDetails(event.target.value)}
+                onChange={(event) => {
+                  setReportDetails(event.target.value);
+                  setReportFeedback(null);
+                }}
                 className="mt-3"
                 rows={3}
                 placeholder="Descreva o problema (opcional)."
+                aria-label="Detalhes da denúncia"
               />
               <Button
                 variant="outline"
                 className="mt-3 w-full"
-                onClick={async () => {
-                  const result = await reportMarketplaceListing(listing.id, reportReason, reportDetails);
-                  setNotice(result.ok ? "Denúncia enviada para análise." : result.error || "Não foi possível denunciar.");
-                }}
+                disabled={reportSubmitting}
+                onClick={() => void handleReport()}
               >
-                Enviar denúncia
+                {reportSubmitting ? "Enviando denúncia..." : "Enviar denúncia"}
               </Button>
+              {reportFeedback ? (
+                <div
+                  role={reportFeedback.type === "error" ? "alert" : "status"}
+                  className={reportFeedback.type === "success"
+                    ? "mt-4 flex items-start gap-3 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-950"
+                    : "mt-4 flex items-start gap-3 rounded-xl border border-red-300 bg-red-50 p-4 text-red-950"}
+                >
+                  {reportFeedback.type === "success" ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" /> : <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />}
+                  <div>
+                    <p className="font-semibold">{reportFeedback.type === "success" ? "Recebemos sua denúncia" : "Não foi possível enviar"}</p>
+                    <p className="mt-1 text-sm">{reportFeedback.message}</p>
+                  </div>
+                </div>
+              ) : null}
             </Card>
           </aside>
         </div>
@@ -1282,10 +1333,28 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
   );
 }
 
+function MarketplaceSellerLoadError({ entity, onRetry }: { entity: "vendedor" | "negócio"; onRetry: () => void }) {
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="mx-auto max-w-xl px-4 py-20 text-center">
+        <h1 className="text-2xl font-bold">Não foi possível carregar o perfil</h1>
+        <p className="mt-2 text-muted-foreground">O perfil do {entity} não pôde ser consultado agora. Tente novamente em instantes.</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Button onClick={onRetry}>Tentar novamente</Button>
+          <Button asChild variant="outline"><Link to="/marketplace">Voltar ao Marketplace</Link></Button>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export function MarketplaceSellerPage({ initialSeller }: { initialSeller?: MarketplaceSellerPage | null }) {
   const { ownerId } = useParams<{ ownerId: string }>();
   const [seller, setSeller] = useState<MarketplaceSellerPage | null>(initialSeller || null);
   const [loading, setLoading] = useState(!initialSeller);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     if (initialSeller || !ownerId) {
@@ -1294,10 +1363,11 @@ export function MarketplaceSellerPage({ initialSeller }: { initialSeller?: Marke
     }
     let active = true;
     void getMarketplaceSellerPage(ownerId)
-      .then((value) => { if (active) setSeller(value); })
+      .then((value) => { if (active) { setSeller(value); setLoadFailed(false); } })
+      .catch(() => { if (active) setLoadFailed(true); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [initialSeller, ownerId]);
+  }, [initialSeller, loadAttempt, ownerId]);
 
   useEffect(() => {
     if (!seller) return;
@@ -1307,6 +1377,10 @@ export function MarketplaceSellerPage({ initialSeller }: { initialSeller?: Marke
 
   if (loading) {
     return <div className="min-h-screen bg-background" aria-busy="true" aria-label="Carregando perfil do vendedor"><Header /><main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><div className="h-32 animate-pulse rounded-2xl bg-muted/60" /><div className="h-8 w-56 animate-pulse rounded bg-muted/60" /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{Array.from({ length: 5 }).map((_, index) => <div key={index} className="aspect-square animate-pulse rounded-xl bg-muted/50" />)}</div></main></div>;
+  }
+
+  if (!seller && loadFailed) {
+    return <MarketplaceSellerLoadError entity="vendedor" onRetry={() => { setLoadFailed(false); setLoading(true); setLoadAttempt((attempt) => attempt + 1); }} />;
   }
 
   if (!seller) {
@@ -1321,6 +1395,8 @@ export function MarketplaceBusinessSellerPage({ initialBusinessSeller }: { initi
   const { businessId } = useParams<{ businessId: string }>();
   const [seller, setSeller] = useState<MarketplaceBusinessSellerPage | null>(initialBusinessSeller || null);
   const [loading, setLoading] = useState(!initialBusinessSeller);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     if (initialBusinessSeller || !businessId) {
@@ -1329,10 +1405,11 @@ export function MarketplaceBusinessSellerPage({ initialBusinessSeller }: { initi
     }
     let active = true;
     void getMarketplaceBusinessSellerPage(businessId)
-      .then((value) => { if (active) setSeller(value); })
+      .then((value) => { if (active) { setSeller(value); setLoadFailed(false); } })
+      .catch(() => { if (active) setLoadFailed(true); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [businessId, initialBusinessSeller]);
+  }, [businessId, initialBusinessSeller, loadAttempt]);
 
   useEffect(() => {
     if (!seller) return;
@@ -1341,6 +1418,10 @@ export function MarketplaceBusinessSellerPage({ initialBusinessSeller }: { initi
 
   if (loading) {
     return <div className="min-h-screen bg-background" aria-busy="true" aria-label="Carregando página do negócio"><Header /><main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><div className="h-32 animate-pulse rounded-2xl bg-muted/60" /><div className="h-8 w-56 animate-pulse rounded bg-muted/60" /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{Array.from({ length: 5 }).map((_, index) => <div key={index} className="aspect-square animate-pulse rounded-xl bg-muted/50" />)}</div></main></div>;
+  }
+
+  if (!seller && loadFailed) {
+    return <MarketplaceSellerLoadError entity="negócio" onRetry={() => { setLoadFailed(false); setLoading(true); setLoadAttempt((attempt) => attempt + 1); }} />;
   }
 
   if (!seller) {

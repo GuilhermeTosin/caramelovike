@@ -24,6 +24,33 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-25 18:07:28 -04:00
+
+- Status: concluido localmente em 2026-09-25 18:11:47 -04:00; deploy pendente.
+- Solicitacao: restaurar o nome real do anunciante no detalhe de anuncios e fazer com que o link para o perfil do vendedor funcione, em vez de mostrar `USUARIO` e `Vendedor nao encontrado`.
+- Diagnostico: o Marketplace consulta `public_profiles`, view criada pela migration `00058_protect_private_profile_data.sql`. Se a migration ainda nao foi aplicada, a consulta falha; o enriquecimento esconde a falha e usa `Usuario`, enquanto a pagina de vendedor deixa a Promise rejeitar e cai no estado incorreto de nao encontrado.
+- Escopo: manter compatibilidade entre o schema legado e a view publica com consulta restrita a `id`, `name`, `avatar` e `created_at`; diferenciar erros temporarios de perfil realmente ausente, com opcao de nova tentativa.
+- Estrategia: adicionar fallback do servico do Marketplace para as mesmas colunas permitidas em `profiles`, sem buscar telefone/localizacao; capturar falhas nas paginas de perfil pessoal e comercial; nenhuma migration, banco remoto ou deploy sera alterado.
+- Implementacao: `src/services/marketplace.ts` tenta primeiro `public_profiles` e, se a view nao estiver disponivel, consulta apenas `id,name,avatar,created_at` em `profiles`; o fluxo serve ao nome/avatar dos anuncios, ao perfil pessoal e aos avatares de avaliacao. Se as duas fontes falharem, registra erro sem impedir o restante dos anuncios. `src/pages/MarketplacePage.tsx` captura falhas de carregamento nas paginas de vendedor pessoal/comercial e exibe estado temporario com retry, reservando “nao encontrado” para resposta bem-sucedida sem perfil.
+- Validacao: `npm run typecheck`, ESLint direcionado para `src/services/marketplace.ts` e `src/pages/MarketplacePage.tsx`, e `git diff --check` passaram. Nenhum teste automatizado nem verificacao visual no browser foi executado nesta alteracao.
+- Migrations/configuracoes externas: nenhuma migration criada ou executada, e nenhum banco remoto alterado. A migration `00058_protect_private_profile_data.sql` continua necessaria para proteger telefone/localizacao no banco; o fallback e apenas uma compatibilidade de leitura e nao substitui a migration.
+- Riscos: se o perfil nao existir ou o banco bloquear ambas as fontes, o Marketplace nao podera exibir o nome real; nesse caso mostrara falha de carregamento ou nome generico, mas nao deve expor dados privados. Aplicar a migration 00058 continua necessario para a protecao definitiva do perfil.
+- Decisao de deploy: a correcao e compativel com o schema anterior e pode recuperar nomes antes da migration; para publicar a correcao de seguranca de perfis, aplicar e validar a migration 00058 continua pendente.
+
+### 2026-09-25 17:47:47 -04:00
+
+- Status: concluido localmente em 2026-09-25 17:59:23 -04:00; migration remota pendente.
+- Solicitacao: exibir denuncias de anuncios para administradores e destacar a confirmacao de envio no detalhe do anuncio.
+- Diagnostico: a aba Denuncias lista apenas relatos de negocios; os relatos de anuncios ficam em Marketplace (admin), cujo carregamento converte erros em lista vazia. A migration inicial concede SELECT/INSERT em marketplace_reports, mas nao UPDATE do status.
+- Escopo: concentrar relatos de anuncios na aba Denuncias, informar erros de carregamento/atualizacao, destacar o retorno do envio junto ao formulario e registrar permissao SQL minima para a moderacao.
+- Estrategia: componente administrativo dedicado aos relatos do Marketplace, feedback acessivel com envio protegido contra duplo clique e migration aditiva para UPDATE(status). Nenhuma alteracao remota sera aplicada nesta tarefa.
+- Riscos: policies/grants efetivos do Supabase podem divergir das migrations; a interface so podera alterar status depois da aplicacao e verificacao da nova migration.
+- Implementacao: `MarketplaceReportsAdminSection.tsx` mostra as denuncias de anuncios dentro de Perfil > Denuncias, com motivo e status em portugues, link para anuncios disponiveis, carregamento, falha explicita/retry e acoes de moderacao. `ReportsAdminTab.tsx` integra a fila; `MarketplaceAdminTab.tsx` deixa de duplicar relatos e nao mascara erros de carregamento. `src/services/marketplace.ts` exige retorno de linha no UPDATE para nao reportar sucesso falso. `MarketplacePage.tsx` exibe confirmacao/erro junto ao formulario e por toast, com estados acessiveis, bloqueio de envio duplicado e resposta imediata sem sessao. `src/types/database.ts` inclui os campos do anuncio usados no link administrativo.
+- Migration: `00061_marketplace_reports_admin_status.sql` revoga grants amplos de SELECT/UPDATE de clientes, garante SELECT da fila apenas a administradores por policy permissiva e tetos restritivos para anon/authenticated, concede apenas `UPDATE(status)` a authenticated e adiciona teto restritivo para escrita administrativa mesmo se existir policy permissiva antiga. Nao foi aplicada ao Supabase; depende da tabela de Marketplace e da funcao `is_admin` ja existentes.
+- Validacao: `npm run verify` passou (25 arquivos, 115 testes), ESLint direcionado passou, `git diff --check` passou. No browser local, o detalhe de um anuncio mostrou o formulario; o acionamento por teclado sem login exibiu erro em card destacado e toast. Nao foi criada denuncia real nem testada uma sessao administrativa.
+- Build: `npx vike build` e a tentativa com `--configLoader runner` falharam antes da compilacao em `vite.config.ts`, com `spawn EPERM` no Vite sob o ambiente Windows restrito. O build permanece nao validado neste turno; nao se atribui essa falha ao codigo alterado.
+- Riscos residuais: confirmar no Supabase os grants/RLS efetivos e aplicar a migration antes de usar a mudanca de status; testar com conta admin o recebimento e a moderacao de uma denuncia real em ambiente controlado. Nenhum deploy ou SQL remoto foi executado.
+
 ### 2026-09-22 19:41:49 -04:00
 
 - Status: concluido localmente em 2026-09-22 19:45:11 -04:00; deploy no Vercel dev pendente.
