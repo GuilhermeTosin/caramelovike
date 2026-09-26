@@ -15,8 +15,10 @@ export default function SiteHeaderAuthActions({
   const { session, unreadMessages, isLoading } = useAuth();
   const { openMarketplaceChatInbox } = useMarketplaceChat();
 
-  const messageIconClassName = compact ? "w-4 h-4" : "w-5 h-5";
-  const unreadBadgeClassName = compact ? "w-3.5 h-3.5 bg-primary text-[9px]" : "w-4 h-4 bg-primary text-[10px]";
+  const messageIconClassName = compact ? "h-5 w-5" : "h-6 w-6";
+  const unreadBadgeClassName = compact
+    ? "h-5 min-w-5 px-1 text-[10px]"
+    : "h-6 min-w-6 px-1.5 text-xs";
   const loginButtonClassName = compact
     ? "rounded-full"
     : "rounded-full text-muted-foreground hover:text-foreground";
@@ -40,13 +42,15 @@ export default function SiteHeaderAuthActions({
               variant="ghost"
               size="icon"
               onClick={() => void openMarketplaceChatInbox()}
-              aria-label="Abrir mensagens"
-              className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10"
+              aria-label={unreadMessages > 0 ? `Abrir mensagens, ${unreadMessages} não lidas` : "Abrir mensagens"}
+              className={`relative rounded-full transition-colors w-10 h-10 sm:w-11 sm:h-11 ${unreadMessages > 0
+                ? "bg-[#fff1df] text-[#8f3e12] shadow-sm ring-1 ring-[#e4a66f] hover:bg-[#ffe5c8]"
+                : "text-muted-foreground hover:bg-secondary"}`}
             >
-              <MessageCircle className={messageIconClassName} />
+              <MessageCircle className={messageIconClassName} strokeWidth={2.4} aria-hidden="true" />
               {unreadMessages > 0 && (
-                <span className={`absolute top-0 right-0 ${unreadBadgeClassName} text-white font-bold rounded-full flex items-center justify-center border-2 border-white`}>
-                  {unreadMessages > 9 ? "9+" : unreadMessages}
+                <span aria-hidden="true" className={`absolute -right-1 -top-1 ${unreadBadgeClassName} flex items-center justify-center rounded-full border-2 border-white bg-[#b55518] font-extrabold leading-none text-white shadow-md`}>
+                  {unreadMessages > 99 ? "99+" : unreadMessages}
                 </span>
               )}
             </Button>

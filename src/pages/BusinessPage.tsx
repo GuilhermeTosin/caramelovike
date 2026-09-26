@@ -35,14 +35,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { getSimilarBusinessesForBusiness, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateDisplayName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
+import { getMarketplaceListingsForBusinessPage } from "@/services/marketplace";
+import { marketplaceBusinessSellerPath } from "@/lib/marketplaceSnapshot";
 import { getOrCreateConversation } from "@/services/messages";
 import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
 import { createBusinessReport } from "@/services/reports";
-import type { BusinessFrontend } from "@/types/database";
+import type { BusinessFrontend, ConversationFrontend } from "@/types/database";
+import type { MarketplaceListing } from "@/types/database";
 import { getRichTextBlockClassName, sanitizeRichTextHtml, stripRichTextHtml } from "@/lib/richText";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMarketplaceChat, type MarketplaceChatConversation } from "@/contexts/MarketplaceChatContext";
+import MarketplaceListingCard from "@/components/MarketplaceListingCard";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setJsonLd, setRobots } from "@/lib/seo";
@@ -289,6 +293,17 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const [showAllMenuItems, setShowAllMenuItems] = useState(false);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [reviewPage, setReviewPage] = useState(1);
+  const [businessMarketplace, setBusinessMarketplace] = useState<{
+    businessId: string;
+    items: MarketplaceListing[];
+    totalCount: number;
+  } | null>(null);
+  const businessMarketplaceListings = businessMarketplace?.businessId === business?.id
+    ? businessMarketplace.items
+    : [];
+  const businessMarketplaceTotalCount = businessMarketplace?.businessId === business?.id
+    ? businessMarketplace.totalCount
+    : 0;
 
   const businessCityDisplayName = getCityDisplayName(
       business?.address.cityDisplayName || business?.address.city,
@@ -396,6 +411,25 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       active = false;
     };
   }, [previewMode, businessId, countryCode, stateCode, city, businessName, initialBusinesses, initialSimilarBusinesses]);
+
+  useEffect(() => {
+    const businessId = business?.id;
+    if (!businessId || previewMode) {
+      setBusinessMarketplace(null);
+      return;
+    }
+
+    let active = true;
+    void getMarketplaceListingsForBusinessPage(businessId)
+      .then((result) => {
+        if (active) setBusinessMarketplace({ businessId, ...result });
+      })
+      .catch((error) => console.warn("[BusinessPage] Não foi possível carregar produtos do Marketplace:", error));
+
+    return () => {
+      active = false;
+    };
+  }, [business?.id, previewMode]);
 
   useEffect(() => {
     setCanUseNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
@@ -609,13 +643,20 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       return;
     }
 
-    const conversation = await getOrCreateConversation(
-      session.userId,
-      business.ownerId,
-      business.id,
-      business.name,
-      { type: "business" },
-    );
+    let conversation: ConversationFrontend | null;
+    try {
+      conversation = await getOrCreateConversation(
+        session.userId,
+        business.ownerId,
+        business.id,
+        business.name,
+        { type: "business" },
+      );
+    } catch (error) {
+      console.error("[BusinessPage] Erro ao iniciar conversa:", error);
+      toast.error("Não foi possível iniciar a conversa. Tente novamente mais tarde.");
+      return;
+    }
     if (conversation) {
       refreshUnread();
       toast.success(`Conversa com ${business.ownerName} iniciada!`);
@@ -884,6 +925,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                   <a href="#cardapio" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
                     {"Cardápio"}</a>
                 ) : null}
+                {businessMarketplaceListings.length > 0 ? (
+                  <a href="#marketplace" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
+                    {"Produtos"}</a>
+                ) : null}
 
                 {activePromotions.length > 0 && (
                   <a href="#promocoes" className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-amber-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
@@ -1057,6 +1102,27 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                       {showAllMenuItems ? ("Mostrar menos") : (`Ver todos os ${menuEntries.length} itens`)}
                     </Button>
                   ) : null}
+                </section>
+              ) : null}
+
+              {businessMarketplaceListings.length > 0 ? (
+                <section id="marketplace" aria-labelledby="business-marketplace-heading" className="scroll-mt-[calc(var(--site-header-height)+4rem)] border-b border-border/70 py-8 first:pt-6 last:border-b-0">
+                  <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <h2 id="business-marketplace-heading" className="text-xl font-bold text-foreground">Anúncios</h2>
+                      <p className="mt-1 text-sm text-muted-foreground">Explore produtos e serviços de {business.name}</p>
+                    </div>
+                    {businessMarketplaceTotalCount > businessMarketplaceListings.length ? (
+                      <Link to={marketplaceBusinessSellerPath(business.id)} className="text-sm font-semibold text-primary hover:underline">
+                        Ver todos no Marketplace
+                      </Link>
+                    ) : null}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                    {businessMarketplaceListings.map((listing) => (
+                      <MarketplaceListingCard key={listing.id} listing={listing} />
+                    ))}
+                  </div>
                 </section>
               ) : null}
 

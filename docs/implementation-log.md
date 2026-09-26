@@ -24,6 +24,109 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-09-25 21:20:43 -04:00
+
+- Status: concluido localmente em 2026-09-25 21:22:32 -04:00.
+- Solicitacao: simplificar a apresentacao da secao de anuncios na pagina do negocio e deixar mais claro que a opcao de exibicao na pagina e recomendada durante a edicao.
+- Escopo: ajustar o titulo e texto auxiliar da secao publica; na pagina de edicao, remover a explicacao extensa e incluir `(Recomendado)` no rotulo do checkbox.
+- Estrategia: alterar apenas os trechos de interface solicitados, preservando a descricao existente na tela de criacao.
+- Implementacao: secao da pagina publica agora se chama `Anúncios` e usa a chamada `Explore produtos e serviços de {nome do negócio}`. Na edicao do anuncio, o checkbox agora diz `Mostrar também na página do negócio (Recomendado)` e nao exibe a explicacao auxiliar; o texto da tela de criacao foi preservado.
+- Arquivos: `src/pages/BusinessPage.tsx`, `src/pages/MarketplacePage.tsx` e este registro.
+- Validacao: `npm run typecheck`, ESLint direcionado aos dois arquivos e `git diff --check` aprovados. O Git exibiu somente avisos de normalizacao CRLF/LF.
+- Migrations/configuracoes externas: nenhuma; sem alteracao de dados ou banco.
+- Riscos residuais: nenhum identificado; nenhuma alteracao funcional ou de autorizacao.
+
+### 2026-09-25 20:58:24 -04:00
+
+- Status: concluido localmente em 2026-09-25 21:14:00 -04:00.
+- Solicitacao: permitir que, opcionalmente, um anuncio do Marketplace vinculado a um negocio tambem apareca na pagina publica desse negocio, perto da secao de cardapio/servicos.
+- Diagnostico: o Marketplace ja associa o anunciante a um negocio por `seller_business_id`, mas nao ha preferencia independente para exibir o produto na pagina publica do negocio.
+- Escopo: adicionar uma opcao na criacao e edicao, persistir a preferencia com validacao, e renderizar um conjunto pequeno de anuncios ativos em uma secao separada da pagina do negocio.
+- Estrategia: novo booleano `show_on_business_page` false por padrao; atualizar RPC de criacao com uma sobrecarga compativel com bundles antigos, salvar edicoes sob RLS do proprietario e consultar apenas anuncios ativos explicitamente marcados. Filtrar negocios pela mesma regra de publicacao aprovada/legada.
+- Implementacao: adicionado o opt-in na criacao e edicao de anuncios vinculados; cards ativos marcados aparecem numa secao separada apos cardapio/servicos, com caminho para ver todos no Marketplace. A associacao e validada pela autorizacao ja existente; sem migration, os fluxos antigos continuam funcionando e a opcao marcada informa a etapa pendente.
+- Arquivos: `supabase/migrations/00063_marketplace_business_page_featured_listings.sql`, `src/types/database.ts`, `src/services/marketplace.ts`, `src/pages/MarketplacePage.tsx`, `src/pages/BusinessPage.tsx` e este registro.
+- Validacao: `npm run typecheck` aprovado; `npx eslint src/pages/MarketplacePage.tsx src/pages/BusinessPage.tsx src/services/marketplace.ts` aprovado; `git diff --check` aprovado (apenas avisos informativos de normalizacao CRLF/LF do Git).
+- Etapa manual pendente: aplicar a migration 00063 no Supabase antes de habilitar a opcao em producao. Se a migration 00062 ainda nao foi aplicada, aplicar 00062 antes de 00063. Nenhuma migration remota foi executada nesta tarefa.
+- Riscos residuais: ainda nao houve teste de integracao contra um banco Supabase de desenvolvimento; anuncios existentes permanecem ocultos na pagina do negocio por padrao. Decisao de deploy: nao publicar a opcao como funcional em producao antes de aplicar as migrations pendentes.
+
+### 2026-09-25 20:49:21 -04:00
+
+- Status: concluido localmente em 2026-09-25 20:50:48 -04:00.
+- Solicitacao: tornar clicavel tambem o negocio associado ao cabeçalho de uma conversa.
+- Diagnostico: a resolucao de links da caixa de entrada atualmente cobre somente anuncios do Marketplace; conversas vinculadas a negocio carregam `business_id`, mas nao recuperam a URL publica correspondente.
+- Escopo: resolver caminhos publicos de negocios em lote, reutilizar o construtor canonico `buildBusinessUrl` e atribuir o link ao contexto da conversa.
+- Estrategia: consultar apenas slug e localizacao de negocios aprovados ou legados sem status, usando a mesma regra de visibilidade de `getBusinessById`; nenhuma consulta por conversa e nenhuma alteracao de banco.
+- Implementacao: `getPublicBusinessPathsByIds` consulta em lote apenas os dados de rota de negocios aprovados ou legados publicos e gera os caminhos com `buildBusinessUrl`. `buildConversationItems` adiciona o caminho publico ao contexto das conversas vinculadas a negocio, mantendo a resolucao de anuncios separada.
+- Arquivos: `src/services/businesses.ts`, `src/contexts/MarketplaceChatContext.tsx`.
+- Validacao: `npm run typecheck`, ESLint direcionado aos dois arquivos e `git diff --check` passaram. O Git exibiu somente avisos preexistentes de normalizacao CRLF em arquivos fora deste escopo. Nenhum teste visual no browser foi executado.
+- Migrations/configuracoes externas: nenhuma migration ou alteracao no banco.
+- Riscos: negocios nao publicos ou removidos nao terao link; conversas do Marketplace e chats antigos sem negocio permanecem com o comportamento anterior.
+
+### 2026-09-25 20:44:45 -04:00
+
+- Status: concluido localmente em 2026-09-25 20:46:16 -04:00.
+- Solicitacao: tornar clicavel o anuncio no cabeçalho da conversa, corrigir a acentuacao de “Anuncio do Marketplace” e remover o texto “Mensagens” duplicado na caixa de entrada minimizada.
+- Diagnostico: conversas abertas diretamente pelo anuncio recebem seu link, mas itens carregados da caixa de entrada nao recuperam o caminho do anuncio, embora tenham `marketplace_listing_id`; o estado minimizado mostra “Mensagens” tanto como titulo quanto subtitulo.
+- Escopo: resolver links de anuncios em lote para conversas da caixa de entrada, padronizar o rotulo acentuado e evitar duplicacao visual no minimizado.
+- Estrategia: consultar somente os campos necessarios dos anuncios ativos/vendidos associados, reutilizar o construtor canonico de URL e manter o comportamento atual para chats sem anuncio.
+- Implementacao: `getMarketplaceListingPathsByIds` busca em uma unica consulta as rotas dos anuncios ativos/vendidos associados as conversas; os itens do popup passam a preencher `contextHref`, tornando clicavel o cabeçalho do anuncio. O rotulo agora aparece como “Anúncio do Marketplace”. No popup minimizado da caixa de entrada, removi a segunda linha “Mensagens”; conversas individuais mantem seu subtitulo.
+- Arquivos: `src/services/marketplace.ts`, `src/contexts/MarketplaceChatContext.tsx`, `src/components/MarketplaceChatPopup.tsx`.
+- Validacao: `npm run typecheck`, ESLint direcionado aos tres arquivos e `git diff --check` passaram. O Git exibiu somente avisos preexistentes de normalizacao CRLF em `MobileHeaderMenu.tsx` e `BusinessPage.tsx`. Nenhum teste visual no browser foi executado.
+- Migrations/configuracoes externas: nenhuma migration ou alteracao no banco.
+- Riscos: anuncios que ja nao estejam ativos nem vendidos nao terao uma rota publica recuperada e, nesse caso, o cabecalho continua sem link.
+
+### 2026-09-25 20:33:46 -04:00
+
+- Status: concluido localmente em 2026-09-25 20:38:26 -04:00.
+- Solicitacao: dar maior destaque ao icone/contador de mensagens nao lidas no header e tocar um aviso sonoro ao receber nova mensagem.
+- Diagnostico: o badge atual e pequeno e de baixo contraste; a atualizacao do total depende de chamadas pontuais, sem listener global para notificacoes recebidas.
+- Escopo: destacar badge acessivel em desktop e no menu mobile; ouvir novas mensagens para a sessao autenticada e emitir um breve som somente para mensagens de outras pessoas.
+- Estrategia: uma assinatura Realtime global em `messages`, limitada por RLS aos participantes, dentro do provider global de chat; debounce no refresh do contador; sintetizar um tom curto via Web Audio, inicializando o contexto apenas apos gesto do usuario. Nenhuma migration ou asset de audio.
+- Implementacao: badge do header e acao de mensagens no menu mobile ganharam icone maior, fundo de destaque quando ha nao lidas, contador caramelo de alto contraste ate `99+` e rotulos acessiveis. O provider global acompanha novos INSERTs Realtime, ignora mensagens enviadas pelo proprio usuario, evita eventos duplicados, toca duas notas curtas sintetizadas e atualiza o total com debounce quando a caixa atual nao faz esse refresh. O listener redundante do perfil deixou de atualizar o total.
+- Arquivos: `src/components/SiteHeaderAuthActions.tsx`, `src/components/MobileHeaderMenu.tsx`, `src/contexts/MarketplaceChatContext.tsx`, `src/lib/message-notification-sound.ts`, `src/services/messages.ts`, `src/pages/user-profile/hooks/useInboxAndReviews.ts`.
+- Validacao: `npm run typecheck`, ESLint direcionado aos seis arquivos TypeScript/TSX e `git diff --check` passaram. Nenhum teste no browser com duas contas foi executado.
+- Migrations/configuracoes externas: nenhuma migration criada/aplicada. A notificacao usa Realtime em `public.messages` e depende da publicacao e policy SELECT para participantes ja estarem ativas no Supabase.
+- Riscos: navegadores bloqueiam audio antes de interacao explicita; o som fica habilitado depois do primeiro clique/toque/tecla. Audio e best-effort e nao afeta envio/recebimento. Validar o evento e o contador no ambiente Supabase com uma segunda conta antes de deploy.
+
+### 2026-09-25 20:04:44 -04:00
+
+- Status: concluido localmente em 2026-09-25 20:17:24 -04:00.
+- Solicitacao: explicar e corrigir a ausencia de novas mensagens na caixa de entrada ate recarregar a pagina.
+- Diagnostico: o popup busca conversas ao abrir, mas nao acompanha eventos enquanto exibe a lista; a assinatura existente so observa mensagens da conversa aberta. Perfil > Mensagens tambem assina apenas a conversa selecionada.
+- Escopo: manter lista, ordem recente e contagens de nao lidas sincronizadas em tempo real no popup e no Perfil, inclusive quando uma nova conversa surge.
+- Implementacao: ao abrir o popup, conecta uma assinatura Realtime de `conversations`; atualiza trecho, horario, posicao e nao lidas de conversas existentes, e recarrega a caixa com debounce somente para uma conversa ainda nao listada. Ao reconectar, busca novamente para recuperar eventos perdidos. Perfil > Mensagens usa a mesma atividade em tempo real; a assinatura especifica da conversa continua cuidando do fluxo de mensagens aberto.
+- Arquivos: `src/services/messages.ts`, `src/contexts/MarketplaceChatContext.tsx`, `src/pages/user-profile/hooks/useInboxAndReviews.ts`.
+- Validacao: `npm run typecheck` passou e `git diff --check` passou. ESLint direcionado permaneceu em execucao sem produzir resultado durante a janela de validacao; nao foi possivel confirmar lint. Nenhum teste no browser com duas contas foi executado.
+- Migrations/configuracoes externas: nenhuma migration nova. A migration 00006 ja adiciona `conversations` a `supabase_realtime` e as policies de leitura de conversas limitam os eventos a participantes. A migration 00062 da tarefa anterior continua pendente conforme registrado abaixo; o fallback de contagem de nao lidas permanece disponivel ate aplica-la.
+- Riscos: atualizacao ao vivo depende de `conversations` estar na publicacao Realtime e da policy de SELECT para participantes estar ativa no Supabase; verificar com duas contas apos deploy. Nao foi adicionado polling nem uma assinatura por chat.
+- Decisao de deploy: codigo local validado por TypeScript; validar Realtime com duas contas no ambiente antes de considerar a correcao confirmada em producao.
+
+### 2026-09-25 19:49:00 -04:00
+
+- Status: concluido localmente em 2026-09-25 19:58:15 -04:00; migration pendente de aplicacao no Supabase.
+- Solicitacao: ordenar a caixa de entrada por atividade recente, destacar conversas nao lidas e permitir apagar conversa com confirmacao no popup global do canto inferior da tela.
+- Diagnostico: `getConversationsForUser` ja ordena pelo ultimo envio, mas nao calcula nao lidas; o popup nao diferencia estados e nao possui acao de remocao. O perfil tem um delete direto da conversa compartilhada, que nao e seguro nem coerente com “apagar da minha caixa”.
+- Escopo: atualizar a lista do popup e a aba Perfil > Mensagens com ordenacao/indicador de nao lidas; implementar remocao por usuario autenticado, confirmacao acessivel no popup, e manter o historico do outro participante.
+- Implementacao: `getConversationsForUser` ordena por ultima atividade e inclui contagem agregada de nao lidas via RPC; o fallback consulta somente IDs das mensagens nao lidas para compatibilidade durante rollout. Popup e Perfil > Mensagens destacam conversas nao lidas, mostram horario para atividade de hoje, e zeram o indicador ao abrir a conversa. O popup ganhou acao de remover com dialogo acessivel; ambas as caixas ocultam a conversa apenas para o usuario atual, sem apagar o historico do outro participante. Nova mensagem restaura a conversa na caixa.
+- Arquivos: `supabase/migrations/00062_per_user_conversation_inbox.sql`, `src/services/messages.ts`, `src/types/database.ts`, `src/contexts/MarketplaceChatContext.tsx`, `src/components/MarketplaceChatPopup.tsx`, `src/pages/user-profile/components/MessagesTab.tsx`, `src/pages/user-profile/hooks/useInboxAndReviews.ts`.
+- Validacao: `npm run typecheck` passou; ESLint direcionado aos seis arquivos TypeScript/TSX passou; `git diff --check` passou. O Git exibiu apenas aviso de normalizacao CRLF em `src/pages/BusinessPage.tsx`, arquivo previamente alterado fora do escopo desta tarefa. Nenhum teste automatizado ou teste no browser foi executado.
+- Migrations/configuracoes externas: migration `00062_per_user_conversation_inbox.sql` criada, mas nao aplicada. Aplicar no Supabase antes de publicar para habilitar remocao individual e contagem agregada de nao lidas; sem a migration, a consulta da caixa usa fallback compatível, mas a remocao informa falha.
+- Riscos: uma mensagem nova restaura a conversa para os participantes, conforme explicado na confirmacao; a acao nao apaga permanentemente nem altera o historico do outro participante. Nao houve verificacao visual em browser nesta tarefa.
+- Decisao de deploy: alteracoes locais validadas por tipos e lint; nao publicar ate aplicar e verificar a migration 00062 no Supabase.
+
+### 2026-09-25 18:21:53 -04:00
+
+- Status: concluido localmente em 2026-09-25 18:24:11 -04:00; migrations remotas pendentes de verificacao/aplicacao.
+- Solicitacao: corrigir o erro “Nao foi possivel iniciar a conversa” ao enviar mensagem a partir de um anuncio do Marketplace.
+- Diagnostico: `getOrCreateConversation` consulta `public_profiles` e retorna `null` ao falhar, embora a view dependa da migration 00058 e a verificacao seja redundante. A criacao de conversas contextualizadas depende de `create_conversation_with_context`, introduzida em 00055 e endurecida em 00059. Usar a RPC antiga como fallback removeria o contexto do anuncio e poderia misturar chats de Marketplace e de negocios.
+- Escopo: remover a consulta previa ao perfil e confiar na validacao da RPC contextual; transformar falhas de RPC em erro tipado, evitar rejeicoes nao tratadas nos fluxos do Marketplace e de negocios, e explicar quando a funcao SQL ainda nao esta disponivel.
+- Estrategia: validar no banco o dono do anuncio/negocio e participantes como ja faz `create_conversation_with_context`; nao degradar para a RPC legacy; nenhuma migration sera aplicada e nenhum banco remoto sera alterado.
+- Implementacao: `src/services/messages.ts` remove a consulta redundante a `public_profiles`; a RPC contextual continua responsavel por validar participante/dono e erros de criacao/leitura sao retornados como `ConversationStartError`. `src/services/marketplace.ts` converte ausencia da RPC (`PGRST202`/`42883`) em aviso claro de atualizacao do banco e preserva chats separados por anuncio. `src/pages/BusinessPage.tsx` captura falhas para evitar rejeicao nao tratada no envio de mensagens a negocios.
+- Validacao: `npm run typecheck` e ESLint direcionado a `messages.ts`, `marketplace.ts` e `BusinessPage.tsx` passaram. `git diff --check` terminou com codigo 0; o Git emitiu apenas um aviso de normalizacao CRLF em `BusinessPage.tsx`. Nenhum teste automatizado ou teste no browser foi executado.
+- Migrations/configuracoes externas: nenhuma migration criada/aplicada; nenhum banco remoto consultado ou alterado. Verificar historico do Supabase e aplicar, em ordem e se ainda pendentes, as migrations 00055 e 00059 antes de enviar mensagens contextualizadas; a 00058 continua relacionada a privacidade de perfis, mas deixou de ser pre-requisito para iniciar conversa.
+- Riscos: se a RPC contextual nao estiver instalada no Supabase, a conversa nao pode ser criada com seguranca ate aplicar as migrations pendentes, especialmente 00055 e 00059. A disponibilidade real do banco remoto nao sera presumida.
+- Decisao de deploy: a correcao local esta pronta. O envio de mensagens so funcionara no ambiente implantado se `create_conversation_with_context` estiver instalada; nao usar a RPC antiga como fallback para evitar misturar conversas de anuncios e negocios.
+
 ### 2026-09-25 18:07:28 -04:00
 
 - Status: concluido localmente em 2026-09-25 18:11:47 -04:00; deploy pendente.

@@ -102,17 +102,18 @@ export default function MobileHeaderMenu({ showSearchLink = false }: MobileHeade
             <button
               type="button"
               onClick={() => { closeMenu(); void openMarketplaceChatInbox(); }}
-              className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              aria-label={unreadMessages > 0 ? `Abrir mensagens, ${unreadMessages} não lidas` : "Abrir mensagens"}
+              className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${unreadMessages > 0 ? "bg-[#fff5e9] hover:bg-[#ffedd9]" : "hover:bg-secondary"}`}
             >
-              <span className="relative grid h-8 w-8 place-items-center rounded-full bg-secondary">
-                <MessageCircle className="h-4 w-4 text-foreground" />
+              <span className={`relative grid h-10 w-10 place-items-center rounded-full ${unreadMessages > 0 ? "bg-[#f4d0aa]" : "bg-secondary"}`}>
+                <MessageCircle className="h-5 w-5 text-[#8f3e12]" strokeWidth={2.4} aria-hidden="true" />
                 {unreadMessages > 0 ? (
-                  <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-primary px-1 text-center text-[9px] font-bold leading-4 text-primary-foreground">
-                    {unreadMessages > 9 ? "9+" : unreadMessages}
+                  <span aria-hidden="true" className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-[#b55518] px-1.5 text-center text-xs font-extrabold leading-none text-white shadow-md">
+                    {unreadMessages > 99 ? "99+" : unreadMessages}
                   </span>
                 ) : null}
               </span>
-              <span className="flex-1 text-sm font-medium">{"Mensagens"}</span>
+              <span className={`flex-1 text-sm ${unreadMessages > 0 ? "font-bold text-[#71300d]" : "font-medium"}`}>Mensagens</span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </button>
           </div>

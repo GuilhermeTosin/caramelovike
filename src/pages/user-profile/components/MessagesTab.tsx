@@ -10,6 +10,15 @@ import type {
   MessagesTabMessage,
 } from "@/pages/user-profile/types";
 
+function formatConversationDate(value?: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toDateString() === new Date().toDateString()
+    ? date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    : date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
 type MessagesTabProps = {
   conversations: MessagesTabConversation[];
   conversationPartners: ConversationPartnerMap;
@@ -61,16 +70,20 @@ export default function MessagesTab({
                 const contextLabel = conv.contextType === "legacy"
                   ? "Conversa antiga"
                   : conv.businessName;
+                const unreadCount = conv.unreadCount || 0;
 
                 return (
                 <button
                   type="button"
                   key={conv.id}
                   onClick={() => onSelectConversation(conv)}
+                  aria-label={`${unreadCount ? `${unreadCount} mensagens não lidas. ` : ""}${conversationName}`}
                   className={`w-full text-left p-3 rounded-xl border transition-all ${
                     selectedConv?.id === conv.id
                       ? "bg-amber-100/80 border-amber-300 shadow-sm"
-                      : "bg-card border-border hover:bg-secondary/60"
+                      : unreadCount
+                        ? "bg-[#eaf3ed] border-[#12633d]/25 shadow-sm hover:bg-[#e2efe6]"
+                        : "bg-card border-border hover:bg-secondary/60"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -90,26 +103,30 @@ export default function MessagesTab({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="font-semibold text-sm truncate">
+                        <p className={`text-sm truncate ${unreadCount ? "font-extrabold text-[#203940]" : "font-semibold"}`}>
                           {conversationName}
                         </p>
+                        <span className="flex shrink-0 items-center gap-1.5">
+                        {unreadCount ? (
+                          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#12633d] px-1.5 text-[10px] font-bold text-white" aria-label={`${unreadCount} não lidas`}>
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        ) : null}
                         {conv.closedAt ? (
                           <span className="text-[11px] text-amber-800 whitespace-nowrap">Encerrada</span>
                         ) : conv.lastMessageAt ? (
-                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                            {new Date(conv.lastMessageAt).toLocaleDateString("pt-BR", {
-                              day: "2-digit",
-                              month: "2-digit",
-                            })}
+                          <span className={`text-[11px] whitespace-nowrap ${unreadCount ? "font-bold text-[#12633d]" : "text-muted-foreground"}`}>
+                            {formatConversationDate(conv.lastMessageAt)}
                           </span>
                         ) : null}
+                        </span>
                       </div>
                       {contextLabel ? (
                         <p className="text-[11px] text-primary/80 truncate mt-0.5">
                           Em: {contextLabel}
                         </p>
                       ) : null}
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      <p className={`text-xs truncate mt-0.5 ${unreadCount ? "font-semibold text-[#203940]" : "text-muted-foreground"}`}>
                           {conv.lastMessage || ("Clique para ver mensagens")}
                       </p>
                     </div>
@@ -135,8 +152,10 @@ export default function MessagesTab({
                   size="icon"
                   className="text-destructive hover:bg-destructive/10 -my-2"
                   onClick={() => onDeleteConversation(selectedConv.id)}
+                  aria-label="Remover conversa da minha caixa de entrada"
+                  title="Remover conversa da minha caixa de entrada"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
                 </Button>
               </div>
               <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">

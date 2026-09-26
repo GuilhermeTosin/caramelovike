@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getProfilesByIds } from "@/services/profiles";
 import {
-  deleteConversation,
   getConversationPartner,
   getConversationsForUser,
+  getUnreadConversationCountsForUser,
   getMessagesForConversation,
+  hideConversationForUser,
   markConversationAsRead,
   sendMessage,
+  subscribeToConversationUpdates,
   subscribeToMessages,
 } from "@/services/messages";
 import { deleteReview, getReviewsByUser, updateReview } from "@/services/businesses";
@@ -26,8 +28,12 @@ type UseInboxAndReviewsOptions = {
 
 export function useInboxAndReviews({ sessionUserId, refreshUnread }: UseInboxAndReviewsOptions) {
   const [conversations, setConversations] = useState<ConversationFrontend[]>([]);
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
   const [conversationPartners, setConversationPartners] = useState<ConversationPartnerMap>({});
   const [selectedConv, setSelectedConv] = useState<ConversationFrontend | null>(null);
+  const selectedConvRef = useRef(selectedConv);
+  selectedConvRef.current = selectedConv;
   const [messages, setMessages] = useState<MessageFrontend[]>([]);
   const [messageText, setMessageText] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
@@ -64,11 +70,85 @@ export function useInboxAndReviews({ sessionUserId, refreshUnread }: UseInboxAnd
       return;
     }
 
-    void getConversationsForUser(sessionUserId).then(setConversations);
+    let cancelled = false;
+    let conversationsLoaded = false;
+    let conversationLoadInFlight = false;
+    let reloadAfterCurrent = false;
+    let hasSubscribed = false;
+
+    const reloadConversations = async () => {
+      if (conversationLoadInFlight) {
+        reloadAfterCurrent = true;
+        return;
+      }
+      conversationLoadInFlight = true;
+      try {
+        const nextConversations = await getConversationsForUser(sessionUserId);
+        if (cancelled) return;
+        setConversations(nextConversations);
+        conversationsLoaded = true;
+      } finally {
+        conversationLoadInFlight = false;
+        if (reloadAfterCurrent && !cancelled) {
+          reloadAfterCurrent = false;
+          void reloadConversations();
+        }
+      }
+    };
+
+    const inboxSubscription = subscribeToConversationUpdates(
+      "profile",
+      sessionUserId,
+      (update) => {
+        if (cancelled) return;
+        if (!conversationsLoaded || !conversationsRef.current.some((conversation) => conversation.id === update.id)) {
+          void reloadConversations();
+          return;
+        }
+
+        setConversations((current) => current
+          .map((conversation) => conversation.id === update.id
+            ? {
+              ...conversation,
+              lastMessage: update.lastMessage ?? conversation.lastMessage,
+              lastMessageAt: update.lastMessageAt ?? conversation.lastMessageAt,
+            }
+            : conversation)
+          .sort((first, second) => Date.parse(second.lastMessageAt || second.createdAt) - Date.parse(first.lastMessageAt || first.createdAt)));
+        setSelectedConv((current) => current?.id === update.id
+          ? {
+            ...current,
+            lastMessage: update.lastMessage ?? current.lastMessage,
+            lastMessageAt: update.lastMessageAt ?? current.lastMessageAt,
+          }
+          : current);
+
+        void getUnreadConversationCountsForUser(sessionUserId).then((counts) => {
+          if (cancelled) return;
+          const unreadCount = selectedConvRef.current?.id === update.id ? 0 : counts.get(update.id) || 0;
+          setConversations((current) => current.map((conversation) => conversation.id === update.id
+            ? { ...conversation, unreadCount }
+            : conversation));
+        });
+      },
+      (status) => {
+        if (status === "SUBSCRIBED") {
+          if (hasSubscribed && conversationsLoaded) void reloadConversations();
+          hasSubscribed = true;
+        }
+      }
+    );
+
+    void reloadConversations();
     void getReviewsByUser(sessionUserId).then((reviews) => {
-      setGivenReviews(reviews as GivenReviewWithBusiness[]);
+      if (!cancelled) setGivenReviews(reviews as GivenReviewWithBusiness[]);
     });
-  }, [sessionUserId]);
+
+    return () => {
+      cancelled = true;
+      inboxSubscription.unsubscribe();
+    };
+  }, [refreshUnread, sessionUserId]);
 
   useEffect(() => {
     if (!sessionUserId || conversations.length === 0) return;
@@ -116,6 +196,9 @@ export function useInboxAndReviews({ sessionUserId, refreshUnread }: UseInboxAnd
     }
 
     setSelectedConv(conversation);
+    setConversations((current) => current.map((item) => item.id === conversation.id
+      ? { ...item, unreadCount: 0 }
+      : item));
     const nextMessages = await getMessagesForConversation(conversation.id);
     setMessages(nextMessages);
 
@@ -124,6 +207,14 @@ export function useInboxAndReviews({ sessionUserId, refreshUnread }: UseInboxAnd
         if (prev.some((message) => message.id === newMessage.id)) return prev;
         return [...prev, newMessage];
       });
+      setConversations((current) => current
+        .map((item) => item.id === conversation.id
+          ? { ...item, lastMessage: newMessage.text, lastMessageAt: newMessage.createdAt, unreadCount: 0 }
+          : item)
+        .sort((first, second) => Date.parse(second.lastMessageAt || second.createdAt) - Date.parse(first.lastMessageAt || first.createdAt)));
+      if (newMessage.senderId !== sessionUserId) {
+        void markConversationAsRead(conversation.id, sessionUserId).then(refreshUnread);
+      }
     });
     setActiveSubscription(subscription);
 
@@ -149,20 +240,23 @@ export function useInboxAndReviews({ sessionUserId, refreshUnread }: UseInboxAnd
   };
 
   const handleDeleteConversation = async (conversationId: string) => {
-    if (!confirm("Tem certeza que deseja apagar esta conversa?")) return;
+    if (!confirm("Remover esta conversa da sua caixa de entrada? O outro participante manterá o histórico, e a conversa poderá reaparecer quando alguém enviar uma nova mensagem.")) return;
 
-    const ok = await deleteConversation(conversationId);
+    const ok = await hideConversationForUser(conversationId);
     if (!ok) {
-      toast.error("Erro ao apagar conversa");
+      toast.error("Não foi possível remover a conversa da sua caixa de entrada.");
       return;
     }
 
-    toast.success("Conversa apagada");
+    toast.success("Conversa removida da sua caixa de entrada.");
     setConversations((prev) => prev.filter((conversation) => conversation.id !== conversationId));
     if (selectedConv?.id === conversationId) {
+      activeSubscription?.unsubscribe();
+      setActiveSubscription(null);
       setSelectedConv(null);
       setMessages([]);
     }
+    refreshUnread();
   };
 
   const handleStartEditReview = (

@@ -11,9 +11,28 @@ export type ConversationContext =
   | { type: "business" }
   | { type: "marketplace"; listingId: string };
 
+export class ConversationStartError extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
+    this.name = "ConversationStartError";
+  }
+}
+
 export type MessagePage = {
   messages: MessageFrontend[];
   hasMore: boolean;
+};
+
+export type ConversationActivityUpdate = {
+  id: string;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+};
+
+export type IncomingMessageNotification = {
+  id: string;
+  conversationId: string;
+  senderId: string;
 };
 
 export async function getOrCreateConversation(
@@ -80,25 +99,8 @@ export async function getOrCreateConversation(
     }
   }
 
-  // Verificar se o destinatário existe como profile
-  const { data: receiverProfile, error: errProfile } = await supabase
-    .from("public_profiles")
-    .select("id")
-    .eq("id", receiverId)
-    .maybeSingle();
-
-  if (errProfile) {
-    console.error("[getOrCreateConversation] Erro ao buscar perfil do destinatário:", errProfile);
-    return null;
-  }
-
-  if (!receiverProfile) {
-    console.error("[getOrCreateConversation] Destinatário não encontrado em profiles:", receiverId);
-    return null;
-  }
-
-  // Criar nova conversa via RPC (mais robusto com RLS). Contextos atuais usam
-  // uma RPC dedicada; a antiga fica somente como fallback de compatibilidade.
+  // A RPC valida a identidade do destinatario contra o dono atual do recurso;
+  // nao depender de public_profiles para autorizar ou iniciar a conversa.
   const rpcResult = requestedContextType === "legacy"
     ? await supabase.rpc("create_conversation_with_participants", {
         p_business_id: null,
@@ -114,32 +116,84 @@ export async function getOrCreateConversation(
       });
   const { data: convId, error: errRpc } = rpcResult;
 
-  if (errRpc || !convId) {
+  if (errRpc) {
     console.error("[getOrCreateConversation] Erro ao criar conversa via RPC:", errRpc);
-    return null;
+    throw new ConversationStartError(errRpc.message, errRpc.code);
   }
+  if (!convId) throw new ConversationStartError("A RPC de conversa nao retornou um identificador.");
 
   // Buscar a conversa criada para retornar o objeto completo
-  const { data: newConv } = await supabase
+  const { data: newConv, error: newConvError } = await supabase
     .from("conversations")
     .select("*")
     .eq("id", convId)
     .single();
 
+  if (newConvError || !newConv) {
+    console.error("[getOrCreateConversation] Erro ao carregar conversa criada:", newConvError);
+    throw new ConversationStartError(newConvError?.message || "A conversa criada nao foi retornada.", newConvError?.code);
+  }
+
   return toConversationFrontend(newConv as Conversation, [senderId, receiverId]);
+}
+
+async function getVisibleConversationIds(userId: string): Promise<string[]> {
+  const { data: visibleParticipations, error: visibilityError } = await supabase
+    .from("conversation_participants")
+    .select("conversation_id")
+    .eq("user_id", userId)
+    .is("hidden_at", null);
+
+  if (!visibilityError) return (visibleParticipations || []).map((row) => row.conversation_id);
+
+  // Keep existing inboxes readable during rollout if the additive migration
+  // has not reached this database yet. No hidden rows exist before the column.
+  if (visibilityError.code === "42703" || visibilityError.code === "PGRST204") {
+    const { data: legacyParticipations, error: legacyError } = await supabase
+      .from("conversation_participants")
+      .select("conversation_id")
+      .eq("user_id", userId);
+    if (!legacyError) return (legacyParticipations || []).map((row) => row.conversation_id);
+  }
+
+  console.error("[getVisibleConversationIds] Erro ao carregar participacoes:", visibilityError);
+  return [];
+}
+
+export async function getUnreadConversationCountsForUser(userId: string, conversationIds?: string[]): Promise<Map<string, number>> {
+  const { data: unreadRows, error: unreadRpcError } = await supabase.rpc("get_my_unread_conversation_counts");
+  if (!unreadRpcError) {
+    const rows = (unreadRows || []) as { conversation_id: string; unread_count: number | string | null }[];
+    return new Map<string, number>(rows.map((row) => [row.conversation_id, Number(row.unread_count) || 0]));
+  }
+
+  const ids = conversationIds || await getVisibleConversationIds(userId);
+  if (ids.length === 0) return new Map<string, number>();
+
+  // Fallback keeps unread markers functional during deployment of migration 00062.
+  const { data: unreadMessages, error: unreadMessagesError } = await supabase
+    .from("messages")
+    .select("conversation_id")
+    .in("conversation_id", ids)
+    .neq("sender_id", userId)
+    .eq("read", false);
+
+  if (unreadMessagesError) {
+    console.error("[getUnreadConversationCountsForUser] Erro ao carregar nao lidas:", unreadMessagesError);
+    return new Map<string, number>();
+  }
+
+  const counts = new Map<string, number>();
+  (unreadMessages || []).forEach((row) => counts.set(row.conversation_id, (counts.get(row.conversation_id) || 0) + 1));
+  return counts;
 }
 
 export async function getConversationsForUser(
   userId: string
 ): Promise<ConversationFrontend[]> {
-  const { data: participations } = await supabase
-    .from("conversation_participants")
-    .select("conversation_id")
-    .eq("user_id", userId);
+  const convIds = await getVisibleConversationIds(userId);
 
-  if (!participations || participations.length === 0) return [];
-
-  const convIds = participations.map((cp) => cp.conversation_id);
+  if (convIds.length === 0) return [];
 
   const [{ data: conversations }, { data: allParticipants }] = await Promise.all([
     supabase
@@ -155,6 +209,7 @@ export async function getConversationsForUser(
   ]);
 
   if (!conversations) return [];
+  const unreadCounts = await getUnreadConversationCountsForUser(userId, convIds);
 
   // Buscar participantes de todas as conversas
   const participantsByConv = new Map<string, string[]>();
@@ -164,9 +219,16 @@ export async function getConversationsForUser(
     participantsByConv.set(cp.conversation_id, list);
   });
 
-  return (conversations as Conversation[]).map((c) =>
-    toConversationFrontend(c, participantsByConv.get(c.id) || [])
-  );
+  return (conversations as Conversation[])
+    .map((conversation) => ({
+      ...toConversationFrontend(conversation, participantsByConv.get(conversation.id) || []),
+      unreadCount: unreadCounts.get(conversation.id) || 0,
+    }))
+    .sort((first, second) => {
+      const firstActivity = Date.parse(first.lastMessageAt || first.createdAt) || 0;
+      const secondActivity = Date.parse(second.lastMessageAt || second.createdAt) || 0;
+      return secondActivity - firstActivity;
+    });
 }
 
 export async function getMessagesForConversation(
@@ -287,23 +349,8 @@ export async function markConversationAsRead(
 }
 
 export async function getUnreadCount(userId: string): Promise<number> {
-  const { data: participations } = await supabase
-    .from("conversation_participants")
-    .select("conversation_id")
-    .eq("user_id", userId);
-
-  if (!participations || participations.length === 0) return 0;
-
-  const convIds = participations.map((cp) => cp.conversation_id);
-
-  const { count } = await supabase
-    .from("messages")
-    .select("*", { count: "exact", head: true })
-    .in("conversation_id", convIds)
-    .neq("sender_id", userId)
-    .eq("read", false);
-
-  return count || 0;
+  const unreadCounts = await getUnreadConversationCountsForUser(userId);
+  return [...unreadCounts.values()].reduce((total, count) => total + count, 0);
 }
 
 export function getConversationPartner(
@@ -350,17 +397,73 @@ export function subscribeToMessages(
     .subscribe();
 }
 
-export async function deleteConversation(conversationId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from("conversations")
-    .delete()
-    .eq("id", conversationId);
+export function subscribeToConversationUpdates(
+  scope: "popup" | "profile",
+  userId: string,
+  onUpdate: (update: ConversationActivityUpdate) => void,
+  onStatus?: (status: string) => void
+) {
+  return supabase
+    .channel(`conversation-inbox:${scope}:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "conversations",
+      },
+      (payload) => {
+        const row = payload.new as {
+          id?: unknown;
+          last_message?: unknown;
+          last_message_at?: unknown;
+        };
+        if (typeof row.id !== "string") return;
+        onUpdate({
+          id: row.id,
+          lastMessage: typeof row.last_message === "string" ? row.last_message : null,
+          lastMessageAt: typeof row.last_message_at === "string" ? row.last_message_at : null,
+        });
+      }
+    )
+    .subscribe((status) => onStatus?.(status));
+}
 
+export function subscribeToUserMessages(
+  userId: string,
+  onMessage: (message: IncomingMessageNotification) => void
+) {
+  return supabase
+    .channel(`user-message-notifications:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+      },
+      (payload) => {
+        const row = payload.new as {
+          id?: unknown;
+          conversation_id?: unknown;
+          sender_id?: unknown;
+        };
+        if (typeof row.id !== "string" || typeof row.conversation_id !== "string" || typeof row.sender_id !== "string") return;
+        onMessage({ id: row.id, conversationId: row.conversation_id, senderId: row.sender_id });
+      }
+    )
+    .subscribe();
+}
+
+export async function hideConversationForUser(conversationId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("hide_conversation_for_user", {
+    p_conversation_id: conversationId,
+  });
   if (error) {
-    console.error("[deleteConversation] Erro ao deletar conversa:", error);
+    console.error("[hideConversationForUser] Erro ao ocultar conversa:", error);
     return false;
   }
-  return true;
+  return data === true;
 }
 
 function toConversationFrontend(

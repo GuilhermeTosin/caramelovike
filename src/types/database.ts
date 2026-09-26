@@ -140,6 +140,7 @@ export interface MarketplaceListing {
   id: string;
   owner_id: string;
   seller_business_id?: string | null;
+  show_on_business_page?: boolean;
   listing_type: MarketplaceListingType;
   category_id: string;
   title: string;
@@ -467,6 +468,7 @@ export interface BusinessVerificationRequest {
 export interface ConversationFrontend {
   id: string;
   participants: string[];
+  unreadCount?: number;
   businessId?: string;
   businessName?: string;
   contextType?: ConversationContextType;

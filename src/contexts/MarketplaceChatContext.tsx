@@ -1,15 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { getPublicBusinessPathsByIds } from "@/services/businesses";
 import { getProfilesByIds } from "@/services/profiles";
+import { getMarketplaceListingPathsByIds } from "@/services/marketplace";
 import {
   getConversationPartner,
   getConversationsForUser,
   getMessagePageForConversation,
+  getUnreadConversationCountsForUser,
+  hideConversationForUser,
   markConversationAsRead,
   sendMessage,
+  subscribeToConversationUpdates,
   subscribeToMessages,
+  subscribeToUserMessages,
 } from "@/services/messages";
+import { playMessageNotificationSound, prepareMessageNotificationSound } from "@/lib/message-notification-sound";
 import type { ConversationFrontend, MessageFrontend } from "@/types/database";
 
 export type MarketplaceChatListing = {
@@ -63,6 +70,7 @@ type MarketplaceChatContextValue = {
   minimizeMarketplaceChat: () => void;
   restoreMarketplaceChat: () => void;
   sendMarketplaceChatMessage: (text: string) => Promise<boolean>;
+  hideMarketplaceChatConversation: (conversationId: string) => Promise<boolean>;
 };
 
 const MarketplaceChatContext = createContext<MarketplaceChatContextValue | null>(null);
@@ -71,8 +79,8 @@ function getConversationContext(conversation: ConversationFrontend, partnerName:
   const businessName = conversation.businessName?.trim();
   if (conversation.contextType === "marketplace") {
     return {
-      title: (businessName || "").replace(/^Marketplace:\s*/, "").replace(/\s+\[[^\]]+\]$/, "") || "Anuncio do Marketplace",
-      subtitle: "Anuncio do Marketplace",
+      title: (businessName || "").replace(/^Marketplace:\s*/, "").replace(/\s+\[[^\]]+\]$/, "") || "Anúncio do Marketplace",
+      subtitle: "Anúncio do Marketplace",
     };
   }
   if (conversation.contextType === "business") {
@@ -83,7 +91,17 @@ function getConversationContext(conversation: ConversationFrontend, partnerName:
 
 async function buildConversationItems(conversations: ConversationFrontend[], userId: string) {
   const partnerIds = conversations.map((conversation) => getConversationPartner(conversation, userId));
-  const profiles = await getProfilesByIds(partnerIds);
+  const listingIds = conversations
+    .filter((conversation) => conversation.contextType === "marketplace" && conversation.marketplaceListingId)
+    .map((conversation) => conversation.marketplaceListingId!);
+  const businessIds = conversations
+    .filter((conversation) => conversation.contextType !== "marketplace" && conversation.businessId)
+    .map((conversation) => conversation.businessId!);
+  const [profiles, listingPaths, businessPaths] = await Promise.all([
+    getProfilesByIds(partnerIds),
+    getMarketplaceListingPathsByIds(listingIds),
+    getPublicBusinessPathsByIds(businessIds),
+  ]);
   const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
 
   return conversations.map((conversation) => {
@@ -99,9 +117,18 @@ async function buildConversationItems(conversations: ConversationFrontend[], use
       partnerAvatar: profile?.avatar || null,
       contextTitle: context.title,
       contextSubtitle: context.subtitle,
+      contextHref: conversation.contextType === "marketplace" && conversation.marketplaceListingId
+        ? listingPaths.get(conversation.marketplaceListingId)
+        : conversation.businessId
+          ? businessPaths.get(conversation.businessId)
+          : undefined,
       lastMessage: conversation.lastMessage,
       lastMessageAt: conversation.lastMessageAt,
     } satisfies MarketplaceChatConversation;
+  }).sort((first, second) => {
+    const firstActivity = Date.parse(first.lastMessageAt || first.conversation.createdAt) || 0;
+    const secondActivity = Date.parse(second.lastMessageAt || second.conversation.createdAt) || 0;
+    return secondActivity - firstActivity;
   });
 }
 
@@ -109,18 +136,146 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
   const { session, refreshUnread } = useAuth();
   const [chat, setChat] = useState<MarketplaceChatState | null>(null);
   const subscriptionRef = useRef<ReturnType<typeof subscribeToMessages> | null>(null);
+  const inboxSubscriptionRef = useRef<ReturnType<typeof subscribeToConversationUpdates> | null>(null);
+  const chatRef = useRef(chat);
+  chatRef.current = chat;
   const requestIdRef = useRef(0);
+  const inboxLoadedRef = useRef(false);
+  const inboxNeedsRefreshRef = useRef(false);
+  const inboxStartupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inboxRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notificationRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const unsubscribe = useCallback(() => {
     subscriptionRef.current?.unsubscribe();
     subscriptionRef.current = null;
   }, []);
 
+  const unsubscribeInbox = useCallback(() => {
+    inboxSubscriptionRef.current?.unsubscribe();
+    inboxSubscriptionRef.current = null;
+    if (inboxStartupTimerRef.current) clearTimeout(inboxStartupTimerRef.current);
+    if (inboxRefreshTimerRef.current) clearTimeout(inboxRefreshTimerRef.current);
+    inboxStartupTimerRef.current = null;
+    inboxRefreshTimerRef.current = null;
+    inboxLoadedRef.current = false;
+    inboxNeedsRefreshRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    prepareMessageNotificationSound();
+  }, []);
+
+  useEffect(() => {
+    const userId = session?.userId;
+    if (!userId) return;
+
+    const seenMessageIds = new Set<string>();
+    const notificationSubscription = subscribeToUserMessages(userId, (message) => {
+      if (message.senderId === userId || seenMessageIds.has(message.id)) return;
+      seenMessageIds.add(message.id);
+      if (seenMessageIds.size > 100) seenMessageIds.delete(seenMessageIds.values().next().value!);
+
+      playMessageNotificationSound();
+
+      const current = chatRef.current;
+      const inboxIsHandlingUpdate = current?.view === "inbox";
+      const activeConversationIsHandlingUpdate = current?.view === "conversation"
+        && current.active?.conversation.id === message.conversationId;
+      if (inboxIsHandlingUpdate || activeConversationIsHandlingUpdate) return;
+
+      if (notificationRefreshTimerRef.current) clearTimeout(notificationRefreshTimerRef.current);
+      notificationRefreshTimerRef.current = setTimeout(() => {
+        notificationRefreshTimerRef.current = null;
+        refreshUnread();
+      }, 180);
+    });
+
+    return () => {
+      notificationSubscription.unsubscribe();
+      if (notificationRefreshTimerRef.current) clearTimeout(notificationRefreshTimerRef.current);
+      notificationRefreshTimerRef.current = null;
+    };
+  }, [refreshUnread, session?.userId]);
+
+  const refreshConversationInbox = useCallback(async (userId: string, requestId: number) => {
+    const conversations = await getConversationsForUser(userId);
+    const items = await buildConversationItems(conversations, userId);
+    if (requestIdRef.current !== requestId) return;
+
+    inboxLoadedRef.current = true;
+    setChat((current) => current?.view === "inbox"
+      ? { ...current, conversations: items, conversationsLoading: false }
+      : current);
+    refreshUnread();
+
+    if (inboxNeedsRefreshRef.current) {
+      inboxNeedsRefreshRef.current = false;
+      if (inboxRefreshTimerRef.current) clearTimeout(inboxRefreshTimerRef.current);
+      inboxRefreshTimerRef.current = setTimeout(() => {
+        void refreshConversationInbox(userId, requestId);
+      }, 100);
+    }
+  }, [refreshUnread]);
+
+  const handleInboxConversationUpdate = useCallback((update: { id: string; lastMessage: string | null; lastMessageAt: string | null }) => {
+    const userId = session?.userId;
+    const current = chatRef.current;
+    if (!userId || current?.view !== "inbox") return;
+
+    const existing = current.conversations.some((item) => item.conversation.id === update.id);
+    if (!inboxLoadedRef.current || !existing) {
+      inboxNeedsRefreshRef.current = true;
+      if (inboxLoadedRef.current) {
+        if (inboxRefreshTimerRef.current) clearTimeout(inboxRefreshTimerRef.current);
+        const requestId = requestIdRef.current;
+        inboxRefreshTimerRef.current = setTimeout(() => {
+          void refreshConversationInbox(userId, requestId);
+        }, 150);
+      }
+      return;
+    }
+
+    setChat((state) => {
+      if (state?.view !== "inbox") return state;
+      return {
+        ...state,
+        conversations: state.conversations
+          .map((item) => item.conversation.id === update.id
+            ? {
+              ...item,
+              lastMessage: update.lastMessage ?? item.lastMessage,
+              lastMessageAt: update.lastMessageAt ?? item.lastMessageAt,
+              conversation: {
+                ...item.conversation,
+                lastMessage: update.lastMessage ?? item.conversation.lastMessage,
+                lastMessageAt: update.lastMessageAt ?? item.conversation.lastMessageAt,
+              },
+            }
+            : item)
+          .sort((first, second) => Date.parse(second.lastMessageAt || second.conversation.createdAt) - Date.parse(first.lastMessageAt || first.conversation.createdAt)),
+      };
+    });
+
+    void getUnreadConversationCountsForUser(userId).then((counts) => {
+      setChat((state) => state?.view === "inbox"
+        ? {
+          ...state,
+          conversations: state.conversations.map((item) => item.conversation.id === update.id
+            ? { ...item, conversation: { ...item.conversation, unreadCount: counts.get(update.id) || 0 } }
+            : item),
+        }
+        : state);
+      refreshUnread();
+    });
+  }, [refreshConversationInbox, refreshUnread, session?.userId]);
+
   const closeMarketplaceChat = useCallback(() => {
     requestIdRef.current += 1;
     unsubscribe();
+    unsubscribeInbox();
     setChat(null);
-  }, [unsubscribe]);
+  }, [unsubscribe, unsubscribeInbox]);
 
   const openMarketplaceChatInbox = useCallback(async () => {
     const userId = session?.userId;
@@ -132,16 +287,25 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     unsubscribe();
+    unsubscribeInbox();
     setChat({ view: "inbox", conversations: [], conversationsLoading: true, active: null, messages: [], hasMoreMessages: false, loadingOlderMessages: false, loading: false, minimized: false, sending: false });
-
-    const conversations = await getConversationsForUser(userId);
-    const items = await buildConversationItems(conversations, userId);
-    if (requestIdRef.current !== requestId) return;
-
-    setChat((current) => current && requestIdRef.current === requestId
-      ? { ...current, conversations: items, conversationsLoading: false }
-      : current);
-  }, [session?.userId, unsubscribe]);
+    inboxLoadedRef.current = false;
+    inboxNeedsRefreshRef.current = false;
+    const loadInbox = () => {
+      if (inboxStartupTimerRef.current) clearTimeout(inboxStartupTimerRef.current);
+      inboxStartupTimerRef.current = null;
+      void refreshConversationInbox(userId, requestId);
+    };
+    inboxSubscriptionRef.current = subscribeToConversationUpdates(
+      "popup",
+      userId,
+      handleInboxConversationUpdate,
+      (status) => {
+        if (status === "SUBSCRIBED" || (!inboxLoadedRef.current && (status === "CHANNEL_ERROR" || status === "TIMED_OUT"))) loadInbox();
+      }
+    );
+    inboxStartupTimerRef.current = setTimeout(loadInbox, 2500);
+  }, [handleInboxConversationUpdate, refreshConversationInbox, session?.userId, unsubscribe, unsubscribeInbox]);
 
   const selectMarketplaceChat = useCallback(async (conversationItem: MarketplaceChatConversation) => {
     const userId = session?.userId;
@@ -153,15 +317,21 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     unsubscribe();
+    unsubscribeInbox();
+    const readConversationItem = {
+      ...conversationItem,
+      conversation: { ...conversationItem.conversation, unreadCount: 0 },
+    };
     setChat((current) => {
-      const conversations = current?.conversations.some((item) => item.conversation.id === conversationItem.conversation.id)
-        ? current.conversations
-        : [conversationItem, ...(current?.conversations || [])];
+      const existing = current?.conversations.some((item) => item.conversation.id === conversationItem.conversation.id);
+      const conversations = existing
+        ? current!.conversations.map((item) => item.conversation.id === conversationItem.conversation.id ? readConversationItem : item)
+        : [readConversationItem, ...(current?.conversations || [])];
       return {
         view: "conversation",
         conversations,
         conversationsLoading: false,
-        active: conversationItem,
+        active: readConversationItem,
         messages: [],
         hasMoreMessages: false,
         loadingOlderMessages: false,
@@ -187,7 +357,26 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
         if (!current || current.active?.conversation.id !== conversationItem.conversation.id || current.messages.some((message) => message.id === incomingMessage.id)) {
           return current;
         }
-        return { ...current, messages: [...current.messages, incomingMessage] };
+        const updateItem = (item: MarketplaceChatConversation) => item.conversation.id === conversationItem.conversation.id
+          ? {
+            ...item,
+            lastMessage: incomingMessage.text,
+            lastMessageAt: incomingMessage.createdAt,
+            conversation: {
+              ...item.conversation,
+              lastMessage: incomingMessage.text,
+              lastMessageAt: incomingMessage.createdAt,
+              unreadCount: 0,
+            },
+          }
+          : item;
+        return {
+          ...current,
+          messages: [...current.messages, incomingMessage],
+          active: updateItem(current.active),
+          conversations: current.conversations.map(updateItem).sort((first, second) =>
+            Date.parse(second.lastMessageAt || second.conversation.createdAt) - Date.parse(first.lastMessageAt || first.conversation.createdAt)),
+        };
       });
 
       if (incomingMessage.senderId !== userId) {
@@ -197,7 +386,7 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
 
     if (requestIdRef.current === requestId) subscriptionRef.current = subscription;
     else subscription.unsubscribe();
-  }, [refreshUnread, session?.userId, unsubscribe]);
+  }, [refreshUnread, session?.userId, unsubscribe, unsubscribeInbox]);
 
   const loadOlderMarketplaceChatMessages = useCallback(async () => {
     const conversationId = chat?.active?.conversation.id;
@@ -227,7 +416,7 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
       conversation,
       partnerName: listing.sellerName,
       contextTitle: listing.title,
-      contextSubtitle: "Anuncio do Marketplace",
+      contextSubtitle: "Anúncio do Marketplace",
       contextImageUrl: listing.imageUrl,
       contextHref: listing.href,
       contextPrice: listing.price,
@@ -263,13 +452,24 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
         return current;
       }
       const updateItem = (item: MarketplaceChatConversation) => item.conversation.id === conversationId
-        ? { ...item, lastMessage: message.text, lastMessageAt: message.createdAt }
+        ? {
+          ...item,
+          lastMessage: message.text,
+          lastMessageAt: message.createdAt,
+          conversation: {
+            ...item.conversation,
+            lastMessage: message.text,
+            lastMessageAt: message.createdAt,
+            unreadCount: 0,
+          },
+        }
         : item;
       return {
         ...current,
         messages: [...current.messages, message],
         active: updateItem(current.active),
-        conversations: current.conversations.map(updateItem),
+        conversations: current.conversations.map(updateItem).sort((first, second) =>
+          Date.parse(second.lastMessageAt || second.conversation.createdAt) - Date.parse(first.lastMessageAt || first.conversation.createdAt)),
         sending: false,
       };
     });
@@ -277,11 +477,39 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
     return true;
   }, [chat?.active?.conversation.id, session?.userId]);
 
+  const hideMarketplaceChatConversation = useCallback(async (conversationId: string) => {
+    if (!session?.userId) {
+      toast.error("Entre na sua conta para remover uma conversa.");
+      return false;
+    }
+
+    const hidden = await hideConversationForUser(conversationId);
+    if (!hidden) {
+      toast.error("Nao foi possivel remover a conversa. Tente novamente.");
+      return false;
+    }
+
+    if (chat?.active?.conversation.id === conversationId) unsubscribe();
+    setChat((current) => current ? {
+      ...current,
+      conversations: current.conversations.filter((item) => item.conversation.id !== conversationId),
+      ...(current.active?.conversation.id === conversationId
+        ? { view: "inbox" as const, active: null, messages: [], loading: false }
+        : {}),
+    } : current);
+    refreshUnread();
+    toast.success("Conversa removida da sua caixa de entrada.");
+    return true;
+  }, [chat?.active?.conversation.id, refreshUnread, session?.userId, unsubscribe]);
+
   useEffect(() => {
     if (!session?.userId && chat) closeMarketplaceChat();
   }, [chat, closeMarketplaceChat, session?.userId]);
 
-  useEffect(() => () => unsubscribe(), [unsubscribe]);
+  useEffect(() => () => {
+    unsubscribe();
+    unsubscribeInbox();
+  }, [unsubscribe, unsubscribeInbox]);
 
   return (
     <MarketplaceChatContext.Provider
@@ -296,6 +524,7 @@ export function MarketplaceChatProvider({ children }: { children: ReactNode }) {
         minimizeMarketplaceChat: () => setChat((current) => current ? { ...current, minimized: true } : current),
         restoreMarketplaceChat: () => setChat((current) => current ? { ...current, minimized: false } : current),
         sendMarketplaceChatMessage,
+        hideMarketplaceChatConversation,
       }}
     >
       {children}

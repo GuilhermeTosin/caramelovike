@@ -1,5 +1,6 @@
 import { supabase, getCurrentUserId } from "@/lib/supabase";
-import { getOrCreateConversation } from "@/services/messages";
+import { ConversationStartError, getOrCreateConversation } from "@/services/messages";
+import { marketplaceListingPath } from "@/lib/marketplaceSnapshot";
 import type {
   MarketplaceCategory,
   MarketplaceCondition,
@@ -32,6 +33,7 @@ export type MarketplaceListingInput = {
   listingType: MarketplaceListingType;
   categoryId: string;
   sellerBusinessId?: string | null;
+  showOnBusinessPage?: boolean;
   title: string;
   description: string;
   price?: number | null;
@@ -335,12 +337,58 @@ export async function getMarketplaceListingByPath(countryCode: string, stateCode
   return listing || null;
 }
 
+export async function getMarketplaceListingsForBusinessPage(businessId: string, limit = 4): Promise<{ items: MarketplaceListing[]; totalCount: number }> {
+  const { data, error, count } = await supabase
+    .from("marketplace_listings")
+    .select(MARKETPLACE_LIST_SELECT, { count: "exact" })
+    .eq("seller_business_id", businessId)
+    .eq("show_on_business_page", true)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (error.code !== "42703" && error.code !== "PGRST204") {
+      console.warn("[Marketplace] Não foi possível carregar os anúncios do negócio:", error);
+    }
+    return { items: [], totalCount: 0 };
+  }
+
+  return {
+    items: await enrichListings((data || []) as unknown as MarketplaceListing[], {
+      includeOwnerProfile: false,
+      includeOwnerStats: false,
+      includeFavorites: false,
+    }),
+    totalCount: count || 0,
+  };
+}
+
+export async function getMarketplaceListingPathsByIds(listingIds: string[]): Promise<Map<string, string>> {
+  const ids = [...new Set(listingIds.filter(Boolean))];
+  if (ids.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("marketplace_listings")
+    .select("id,country_code,state_code,city,slug")
+    .in("id", ids)
+    .in("status", ["active", "sold"]);
+
+  if (error) {
+    console.error("[getMarketplaceListingPathsByIds] Erro ao carregar caminhos dos anuncios:", error);
+    return new Map();
+  }
+
+  return new Map((data || []).map((listing) => [listing.id, marketplaceListingPath(listing)]));
+}
+
 export async function createMarketplaceListing(input: MarketplaceListingInput): Promise<{ ok: boolean; listing?: MarketplaceListing; error?: string }> {
   const ownerId = await getCurrentUserId();
   if (!ownerId) return { ok: false, error: "Faça login para publicar um anúncio." };
   const baseSlug = slugifyMarketplace(input.title);
   const slug = `${baseSlug}-${Date.now().toString(36)}`;
-  const { data, error } = await supabase.rpc("create_marketplace_listing_with_images", {
+  const rpcInput = {
     p_listing_id: input.id || crypto.randomUUID(),
     p_seller_business_id: input.sellerBusinessId || null,
     p_listing_type: input.listingType,
@@ -360,7 +408,20 @@ export async function createMarketplaceListing(input: MarketplaceListingInput): 
     p_video_url: input.videoUrl?.trim() || null,
     p_slug: slug,
     p_images: (input.images || []).slice(0, 8),
+  };
+  let { data, error } = await supabase.rpc("create_marketplace_listing_with_images", {
+    ...rpcInput,
+    p_show_on_business_page: !!input.showOnBusinessPage,
   }).single();
+
+  if (error && !input.showOnBusinessPage && (error.code === "PGRST202" || error.code === "42883")) {
+    // Existing deployments can keep publishing personal/business listings until migration 00063 is applied.
+    ({ data, error } = await supabase.rpc("create_marketplace_listing_with_images", rpcInput).single());
+  }
+
+  if (error && input.showOnBusinessPage && (error.code === "PGRST202" || error.code === "42883")) {
+    return { ok: false, error: "Para exibir o anúncio na página do negócio, é necessário aplicar a migration 00063 no Supabase." };
+  }
   if (error || !data) return { ok: false, error: error?.message || "Não foi possível publicar o anúncio." };
   return { ok: true, listing: data as unknown as MarketplaceListing };
 }
@@ -562,6 +623,7 @@ export async function updateMarketplaceListing(id: string, ownerId: string, inpu
       title: input.title?.trim(),
       description: input.description?.trim(),
       seller_business_id: input.sellerBusinessId === undefined ? undefined : input.sellerBusinessId || null,
+      show_on_business_page: input.showOnBusinessPage,
       price: input.price,
       currency: input.currency?.toUpperCase(),
       condition: input.condition,
@@ -571,13 +633,25 @@ export async function updateMarketplaceListing(id: string, ownerId: string, inpu
       video_url: input.videoUrl === undefined ? undefined : input.videoUrl.trim() || null,
     }).filter(([, value]) => value !== undefined),
   );
-  const { data, error } = await supabase
+  const runUpdate = () => supabase
     .from("marketplace_listings")
     .update(payload)
     .eq("id", id)
     .eq("owner_id", ownerId)
     .select("*, category:marketplace_categories(*)")
     .maybeSingle();
+  let result = await runUpdate();
+
+  if (result.error && !input.showOnBusinessPage && (result.error.code === "42703" || result.error.code === "PGRST204")) {
+    delete payload.show_on_business_page;
+    result = await runUpdate();
+  }
+
+  if (result.error && input.showOnBusinessPage && (result.error.code === "42703" || result.error.code === "PGRST204")) {
+    return { ok: false, error: "Para exibir o anúncio na página do negócio, é necessário aplicar a migration 00063 no Supabase." };
+  }
+
+  const { data, error } = result;
   if (error || !data) return { ok: false, error: error?.message || "Não foi possível atualizar o anúncio." };
   const [listing] = await enrichListings([data as unknown as MarketplaceListing]);
   return { ok: true, listing };
@@ -705,13 +779,24 @@ export async function contactMarketplaceSeller(listing: MarketplaceListing, mess
   if (senderId === listing.owner_id) return { ok: false, error: "Você não pode enviar mensagem para si mesmo." };
   // Marketplace conversations are intentionally separate from the seller's
   // business conversation, even when the listing is published for that business.
-  const conversation = await getOrCreateConversation(
-    senderId,
-    listing.owner_id,
-    undefined,
-    `Marketplace: ${listing.title} [${listing.id}]`,
-    { type: "marketplace", listingId: listing.id },
-  );
+  let conversation;
+  try {
+    conversation = await getOrCreateConversation(
+      senderId,
+      listing.owner_id,
+      undefined,
+      `Marketplace: ${listing.title} [${listing.id}]`,
+      { type: "marketplace", listingId: listing.id },
+    );
+  } catch (error) {
+    if (error instanceof ConversationStartError && ["PGRST202", "42883"].includes(error.code || "")) {
+      return {
+        ok: false,
+        error: "As mensagens do Marketplace precisam de uma atualização do banco de dados. Avise o administrador do site.",
+      };
+    }
+    return { ok: false, error: "Não foi possível iniciar a conversa. Tente novamente mais tarde." };
+  }
   if (!conversation) return { ok: false, error: "Não foi possível iniciar a conversa." };
   const { error } = await supabase.from("messages").insert({ conversation_id: conversation.id, sender_id: senderId, text: message.trim() });
   if (error) return { ok: false, error: error.message };

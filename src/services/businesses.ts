@@ -2171,6 +2171,32 @@ export function buildBusinessUrl(biz: BusinessUrlInput): string {
   return `/go/${biz.slug}`;
 }
 
+export async function getPublicBusinessPathsByIds(businessIds: string[]): Promise<Map<string, string>> {
+  const ids = [...new Set(businessIds.filter(Boolean))];
+  if (ids.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("id,slug,country_code,state_code,city,city_slug")
+    .in("id", ids)
+    .or("moderation_status.eq.approved,moderation_status.is.null");
+
+  if (error) {
+    console.error("[getPublicBusinessPathsByIds] Erro ao carregar caminhos publicos dos negocios:", error);
+    return new Map();
+  }
+
+  return new Map((data || []).map((business) => [business.id, buildBusinessUrl({
+    slug: business.slug,
+    address: {
+      countryCode: business.country_code || "",
+      stateCode: business.state_code || "",
+      city: business.city || "",
+      citySlug: business.city_slug || "",
+    },
+  })]));
+}
+
 const COUNTRY_DISPLAY_NAMES_PT_BR =
   typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function"
     ? new Intl.DisplayNames(["pt-BR"], { type: "region" })
