@@ -510,7 +510,7 @@ export async function getPublicBusinessDirectoryIndex(): Promise<BusinessFronten
       .from("businesses")
       .select(columns)
       .or("moderation_status.eq.approved,moderation_status.is.null")
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: false, nullsFirst: false })
       .order("id", { ascending: false })
       .range(from, from + pageSize - 1);
 

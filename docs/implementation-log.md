@@ -24,6 +24,20 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-10 16:52:28 -04:00
+
+- Status: concluido localmente em 2026-10-10 16:53:20 -04:00.
+- Solicitacao: corrigir a navegacao dos cards de negocios em destaque na home e investigar negocio antigo aparecendo em `Recem-chegados a comunidade`.
+- Diagnostico: cards de destaque nao passam `preloadedBusiness` nem antecipam o carregamento da pagina, ao contrario do carrossel recente. A lista SSR inicial e consumida sem normalizacao adicional de datas. `updateBusiness` ja descarta `created_at`/`createdAt`, mas isso nao restaura datas que versoes anteriores possam ter alterado.
+- Escopo: alinhar links dos destaques ao fluxo pre-carregado; normalizar a lista inicial por data de criacao e ordenar datas ausentes por ultimo. Sem alterar dados ou migrations.
+- Estrategia: passar estado de navegacao e handlers de prefetch aos cards de destaque, normalizar a inicializacao com `mergeRecentBusinesses` e pedir ao PostgREST datas nulas por ultimo.
+- Implementacao: os cards de destaque agora passam `preloadedBusiness` e antecipam modulo/imagem no hover, foco ou pointer-down. A lista inicial recente e normalizada por `createdAt`; a consulta do indice solicita datas nulas por ultimo.
+- Arquivos: `src/pages/HomeV2.tsx`, `src/services/businesses.ts` e este registro.
+- Validacao: `npm run typecheck`, ESLint direcionado, `npm test -- src/lib/homeRecentBusinesses.test.ts` (3 testes) e `git diff --check` aprovados. Consulta somente de leitura ao indice publico encontrou zero negocios com `created_at` nulo.
+- Migrations/configuracoes externas: nenhuma; nenhuma escrita no banco. A consulta ao Supabase foi somente leitura.
+- Risco residual: o timestamp historico de um negocio alterado por uma versao anterior nao pode ser inferido com seguranca pelo frontend; o registro ainda pode ser classificado como recente ate identificarmos e restaurarmos sua data original.
+- Decisao de deploy: enviar a `dev` e testar o card em destaque e a ordem do carrossel no Preview; para corrigir a data historica, identificar o negocio e recuperar a data verdadeira antes de qualquer update.
+
 ### 2026-10-10 16:42:00 -04:00
 
 - Status: concluido localmente em 2026-10-10 16:42:57 -04:00.

@@ -140,7 +140,9 @@ export default function HomeV2({
       icon: HOME_CATEGORY_ICONS[category.id] || MoreHorizontal,
     }));
   const recentListings = initialMarketplaceSnapshot?.items.slice(0, 3) || [];
-  const [recentBusinesses, setRecentBusinesses] = useState(initialRecentBusinesses);
+  const [recentBusinesses, setRecentBusinesses] = useState(() =>
+    mergeRecentBusinesses([], initialRecentBusinesses)
+  );
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const featuredBusinesses = initialFeaturedBusinesses.slice(0, 3);
   const [recentBusinessIndex, setRecentBusinessIndex] = useState(0);
@@ -443,7 +445,15 @@ export default function HomeV2({
                 {featuredBusinesses.map((business) => {
                   const heroImage = business.heroImage || "/cachorro-caramelo.webp";
                   return (
-                    <Link key={business.id} to={buildBusinessUrl(business)} className="group">
+                    <Link
+                      key={business.id}
+                      to={buildBusinessUrl(business)}
+                      state={{ preloadedBusiness: business }}
+                      onMouseEnter={() => preloadBusinessPageAssets(business)}
+                      onFocus={() => preloadBusinessPageAssets(business)}
+                      onPointerDown={() => preloadBusinessPageAssets(business)}
+                      className="group"
+                    >
                       <Card className="h-full overflow-hidden rounded-xl border border-[#203940]/10 bg-white p-0 shadow-none transition-shadow duration-300 hover:shadow-[0_16px_45px_rgba(32,57,64,0.10)]">
                         <div className="relative aspect-[16/10] overflow-hidden bg-[#edf0ec]">
                           <img
