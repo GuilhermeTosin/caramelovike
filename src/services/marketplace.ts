@@ -103,20 +103,7 @@ async function getMarketplacePublicProfiles(userIds: string[], select = MARKETPL
     return { profiles: (publicProfiles || []) as unknown as MarketplaceOwnerProfile[], unavailable: false };
   }
 
-  // Compatibility while the public_profiles view migration is pending. Only
-  // public identity columns are selected; private profile fields stay excluded.
-  const { data: legacyProfiles, error: legacyProfilesError } = await supabase
-    .from("profiles")
-    .select(select)
-    .in("id", userIds);
-  if (!legacyProfilesError) {
-    return { profiles: (legacyProfiles || []) as unknown as MarketplaceOwnerProfile[], unavailable: false };
-  }
-
-  console.warn("[marketplace] Seller profile lookup failed.", {
-    publicProfilesError: publicProfilesError.message,
-    legacyProfilesError: legacyProfilesError.message,
-  });
+  console.warn("[marketplace] Public seller profiles are unavailable; using generic seller labels.", publicProfilesError.message);
   return { profiles: [] as MarketplaceOwnerProfile[], unavailable: true };
 }
 

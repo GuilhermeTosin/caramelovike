@@ -24,6 +24,20 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-10 16:27:14 -04:00
+
+- Status: concluido localmente em 2026-10-10 16:27:59 -04:00.
+- Solicitacao: investigar o erro `42501 permission denied for table profiles` durante o pre-render do Marketplace sem conceder leitura anonima aos perfis privados.
+- Diagnostico: politicas antigas de `marketplace_listings`, imagens e denuncias consultam `public.profiles` diretamente para verificar administradores. A migration `00058_protect_private_profile_data.sql` revoga corretamente `SELECT` de `anon`, tornando essas politicas incompativeis. O frontend tambem mantem um fallback para consultar `profiles` quando a view publica falha.
+- Escopo: criar migration incremental para substituir as verificacoes RLS do Marketplace por um helper `SECURITY DEFINER` sem argumento, limitado ao usuario atual; remover fallback publico para `profiles`. Nao conceder `SELECT` anonimo em dados de perfil.
+- Estrategia: criar helper sem parametros com `search_path` vazio, permissao de execucao explicita para `anon` e `authenticated`, revisar politicas de leitura/gestao dos anuncios, imagens e denuncias; deixar falha da view publica como enriquecimento ausente, sem interromper os resultados.
+- Implementacao: adicionado `public.current_user_is_admin()` como helper `SECURITY DEFINER` sem argumento; politicas de leitura/gestao do Marketplace deixaram de consultar `profiles` diretamente. O frontend nao tenta mais acessar `profiles` como fallback quando `public_profiles` falha e usa rotulo generico para o vendedor.
+- Arquivos: `supabase/migrations/00064_marketplace_rls_current_admin.sql`, `src/services/marketplace.ts` e este registro.
+- Validacao: `npm run typecheck`, `npx eslint src/services/marketplace.ts`, `npm test -- src/lib/marketplaceSnapshot.test.ts` (3 testes), revisao estatica das referencias a `profiles` e `git diff --check` aprovados. A migration nao foi executada remotamente; nao houve build ou teste contra o Supabase remoto.
+- Migrations/configuracoes externas: aplicar manualmente `00064_marketplace_rls_current_admin.sql` no projeto Supabase conectado ao dev. Se esse projeto for compartilhado com producao, a mudanca RLS tera efeito em producao assim que aplicada.
+- Riscos residuais: sem aplicar a migration, as politicas atuais continuam gerando o erro `42501`. O log enviado e do pre-render de `/marketplace`, cuja falha e capturada e ainda gera HTML; nao confirma nem corrige a causa do 500 de `/`, que exige o log de runtime dessa rota.
+- Decisao de deploy: aplicar a migration no banco correto e implantar o codigo; antes de promover, validar `/marketplace` e obter o erro de runtime de `/` separadamente.
+
 ### 2026-10-10 16:16:11 -04:00
 
 - Status: concluido localmente em 2026-10-10 16:16:44 -04:00.
