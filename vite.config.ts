@@ -169,7 +169,7 @@ function localAdminUsersPlugin(): Plugin {
   };
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), "");
   for (const key of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"]) {
     if (!process.env[key] && env[key]) process.env[key] = env[key];
@@ -177,9 +177,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [...createReactPlugins(), vike(), localAdminUsersPlugin()],
-    ssr: {
-      noExternal: ["react-router-dom", "react-router"],
-    },
+    ssr: command === "build"
+      ? { noExternal: ["react-router-dom", "react-router"] }
+      : {},
     build: {
       // react-snap usa Chromium antigo; manter target mais compatível evita
       // "Unexpected token '?'" durante o prerender.

@@ -13,6 +13,7 @@ type PageContext = {
   initialBusinesses?: BusinessFrontend[];
   initialBusinessesAreSearchReady?: boolean;
   initialFeaturedBusinesses?: BusinessFrontend[];
+  initialShowFeaturedBusinesses?: boolean;
   initialRecentBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: Array<{
     countryCode: string;
@@ -45,6 +46,7 @@ export function Page({ pageContext }: { pageContext?: PageContext }) {
       initialBusinesses={pageContext?.initialBusinesses || []}
       initialBusinessesAreSearchReady={pageContext?.initialBusinessesAreSearchReady || false}
       initialFeaturedBusinesses={pageContext?.initialFeaturedBusinesses || []}
+      initialShowFeaturedBusinesses={pageContext?.initialShowFeaturedBusinesses ?? true}
       initialRecentBusinesses={pageContext?.initialRecentBusinesses || []}
       initialAvailableLocations={pageContext?.initialAvailableLocations || []}
       initialSearchSuggestions={pageContext?.initialSearchSuggestions || []}

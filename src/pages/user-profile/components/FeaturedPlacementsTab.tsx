@@ -16,12 +16,16 @@ type FeaturedPlacementsTabProps = {
   featuredForm: FeaturedForm;
   featuredPlacements: FeaturedPlacementFrontend[];
   featuredLoading: boolean;
+  homeFeaturedBusinessesVisible: boolean;
+  homeFeaturedVisibilityLoading: boolean;
+  savingHomeFeaturedVisibility: boolean;
   setFeaturedForm: Dispatch<SetStateAction<FeaturedForm>>;
   onBusinessChange: (businessId: string) => void;
   onSubmit: (event: FormEvent) => void;
   onRefresh: () => void;
   onToggleStatus: (placement: FeaturedPlacementFrontend) => void;
   onDelete: (placement: FeaturedPlacementFrontend) => void;
+  onHomeFeaturedVisibilityChange: (visible: boolean) => void;
 };
 
 export default function FeaturedPlacementsTab({
@@ -29,12 +33,16 @@ export default function FeaturedPlacementsTab({
   featuredForm,
   featuredPlacements,
   featuredLoading,
+  homeFeaturedBusinessesVisible,
+  homeFeaturedVisibilityLoading,
+  savingHomeFeaturedVisibility,
   setFeaturedForm,
   onBusinessChange,
   onSubmit,
   onRefresh,
   onToggleStatus,
   onDelete,
+  onHomeFeaturedVisibilityChange,
 }: FeaturedPlacementsTabProps) {
   return (
     <TabsContent value="destaques">
@@ -45,6 +53,32 @@ export default function FeaturedPlacementsTab({
             Gerencie campanhas de destaque por cidade, estado/província, país ou global.
           </p>
         </div>
+
+        <Card className="border-border p-5">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="space-y-1">
+              <Label htmlFor="home-featured-businesses-visible" className="font-semibold">
+                Mostrar “Negócios em Destaque” na página inicial
+              </Label>
+              <p id="home-featured-businesses-visibility-help" className="text-sm text-muted-foreground">
+                Desative para ocultar a seção inteira. As campanhas cadastradas serão preservadas.
+              </p>
+            </div>
+            <label className="inline-flex min-h-11 items-center gap-3 self-start rounded-lg border border-border px-3 sm:self-auto">
+              <span className="text-sm font-medium">{homeFeaturedBusinessesVisible ? "Visível" : "Oculta"}</span>
+              <input
+                id="home-featured-businesses-visible"
+                type="checkbox"
+                role="switch"
+                aria-describedby="home-featured-businesses-visibility-help"
+                checked={homeFeaturedBusinessesVisible}
+                disabled={homeFeaturedVisibilityLoading || savingHomeFeaturedVisibility}
+                onChange={(event) => onHomeFeaturedVisibilityChange(event.target.checked)}
+                className="h-5 w-5 cursor-pointer accent-emerald-700 disabled:cursor-wait"
+              />
+            </label>
+          </div>
+        </Card>
 
         <Card className="border-border p-6">
           <h3 className="mb-4 flex items-center gap-2 font-semibold">

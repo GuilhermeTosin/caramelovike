@@ -15,6 +15,7 @@ import {
   slugify,
 } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion } from "@/services/featured";
+import { isHomeFeaturedBusinessesVisible } from "@/services/homeSettings";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import { getCommunityEventById } from "@/services/events";
 import {
@@ -77,6 +78,7 @@ type PageContext = PageContextServer & {
   initialBusinesses?: BusinessFrontend[];
   initialBusinessesAreSearchReady?: boolean;
   initialFeaturedBusinesses?: BusinessFrontend[];
+  initialShowFeaturedBusinesses?: boolean;
   initialRecentBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: AvailableLocation[];
   initialSearchSuggestions?: string[];
@@ -282,14 +284,21 @@ async function getPublicHomeData() {
       .then((page) => page || { items: [], totalCount: 0 })
       .catch(() => ({ items: [], totalCount: 0 })),
   ]);
-  const [featuredBusinesses, searchMetadata] = await Promise.all([
-    getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[]),
+  const featuredDataPromise = isHomeFeaturedBusinessesVisible().then(async (visible) => ({
+    visible,
+    businesses: visible
+      ? await getFeaturedBusinessesForRegion(null, 6).catch(() => [] as BusinessFrontend[])
+      : [],
+  }));
+  const [featuredData, searchMetadata] = await Promise.all([
+    featuredDataPromise.catch(() => ({ visible: true, businesses: [] as BusinessFrontend[] })),
     getPublicSearchMetadata(),
   ]);
 
   return {
     initialHomeSnapshot: buildHomePublicSnapshot(businesses),
-    initialFeaturedBusinesses: featuredBusinesses,
+    initialFeaturedBusinesses: featuredData.businesses,
+    initialShowFeaturedBusinesses: featuredData.visible,
     initialRecentBusinesses: businesses.slice(0, 5),
     initialAvailableLocations: searchMetadata.availableLocations,
     initialSearchSuggestions: searchMetadata.searchSuggestions,

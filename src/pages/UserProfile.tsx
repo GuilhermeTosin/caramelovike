@@ -246,7 +246,11 @@ export default function UserProfile() {
     featuredLoading,
     featuredForm,
     setFeaturedForm,
+    homeFeaturedBusinessesVisible,
+    homeFeaturedVisibilityLoading,
+    savingHomeFeaturedVisibility,
     loadFeaturedAdminData,
+    handleToggleHomeFeaturedBusinesses,
     handleFeaturedBusinessChange,
     handleCreateFeaturedPlacement,
     handleToggleFeaturedStatus,
@@ -852,6 +856,9 @@ export default function UserProfile() {
                 featuredForm={featuredForm}
                 featuredPlacements={featuredPlacements}
                 featuredLoading={featuredLoading}
+                homeFeaturedBusinessesVisible={homeFeaturedBusinessesVisible}
+                homeFeaturedVisibilityLoading={homeFeaturedVisibilityLoading}
+                savingHomeFeaturedVisibility={savingHomeFeaturedVisibility}
                 setFeaturedForm={setFeaturedForm}
                 onBusinessChange={handleFeaturedBusinessChange}
                 onSubmit={handleCreateFeaturedPlacement}
@@ -860,6 +867,7 @@ export default function UserProfile() {
                 }}
                 onToggleStatus={handleToggleFeaturedStatus}
                 onDelete={handleDeleteFeaturedPlacement}
+                onHomeFeaturedVisibilityChange={handleToggleHomeFeaturedBusinesses}
               />
             ) : null}
 

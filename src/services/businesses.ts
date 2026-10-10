@@ -1948,16 +1948,9 @@ export async function updateBusiness(
   delete normalizedUpdates.createdAt;
   const slugValue = typeof normalizedUpdates.slug === "string" ? normalizedUpdates.slug : "";
   const shortSlugValue = typeof normalizedUpdates.shortSlug === "string" ? normalizedUpdates.shortSlug : slugValue;
-  const nameValue = typeof normalizedUpdates.name === "string" ? normalizedUpdates.name : "";
   const shortSlugCandidate = shortSlugValue.trim() ? shortSlugValue : "";
   delete normalizedUpdates.slug;
   delete normalizedUpdates.shortSlug;
-
-  if (nameValue.trim()) {
-    const officialSlug = await generateUniqueOfficialBusinessSlug(nameValue, id);
-    if (!officialSlug) return false;
-    normalizedUpdates.slug = officialSlug;
-  }
 
   if (shortSlugCandidate) {
     const shortAvailable = await isBusinessSlugAvailable(shortSlugCandidate, id);

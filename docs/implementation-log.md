@@ -24,6 +24,35 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-10 17:16:06 -04:00
+
+- Status: concluido localmente em 2026-10-10 17:17:11 -04:00.
+- Solicitacao: corrigir o HTTP 500 do localhost e voltar a permitir renomear um negocio existente no deployment `dev`.
+- Diagnostico: o SSR do Vite recebe `react-router-dom/dist/index.js` CommonJS por causa de `ssr.noExternal` global, e falha com `ReferenceError: module is not defined`; o build de producao precisa continuar empacotando essa dependencia para a funcao Vercel. O fluxo de edicao ainda recalcula o slug canonico quando o nome muda, apesar de nome e identidade da URL serem conceitos independentes.
+- Escopo: aplicar `noExternal` somente durante `vite build`, manter o slug canonico existente ao renomear e documentar validacao local/automatizada. Sem alterar banco, migrations ou deploy remoto.
+- Estrategia: deixar o SSR de desenvolvimento resolver o pacote pelo caminho ESM nativo do Node; preservar o empacotamento SSR no build; manter a mudanca de nome no update sem regenerar nem gravar o slug canonico, conservando a URL publica e o alias curto separado.
+- Implementacao: `ssr.noExternal` agora e aplicado somente no build, evitando que o servidor local avalie o entry CommonJS de `react-router-dom`. A edicao do nome preserva o slug canonico e a URL existentes; o link curto continua sendo alterado apenas quando solicitado explicitamente.
+- Arquivos: `vite.config.ts`, `src/services/businesses.ts` e este registro.
+- Validacao: localhost respondeu HTTP 200 para `/` e `/perfil`; `npm run build` passou com typecheck, 26 arquivos de teste e 121 testes; o bundle SSR de producao nao manteve imports externos de `react-router`/`react-router-dom`; `git diff --check` passou. O build conserva apenas o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx:7`.
+- Migrations/configuracoes externas: nenhuma; nenhuma escrita ou alteracao foi feita no Supabase.
+- Riscos residuais: o codigo precisa ser enviado e implantado em `dev` para testar o salvamento autenticado. A causa remota exata da falha anterior ainda nao foi capturada; se persistir apos o deploy, coletar a resposta de PATCH `/rest/v1/businesses` no Network e o erro `[updateBusiness]` do console.
+- Decisao de deploy: apto para novo deployment em `dev`; validar que renomear altera o nome exibido, conserva a URL publica antiga e nao retorna erro. Nao promover a producao sem esse teste.
+
+### 2026-10-10 17:11:04 -04:00
+
+- Status: concluido localmente em 2026-10-10 17:12:52 -04:00.
+- Solicitacao: adicionar ao dashboard administrativo uma opcao para ocultar completamente `Negocios em Destaque` da pagina inicial.
+- Diagnostico: a home ativa e `HomeV2`; o SSR carrega placements independentemente de qualquer configuracao de visibilidade. O painel de destaques ja e o local de administracao das campanhas, e `search_settings` ja armazena configuracoes globais usadas pelo produto.
+- Escopo: adicionar um controle administrativo persistente para visibilidade da secao, respeita-lo no HTML SSR e evitar buscar placements quando desativado. Preservar campanhas e dados cadastrados; nenhuma migration prevista.
+- Estrategia: gravar um booleano com chave propria em `search_settings`, default ligado; expor estado e acao no hook/tab de destaques; passar o estado do SSR ate `HomeV2` e omitir integralmente a secao quando desligado.
+- Implementacao: adicionado o controle acessivel de visibilidade na aba administrativa `Destaques`, com confirmacao visual e preservacao dos placements. A configuracao usa `search_settings`; o SSR transmite o booleano para `HomeV2` e deixa de consultar os placements quando a secao esta desativada.
+- Arquivos: `src/services/homeSettings.ts`, `src/pages/user-profile/hooks/useFeaturedAdmin.ts`, `src/pages/user-profile/components/FeaturedPlacementsTab.tsx`, `src/pages/UserProfile.tsx`, `pages/app/+onBeforeRender.ts`, `pages/app/+Page.tsx`, `pages/+config.ts`, `src/renderer/pageContext.ts`, `src/App.tsx`, `src/pages/HomeV2.tsx` e este registro.
+- Validacao: `npm run typecheck`, ESLint direcionado, `npm run build` (inclui 26 arquivos de teste e 121 testes) e `git diff --check` aprovados. Permanece o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx:7`.
+- Migrations/configuracoes externas: nenhuma nova migration; utiliza `search_settings`, tabela ja usada pelas configuracoes globais do site. Nenhuma alteracao remota foi feita.
+- Riscos residuais: a verificacao visual/interativa do toggle e da home no Preview ainda deve ser feita. Se a leitura da configuracao falhar, a visibilidade assume `true` para manter o comportamento atual.
+- Decisao de deploy: enviar para `dev`, testar o toggle na aba `Destaques`, recarregar a home e confirmar que a secao some por completo; reativar e confirmar que as campanhas retornam.
+- Riscos: a opcao depende da tabela `search_settings` e das mesmas permissoes ja utilizadas pelas configuracoes globais atuais; sem valor ou se a leitura falhar, a home permanece visivel por seguranca.
+
 ### 2026-10-10 17:03:57 -04:00
 
 - Status: concluido localmente em 2026-10-10 17:06:45 -04:00.

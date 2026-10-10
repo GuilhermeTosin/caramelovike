@@ -6,6 +6,10 @@ import {
   getFeaturedPlacementsForAdmin,
   updateFeaturedPlacementStatus,
 } from "@/services/featured";
+import {
+  isHomeFeaturedBusinessesVisible,
+  saveHomeFeaturedBusinessesVisibility,
+} from "@/services/homeSettings";
 import { getDateInputDaysFromNow } from "@/pages/user-profile/utils";
 import type { FeaturedForm } from "@/pages/user-profile/types";
 import type { BusinessFrontend, FeaturedPlacementFrontend, FeaturedScopeType } from "@/types/database";
@@ -37,6 +41,9 @@ export function useFeaturedAdmin({
   const [featuredPlacements, setFeaturedPlacements] = useState<FeaturedPlacementFrontend[]>([]);
   const [featuredLoading, setFeaturedLoading] = useState(false);
   const [featuredForm, setFeaturedForm] = useState<FeaturedForm>(DEFAULT_FEATURED_FORM);
+  const [homeFeaturedBusinessesVisible, setHomeFeaturedBusinessesVisible] = useState(true);
+  const [homeFeaturedVisibilityLoading, setHomeFeaturedVisibilityLoading] = useState(false);
+  const [savingHomeFeaturedVisibility, setSavingHomeFeaturedVisibility] = useState(false);
 
   const loadFeaturedAdminData = async () => {
     setFeaturedLoading(true);
@@ -48,10 +55,33 @@ export function useFeaturedAdmin({
   useEffect(() => {
     if (!isAdmin) {
       setFeaturedPlacements([]);
+      setHomeFeaturedBusinessesVisible(true);
       return;
     }
+    let active = true;
+    setHomeFeaturedVisibilityLoading(true);
+    void isHomeFeaturedBusinessesVisible().then((visible) => {
+      if (!active) return;
+      setHomeFeaturedBusinessesVisible(visible);
+      setHomeFeaturedVisibilityLoading(false);
+    });
     void loadFeaturedAdminData();
+    return () => {
+      active = false;
+    };
   }, [isAdmin]);
+
+  const handleToggleHomeFeaturedBusinesses = async (visible: boolean) => {
+    setSavingHomeFeaturedVisibility(true);
+    const saved = await saveHomeFeaturedBusinessesVisibility(visible);
+    setSavingHomeFeaturedVisibility(false);
+    if (!saved) {
+      toast.error("Não foi possível salvar a visibilidade dos destaques.");
+      return;
+    }
+    setHomeFeaturedBusinessesVisible(visible);
+    toast.success(visible ? "Negócios em Destaque visível na página inicial." : "Seção de destaques ocultada da página inicial.");
+  };
 
   const handleFeaturedBusinessChange = (businessId: string) => {
     const business = allBusinesses.find((item) => item.id === businessId);
@@ -127,7 +157,11 @@ export function useFeaturedAdmin({
     featuredLoading,
     featuredForm,
     setFeaturedForm,
+    homeFeaturedBusinessesVisible,
+    homeFeaturedVisibilityLoading,
+    savingHomeFeaturedVisibility,
     loadFeaturedAdminData,
+    handleToggleHomeFeaturedBusinesses,
     handleFeaturedBusinessChange,
     handleCreateFeaturedPlacement,
     handleToggleFeaturedStatus,

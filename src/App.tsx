@@ -146,6 +146,7 @@ type AppProps = {
   initialBusinesses?: BusinessFrontend[];
   initialBusinessesAreSearchReady?: boolean;
   initialFeaturedBusinesses?: BusinessFrontend[];
+  initialShowFeaturedBusinesses?: boolean;
   initialRecentBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: Array<{
     countryCode: string;
@@ -181,6 +182,7 @@ export default function App({
   initialBusinesses = [],
   initialBusinessesAreSearchReady = false,
   initialFeaturedBusinesses = [],
+  initialShowFeaturedBusinesses = true,
   initialRecentBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
@@ -216,6 +218,7 @@ export default function App({
             element={
               <HomeV2
                 initialFeaturedBusinesses={initialFeaturedBusinesses}
+                initialShowFeaturedBusinesses={initialShowFeaturedBusinesses}
                 initialRecentBusinesses={initialRecentBusinesses}
                 initialAvailableLocations={initialAvailableLocations}
                 initialSearchSuggestions={initialSearchSuggestions}

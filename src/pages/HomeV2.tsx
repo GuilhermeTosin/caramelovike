@@ -21,6 +21,7 @@ import type { BusinessFrontend } from "@/types/database";
 
 type HomeV2Props = {
   initialFeaturedBusinesses?: BusinessFrontend[];
+  initialShowFeaturedBusinesses?: boolean;
   initialRecentBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: Array<{
     countryCode: string;
@@ -118,6 +119,7 @@ function preloadRecentBusinessImage(business: BusinessFrontend) {
 
 export default function HomeV2({
   initialFeaturedBusinesses = [],
+  initialShowFeaturedBusinesses = true,
   initialRecentBusinesses = [],
   initialHomeSnapshot,
   initialMarketplaceSnapshot,
@@ -144,7 +146,7 @@ export default function HomeV2({
     mergeRecentBusinesses([], initialRecentBusinesses)
   );
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const featuredBusinesses = initialFeaturedBusinesses.slice(0, 3);
+  const featuredBusinesses = initialShowFeaturedBusinesses ? initialFeaturedBusinesses.slice(0, 3) : [];
   const [recentBusinessIndex, setRecentBusinessIndex] = useState(0);
   const activeRecentBusiness = recentBusinesses.length > 0
     ? recentBusinesses[recentBusinessIndex % recentBusinesses.length]
