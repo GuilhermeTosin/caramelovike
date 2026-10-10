@@ -24,6 +24,21 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-10 16:42:00 -04:00
+
+- Status: concluido localmente em 2026-10-10 16:42:57 -04:00.
+- Solicitacao: corrigir o HTTP 500 da home no deployment Vercel, identificado pelo erro `ERR_MODULE_NOT_FOUND` para `react-router-dom/dist/index.js`.
+- Diagnostico: a entrada SSR gerada em `dist/server/entries/pages_app.mjs` mantem `react-router-dom` como dependencia externa. A funcao serverless implantada nao contem o arquivo de entrada CJS `dist/index.js`, embora ele exista na instalacao local; por isso o erro ocorre apenas no runtime empacotado da Vercel.
+- Escopo: ajustar somente o bundle SSR do Vite para incluir `react-router-dom` e `react-router`; nao alterar versoes, lockfile, banco de dados ou fluxo de roteamento.
+- Estrategia: configurar `ssr.noExternal` para essas duas dependencias e validar o build, a ausencia dos imports externos no bundle e o handler SSR local.
+- Implementacao: adicionada a configuracao `ssr.noExternal` para `react-router-dom` e `react-router`, evitando que a funcao serverless dependa dos arquivos externos ausentes no deployment.
+- Arquivos: `vite.config.ts` e este registro.
+- Validacao: `npm run build` aprovado (typecheck e 26 arquivos de teste; 121 testes passaram); `dist/server/entries/pages_app.mjs` nao contem import externo dessas dependencias; chamada local de `api/ssr.js` para `/` respondeu HTTP 200; `git diff --check` aprovado. Permanece o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx:7`.
+- Migrations/configuracoes externas: nenhuma migration ou variavel de ambiente alterada.
+- Riscos residuais: validar no Preview da Vercel, pois somente o runtime implantado confirma a correcao do empacotamento da funcao.
+- Riscos: empacotar as dependencias no bundle SSR aumenta marginalmente o artefato da funcao; React permanece como dependencia externa/peer.
+- Decisao de deploy: enviar a branch `dev` e conferir que a nova invocacao de `/` retorna HTTP 200 antes de promover para producao.
+
 ### 2026-10-10 16:27:14 -04:00
 
 - Status: concluido localmente em 2026-10-10 16:27:59 -04:00.

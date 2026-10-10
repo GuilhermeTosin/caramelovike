@@ -177,6 +177,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [...createReactPlugins(), vike(), localAdminUsersPlugin()],
+    ssr: {
+      noExternal: ["react-router-dom", "react-router"],
+    },
     build: {
       // react-snap usa Chromium antigo; manter target mais compatível evita
       // "Unexpected token '?'" durante o prerender.
