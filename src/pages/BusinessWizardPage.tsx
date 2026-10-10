@@ -150,6 +150,7 @@ export default function BusinessWizardPage() {
   const saveInProgressRef = useRef(false);
   const stepTransitionInProgressRef = useRef(false);
   const loadedEditBusinessKeyRef = useRef<string | null>(null);
+  const originalShortSlugRef = useRef("");
   const [loadingEditBusiness, setLoadingEditBusiness] = useState(false);
   const [checkingBusinessEligibility, setCheckingBusinessEligibility] = useState(!isEditMode);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
@@ -337,6 +338,12 @@ export default function BusinessWizardPage() {
       setSlugMessage('Não use "caramelinho" no link curto.');
       return false;
     }
+    if (isEditMode && slugify(slug) === slugify(originalShortSlugRef.current)) {
+      setSlugStatus("ok");
+      setSlugMessage("Link atual mantido.");
+      setCheckingSlug(false);
+      return true;
+    }
     setCheckingSlug(true);
     const available = await isBusinessSlugAvailable(slug, isEditMode ? editingBusinessId : undefined);
     setCheckingSlug(false);
@@ -391,6 +398,14 @@ export default function BusinessWizardPage() {
       });
       return;
     }
+    if (isEditMode && slugify(slug) === slugify(originalShortSlugRef.current)) {
+      Promise.resolve().then(() => {
+        setSlugStatus("ok");
+        setSlugMessage("Link atual mantido.");
+        setCheckingSlug(false);
+      });
+      return;
+    }
     let cancelled = false;
     const timer = setTimeout(async () => {
       setCheckingSlug(true);
@@ -433,6 +448,7 @@ export default function BusinessWizardPage() {
         setEditingBusiness(biz);
         const existingShortSlug = (await getBusinessShortSlug(biz.id)) || biz.slug || "";
         if (!active) return;
+        originalShortSlugRef.current = existingShortSlug;
         setForm({
           name: biz.name || "",
           shortSlug: existingShortSlug,
@@ -726,9 +742,18 @@ export default function BusinessWizardPage() {
         citySlug: isUnchangedExistingLocation ? editingBusiness?.address.citySlug : undefined,
       });
 
+      const shortSlugUpdate: Record<string, string> = {};
+      if (isEditMode) {
+        if (slugify(form.shortSlug) !== slugify(originalShortSlugRef.current)) {
+          shortSlugUpdate.shortSlug = normalizeShortSlugFinal(form.shortSlug);
+        }
+      } else {
+        shortSlugUpdate.slug = normalizeShortSlugFinal(form.shortSlug || form.name);
+      }
+
       const payload = {
         name: form.name.trim(),
-        slug: normalizeShortSlugFinal(form.shortSlug || form.name),
+        ...shortSlugUpdate,
         categoryId: form.category,
         primaryActivity: form.primaryActivity,
         primaryActivityCustom: normalizePrimaryActivityCustom(form.primaryActivityCustom),

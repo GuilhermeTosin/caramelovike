@@ -9,6 +9,7 @@ import {
   deleteBusiness,
   getCategoryId,
   getCountryName,
+  getBusinessShortSlug,
   getStateDisplayName,
   isBusinessSlugAvailable,
   slugify,
@@ -144,6 +145,7 @@ export function useBusinessManagement({
   const [editMenuPdfFile, setEditMenuPdfFile] = useState<File | null>(null);
   const [eventFlyerFiles, setEventFlyerFiles] = useState<Record<number, File>>({});
   const eventDatePickerRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const originalShortSlugRef = useRef<Record<string, string>>({});
   const [editBusinessHours, setEditBusinessHours] = useState<BusinessHour[]>(createDefaultBusinessHours());
   const [editBusinessHoursTouched, setEditBusinessHoursTouched] = useState(false);
   const [shortSlugStatus, setShortSlugStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">(
@@ -157,10 +159,17 @@ export function useBusinessManagement({
     setEditBusinessHoursTouched(false);
   };
 
-  const handleStartEditBusiness = (business: BusinessFrontend) => {
+  const handleStartEditBusiness = async (business: BusinessFrontend) => {
+    let originalShortSlug = business.slug || "";
+    try {
+      originalShortSlug = (await getBusinessShortSlug(business.id)) || originalShortSlug;
+    } catch (error) {
+      console.warn("[business-edit] Could not load short URL; keeping the canonical slug as fallback.", error);
+    }
+    originalShortSlugRef.current[business.id] = originalShortSlug;
     setEditFormData({
       name: business.name,
-      shortSlug: business.slug || "",
+      shortSlug: originalShortSlug,
       category: business.categoryId,
       primaryActivity: business.primaryActivity || "",
       primaryActivityCustom: business.primaryActivityCustom || "",
@@ -231,6 +240,14 @@ export function useBusinessManagement({
     if (!normalized) {
       setShortSlugStatus("idle");
       setShortSlugMessage("Escolha um link curto para compartilhar seu negócio.");
+      return;
+    }
+    if (
+      editingBusiness &&
+      slugify(normalized) === slugify(originalShortSlugRef.current[editingBusiness.id] || "")
+    ) {
+      setShortSlugStatus("available");
+      setShortSlugMessage("Link atual mantido.");
       return;
     }
     if (normalized.includes("caramelinho")) {
@@ -394,24 +411,35 @@ export function useBusinessManagement({
       toast.error("Use apenas letras, números e hífen (-) no link curto.");
       return;
     }
-    if (desiredSlug.includes("caramelinho")) {
-      toast.error('Não use "caramelinho" no link curto. Escolha algo único do seu negócio.');
-      return;
+    const originalShortSlug = originalShortSlugRef.current[editingBusiness?.id || ""] || "";
+    const shortSlugChanged = isCreateMode || desiredSlug !== slugify(originalShortSlug);
+    if (shortSlugChanged) {
+      if (desiredSlug.includes("caramelinho")) {
+        toast.error('Não use "caramelinho" no link curto. Escolha algo único do seu negócio.');
+        return;
+      }
+      const slugAvailable = await isBusinessSlugAvailable(desiredSlug, editingBusiness?.id);
+      if (!slugAvailable) {
+        const baseCity = slugify(editFormData.city || "");
+        const baseState = slugify(editFormData.stateCode || editFormData.state || "");
+        const suggestion1 = `${desiredSlug}-${baseCity || "local"}`.replace(/-+$/g, "");
+        const suggestion2 = `${desiredSlug}-${baseState || "oficial"}`.replace(/-+$/g, "");
+        const suggestion3 = `${desiredSlug}-${Date.now().toString().slice(-4)}`;
+        toast.error(`Esse link curto já está em uso. Tente: ${suggestion1}, ${suggestion2} ou ${suggestion3}.`);
+        return;
+      }
     }
-    const slugAvailable = await isBusinessSlugAvailable(desiredSlug, editingBusiness?.id);
-    if (!slugAvailable) {
-      const baseCity = slugify(editFormData.city || "");
-      const baseState = slugify(editFormData.stateCode || editFormData.state || "");
-      const suggestion1 = `${desiredSlug}-${baseCity || "local"}`.replace(/-+$/g, "");
-      const suggestion2 = `${desiredSlug}-${baseState || "oficial"}`.replace(/-+$/g, "");
-      const suggestion3 = `${desiredSlug}-${Date.now().toString().slice(-4)}`;
-      toast.error(`Esse link curto já está em uso. Tente: ${suggestion1}, ${suggestion2} ou ${suggestion3}.`);
-      return;
+
+    const shortSlugUpdate: Record<string, string> = {};
+    if (isCreateMode) {
+      shortSlugUpdate.slug = desiredSlug;
+    } else if (shortSlugChanged) {
+      shortSlugUpdate.shortSlug = desiredSlug;
     }
 
     const updates: any = {
       name: editFormData.name,
-      slug: desiredSlug,
+      ...shortSlugUpdate,
       categoryId: editFormData.category,
       primaryActivity: editFormData.primaryActivity,
       primaryActivityCustom: normalizePrimaryActivityCustom(editFormData.primaryActivityCustom),

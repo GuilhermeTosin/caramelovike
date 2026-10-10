@@ -24,6 +24,19 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-10 17:03:57 -04:00
+
+- Status: concluido localmente em 2026-10-10 17:06:45 -04:00.
+- Solicitacao: corrigir a falha ao alterar o nome de um negocio existente pelo fluxo de edicao.
+- Diagnostico: confirmado no codigo que o wizard validava o link curto `/go/...` em toda edicao e sempre o enviava para `updateBusiness`, mesmo sem alteracao. O servico atualizava `businesses` primeiro e, em seguida, validava/fazia upsert do alias; se a verificacao ou o upsert falhasse, retornava erro generico depois de a linha principal ja poder ter sido gravada. A mudanca do nome recalcula o slug canonico da URL publica; a migration `00035_business_slug_history.sql` registra caminhos anteriores para redirecionamento.
+- Escopo: separar alteracoes do nome/slug canonico da alteracao opcional do link curto nos formularios do wizard e do perfil. Nao alterar regras de unicidade, banco, migration ou URLs quando o alias nao for editado.
+- Implementacao: ambos os formularios agora mantem o link curto existente como baseline, pulam sua validacao e omitem-no do payload quando nao foi alterado. Alteracoes explicitas ao link continuam verificadas e salvas. `updateBusiness` aceita o campo explicito `shortSlug`, mantendo compatibilidade com chamadas antigas que usam `slug`.
+- Arquivos: `src/pages/BusinessWizardPage.tsx`, `src/pages/user-profile/hooks/useBusinessManagement.ts`, `src/services/businesses.ts` e este registro.
+- Validacao: `npm run typecheck`, ESLint direcionado, `npm test` (26 arquivos, 121 testes), `npm run build` e `git diff --check` aprovados. O build manteve apenas o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx:7`.
+- Migrations/configuracoes externas: nenhuma; nao houve escrita no Supabase.
+- Riscos residuais: a causa exata na linha/registro remoto nao foi reproduzida nesta sessao. Quando o nome muda, o slug canonico pode mudar; confirmar no Preview que o endereco antigo redireciona, pois isso depende de `00035_business_slug_history.sql` estar aplicada no banco usado.
+- Decisao de deploy: enviar para `dev` e testar a alteracao do nome sem tocar no link curto; verificar o link antigo e o link curto `/go/...` antes de promover para producao.
+
 ### 2026-10-10 16:52:28 -04:00
 
 - Status: concluido localmente em 2026-10-10 16:53:20 -04:00.
