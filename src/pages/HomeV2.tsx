@@ -9,11 +9,13 @@ import { buildBusinessCategorySearchPath, buildMarketplaceSearchPath, useSearchL
 import { getHomeContent } from "@/data/homeContent";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
+import { mergeRecentBusinesses } from "@/lib/homeRecentBusinesses";
 import { getCountryDisplayName } from "@/lib/locales";
 import { type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
 import { setSeoMeta } from "@/lib/seo";
 import { stripRichTextHtml } from "@/lib/richText";
 import { calculateDistance, DEFAULT_GEO_FALLBACK, getApproxGeoByIp } from "@/lib/utils/geo";
+import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { buildBusinessUrl, getRecentBusinessesForRegion } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
 
@@ -96,13 +98,22 @@ function countryCodeToFlag(countryCode: string) {
   return String.fromCodePoint(...normalized.split("").map((letter) => regionalIndicatorA + letter.charCodeAt(0) - 65));
 }
 
-function mergeRecentBusinesses(current: BusinessFrontend[], additions: BusinessFrontend[]) {
-  const seen = new Set<string>();
-  return [...current, ...additions].filter((business) => {
-    if (seen.has(business.id)) return false;
-    seen.add(business.id);
-    return true;
-  });
+const PRELOADED_RECENT_BUSINESS_IMAGES = new Set<string>();
+
+function preloadRecentBusinessImage(business: BusinessFrontend) {
+  const imageUrl = getOptimizedImageUrl(
+    business.logoUrl || business.heroImage || "/cachorro-caramelo.webp",
+    { width: 384, quality: 78, format: "webp" },
+  );
+  if (!imageUrl || PRELOADED_RECENT_BUSINESS_IMAGES.has(imageUrl)) return;
+
+  PRELOADED_RECENT_BUSINESS_IMAGES.add(imageUrl);
+  const image = new Image();
+  image.decoding = "async";
+  image.src = imageUrl;
+  if (typeof image.decode === "function") {
+    void image.decode().catch(() => PRELOADED_RECENT_BUSINESS_IMAGES.delete(imageUrl));
+  }
 }
 
 export default function HomeV2({
@@ -137,6 +148,17 @@ export default function HomeV2({
     ? recentBusinesses[recentBusinessIndex % recentBusinesses.length]
     : null;
   const marketplaceHref = buildMarketplaceSearchPath(searchLocation);
+
+  useEffect(() => {
+    if (recentBusinesses.length < 2) return;
+
+    const index = recentBusinessIndex % recentBusinesses.length;
+    const neighborOffsets = [1, 2, -1];
+    for (const offset of neighborOffsets) {
+      const neighborIndex = (index + offset + recentBusinesses.length) % recentBusinesses.length;
+      preloadRecentBusinessImage(recentBusinesses[neighborIndex]);
+    }
+  }, [recentBusinessIndex, recentBusinesses]);
 
   useEffect(() => {
     let cancelled = false;
@@ -252,7 +274,14 @@ export default function HomeV2({
                         <p className={`${HOME_EYEBROW_CLASS} text-[#167348]`}>Recém-chegados à comunidade</p>
                         {activeRecentBusiness ? (
                           <div className="mt-4 rounded-xl border border-[#203940]/10 bg-white/80 p-4 shadow-sm sm:p-5">
-                            <Link to={buildBusinessUrl(activeRecentBusiness)} className="group flex min-w-0 items-start gap-4 sm:gap-5">
+                            <Link
+                              to={buildBusinessUrl(activeRecentBusiness)}
+                              state={{ preloadedBusiness: activeRecentBusiness }}
+                              onMouseEnter={() => preloadBusinessPageAssets(activeRecentBusiness)}
+                              onFocus={() => preloadBusinessPageAssets(activeRecentBusiness)}
+                              onPointerDown={() => preloadBusinessPageAssets(activeRecentBusiness)}
+                              className="group flex min-w-0 items-start gap-4 sm:gap-5"
+                            >
                               <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-xl bg-[#edf0ec] sm:h-48 sm:w-48">
                                 <img
                                   src={getOptimizedImageUrl(activeRecentBusiness.logoUrl || activeRecentBusiness.heroImage || "/cachorro-caramelo.webp", { width: 384, quality: 78, format: "webp" })}

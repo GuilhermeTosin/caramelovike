@@ -3,6 +3,7 @@ import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay"
 import { buildBusinessUrl } from "@/services/businesses";
 import { describe, expect, it } from "vitest";
 import {
+  buildBusinessSeoDescription,
   buildBusinessSeoTitle,
   getBusinessSeoDescriptor,
 } from "./businessMeta";
@@ -25,6 +26,45 @@ const baseBusiness = {
 };
 
 describe("business SEO metadata", () => {
+  it("keeps long meta descriptions within 160 characters without adding an ellipsis", () => {
+    const business = {
+      ...baseBusiness,
+      description: "A Kelly's é uma minúscula sala de degustação de cerveja e lounge de vinhos de propriedade e gerida por Kelly, com uma seleção especial de rótulos locais e internacionais.",
+    };
+
+    const description = buildBusinessSeoDescription(business);
+
+    expect(description.length).toBeLessThanOrEqual(160);
+    expect(description).not.toContain("...");
+    expect(description).toMatch(/[.!?]$/u);
+    expect(description).not.toMatch(/\b(?:de|do|da|em|com|para|e|ou)$/iu);
+  });
+
+  it("prefers a complete sentence from the business description when it fits", () => {
+    const business = {
+      ...baseBusiness,
+      description: "Atendimento em português e inglês. " + "Detalhes adicionais ".repeat(20) + "sobre nossos serviços e produtos.",
+    };
+
+    const description = buildBusinessSeoDescription(business);
+
+    expect(description).toContain("Atendimento em português e inglês.");
+    expect(description).not.toContain("Detalhes adicionais");
+    expect(description.length).toBeLessThanOrEqual(160);
+  });
+
+  it("strips rich-text markup and uses a complete fallback when description is empty", () => {
+    const richTextBusiness = {
+      ...baseBusiness,
+      description: "<p>Atendimento <strong>especializado</strong> para brasileiros.</p>",
+    };
+    const emptyDescriptionBusiness = { ...baseBusiness, description: "" };
+
+    expect(buildBusinessSeoDescription(richTextBusiness)).toContain("Atendimento especializado para brasileiros.");
+    expect(buildBusinessSeoDescription(richTextBusiness)).not.toMatch(/<[^>]+>/u);
+    expect(buildBusinessSeoDescription(emptyDescriptionBusiness)).toContain("Veja serviços, avaliações, fotos e formas de contato.");
+  });
+
   it("uses the Portuguese canonical city slug instead of a persisted legacy slug", () => {
     const existingBusiness = {
       ...baseBusiness,

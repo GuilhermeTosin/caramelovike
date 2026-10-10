@@ -1,5 +1,13 @@
 import type { BusinessFrontend } from "@/types/database";
-import { getCategoryLabel, getCountryName, getStateDisplayName, slugify, type PublicDirectoryAggregate } from "@/services/businesses";
+import {
+  getCategoryLabel,
+  getCountryName,
+  getPublicBusinessDirectoryAggregate,
+  getPublicBusinessDirectoryIndex,
+  getStateDisplayName,
+  slugify,
+  type PublicDirectoryAggregate,
+} from "@/services/businesses";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getDirectoryInsights, type DirectoryInsights } from "@/lib/directoryInsights";
 import { getDirectoryPageMeta, getDirectoryPageMetaFromAggregate, type DirectoryPageMeta } from "@/lib/seo/directoryMeta";
@@ -43,6 +51,52 @@ export type DirectoryPageSnapshot = {
   totalPages: number;
   pageBusinesses: BusinessFrontend[];
 };
+
+type DirectoryAggregateRequest = {
+  countryCode?: string;
+  stateCode?: string;
+  citySlug?: string;
+  categoryId?: string;
+  page?: number;
+};
+
+export type PublicDirectoryPageResult = {
+  snapshot: DirectoryPageSnapshot | null;
+  routeExists: boolean;
+  totalPages: number;
+};
+
+const DIRECTORY_RPC_MISSING_BACKOFF_MS = 60_000;
+const LEGACY_DIRECTORY_CACHE_TTL_MS = 2 * 60_000;
+let directoryRpcMissingUntil = 0;
+let legacyDirectoryCache: { businesses: BusinessFrontend[]; expiresAt: number } | null = null;
+let legacyDirectoryRequest: Promise<BusinessFrontend[]> | null = null;
+
+function isMissingDirectoryRpc(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { code?: string; status?: number; message?: string };
+  return value.code === "PGRST202"
+    || value.code === "42883"
+    || (value.status === 404 && /get_public_business_directory/i.test(value.message || ""));
+}
+
+async function getLegacyDirectoryBusinesses() {
+  if (legacyDirectoryCache && legacyDirectoryCache.expiresAt > Date.now()) {
+    return legacyDirectoryCache.businesses;
+  }
+
+  const request = legacyDirectoryRequest || (legacyDirectoryRequest = getPublicBusinessDirectoryIndex());
+  try {
+    const businesses = await request;
+    legacyDirectoryCache = { businesses, expiresAt: Date.now() + LEGACY_DIRECTORY_CACHE_TTL_MS };
+    return businesses;
+  } catch (error) {
+    if (legacyDirectoryRequest === request) legacyDirectoryRequest = null;
+    throw error;
+  } finally {
+    if (legacyDirectoryRequest === request) legacyDirectoryRequest = null;
+  }
+}
 
 function normalizeCode(value?: string) {
   return (value || "").trim().toLowerCase();
@@ -386,5 +440,37 @@ export function buildDirectoryPageSnapshotFromAggregate(
     totalBusinesses: level === "categoryBusinesses" || level === "businesses" ? aggregate.currentTotal : 0,
     totalPages: aggregate.totalPages,
     pageBusinesses: aggregate.pageBusinesses.map(compactDirectoryBusiness),
+  };
+}
+
+export async function loadPublicBusinessDirectoryPage(
+  pathname: string,
+  params: DirectoryAggregateRequest,
+): Promise<PublicDirectoryPageResult> {
+  if (Date.now() >= directoryRpcMissingUntil) {
+    try {
+      const aggregate = await getPublicBusinessDirectoryAggregate(params);
+      return {
+        snapshot: buildDirectoryPageSnapshotFromAggregate(pathname, aggregate),
+        routeExists: aggregate.routeExists,
+        totalPages: aggregate.totalPages,
+      };
+    } catch (error) {
+      if (!isMissingDirectoryRpc(error)) throw error;
+      directoryRpcMissingUntil = Date.now() + DIRECTORY_RPC_MISSING_BACKOFF_MS;
+    }
+  }
+
+  const snapshot = buildDirectoryPageSnapshot(pathname, await getLegacyDirectoryBusinesses());
+  const routeExists = snapshot
+    ? snapshot.level === "countries"
+      || ((snapshot.level === "states" || snapshot.level === "cities") && snapshot.gridItems.length > 0)
+      || ((snapshot.level === "businesses" || snapshot.level === "categoryBusinesses") && snapshot.totalBusinesses > 0)
+    : false;
+
+  return {
+    snapshot,
+    routeExists,
+    totalPages: snapshot?.totalPages || 1,
   };
 }

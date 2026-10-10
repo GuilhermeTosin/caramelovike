@@ -72,6 +72,39 @@ function truncateText(value: string, maxLength: number): string {
   return readable + "...";
 }
 
+function truncatePhrase(value: string, maxLength: number): string {
+  const text = cleanText(value);
+  if (text.length <= maxLength) return text;
+
+  const shortened = text.slice(0, maxLength);
+  const lastSpace = shortened.lastIndexOf(" ");
+  return (lastSpace > maxLength * 0.6 ? shortened.slice(0, lastSpace) : shortened)
+    .replace(/[\s,:;–—-]+$/u, "");
+}
+
+function fitMetaDescriptionText(value: string, maxLength: number): string {
+  const text = cleanText(value);
+  if (!text || maxLength < 2) return "";
+  if (text.length <= maxLength) {
+    if (/[.!?]$/u.test(text)) return text;
+    if (text.length < maxLength) return `${text.replace(/[\s,:;–—-]+$/u, "")}.`;
+  }
+
+  let lastSentenceEnd = -1;
+  for (const match of text.slice(0, maxLength).matchAll(/[.!?](?=\s|$)/gu)) {
+    lastSentenceEnd = (match.index ?? -1) + 1;
+  }
+  if (lastSentenceEnd > 0) return text.slice(0, lastSentenceEnd).trim();
+
+  const shortened = text.slice(0, maxLength - 1);
+  const lastSpace = shortened.lastIndexOf(" ");
+  const completeWords = lastSpace > 0 ? shortened.slice(0, lastSpace) : shortened;
+  const withoutDanglingWords = completeWords
+    .replace(/\s+(?:a|as|o|os|um|uma|uns|umas|de|do|da|dos|das|em|no|na|nos|nas|por|para|com|e|ou|que|and|or|the|a|an|of|in|on|by|for|to)$/iu, "")
+    .replace(/[\s,;:–—-]+$/u, "");
+  return withoutDanglingWords ? `${withoutDanglingWords}.` : "";
+}
+
 export function buildBusinessSeoTitle(business: BusinessSeoInput): string {
   const name = cleanText(business.name) || ("Neg\u00f3cio brasileiro");
   const descriptor = truncateText(getBusinessSeoDescriptorForTitle(business), 60);
@@ -81,10 +114,17 @@ export function buildBusinessSeoTitle(business: BusinessSeoInput): string {
 
 export function buildBusinessSeoDescription(business: BusinessSeoInput): string {
   const name = cleanText(business.name) || ("Neg\u00f3cio brasileiro");
-  const descriptor = truncateText(getBusinessSeoDescriptor(business), 60);
+  const descriptor = truncatePhrase(getBusinessSeoDescriptor(business), 60);
   const location = getBusinessLocationPhrase(business);
   const lead = name + ": " + descriptor + " " + location + ".";
   const sourceDescription = stripRichTextHtml(business.description || "");
-  const suffix = "Veja servi\u00e7os, avalia\u00e7\u00f5es, fotos e formas de contato.";
-  return truncateText(lead + " " + sourceDescription + " " + suffix, 170);
+  const fallback = "Veja serviços, avaliações, fotos e formas de contato.";
+  const details = sourceDescription || fallback;
+  const maxLength = 160;
+  const fittedLead = fitMetaDescriptionText(lead, maxLength);
+  const remainingLength = maxLength - fittedLead.length - 1;
+  if (remainingLength < 2) return fittedLead;
+
+  const fittedDetails = fitMetaDescriptionText(details, remainingLength);
+  return fittedDetails ? `${fittedLead} ${fittedDetails}` : fittedLead;
 }

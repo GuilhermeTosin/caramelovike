@@ -1943,6 +1943,9 @@ export async function updateBusiness(
   updates: Record<string, unknown>
 ): Promise<boolean> {
   const normalizedUpdates = { ...updates };
+  // Creation time defines when a business joined; profile edits must not move it in recent lists.
+  delete normalizedUpdates.created_at;
+  delete normalizedUpdates.createdAt;
   const slugValue = typeof normalizedUpdates.slug === "string" ? normalizedUpdates.slug : "";
   const nameValue = typeof normalizedUpdates.name === "string" ? normalizedUpdates.name : "";
   const shortSlugCandidate = slugValue.trim() ? slugValue : "";

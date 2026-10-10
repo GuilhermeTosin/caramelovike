@@ -2,7 +2,6 @@ import type { PageContextServer } from "vike/types";
 import { redirect, render } from "vike/abort";
 import {
   getBusinessesByPublicSearchRpc,
-  getPublicBusinessDirectoryAggregate,
   getPublicBusinessDirectoryIndex,
   getSimilarBusinessesForBusiness,
   getAvailableLocations,
@@ -24,7 +23,7 @@ import {
 } from "@/lib/directoryCategories";
 import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnapshot";
 import { buildPublicSearchPageRequest, isPublicBusinessSearch, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
-import { buildDirectoryPagePath, buildDirectoryPageSnapshotFromAggregate, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
+import { buildDirectoryPagePath, loadPublicBusinessDirectoryPage, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import { DEFAULT_CATEGORY_SYNONYMS, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import { getMarketplaceCategories, getMarketplaceListingByPath, getMarketplacePage, getMarketplaceBusinessSellerPage, getMarketplaceSellerPage } from "@/services/marketplace";
 import { buildMarketplaceRequestKey, buildMarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
@@ -526,20 +525,20 @@ export async function onBeforeRender(pageContext: PageContext) {
       }
     }
 
-    const aggregate = await getPublicBusinessDirectoryAggregate({
+    const directoryPage = await loadPublicBusinessDirectoryPage(pathname, {
       countryCode,
       stateCode,
       citySlug,
       categoryId: category?.categoryId,
       page: directoryRoute.page,
     });
-    if (!aggregate.routeExists) throw render(404);
-    if (citySlug && category && aggregate.currentTotal < DIRECTORY_CATEGORY_MINIMUM_BUSINESSES) throw render(404);
-    if (citySlug && (directoryRoute.page < 1 || directoryRoute.page > aggregate.totalPages)) throw render(404);
+    if (!directoryPage.routeExists || !directoryPage.snapshot) throw render(404);
+    if (citySlug && category && directoryPage.snapshot.totalBusinesses < DIRECTORY_CATEGORY_MINIMUM_BUSINESSES) throw render(404);
+    if (citySlug && (directoryRoute.page < 1 || directoryRoute.page > directoryPage.totalPages)) throw render(404);
 
     return {
       pageContext: {
-        initialDirectorySnapshot: buildDirectoryPageSnapshotFromAggregate(pathname, aggregate) || undefined,
+        initialDirectorySnapshot: directoryPage.snapshot,
         initialBusiness: null,
         isBusinessPage: false,
       },

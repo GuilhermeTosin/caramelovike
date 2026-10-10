@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Heart, MapPin, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,10 @@ type MarketplaceListingCardProps = {
 };
 
 export default function MarketplaceListingCard({ listing, onFavoriteChange }: MarketplaceListingCardProps) {
+  const location = useLocation();
+  const marketplaceReturnTo = location.pathname === "/marketplace" || location.pathname.startsWith("/marketplace/")
+    ? `${location.pathname}${location.search}`
+    : undefined;
   const image = listing.images?.[0]?.image_url;
   const optimizedImage = image
     ? getOptimizedImageUrl(image, { width: 640, quality: 72, format: "webp" })
@@ -95,7 +99,11 @@ export default function MarketplaceListingCard({ listing, onFavoriteChange }: Ma
 
   return (
     <Card className="relative h-full overflow-hidden border-border transition-shadow hover:shadow-lg">
-      <Link to={marketplaceListingPath(listing)} className="group block h-full">
+      <Link
+        to={marketplaceListingPath(listing)}
+        state={marketplaceReturnTo ? { marketplaceReturnTo } : undefined}
+        className="group block h-full"
+      >
         {image ? (
             <MarketplaceImageFrame
               src={optimizedImage || image}

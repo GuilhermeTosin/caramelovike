@@ -24,6 +24,92 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-10 16:16:11 -04:00
+
+- Status: concluido localmente em 2026-10-10 16:16:44 -04:00.
+- Solicitacao: corrigir a falha ao abrir um negocio pelo carrossel `Recem-chegados a comunidade` da pagina inicial.
+- Diagnostico: os links do diretorio enviam o negocio ja carregado via estado de navegacao e pre-carregam o modulo/hero da pagina; o link do carrossel nao seguia esse padrao e deixava a navegacao mais dependente do carregamento assincrono apos o clique. A causa exata da tela de recuperacao nao foi confirmada por reproducao no browser nesta sessao.
+- Escopo: alinhar o link do carrossel ao fluxo de navegacao usado no diretorio, sem alterar a URL canonica, o SSR ou as consultas de negocio.
+- Estrategia: passar `preloadedBusiness` no estado do React Router e disparar o pre-carregamento da pagina e da imagem principal no hover, foco ou pointer-down.
+- Riscos: dados pre-carregados sao apenas um seed visual; a pagina continua buscando o registro completo e pode corrigir o estado com os dados atuais. O bundle/hero pode ser solicitado antes do clique.
+- Implementacao: o link do carrossel agora envia `preloadedBusiness` no estado de navegacao e usa o pre-carregamento da pagina e do hero no hover, foco ou pointer-down, seguindo o comportamento dos links do diretorio.
+- Arquivos: `src/pages/HomeV2.tsx` e este registro.
+- Validacao: `npm run typecheck`, `npx eslint src/pages/HomeV2.tsx`, `npm test -- src/lib/homeRecentBusinesses.test.ts` (3 testes) e `git diff --check` aprovados. Build completo e teste visual no browser nao foram executados nesta alteracao.
+- Migrations/configuracoes externas: nenhuma; sem alteracao no banco.
+- Riscos residuais: como a causa exata ainda nao foi reproduzida, validar o clique no carrossel em dev. Se a tela persistir, coletar o primeiro erro `[BusinessPageRoute]` do console para isolar eventual falha independente no render da pagina.
+- Decisao de deploy: enviar para dev e testar o clique antes de promover para producao.
+
+### 2026-10-10 16:10:47 -04:00
+
+- Status: concluido localmente em 2026-10-10 16:12:37 -04:00.
+- Solicitacao: melhorar as meta descriptions das paginas de negocio, que hoje terminam com reticencias apos truncamento.
+- Diagnostico: `buildBusinessSeoDescription` junta nome, atividade, localizacao, descricao e um sufixo generico e aplica um limite fixo de 170 caracteres; `truncateText` sempre adiciona `...` quando corta.
+- Escopo: alterar somente a descricao SEO dos negocios; preservar titles e demais metadados. Manter conteudo especifico do negocio quando couber, sem reticencias artificiais e sem ultrapassar o novo limite de 160 caracteres.
+- Estrategia: priorizar o resumo nome/atividade/localizacao, usar a descricao limpa como complemento, encerrar em limite de frase quando possivel ou em palavra completa com pontuacao; usar chamada generica apenas quando nao houver descricao.
+- Riscos: em descricoes longas, parte do texto original continuara fora da meta description; buscadores tambem podem gerar ou truncar snippets independentemente do HTML.
+- Implementacao: meta descriptions agora priorizam nome, atividade e localizacao, usam a descricao do negocio como complemento e um texto de apoio apenas quando nao ha descricao. O limite passou a 160 caracteres; o corte respeita frases quando possivel ou palavras completas e finaliza com pontuacao, sem reticencias artificiais. Titles permanecem inalterados.
+- Arquivos: `src/lib/seo/businessMeta.ts`, `src/lib/seo/businessMeta.test.ts` e este registro. O `npm run build` regenerou `public/sitemaps/businesses-fallback.xml`, que ja estava modificado antes desta tarefa.
+- Validacao: teste direcionado `src/lib/seo/businessMeta.test.ts` (25 testes), ESLint direcionado, `git diff --check` e `npm run build` aprovados; build completo executou 26 arquivos de teste e 121 testes. O build ainda emite o aviso preexistente de top-level await em `src/pages/BusinessPageRoute.tsx:7`.
+- Migrations/configuracoes externas: nenhuma; sem alteracao no banco.
+- Riscos residuais: o Google pode reescrever ou truncar o snippet conforme a busca e o dispositivo; em descricoes longas, o restante continua disponivel na pagina, mas nao cabe na meta description.
+- Decisao de deploy: pode seguir no mesmo deploy da aplicacao; nenhuma etapa manual.
+
+### 2026-10-10 16:07:12 -04:00
+
+- Status: concluido localmente em 2026-10-10 16:07:46 -04:00.
+- Solicitacao: remover o bloco `Panorama do diretório` da pagina `/negocios`.
+- Diagnostico: a pagina renderiza um resumo de quatro metricas a partir de `snapshot.insights`; esse bloco e independente das categorias, da navegacao geografica e dos resultados.
+- Escopo: remover somente o resumo visual e o formatador de data que ele utiliza, preservando insights usados por outras secoes, filtros, listagem, breadcrumbs e SEO.
+- Estrategia: remover a chamada `DirectorySummary` e sua implementacao, sem alterar o snapshot ou consultas do diretorio.
+- Riscos: nenhum funcional esperado; nenhuma consulta ou metrica usada em outras partes sera removida.
+- Implementacao: removidos o bloco `DirectorySummary` e seu formatador de data; o panorama nao aparece mais em nenhum nivel do diretorio. Categorias, resultados, breadcrumbs e metadados permanecem.
+- Arquivos: `src/pages/BusinessDirectoryPage.tsx` e este registro.
+- Validacao: `npm run typecheck`, `npx eslint src/pages/BusinessDirectoryPage.tsx` e `git diff --check` aprovados.
+- Migrations/configuracoes externas: nenhuma; sem alteracao no banco.
+- Riscos residuais: nenhum identificado. Nao houve teste visual no browser.
+- Decisao de deploy: pode seguir no mesmo deploy da aplicacao; nenhuma etapa manual.
+
+### 2026-10-10 16:04:40 -04:00
+
+- Status: concluido localmente em 2026-10-10 16:05:51 -04:00.
+- Solicitacao: impedir que a edicao de um negocio antigo o faca parecer recem-chegado na home e reduzir a espera dos logos ao avancar o carrossel.
+- Diagnostico: os resultados iniciais e regionais sao mesclados preservando a ordem de cada origem, embora o fallback regional possa priorizar proximidade; a imagem do carrossel so e solicitada quando o respectivo negocio se torna ativo. A funcao generica de atualizacao tambem nao descarta explicitamente campos de data de criacao.
+- Escopo: ordenar os negocios mesclados pela data imutavel de criacao, impedir que atualizacoes de perfil enviem `created_at`/`createdAt`, e antecipar o carregamento dos proximos logos sem pre-carregar todo o catalogo.
+- Estrategia: manter a ordenacao decrescente por `createdAt` com desempate estavel; limpar os campos de criacao no payload de `updateBusiness`; pre-carregar e decodificar apenas os vizinhos do item ativo, com deduplicacao em memoria.
+- Riscos: logos dos itens vizinhos sao baixados antes de serem exibidos, limitados a poucos itens para conter trafego; negocios sem uma data de criacao valida preservam sua ordem relativa.
+- Implementacao: a lista unificada agora deduplica por ID e ordena pela data de criacao, ignorando a data de edicao. `updateBusiness` remove `created_at`/`createdAt` do payload. O carrossel pre-carrega e decodifica no maximo os dois proximos logos e o anterior, com cache de URLs na sessao.
+- Arquivos: `src/lib/homeRecentBusinesses.ts`, `src/lib/homeRecentBusinesses.test.ts`, `src/pages/HomeV2.tsx`, `src/services/businesses.ts` e este registro.
+- Validacao: `npm run typecheck`, `npm test -- src/lib/homeRecentBusinesses.test.ts` (3 testes), ESLint direcionado aos quatro arquivos TS/TSX e `git diff --check` aprovados.
+- Migrations/configuracoes externas: nenhuma; sem alteracao no banco.
+- Riscos residuais: ate tres logos vizinhos podem ser transferidos antes de sua exibicao; nao houve validacao visual no browser.
+- Decisao de deploy: pode seguir no mesmo deploy da aplicacao; nenhuma migration ou etapa manual no Supabase.
+
+### 2026-09-26 08:46:34 -04:00
+
+- Status: concluido localmente em 2026-09-26 08:51:23 -04:00.
+- Solicitacao: preservar filtros e localizacao ao retornar de um anuncio para os resultados do Marketplace.
+- Diagnostico: os cards levam ao caminho canonico do anuncio sem estado de retorno, e o botao de volta sempre aponta para `/marketplace`, descartando parametros como `cidade`, `pais`, coordenadas e `raio`.
+- Escopo: transportar a URL atual de uma navegacao iniciada dentro do Marketplace e reutiliza-la nos botoes de retorno do detalhe do anuncio; manter `/marketplace` como fallback para acesso direto.
+- Estrategia: usar `location.pathname + location.search` no estado interno do React Router e aceitar no detalhe apenas um caminho local iniciado por `/marketplace`, sem alterar a URL canonica do anuncio nem o fluxo de voltar do navegador.
+- Implementacao: os cards do Marketplace agora guardam a rota e a query de origem no estado de navegacao. O link de retorno no detalhe do anuncio e o botao na tela de anuncio indisponivel reutilizam esse destino; estado invalido ou acesso direto cai em `/marketplace`.
+- Arquivos: `src/components/MarketplaceListingCard.tsx`, `src/pages/MarketplacePage.tsx` e este registro.
+- Validacao: `npm run typecheck`, `npx eslint src/components/MarketplaceListingCard.tsx src/pages/MarketplacePage.tsx` e `git diff --check` aprovados. Nao foi feito teste visual no browser.
+- Migrations/configuracoes externas: nenhuma; sem alteracao no banco.
+- Riscos residuais: a preservacao depende de abrir o anuncio por um card dentro do Marketplace; acessos diretos usam o fallback `/marketplace`. Decisao de deploy: pode seguir no mesmo deploy da aplicacao, sem etapa manual no Supabase.
+
+### 2026-09-25 21:37:33 -04:00
+
+- Status: concluido localmente em 2026-09-25 21:43:32 -04:00.
+- Solicitacao: corrigir o erro do diretorio `/negocios` no dev e evitar tela branca ao navegar para a pagina de um negocio.
+- Diagnostico: o frontend chama `get_public_business_directory`, definida pela migration 00053, sem fallback quando o RPC nao existe no Supabase; o carregamento dinamico de `BusinessPage` mantem a Promise rejeitada e nao tem tratamento visual para falha de importacao/renderizacao.
+- Escopo: fallback temporario para o indice publico compacto se a RPC estiver ausente, aplicar o mesmo caminho no SSR e na navegacao cliente, e apresentar recuperacao visivel para falhas da pagina do negocio.
+- Estrategia: usar cooldown em memoria para ausencia do RPC e cache curto do indice; resetar Promise rejeitada do modulo de negocio; capturar falhas em prefetch/hidratacao e proteger a pagina com limite de erro.
+- Implementacao: o carregamento do diretorio usa a RPC agregada e, quando ela estiver ausente (`PGRST202`/`42883`), cai temporariamente para o indice compacto com cache de 2 minutos e cooldown de 60 segundos para evitar repeticoes. SSR e navegacao cliente compartilham o mesmo caminho. A carga dinamica da pagina de negocio agora limpa a Promise rejeitada, tenta uma recarga automatica unica para falhas de chunk, trata falhas de renderizacao e apresenta uma mensagem acionavel em vez de tela branca.
+- Arquivos: `src/lib/directorySnapshot.ts`, `src/pages/BusinessDirectoryPage.tsx`, `src/pages/BusinessPagePrefetch.ts`, `src/pages/BusinessPageRoute.tsx`, `pages/+onRenderClient.tsx`, `pages/app/+onBeforeRender.ts` e este registro.
+- Validacao: `npm run typecheck`, ESLint direcionado aos seis arquivos TS/TSX e `git diff --check` aprovados. `npx vike build` nao iniciou por `spawn EPERM` do ambiente ao resolver dependencias do Vite; a suite de testes nao foi executada.
+- Etapa manual pendente: aplicar `supabase/migrations/00053_public_directory_aggregate.sql` no projeto Supabase usado pelo dev para remover o 404 e voltar a usar agregacao server-side. Nenhum SQL foi executado nesta tarefa.
+- Riscos residuais: ate a migration 00053 ser aplicada, o fallback carrega o indice publico compacto e eleva o egress comparado a RPC agregada. Decisao de deploy: funcionalidade tem fallback, mas aplicar a migration e recomendavel antes de promover a versao.
+
 ### 2026-09-25 21:20:43 -04:00
 
 - Status: concluido localmente em 2026-09-25 21:22:32 -04:00.

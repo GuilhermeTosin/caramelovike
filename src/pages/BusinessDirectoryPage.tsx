@@ -4,7 +4,6 @@ import SiteFooter from "@/components/SiteFooter";
 import {
   buildBusinessUrl,
   getCountryName,
-  getPublicBusinessDirectoryAggregate,
   getStateDisplayName,
   resolveCanonicalLocationSlug,
 } from "@/services/businesses";
@@ -17,7 +16,7 @@ import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import { DIRECTORY_CATEGORY_MINIMUM_BUSINESSES } from "@/lib/directoryCategories";
 import {
   buildDirectoryPagePath,
-  buildDirectoryPageSnapshotFromAggregate,
+  loadPublicBusinessDirectoryPage,
   parseDirectoryRoute,
   type DirectoryLevel,
   type DirectoryPageSnapshot,
@@ -67,25 +66,20 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
       };
     }
 
-    void getPublicBusinessDirectoryAggregate({
+    void loadPublicBusinessDirectoryPage(pathname, {
       countryCode: route.countryCode,
       stateCode: route.stateCode,
       citySlug: route.citySlug,
       categoryId: category?.categoryId,
       page: route.page,
     })
-      .then((aggregate) => {
+      .then((result) => {
         if (!active) return;
-        if (!aggregate.routeExists) {
+        if (!result.routeExists || !result.snapshot) {
           setDirectoryLoadError(true);
           return;
         }
-        const nextSnapshot = buildDirectoryPageSnapshotFromAggregate(pathname, aggregate);
-        if (!nextSnapshot) {
-          setDirectoryLoadError(true);
-          return;
-        }
-        setClientSnapshot(nextSnapshot);
+        setClientSnapshot(result.snapshot);
       })
       .catch(() => {
         if (active) setDirectoryLoadError(true);
@@ -185,7 +179,6 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
 
         {snapshot?.insights && (
           <>
-            <DirectorySummary insights={snapshot.insights} />
             {snapshot.level === "businesses" && (
               <DirectoryCategoryOverview
                 title={`Categorias com página própria em ${snapshot.labels.city}`}
@@ -308,16 +301,6 @@ function pluralize(count: number, singular: string, plural: string) {
   return count + " " + (count === 1 ? singular : plural);
 }
 
-function formatDirectoryDate(value?: string) {
-  if (!value || !Number.isFinite(new Date(value).getTime())) return "Sem registros";
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(value));
-}
-
 function getDirectoryIntro(
   level: DirectoryLevel,
   insights: DirectoryInsights | null,
@@ -340,33 +323,6 @@ function getDirectoryIntro(
   }
   return "Em " + location.city + ", " + location.state + ", h\u00e1 " + businesses + " " + distribution + " em " + activities + ".";
 }
-function DirectorySummary({ insights }: { insights: DirectoryInsights }) {
-
-  return (
-    <section className="mt-8 rounded-2xl border border-border bg-white p-5">
-      <h2 className="text-xl font-bold text-foreground">{"Panorama do diret\u00f3rio"}</h2>
-      <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div>
-          <dt className="text-sm text-muted-foreground">{"Neg\u00f3cios publicados"}</dt>
-          <dd className="mt-1 text-2xl font-extrabold text-foreground">{insights.totalBusinesses}</dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">{"Tipos de neg\u00f3cio"}</dt>
-          <dd className="mt-1 text-2xl font-extrabold text-foreground">{insights.totalActivities}</dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">{"Neg\u00f3cios verificados"}</dt>
-          <dd className="mt-1 text-2xl font-extrabold text-foreground">{insights.verifiedBusinesses}</dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">{"\u00daltimo cadastro"}</dt>
-          <dd className="mt-1 text-sm font-bold text-foreground">{formatDirectoryDate(insights.latestCreatedAt)}</dd>
-        </div>
-      </dl>
-    </section>
-  );
-}
-
 function DirectoryCategoryOverview({
   title,
   insights,
