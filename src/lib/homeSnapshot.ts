@@ -40,7 +40,9 @@ export function buildHomePublicSnapshot(businesses: BusinessFrontend[]): HomePub
     const city = address?.city?.trim();
     if (!countryCode || !stateCode || !city) return;
 
-    const citySlug = getCanonicalCitySlug(city, countryCode);
+    const displayName =
+      getCityDisplayName(address.cityDisplayName || city, countryCode) || city;
+    const citySlug = getCanonicalCitySlug(displayName, countryCode);
     if (!citySlug) return;
 
     countries.add(countryCode);
@@ -48,10 +50,7 @@ export function buildHomePublicSnapshot(businesses: BusinessFrontend[]): HomePub
     cities.add(key);
     const current = cityCounts.get(key);
     cityCounts.set(key, {
-      displayName:
-        current?.displayName ||
-        getCityDisplayName(address.cityDisplayName || city, countryCode) ||
-        city,
+      displayName: current?.displayName || displayName,
       countryCode,
       stateCode,
       count: (current?.count || 0) + 1,

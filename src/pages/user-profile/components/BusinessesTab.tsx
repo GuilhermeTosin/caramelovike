@@ -13,6 +13,8 @@ import { getCityDisplayName } from "@/lib/locationDisplay";
 import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import { getBusinessProfileCompletionData, getBusinessProfileScore } from "@/lib/profileCompleteness";
 import type { BusinessFrontend } from "@/types/database";
+import { getHomeContent } from "@/data/homeContent";
+import { getCountryDisplayName } from "@/lib/locales";
 
 type BusinessesTabProps = {
   loadingMyBusinesses: boolean;
@@ -21,6 +23,7 @@ type BusinessesTabProps = {
   filteredMyBusinesses: BusinessFrontend[];
   myBusinessesTotalPages: number;
   safeMyBusinessesPage: number;
+  canManageMultipleBusinesses: boolean;
   getMyVerificationStatusByBusiness: (businessId: string) => string | null;
   getCategoryLabel: (category: string) => string;
   myBusinessesSearch: string;
@@ -39,16 +42,16 @@ function BusinessProfileScoreBadge({ business }: { business: BusinessFrontend })
 
   if (profileScore === 100) {
     return (
-      <Badge className="inline-flex items-center gap-1 border-amber-300 bg-amber-100 text-amber-900" title="Perfil completo">
+      <Badge className="inline-flex items-center gap-1 border-amber-300 bg-amber-100 text-amber-900" title={"Perfil completo"}>
         <Crown className="h-3.5 w-3.5 fill-amber-500 text-amber-600" />
-        100% completo
+        {"100% completo"}
       </Badge>
     );
   }
 
   return (
-    <Badge variant="outline" className="border-amber-300/70 text-amber-800" title="Completude do perfil">
-      Perfil {profileScore}% completo
+    <Badge variant="outline" className="border-amber-300/70 text-amber-800" title={"Completude do perfil"}>
+      {"Perfil"} {profileScore}% {"completo"}
     </Badge>
   );
 }
@@ -70,10 +73,10 @@ function BusinessContentButton({
   const hasContent = isFoodBusiness
     ? hasNamedItems(business.menu) || Boolean(business.menuPdfUrl?.trim())
     : hasNamedItems(business.serviceItems) || business.services.some((service) => service.trim());
-  const label = isFoodBusiness ? "Card\u00e1pio" : "Servi\u00e7os";
+  const label = isFoodBusiness ? ("Card\u00e1pio") : ("Servi\u00e7os");
   const explanation = isFoodBusiness
-    ? "Adicione pratos, produtos, pre\u00e7os e, se quiser, envie tamb\u00e9m um PDF do seu card\u00e1pio. Essas informa\u00e7\u00f5es aparecer\u00e3o na p\u00e1gina p\u00fablica do neg\u00f3cio para que os clientes conhe\u00e7am suas op\u00e7\u00f5es antes de entrar em contato, decidam com mais seguran\u00e7a e encontrem rapidamente o que procuram. Um card\u00e1pio completo tamb\u00e9m deixa seu perfil mais profissional."
-    : "Adicione os servi\u00e7os que voc\u00ea oferece e, quando poss\u00edvel, inclua detalhes, pre\u00e7os e condi\u00e7\u00f5es. Essa se\u00e7\u00e3o aparecer\u00e1 na p\u00e1gina p\u00fablica do neg\u00f3cio e ajuda os clientes a entender rapidamente se voc\u00ea atende \u00e0s necessidades deles, comparar op\u00e7\u00f5es e entrar em contato com mais confian\u00e7a. Manter os servi\u00e7os atualizados deixa seu perfil mais completo e profissional.";
+    ? ("Adicione pratos, produtos, pre\u00e7os e, se quiser, envie tamb\u00e9m um PDF do seu card\u00e1pio. Essas informa\u00e7\u00f5es aparecer\u00e3o na p\u00e1gina p\u00fablica do neg\u00f3cio para que os clientes conhe\u00e7am suas op\u00e7\u00f5es antes de entrar em contato, decidam com mais seguran\u00e7a e encontrem rapidamente o que procuram. Um card\u00e1pio completo tamb\u00e9m deixa seu perfil mais profissional.")
+    : ("Adicione os servi\u00e7os que voc\u00ea oferece e, quando poss\u00edvel, inclua detalhes, pre\u00e7os e condi\u00e7\u00f5es. Essa se\u00e7\u00e3o aparecer\u00e1 na p\u00e1gina p\u00fablica do neg\u00f3cio e ajuda os clientes a entender rapidamente se voc\u00ea atende \u00e0s necessidades deles, comparar op\u00e7\u00f5es e entrar em contato com mais confian\u00e7a. Manter os servi\u00e7os atualizados deixa seu perfil mais completo e profissional.");
   const onClick = () => (isFoodBusiness ? onOpenMenu(business) : onOpenServices(business));
   const button = (
     <Button
@@ -107,6 +110,7 @@ export default function BusinessesTab({
   filteredMyBusinesses,
   myBusinessesTotalPages,
   safeMyBusinessesPage,
+  canManageMultipleBusinesses,
   getMyVerificationStatusByBusiness,
   getCategoryLabel,
   myBusinessesSearch,
@@ -119,20 +123,25 @@ export default function BusinessesTab({
   onOpenVerificationModal,
   onDeleteMyBusiness,
 }: BusinessesTabProps) {
+  const homeText = getHomeContent();
+  const hasActiveBusiness = myBusinesses.some((business) => business.moderationStatus !== "rejected");
+  const canCreateBusiness = canManageMultipleBusinesses || !hasActiveBusiness;
   return (
     <TabsContent value="negocios" className="mt-0">
       <div className="mb-8 rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Meus negócios</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Gerencie e encontre rapidamente seus negócios cadastrados.</p>
+            <h2 className="text-2xl font-bold text-foreground">{canManageMultipleBusinesses ? "Meus negócios" : "Meu negócio"}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{canManageMultipleBusinesses ? "Gerencie e encontre rapidamente seus negócios cadastrados." : "Gerencie seu negócio publicado no Caramelinho."}</p>
           </div>
-          <Link to="/negocio/wizard" className="w-full sm:w-auto">
-            <Button size="sm" className="w-full sm:w-auto">
-              <Plus className="mr-1 h-3.5 w-3.5" />
-              Adicionar novo negócio
-            </Button>
-          </Link>
+          {canCreateBusiness ? (
+            <Link to={"/negocio/wizard"} className="w-full sm:w-auto">
+              <Button size="sm" className="w-full sm:w-auto">
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                {"Adicionar novo negócio"}
+              </Button>
+            </Link>
+          ) : null}
         </div>
 
         <div className="relative mt-5 w-full max-w-xl">
@@ -142,8 +151,8 @@ export default function BusinessesTab({
             type="search"
             value={myBusinessesSearch}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Buscar por nome, cidade ou país"
-            aria-label="Buscar por nome, cidade ou país"
+            placeholder={"Buscar por nome, cidade ou país"}
+            aria-label={"Buscar por nome, cidade ou país"}
             className="h-10 pl-9"
           />
         </div>
@@ -151,23 +160,23 @@ export default function BusinessesTab({
       {loadingMyBusinesses && myBusinesses.length === 0 ? (
         <Card className="border-border p-8 text-center">
           <Store className="mx-auto mb-3 h-12 w-12 animate-pulse text-muted-foreground/30" />
-          <p className="mb-1 text-muted-foreground">Carregando seus negócios...</p>
+          <p className="mb-1 text-muted-foreground">{"Carregando seus negócios..."}</p>
         </Card>
       ) : myBusinesses.length === 0 ? (
         <Card className="border-border p-8 text-center">
           <Store className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
-          <p className="mb-4 text-muted-foreground">Você ainda não cadastrou nenhum negócio.</p>
-          <Link to="/negocio/wizard">
+          <p className="mb-4 text-muted-foreground">{"Você ainda não cadastrou nenhum negócio."}</p>
+          <Link to={"/negocio/wizard"}>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Cadastrar negócio
+              {"Cadastrar negócio"}
             </Button>
           </Link>
         </Card>
       ) : filteredMyBusinesses.length === 0 ? (
         <Card className="border-border p-8 text-center">
           <Store className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="text-muted-foreground">Nenhum negócio encontrado com esse filtro.</p>
+          <p className="text-muted-foreground">{"Nenhum negócio encontrado com esse filtro."}</p>
         </Card>
       ) : (
         <div id="meus-negocios-lista" className="space-y-4">
@@ -196,39 +205,39 @@ export default function BusinessesTab({
                     <BusinessProfileScoreBadge business={biz} />
                     {biz.moderationStatus === "pending" ? (
                       <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">
-                        Em analise
+                        {"Em analise"}
                       </Badge>
                     ) : null}
                     {biz.moderationStatus === "rejected" ? (
                       <Badge variant="outline" className="border-destructive/30 text-destructive">
-                        Rejeitado
+                        {"Rejeitado"}
                       </Badge>
                     ) : null}
                     {(() => {
                       const status = getMyVerificationStatusByBusiness(biz.id);
                       if (!status) return null;
-                      if (status === "pending") return <Badge variant="outline">{"Verifica\u00e7\u00e3o pendente"}</Badge>;
+                      if (status === "pending") return <Badge variant="outline">{"Verificação pendente"}</Badge>;
                       if (status === "approved" && biz.ownerVerified) {
                         return (
                           <Badge className="inline-flex items-center gap-1.5 bg-emerald-600 text-white">
                             <Lock className="h-3 w-3" />
-                            Verificado
+                            {"Verificado"}
                           </Badge>
                         );
                       }
                       if (status === "approved" && !biz.ownerVerified) {
-                        return <Badge variant="outline">{"Verifica\u00e7\u00e3o expirada"}</Badge>;
+                        return <Badge variant="outline">{"Verificação expirada"}</Badge>;
                       }
                       return (
                         <Badge variant="outline" className="border-destructive/30 text-destructive">
-                          {"Verifica\u00e7\u00e3o rejeitada"}
+                          {"Verificação rejeitada"}
                         </Badge>
                       );
                     })()}
                   </div>
                 </div>
                 <Badge variant="secondary" className="flex-shrink-0">
-                  {getCategoryLabel(biz.category).split(" (")[0]}
+                  {homeText.categories.find((category) => category.id === biz.categoryId)?.name || getCategoryLabel(biz.category).split(" (")[0]}
                 </Badge>
               </div>
 
@@ -236,7 +245,7 @@ export default function BusinessesTab({
                 <span className="flex min-w-0 items-center gap-1 leading-tight">
                   <MapPin className="h-3 w-3 shrink-0" />
                   <span className="truncate">
-                    {getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, {getCountryName(biz.address.countryCode || biz.address.country)}
+                    {getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, {getCountryDisplayName(biz.address.countryCode || biz.address.country, getCountryName(biz.address.countryCode || biz.address.country))}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1 whitespace-nowrap leading-tight">
@@ -252,7 +261,7 @@ export default function BusinessesTab({
                   <Link to={`/negocio/wizard?editBusinessId=${biz.id}`}>
                     <Button size="sm" variant="outline" className="w-full sm:w-auto">
                       <Edit3 className="mr-1.5 h-3.5 w-3.5" />
-                      Editar
+                      {"Editar"}
                     </Button>
                   </Link>
 
@@ -263,12 +272,12 @@ export default function BusinessesTab({
                   />
                   <Button size="sm" variant="outline" onClick={() => onOpenEventsModal(biz)} className="w-full sm:w-auto">
                     <Calendar className="mr-1.5 h-3.5 w-3.5" />
-                    Eventos
+                    {"Eventos"}
                   </Button>
 
                   <Button size="sm" variant="outline" onClick={() => onOpenCouponModal(biz)} className="w-full sm:w-auto">
                     <TicketPercent className="mr-1.5 h-3.5 w-3.5" />
-                    {"Promo\u00e7\u00f5es"}
+                    {"Promoções"}
                   </Button>
 
                   {!biz.ownerVerified ? (
@@ -280,12 +289,12 @@ export default function BusinessesTab({
                       className="w-full sm:w-auto"
                       title={
                         getMyVerificationStatusByBusiness(biz.id) === "pending"
-                          ? "Já existe uma solicitação pendente"
-                          : "Solicitar verifica\u00e7\u00e3o"
+                          ? ("Já existe uma solicitação pendente")
+                          : ("Solicitar verificação")
                       }
                     >
                       <BadgeCheck className="mr-1.5 h-3.5 w-3.5" />
-                      {"Solicitar verifica\u00e7\u00e3o"}
+                      {"Solicitar verificação"}
                     </Button>
                   ) : null}
 
@@ -294,8 +303,8 @@ export default function BusinessesTab({
                       size="sm"
                       variant="outline"
                       asChild
-                      aria-label={`Ver ${biz.name}`}
-                    title={biz.moderationStatus === "approved" ? "Ver negócio" : "Pré-visualizar negócio em análise"}
+                      aria-label={`${"Ver"} ${biz.name}`}
+                    title={biz.moderationStatus === "approved" ? ("Ver negócio") : ("Pré-visualizar negócio em análise")}
                     >
                     <Link
                       to={biz.moderationStatus === "approved" ? buildBusinessUrl(biz) : `/preview/negocio/${biz.id}`}
@@ -315,8 +324,8 @@ export default function BusinessesTab({
                       variant="outline"
                       className="border-destructive/30 text-destructive hover:bg-destructive/10"
                       onClick={() => onDeleteMyBusiness(biz)}
-                      aria-label={`Excluir ${biz.name}`}
-                      title="Excluir negócio"
+                      aria-label={`${"Excluir"} ${biz.name}`}
+                      title={"Excluir negócio"}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -331,6 +340,10 @@ export default function BusinessesTab({
               currentPage={safeMyBusinessesPage}
               totalPages={myBusinessesTotalPages}
               onPageChange={onPageChange}
+              previousLabel={undefined}
+              nextLabel={undefined}
+              navigationLabel={undefined}
+              pageLabel={undefined}
               className="pt-2"
             />
           ) : null}

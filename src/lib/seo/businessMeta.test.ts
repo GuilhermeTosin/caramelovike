@@ -3,6 +3,7 @@ import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay"
 import { buildBusinessUrl } from "@/services/businesses";
 import { describe, expect, it } from "vitest";
 import {
+  buildBusinessSeoDescription,
   buildBusinessSeoTitle,
   getBusinessSeoDescriptor,
 } from "./businessMeta";
@@ -14,7 +15,7 @@ const baseBusiness = {
   primaryActivity: "restaurant",
   primaryActivityCustom: "",
   description: "",
-  attendanceType: "presencial",
+  attendanceType: "presencial" as const,
   address: {
     city: "Toronto",
     state: "Ontario",
@@ -25,6 +26,45 @@ const baseBusiness = {
 };
 
 describe("business SEO metadata", () => {
+  it("keeps long meta descriptions within 160 characters without adding an ellipsis", () => {
+    const business = {
+      ...baseBusiness,
+      description: "A Kelly's é uma minúscula sala de degustação de cerveja e lounge de vinhos de propriedade e gerida por Kelly, com uma seleção especial de rótulos locais e internacionais.",
+    };
+
+    const description = buildBusinessSeoDescription(business);
+
+    expect(description.length).toBeLessThanOrEqual(160);
+    expect(description).not.toContain("...");
+    expect(description).toMatch(/[.!?]$/u);
+    expect(description).not.toMatch(/\b(?:de|do|da|em|com|para|e|ou)$/iu);
+  });
+
+  it("prefers a complete sentence from the business description when it fits", () => {
+    const business = {
+      ...baseBusiness,
+      description: "Atendimento em português e inglês. " + "Detalhes adicionais ".repeat(20) + "sobre nossos serviços e produtos.",
+    };
+
+    const description = buildBusinessSeoDescription(business);
+
+    expect(description).toContain("Atendimento em português e inglês.");
+    expect(description).not.toContain("Detalhes adicionais");
+    expect(description.length).toBeLessThanOrEqual(160);
+  });
+
+  it("strips rich-text markup and uses a complete fallback when description is empty", () => {
+    const richTextBusiness = {
+      ...baseBusiness,
+      description: "<p>Atendimento <strong>especializado</strong> para brasileiros.</p>",
+    };
+    const emptyDescriptionBusiness = { ...baseBusiness, description: "" };
+
+    expect(buildBusinessSeoDescription(richTextBusiness)).toContain("Atendimento especializado para brasileiros.");
+    expect(buildBusinessSeoDescription(richTextBusiness)).not.toMatch(/<[^>]+>/u);
+    expect(buildBusinessSeoDescription(emptyDescriptionBusiness)).toContain("Veja serviços, avaliações, fotos e formas de contato.");
+  });
+
   it("uses the Portuguese canonical city slug instead of a persisted legacy slug", () => {
     const existingBusiness = {
       ...baseBusiness,
@@ -58,7 +98,7 @@ describe("business SEO metadata", () => {
       },
     };
 
-    expect(buildBusinessSeoTitle(onlineBusiness, "pt-BR")).toContain("em Montreal, Quebec");
+    expect(buildBusinessSeoTitle(onlineBusiness)).toContain("em Montreal, Quebec");
   });
   it("uses Portuguese display names for known city exonyms without changing unknown cities", () => {
     expect(getCityDisplayName("London", "gb")).toBe("Londres");
@@ -81,7 +121,7 @@ describe("business SEO metadata", () => {
       },
     };
 
-    expect(buildBusinessSeoTitle(londonBusiness, "pt-BR")).toContain("em Londres, Inglaterra");
+    expect(buildBusinessSeoTitle(londonBusiness)).toContain("em Londres, Inglaterra");
   });
   it("exposes exactly the curated food activities", () => {
     expect(getPrimaryActivityOptions("food").map((activity) => activity.id)).toEqual([
@@ -111,6 +151,7 @@ describe("business SEO metadata", () => {
       "car_dealership",
       "automotive_center",
       "paintless_dent_repair",
+      "other",
     ]);
   });
   it("exposes the complete construction activity list plus Other", () => {
@@ -284,9 +325,9 @@ describe("business SEO metadata", () => {
     ]);
   });
   it("uses Brazilian descriptors only in titles for selected activities", () => {
-    expect(getBusinessSeoDescriptor(baseBusiness, "pt-BR")).toBe("Restaurante");
-    expect(buildBusinessSeoTitle(baseBusiness, "pt-BR")).toBe(
-      "Sabor Carioca | Restaurante brasileiro em Toronto, Ontario",
+    expect(getBusinessSeoDescriptor(baseBusiness)).toBe("Restaurante");
+    expect(buildBusinessSeoTitle(baseBusiness)).toBe(
+      "Sabor Carioca | Restaurante brasileiro em Toronto, Ontário",
     );
 
     const dentistBusiness = {
@@ -295,8 +336,8 @@ describe("business SEO metadata", () => {
       category: "Saude e Beleza",
       primaryActivity: "dentist",
     };
-    expect(buildBusinessSeoTitle(dentistBusiness, "pt-BR")).toBe(
-      "Sabor Carioca | Dentista brasileiro em Toronto, Ontario",
+    expect(buildBusinessSeoTitle(dentistBusiness)).toBe(
+      "Sabor Carioca | Dentista brasileiro em Toronto, Ontário",
     );
   });
 
@@ -308,7 +349,7 @@ describe("business SEO metadata", () => {
       primaryActivity: "pet_hotel",
     };
 
-    expect(getBusinessSeoDescriptor(petBusiness, "pt-BR")).toBe("Hotel para c\u00e3es e gatos");
+    expect(getBusinessSeoDescriptor(petBusiness)).toBe("Hotel para c\u00e3es e gatos");
   });
 
   it("does not apply the override when no primary activity was selected", () => {
@@ -317,6 +358,6 @@ describe("business SEO metadata", () => {
       primaryActivity: "",
     };
 
-    expect(getBusinessSeoDescriptor(legacyBusiness, "pt-BR")).toBe("Restaurantes e Alimentacao");
+    expect(getBusinessSeoDescriptor(legacyBusiness)).toBe("Restaurantes e Alimentacao");
   });
 });

@@ -45,38 +45,75 @@ export default function EventsTab({
   onStartEditCommunityEvent,
   onDeleteCommunityEvent,
 }: EventsTabProps) {
+  const text = {
+        title: "Meus Eventos",
+        edit: "Editar evento",
+        create: "Criar novo evento",
+        eventTitle: "Título do evento *",
+        titlePlaceholder: "Ex: Noite de Samba Brasileira",
+        description: "Descrição",
+        descriptionPlaceholder: "Detalhes do evento, atrações e informações importantes.",
+        date: "Data *",
+        location: "Local *",
+        linkedBusiness: "Vincular a negócio (opcional)",
+        selectBusiness: "Selecionar negócio",
+        noBusiness: "Sem negócio vinculado",
+        ticketType: "Tipo de entrada",
+        free: "Entrada franca",
+        paid: "Evento pago",
+        price: "Preço",
+        ticketUrl: "Link de ingressos (opcional)",
+        flyer: "Flyer do evento (opcional)",
+        chooseImage: "Escolher imagem",
+        selectedFile: "Arquivo selecionado:",
+        flyerPreview: "Preview do flyer",
+        removeSelected: "Remover arquivo selecionado",
+        removeCurrent: "Remover flyer atual",
+        saving: "Salvando...",
+        publishing: "Publicando...",
+        saveChanges: "Salvar alterações",
+        publish: "Publicar evento",
+        cancelEdit: "Cancelar edição",
+        published: "Eventos publicados",
+        empty: "Você ainda não publicou eventos.",
+        linked: "Negócio vinculado:",
+        notFound: "negócio não encontrado",
+        notLinked: "Não vinculado",
+        editAction: "Editar",
+        delete: "Excluir",
+      };
   return (
     <TabsContent value="eventos" className="mt-0">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">Meus Eventos</h2>
+          <h2 className="text-2xl font-bold text-foreground">{text.title}</h2>
         </div>
 
         <Card className="p-5 border-border">
           <h3 className="font-semibold mb-4">
-            {editingCommunityEventId ? "Editar evento" : "Criar novo evento"}
+            {editingCommunityEventId ? text.edit : text.create}
           </h3>
           <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <Label>Título do evento *</Label>
+              <Label>{text.eventTitle}</Label>
               <Input
                 className="mt-1.5"
                 value={communityEventForm.title}
                 onChange={(e) => setCommunityEventForm((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="Ex: Noite de Samba Brasileira"
+                placeholder={text.titlePlaceholder}
               />
             </div>
             <div className="md:col-span-2">
-              <Label>Descrição</Label>
+              <Label>{text.description}</Label>
               <Textarea
                 className="mt-1.5 min-h-[90px]"
                 value={communityEventForm.description}
                 onChange={(e) => setCommunityEventForm((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder="Detalhes do evento, atrações e informações importantes."
+                placeholder={text.descriptionPlaceholder}
               />
             </div>
             <div>
-              <Label>Data *</Label>
+              <Label>{text.date}</Label>
               <div className="mt-1.5 flex items-center gap-2">
                 <Input
                   value={communityEventForm.date}
@@ -108,7 +145,7 @@ export default function EventsTab({
               </div>
             </div>
             <div>
-              <Label>Local *</Label>
+              <Label>{text.location}</Label>
               <div className="mt-1.5">
                 <AddressAutocomplete
                   value={communityEventForm.location}
@@ -123,7 +160,7 @@ export default function EventsTab({
               </div>
             </div>
             <div>
-              <Label>Vincular a negócio (opcional)</Label>
+              <Label>{text.linkedBusiness}</Label>
               <Select
                 value={communityEventForm.businessId}
                 onValueChange={(value) => {
@@ -155,10 +192,10 @@ export default function EventsTab({
                 }}
               >
                 <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Selecionar negócio" />
+                  <SelectValue placeholder={text.selectBusiness} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sem negócio vinculado</SelectItem>
+                  <SelectItem value="none">{text.noBusiness}</SelectItem>
                   {myBusinesses.map((business) => (
                     <SelectItem key={business.id} value={business.id}>
                       {business.name}
@@ -168,7 +205,7 @@ export default function EventsTab({
               </Select>
             </div>
             <div>
-              <Label>Tipo de entrada</Label>
+              <Label>{text.ticketType}</Label>
               <Select
                 value={communityEventForm.isFree ? "free" : "paid"}
                 onValueChange={(value) =>
@@ -193,14 +230,14 @@ export default function EventsTab({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="free">Entrada franca</SelectItem>
-                  <SelectItem value="paid">Evento pago</SelectItem>
+                  <SelectItem value="free">{text.free}</SelectItem>
+                  <SelectItem value="paid">{text.paid}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {!communityEventForm.isFree && (
               <div>
-                <Label>Preço</Label>
+                <Label>{text.price}</Label>
                 <Input
                   className="mt-1.5"
                   value={communityEventForm.price}
@@ -210,7 +247,7 @@ export default function EventsTab({
               </div>
             )}
             <div className="md:col-span-2">
-              <Label>Link de ingressos (opcional)</Label>
+              <Label>{text.ticketUrl}</Label>
               <Input
                 className="mt-1.5"
                 value={communityEventForm.ticketUrl}
@@ -219,17 +256,17 @@ export default function EventsTab({
               />
             </div>
             <div className="md:col-span-2">
-              <Label htmlFor="community-event-flyer">Flyer do evento (opcional)</Label>
+              <Label htmlFor="community-event-flyer">{text.flyer}</Label>
               <div className="mt-1.5 flex items-center gap-3 flex-wrap">
                 <label
                   htmlFor="community-event-flyer"
                   className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary"
                 >
-                  Escolher imagem
+                  {text.chooseImage}
                 </label>
                 {communityEventFlyerFile ? (
                   <span className="text-xs text-emerald-700">
-                    Arquivo selecionado: <strong>{communityEventFlyerFile.name}</strong>
+                    {text.selectedFile} <strong>{communityEventFlyerFile.name}</strong>
                   </span>
                 ) : null}
               </div>
@@ -244,7 +281,7 @@ export default function EventsTab({
                 <div className="mt-2 flex items-start gap-3">
                   <img
                     src={communityEventFlyerFile ? URL.createObjectURL(communityEventFlyerFile) : communityEventForm.flyerUrl}
-                    alt="Preview do flyer"
+                    alt={text.flyerPreview}
                     className="h-24 w-24 rounded-md object-cover border border-border"
                   />
                   <div className="flex flex-col gap-2">
@@ -256,7 +293,7 @@ export default function EventsTab({
                         className="h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10"
                         onClick={() => setCommunityEventFlyerFile(null)}
                       >
-                        Remover arquivo selecionado
+                        {text.removeSelected}
                       </Button>
                     ) : null}
                     {communityEventForm.flyerUrl ? (
@@ -267,7 +304,7 @@ export default function EventsTab({
                         className="h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10"
                         onClick={() => setCommunityEventForm((prev) => ({ ...prev, flyerUrl: "" }))}
                       >
-                        Remover flyer atual
+                        {text.removeCurrent}
                       </Button>
                     ) : null}
                   </div>
@@ -278,12 +315,12 @@ export default function EventsTab({
               <div className="flex items-center gap-2">
                 <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" disabled={savingCommunityEvent}>
                   {savingCommunityEvent
-                    ? (editingCommunityEventId ? "Salvando..." : "Publicando...")
-                    : (editingCommunityEventId ? "Salvar alterações" : "Publicar evento")}
+                    ? (editingCommunityEventId ? text.saving : text.publishing)
+                    : (editingCommunityEventId ? text.saveChanges : text.publish)}
                 </Button>
                 {editingCommunityEventId && (
                   <Button type="button" variant="outline" onClick={onCancelEdit}>
-                    Cancelar edição
+                    {text.cancelEdit}
                   </Button>
                 )}
               </div>
@@ -293,10 +330,10 @@ export default function EventsTab({
 
         <Card className="border-border overflow-hidden">
           <div className="p-5 border-b border-border">
-            <h3 className="font-semibold">Eventos publicados</h3>
+            <h3 className="font-semibold">{text.published}</h3>
           </div>
           {myCommunityEvents.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">Você ainda não publicou eventos.</div>
+            <div className="p-8 text-center text-muted-foreground">{text.empty}</div>
           ) : (
             <div className="divide-y divide-border">
               {myCommunityEvents.map((event) => (
@@ -307,11 +344,11 @@ export default function EventsTab({
                       {new Date(`${event.date}T00:00:00`).toLocaleDateString("pt-BR")} · {event.location}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Negócio vinculado:{" "}
+                      {text.linked}{" "}
                       <strong>
                         {event.business_id
-                          ? (myBusinesses.find((business) => business.id === event.business_id)?.name || "negócio não encontrado")
-                          : "Não vinculado"}
+                          ? (myBusinesses.find((business) => business.id === event.business_id)?.name || text.notFound)
+                          : text.notLinked}
                       </strong>
                     </p>
                     {event.description ? <p className="text-sm mt-2 text-muted-foreground line-clamp-2">{event.description}</p> : null}
@@ -319,7 +356,7 @@ export default function EventsTab({
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="outline" onClick={() => onStartEditCommunityEvent(event)}>
                       <Edit3 className="w-3.5 h-3.5 mr-1.5" />
-                      Editar
+                      {text.editAction}
                     </Button>
                     <Button
                       size="sm"
@@ -328,7 +365,7 @@ export default function EventsTab({
                       onClick={() => onDeleteCommunityEvent(event)}
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                      Excluir
+                      {text.delete}
                     </Button>
                   </div>
                 </div>

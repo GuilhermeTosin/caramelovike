@@ -8,11 +8,11 @@ function compactText(value: string | null | undefined) {
 }
 
 export function buildEventCanonicalUrl(eventId: string) {
-  return SITE_URL + "/eventos/" + encodeURIComponent(eventId);
+  return SITE_URL + ("/eventos/") + encodeURIComponent(eventId);
 }
 
 export function buildEventSeoTitle(event: CommunityEvent) {
-  return compactText(event.title) + " | Evento | Caramelinho.com";
+  return compactText(event.title) + (" | Evento | Caramelinho.com");
 }
 
 export function buildEventSeoDescription(event: CommunityEvent) {
@@ -55,8 +55,8 @@ export function buildEventBreadcrumbStructuredData(event: CommunityEvent, canoni
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Início", item: SITE_URL + "/" },
-      { "@type": "ListItem", position: 2, name: "Eventos", item: SITE_URL + "/buscar?eventos=1" },
+      { "@type": "ListItem", position: 1, name: "Início", item: SITE_URL + ("/") },
+      { "@type": "ListItem", position: 2, name: "Eventos", item: SITE_URL + ("/buscar?eventos=1") },
       { "@type": "ListItem", position: 3, name: compactText(event.title), item: canonicalUrl },
     ],
   };

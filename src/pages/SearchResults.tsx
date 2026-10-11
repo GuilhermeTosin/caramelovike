@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useRef } from "react";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, X, Navigation, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Share2, Copy } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, X, Navigation, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Pagination from "@/components/Pagination";
 import { Badge } from "@/components/ui/badge";
@@ -25,10 +25,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { stripRichTextHtml } from "@/lib/richText";
 import MapView from "@/components/MapView";
 import { useAuth } from "@/contexts/AuthContext";
-import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
+import { getHomeContent } from "@/data/homeContent";
+import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
 import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
-import { geocodeAddress } from "@/lib/google-maps";
-import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
@@ -37,18 +36,18 @@ import { preloadBusinessPageAssets, preloadBusinessPageChunk } from "@/pages/Bus
 import {
   BUSINESS_CATEGORY_OPTIONS,
   buildBusinessUrl,
-  getAllBusinesses,
-  getAllBusinessesByPublicSearchRpc,
+  getAllBusinessMapMarkersByPublicSearchRpc,
+  getAllPublicBusinesses,
+  getPublicBusinessSearchIndex,
   getAvailableLocations,
   getCategoryId,
   getCategoryLabel,
   getBusinessesByPublicSearchRpc,
   getCountryName,
-  getSearchSuggestions,
 } from "@/services/businesses";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { DEFAULT_CATEGORY_SYNONYMS, getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
-import type { BusinessFrontend, CommunityEvent } from "@/types/database";
+import type { BusinessFrontend, BusinessMapMarker, CommunityEvent } from "@/types/database";
 import { resolveInitialSearchBusinesses } from "@/lib/search/searchBusinessSnapshot";
 import {
   buildPublicSearchPageRequest,
@@ -65,11 +64,9 @@ import {
 import {
   CITY_ALIASES,
   geocodeLocationWithCountryFallback,
-  inferNearestCityFromBusinesses,
   resolveLocationContextFromBusinesses,
 } from "@/lib/search/locationResolver";
 import { buildEventResults } from "@/lib/search/eventSearch";
-import { useCommunityFinds } from "@/hooks/useCommunityFinds";
 import AddCommunityFindForm from "@/components/AddCommunityFindForm";
 import {
   addCommunityFindMessage,
@@ -237,9 +234,15 @@ const parseCoordParam = (raw: string): number | null => {
 type SearchResultsProps = {
   initialBusinesses?: BusinessFrontend[];
   initialBusinessesAreSearchReady?: boolean;
-  initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
-  initialSearchSuggestions?: string[];
+  initialAvailableLocations?: AvailableLocation[];
+  initialSearchSynonyms?: Record<string, string[]>;
   initialSearchSnapshot?: PublicSearchPageSnapshot;
+};
+
+type AvailableLocation = {
+  countryCode: string;
+  countryName: string;
+  states: { code: string; name: string; cities: string[] }[];
 };
 
 type SearchResultsLocationState = {
@@ -252,30 +255,93 @@ type PublicSearchPageResult = {
   totalCount: number;
 };
 
-function extractCities(
-  locations: { states: { cities: string[] }[] }[]
-): string[] {
-  const cities = new Set<string>();
-  locations.forEach((location) => {
-    location.states.forEach((state) => {
-      state.cities.forEach((city) => cities.add(city));
-    });
-  });
-  return Array.from(cities);
-}
-
 export default function SearchResults({
   initialBusinesses = [],
   initialBusinessesAreSearchReady = false,
   initialAvailableLocations = [],
-  initialSearchSuggestions = [],
+  initialSearchSynonyms = DEFAULT_CATEGORY_SYNONYMS,
   initialSearchSnapshot,
 }: SearchResultsProps = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { session } = useAuth();
+  const text = {
+        searchPlaceholder: "Buscar por produto ou serviço (Ex: coxinha)", locationPlaceholder: "Em qual cidade?", currentLocation: CURRENT_LOCATION_LABEL, submit: "Farejar", filters: "Filtros", map: "Mapa", list: "Lista", loading: "Carregando resultados...", noResults: "Nenhum resultado encontrado", clear: "Limpar filtros", backHome: "Voltar ao Início", loadingDescription: "Aguarde um instante enquanto preparamos os negócios para você.", country: "País", region: "Estado/Província", allRegions: "Todos os estados", city: "Cidade", allCities: "Todas as cidades", distance: "Distância", within: "Até", business: "negócio", found: "encontrado", allWorldwide: "Ver todos no mundo", regionalCategory: "Você está vendo resultados desta categoria na sua região.", locationRequired: "informe um local ou permita sua localização para usar raio", locatingReference: "localizando referência...", businessSearch: "Buscar negócios brasileiros", slogan: getSiteSlogan(),
+      };
+  const communityText = {
+        findsHeading: "Achadinhos da comunidade",
+        findsDescription: "Descobertas temporárias publicadas por usuários próximos.",
+        addFind: "Adicionar achadinho",
+        close: "Fechar",
+        findPhoto: "Foto do achadinho",
+        learnMore: "Saiba mais",
+        shareFind: "Compartilhar achadinho:",
+        shareWhatsApp: "Compartilhar no WhatsApp",
+        shareFacebook: "Compartilhar no Facebook",
+        copyLink: "Copiar link",
+        noFinds: "Ainda não há achadinhos ativos na sua região.",
+        event: "Evento",
+        noDescription: "Sem descrição.",
+        freeEntry: "Entrada franca",
+        paidEvent: "Evento pago",
+        organizedBy: "Organizado por",
+        communityMember: "Membro da comunidade",
+        discussion: "Discussão do achadinho",
+        spottedBy: "Farejado por",
+        location: "Local",
+        notProvided: "Não informado",
+        stillAvailable: "Este item ainda está disponível neste local?",
+        loadingMessages: "Carregando mensagens...",
+        user: "Usuário",
+        edited: "editado",
+        cancel: "Cancelar",
+        save: "Salvar",
+        reply: "Responder",
+        report: "Denunciar",
+        edit: "Editar",
+        delete: "Apagar",
+        discussionDescription: "Converse com a comunidade sobre disponibilidade, preço e reposição deste produto.",
+        replying: "Respondendo uma mensagem",
+        cancelReply: "cancelar resposta",
+        messagePlaceholder: "Escreva sua mensagem...",
+        loginToDiscuss: "Faça login para participar da discussão.",
+        reportFind: "Denunciar achadinho",
+        sending: "Enviando...",
+        sendMessage: "Enviar mensagem",
+        reportContent: "Denunciar conteúdo",
+        reportDescription: "Sua denúncia será analisada pela equipe de administração.",
+        reason: "Motivo",
+        abuse: "Abuso",
+        fraud: "Fraude",
+        offensive: "Ofensivo",
+        misinformation: "Desinformação",
+        other: "Outro",
+        details: "Detalhes (opcional)",
+        detailsPlaceholder: "Descreva brevemente o problema.",
+        sendReport: "Enviar denúncia",
+        gotIt: "Entendi",
+        allMapBusinessesLoading: "Carregando todos os negócios encontrados no mapa...",
+        findsCount: (count: number) => `${count} achadinho${count !== 1 ? "s" : ""} encontrado${count !== 1 ? "s" : ""}`,
+        eventsCount: (count: number) => `${count} evento${count !== 1 ? "s" : ""} encontrado${count !== 1 ? "s" : ""}`,
+        findCategories: { comida: "Comida", beleza: "Beleza", casa: "Casa", outros: "Outros" },
+        messageSendError: "Não foi possível enviar a mensagem.",
+        messageEditError: "Não foi possível editar a mensagem.",
+        messageDeleteConfirm: "Tem certeza que deseja apagar esta mensagem?",
+        messageDeleteError: "Não foi possível apagar a mensagem.",
+        reportSendError: "Não foi possível enviar a denúncia.",
+      };
+  const displayLocale = "pt-BR";
+  const homeContent = getHomeContent();
+  const categoryLabels = new Map(homeContent.categories.map((category) => [category.id, category.name]));
+  const getCommunityFindCategoryLabel = (category: string) =>
+    communityText.findCategories[category as keyof typeof communityText.findCategories] || category;
+  const getDisplayCategoryLabel = (categoryId: string, fallback = getCategoryLabel(categoryId)) => {
+    return fallback.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduções" : fallback.split("(")[0].trim();
+    return categoryLabels.get(categoryId) || fallback.split("(")[0].trim();
+  };
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
+  const queryLabel = searchParams.get("q_label") || query;
   const categoryFilter = searchParams.get("categoria") || "";
   const categoryFilterId = categoryFilter.trim() ? getCategoryId(categoryFilter) : "";
   const cityFilter = searchParams.get("cidade") || "";
@@ -290,7 +356,9 @@ export default function SearchResults({
   const pageParam = Number(searchParams.get("pagina") || "1");
   const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
   const isEventMode = eventsFilter === "1";
-  const isCommunityFindsMode = communityFindsFilter === "1";
+  // Achadinhos foi substituído pelo Marketplace. URLs antigas são redirecionadas
+  // no servidor, e a busca não consulta mais a tabela legada.
+  const isCommunityFindsMode = false;
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
   const originLocalParam = searchParams.get("origem_local") || "";
@@ -300,10 +368,13 @@ export default function SearchResults({
   const isAutoRadiusMode = autoRadiusFilter === "1";
   const hasLocationContext = !!(cityFilter.trim() || locationFilter.trim());
   const effectiveRadiusKm = radiusKm;
+  const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
+    initialSearchSynonyms
+  );
 
   const publicSearchRequest = useMemo(
-    () => buildPublicSearchPageRequest(searchParams),
-    [searchParams]
+    () => buildPublicSearchPageRequest(searchParams, undefined, categorySynonymsMap),
+    [searchParams, categorySynonymsMap]
   );
   const isBusinessSearchMode = isPublicBusinessSearch(searchParams);
   const navigationState = location.state as SearchResultsLocationState | null;
@@ -328,13 +399,9 @@ export default function SearchResults({
           initialBusinessesAreSearchReady,
         });
   const hasSeededBusinessPool = initialBusinessPool.length > 0;
-  const [searchInput, setSearchInput] = useState(query);
-  const [locationInput, setLocationInput] = useState(locationFilter);
   const [showMap, setShowMap] = useState(false);
   const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinessPool);
-  const [availableLocations, setAvailableLocations] = useState<any[]>(initialAvailableLocations);
-  const [searchSuggestions, setSearchSuggestions] = useState<string[]>(initialSearchSuggestions);
-  const [citySuggestions, setCitySuggestions] = useState<string[]>(() => extractCities(initialAvailableLocations));
+  const [availableLocations, setAvailableLocations] = useState<AvailableLocation[]>(initialAvailableLocations);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCoords, setApproxCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCountryCode, setApproxCountryCode] = useState("");
@@ -344,9 +411,6 @@ export default function SearchResults({
   const [geoLookupComplete, setGeoLookupComplete] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>([]);
-  const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
-    DEFAULT_CATEGORY_SYNONYMS
-  );
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const businessPageCacheRef = useRef(new Map<string, Promise<PublicSearchPageResult>>());
   const resolvedBusinessPageCacheRef = useRef(new Map<string, PublicSearchPageResult>());
@@ -354,7 +418,8 @@ export default function SearchResults({
     matchingSearchSnapshot?.totalCount ?? null
   );
   const [rpcFallbackMode, setRpcFallbackMode] = useState(false);
-  const [mapBusinesses, setMapBusinesses] = useState<BusinessFrontend[] | null>(null);
+  const [businessSearchError, setBusinessSearchError] = useState<string | null>(null);
+  const [mapBusinesses, setMapBusinesses] = useState<BusinessMapMarker[] | null>(null);
   const [mapBusinessesLoading, setMapBusinessesLoading] = useState(false);
   const [mapBusinessesError, setMapBusinessesError] = useState<string | null>(null);
   const [showCommunityFindForm, setShowCommunityFindForm] = useState(false);
@@ -380,11 +445,9 @@ export default function SearchResults({
   const [loadedEventImages, setLoadedEventImages] = useState<Record<string, boolean>>({});
   const [loadedCommunityFindImages, setLoadedCommunityFindImages] = useState<Record<string, boolean>>({});
   const effectivePage = currentPage;
-  const {
-    finds: communityFinds,
-    vote: voteCommunityFind,
-    reload: reloadCommunityFinds,
-  } = useCommunityFinds();
+  const communityFinds = useMemo(() => [] as CommunityFindWithVote[], []);
+  const voteCommunityFind = async (_findId: string, _direction: "upvote" | "downvote" | "clear") => null;
+  const reloadCommunityFinds = async () => undefined;
 
   useEffect(() => {
     // Load the public profile code after results become interactive so a card click
@@ -457,7 +520,7 @@ export default function SearchResults({
       replyToMessageId
     );
     if (!result.ok) {
-      setCommunityFindMessageError(result.error || "Não foi possível enviar a mensagem.");
+      setCommunityFindMessageError(result.error || communityText.messageSendError);
       setCommunityFindMessageSubmitting(false);
       return;
     }
@@ -466,13 +529,13 @@ export default function SearchResults({
     const rows = await getCommunityFindMessages(selectedCommunityFind.id);
     setCommunityFindMessages(rows);
     setCommunityFindMessageSubmitting(false);
-  }, [selectedCommunityFind, communityFindMessageInput, replyToMessageId]);
+  }, [communityFindMessageInput, communityText.messageSendError, replyToMessageId, selectedCommunityFind]);
 
   const handleSaveEditCommunityFindMessage = useCallback(async () => {
     if (!editingMessageId) return;
     const result = await updateCommunityFindMessage(editingMessageId, editingMessageInput);
     if (!result.ok) {
-      setCommunityFindMessageError(result.error || "Não foi possível editar a mensagem.");
+      setCommunityFindMessageError(result.error || communityText.messageEditError);
       return;
     }
     if (selectedCommunityFind) {
@@ -481,20 +544,20 @@ export default function SearchResults({
     }
     setEditingMessageId(null);
     setEditingMessageInput("");
-  }, [editingMessageId, editingMessageInput, selectedCommunityFind]);
+  }, [communityText.messageEditError, editingMessageId, editingMessageInput, selectedCommunityFind]);
 
   const handleDeleteCommunityFindMessage = useCallback(async (messageId: string) => {
-    if (!window.confirm("Tem certeza que deseja apagar esta mensagem?")) return;
+    if (!window.confirm(communityText.messageDeleteConfirm)) return;
     const result = await deleteCommunityFindMessage(messageId);
     if (!result.ok) {
-      setCommunityFindMessageError(result.error || "Não foi possível apagar a mensagem.");
+      setCommunityFindMessageError(result.error || communityText.messageDeleteError);
       return;
     }
     if (selectedCommunityFind) {
       const rows = await getCommunityFindMessages(selectedCommunityFind.id);
       setCommunityFindMessages(rows);
     }
-  }, [selectedCommunityFind]);
+  }, [communityText.messageDeleteConfirm, communityText.messageDeleteError, selectedCommunityFind]);
 
   const threadedCommunityMessages = useMemo(() => {
     const byParent = new Map<string, CommunityFindMessage[]>();
@@ -531,24 +594,24 @@ export default function SearchResults({
     });
     setReportSubmitting(false);
     if (!result.ok) {
-      setCommunityFindMessageError(result.error || "Não foi possível enviar a denúncia.");
+      setCommunityFindMessageError(result.error || communityText.reportSendError);
       return;
     }
     setReportTargetMessageId(null);
     setReportDetails("");
     setReportReason("abuso");
-  }, [selectedCommunityFind, reportTargetMessageId, reportReason, reportDetails]);
+  }, [communityText.reportSendError, reportDetails, reportReason, reportTargetMessageId, selectedCommunityFind]);
 
   const shareCommunityFind = useCallback(async (
     find: CommunityFindWithVote,
     platform: "whatsapp" | "facebook" | "copy"
   ) => {
-    const title = `Achadinho: ${find.product_name}`;
-    const text = `${find.product_name} em ${find.location_name}`;
-    const url = `${window.location.origin}/buscar?achadinhos=1&achadinho=${encodeURIComponent(find.id)}`;
+    const title = `${"Achadinho"}: ${find.product_name}`;
+    const sharedText = `${find.product_name} ${"em"} ${find.location_name}`;
+    const url = `${window.location.origin}${`/buscar?achadinhos=1&achadinho=${encodeURIComponent(find.id)}`}`;
 
     if (platform === "copy") {
-      const content = `${title}\n${text}\n${url}`;
+      const content = `${title}\n${sharedText}\n${url}`;
       try {
         await navigator.clipboard.writeText(content);
       } catch {
@@ -558,12 +621,12 @@ export default function SearchResults({
     }
 
     if (platform === "whatsapp") {
-      const waText = encodeURIComponent(`${title}\n${text}\n${url}`);
+      const waText = encodeURIComponent(`${title}\n${sharedText}\n${url}`);
       window.open(`https://wa.me/?text=${waText}`, "_blank", "noopener,noreferrer");
       return;
     }
 
-    const fbQuote = encodeURIComponent(`${title} - ${text}`);
+    const fbQuote = encodeURIComponent(`${title} - ${sharedText}`);
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${fbQuote}`,
       "_blank",
@@ -605,13 +668,14 @@ export default function SearchResults({
 
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("pagina", String(publicSearchRequest.page + 1));
-    return buildPublicSearchPageRequest(nextParams);
+    return buildPublicSearchPageRequest(nextParams, undefined, categorySynonymsMap);
   }, [
     isResultsLoading,
     publicSearchRequest.limit,
     publicSearchRequest.page,
     rpcTotalCount,
     searchParams,
+    categorySynonymsMap,
     usesPagedBusinessSearch,
   ]);
 
@@ -643,7 +707,7 @@ export default function SearchResults({
       setMapBusinesses(null);
       setMapBusinessesError(null);
       try {
-        const businesses = await getAllBusinessesByPublicSearchRpc(fullMapSearchRequest);
+        const businesses = await getAllBusinessMapMarkersByPublicSearchRpc(fullMapSearchRequest);
         if (active) setMapBusinesses(businesses);
       } catch {
         if (active) setMapBusinessesError("Não foi possível carregar todos os negócios no mapa.");
@@ -661,14 +725,17 @@ export default function SearchResults({
     let active = true;
 
     const loadInitialData = async () => {
+      const locationsPromise = initialAvailableLocations.length > 0
+        ? Promise.resolve(initialAvailableLocations)
+        : getAvailableLocations();
       const supplementalDataPromise = Promise.allSettled([
-        getAvailableLocations(),
-        getSearchSuggestions(),
+        locationsPromise,
         getPublishedCommunityEvents(),
       ]);
 
       try {
         if (isBusinessSearchMode) {
+          setBusinessSearchError(null);
           const page = matchingSearchSnapshot
             ? {
                 items: matchingSearchSnapshot.businesses,
@@ -682,17 +749,38 @@ export default function SearchResults({
         } else {
           const businesses = hasSeededBusinessPool
             ? initialBusinessPool
-            : await getAllBusinesses();
+            : await getAllPublicBusinesses();
           if (!active) return;
           setAllBusinesses(businesses);
           setRpcTotalCount(null);
           setRpcFallbackMode(false);
         }
-      } catch {
-        // Keep the existing client-side filter as a temporary compatibility
-        // fallback if the Supabase migration has not been applied yet.
+      } catch (error) {
+        if (isBusinessSearchMode) {
+          // Keep search usable while a new RPC is being deployed or temporarily
+          // unavailable. This compact fallback is filtered and paginated locally.
+          console.error("[SearchResults] public search request failed:", error);
+          try {
+            const businesses = await getPublicBusinessSearchIndex();
+            if (!active) return;
+            setAllBusinesses(businesses);
+            setRpcTotalCount(null);
+            setRpcFallbackMode(true);
+            setBusinessSearchError(null);
+          } catch (fallbackError) {
+            console.error("[SearchResults] compact search fallback failed:", fallbackError);
+            if (!active) return;
+            setAllBusinesses([]);
+            setRpcTotalCount(0);
+            setRpcFallbackMode(false);
+            setBusinessSearchError("Não foi possível carregar os resultados agora. Tente novamente em instantes.");
+          }
+        }
+
+        // Event mode still needs its legacy business context until it receives
+        // the same paginated backend as the public business search.
         try {
-          const businesses = await getAllBusinesses();
+          const businesses = await getAllPublicBusinesses();
           if (!active) return;
           setAllBusinesses(businesses);
           setRpcTotalCount(null);
@@ -707,23 +795,12 @@ export default function SearchResults({
         if (active) setLoadedResultsRequestKey(resultsRequestKey);
       }
 
-      const [locationsRes, suggestionsRes, eventsRes] = await supplementalDataPromise;
+      const [locationsRes, eventsRes] = await supplementalDataPromise;
       if (!active) return;
 
       if (locationsRes.status === "fulfilled") {
         const locations = locationsRes.value;
         setAvailableLocations(locations);
-        const cities = new Set<string>();
-        locations.forEach((l) => {
-          l.states.forEach((s: any) => {
-            s.cities.forEach((c: string) => cities.add(c));
-          });
-        });
-        setCitySuggestions(Array.from(cities));
-      }
-
-      if (suggestionsRes.status === "fulfilled") {
-        setSearchSuggestions(suggestionsRes.value);
       }
 
       if (eventsRes.status === "fulfilled") {
@@ -741,6 +818,7 @@ export default function SearchResults({
     matchingSearchSnapshot,
     hasSeededBusinessPool,
     initialBusinessPool,
+    initialAvailableLocations,
     getCachedBusinessPage,
   ]);
 
@@ -879,28 +957,6 @@ export default function SearchResults({
     };
   }, []);
 
-  useEffect(() => {
-    Promise.resolve().then(() => setSearchInput(query));
-  }, [query]);
-
-  useEffect(() => {
-    Promise.resolve().then(() => {
-      if (locationFilter.trim()) {
-        setLocationInput(locationFilter);
-        return;
-      }
-
-      // Quando a origem é GPS/IP, mantemos o texto atual do campo
-      // (cidade inferida ou "Minha localização"), sem limpar automaticamente.
-      if ((originSourceParam === "gps" || originSourceParam === "ip") && !cityFilter.trim()) {
-        setLocationInput((prev) => prev.trim() || CURRENT_LOCATION_LABEL);
-        return;
-      }
-
-      setLocationInput("");
-    });
-  }, [locationFilter, originSourceParam, cityFilter]);
-
   const selectedCountryData = useMemo(() => {
     return availableLocations.find(l => l.countryCode === countryFilter);
   }, [availableLocations, countryFilter]);
@@ -921,10 +977,6 @@ export default function SearchResults({
 
   const resolveCountryCodeFromBusinesses = useCallback((cityText: string): string | null => {
     return resolveLocationContextFromBusinesses(allBusinesses, cityText).countryCode;
-  }, [allBusinesses]);
-
-  const inferNearestCityFromCoords = useCallback((coords: { lat: number; lng: number }): string | null => {
-    return inferNearestCityFromBusinesses(allBusinesses, coords);
   }, [allBusinesses]);
 
   useEffect(() => {
@@ -1032,11 +1084,11 @@ export default function SearchResults({
   const emptyStateMessage = useMemo(() => {
     const parts: string[] = [];
     if (categoryFilterId) {
-      parts.push(`para ${getCategoryLabel(categoryFilterId).split("(")[0].trim().toLowerCase()}`);
+      parts.push(`${"para"} ${getDisplayCategoryLabel(categoryFilterId).toLowerCase()}`);
     }
     const cityOrLocal = cityFilter.trim() || locationFilter.trim();
     if (cityOrLocal) {
-      parts.push(`em ${cityOrLocal}`);
+      parts.push(`${"em"} ${cityOrLocal}`);
     }
 
     if (parts.length > 0) {
@@ -1044,20 +1096,20 @@ export default function SearchResults({
     }
 
     return "O Caramelinho não achou nada com esses critérios.";
-  }, [categoryFilter, cityFilter, locationFilter]);
+  }, [categoryFilterId, cityFilter, locationFilter, isCommunityFindsMode]);
 
 
   useEffect(() => {
-    const baseTitle = "Buscar negócios brasileiros";
-    const cityText = cityFilter ? ` em ${cityFilter}` : "";
-    const categoryText = categoryFilterId ? (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase()) : "negócios e serviços";
-    const queryPart = query ? ` para ${query}` : "";
+    const baseTitle = text.businessSearch;
+    const cityText = cityFilter ? `${" em "}${cityFilter}` : "";
+    const categoryText = categoryFilterId ? (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase()) : ("negócios e serviços");
+    const queryPart = queryLabel ? `${" para "}${queryLabel}` : "";
 
     setSeoMeta(
       `${baseTitle}${cityText} | Caramelinho.com`,
       `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
     );
-  }, [query, categoryFilter, cityFilter]);
+  }, [queryLabel, categoryFilter, cityFilter, isCommunityFindsMode, text.businessSearch]);
 
   const results = useMemo(() => {
     // The server search RPC applies every business filter before pagination.
@@ -1268,130 +1320,7 @@ export default function SearchResults({
     return query ? `/buscar?${query}` : "/buscar";
   }, [searchParams]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const params = new URLSearchParams(searchParams);
-    params.delete("auto_raio");
-    params.delete("pagina");
-    if (searchInput.trim()) params.set("q", searchInput.trim());
-    else params.delete("q");
-    const locationText = locationInput.trim();
-    const isCurrentLocationText =
-      normalizeText(locationText) === normalizeText(CURRENT_LOCATION_LABEL);
-    const hasExplicitCity = !!locationText && !isCurrentLocationText;
-    if (hasExplicitCity) {
-      const typedLocation = locationText;
-      params.set("local", typedLocation);
-      params.set("cidade", typedLocation);
-      if (!params.get("raio")) params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-      // Cidade escolhida no campo principal deve prevalecer sobre filtros laterais antigos.
-      params.delete("pais");
-      params.delete("estado");
-      params.delete("categoria");
-      params.delete("brasileiro");
-      params.delete("portugues");
-
-      const existingLat = parseCoordParam(params.get("origem_lat") || "");
-      const existingLng = parseCoordParam(params.get("origem_lng") || "");
-      const hasMatchingCommittedOrigin =
-        existingLat !== null &&
-        existingLng !== null &&
-        normalizeText(params.get("origem_local") || "") === normalizeText(typedLocation);
-      let coords = hasMatchingCommittedOrigin
-        ? { lat: existingLat, lng: existingLng }
-        : resolveCoordsFromBusinesses(typedLocation);
-      if (!coords && typedLocation.length >= 3) {
-        setResolvingLocation(true);
-        coords = await geocodeAddress(typedLocation);
-        setResolvingLocation(false);
-      }
-      if (coords) {
-        params.set("origem_lat", String(coords.lat));
-        params.set("origem_lng", String(coords.lng));
-        params.set("origem_local", typedLocation);
-        params.set("origem_source", "city");
-        const cityCountryCode = hasMatchingCommittedOrigin
-          ? params.get("origem_pais")
-          : resolveCountryCodeFromBusinesses(typedLocation);
-        if (cityCountryCode) params.set("origem_pais", cityCountryCode);
-        else params.delete("origem_pais");
-      } else {
-        showLocationNotice(
-          "Localiza\u00e7\u00e3o n\u00e3o encontrada",
-          "N\u00e3o foi poss\u00edvel localizar essa cidade. Escolha uma sugest\u00e3o do Google ou tente informar tamb\u00e9m o pa\u00eds."
-        );
-        return;
-      }
-    } else {
-      params.delete("local");
-      params.delete("cidade");
-      const currentOriginSource = (params.get("origem_source") || "").toLowerCase();
-      // Se a origem atual veio de cidade digitada, limpar ao remover a cidade.
-      // Se veio de GPS/IP (fluxo Farejar), manter raio e origem para preservar busca por proximidade.
-      if (currentOriginSource === "city") {
-        params.delete("origem_lat");
-        params.delete("origem_lng");
-        params.delete("origem_local");
-        params.delete("origem_source");
-        params.delete("origem_pais");
-      } else {
-        // Sem cidade explícita, não precisamos manter origem_local textual.
-        params.delete("origem_local");
-      }
-    }
-
-    const hasSearchContext = !!(
-      searchInput.trim() ||
-      params.get("categoria") ||
-      params.get("pais") ||
-      params.get("estado") ||
-      params.get("cidade") ||
-      params.get("local") ||
-      (params.get("origem_lat") && params.get("origem_lng"))
-    );
-    if (hasSearchContext && !params.get("raio")) {
-      params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-    }
-
-    const hasQuery = !!searchInput.trim();
-    const hasCityContext = !!(params.get("cidade") || params.get("local"));
-    const hasOriginCoords = !!(params.get("origem_lat") && params.get("origem_lng"));
-    if (hasQuery && !hasCityContext && !hasOriginCoords) {
-      const approxGeo = await getApproxGeoByIp({
-        timeoutMs: 3000,
-        maxAgeMs: 24 * 60 * 60 * 1000,
-        fallback: DEFAULT_GEO_FALLBACK,
-      });
-      if (approxGeo) {
-        params.set("origem_lat", String(approxGeo.lat));
-        params.set("origem_lng", String(approxGeo.lng));
-        params.set("origem_source", approxGeo.source === "cache" ? "ip_cache" : "ip");
-        if (approxGeo.countryCode) params.set("origem_pais", approxGeo.countryCode.toLowerCase());
-        else params.delete("origem_pais");
-        if (!params.get("raio")) params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-        params.set("auto_raio", "1");
-      }
-    }
-
-    const hasLocationContext = !!(
-      params.get("cidade") ||
-      params.get("local") ||
-      (params.get("origem_lat") && params.get("origem_lng"))
-    );
-    if (!hasQuery && !hasLocationContext) {
-      showLocationNotice(
-        "Busca incompleta",
-        "Digite o que você procura ou informe sua cidade para iniciar a busca."
-      );
-      return;
-    }
-
-    setSearchParams(params);
-  };
-
   const handleClearFilters = () => {
-    setSearchInput("");
-    setLocationInput("");
     navigate("/buscar");
   };
 
@@ -1403,16 +1332,16 @@ export default function SearchResults({
 
       if (!coords) {
         if (requireExactGps) {
-          showLocationNotice("Localização necessária", "Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
+          showLocationNotice(
+            "Localização necessária",
+            "Para usar esta funcionalidade, habilite a localização no navegador/dispositivo."
+          );
           return;
         }
         const approxGeo = await getApproxGeoByIp();
         if (approxGeo) {
           setApproxCoords({ lat: approxGeo.lat, lng: approxGeo.lng });
           if (approxGeo.countryCode) setApproxCountryCode(approxGeo.countryCode);
-          const inferredCity = inferNearestCityFromCoords(approxGeo) || CURRENT_LOCATION_LABEL;
-          setLocationInput("");
-          window.setTimeout(() => setLocationInput(inferredCity), 0);
 
           const params = new URLSearchParams(searchParams);
           params.delete("pagina");
@@ -1443,9 +1372,6 @@ export default function SearchResults({
       }
 
       setUserCoords(coords);
-      const inferredCity = inferNearestCityFromCoords(coords) || CURRENT_LOCATION_LABEL;
-      setLocationInput("");
-      window.setTimeout(() => setLocationInput(inferredCity), 0);
 
       const params = new URLSearchParams(searchParams);
       params.delete("pagina");
@@ -1477,8 +1403,7 @@ export default function SearchResults({
   const getParamsWithCurrentLocation = useCallback(() => {
     const params = new URLSearchParams(searchParams);
     const committedCity = cityFilter.trim();
-    const draftCity = locationInput.trim();
-    const localToKeep = draftCity || locationFilter.trim();
+    const localToKeep = locationFilter.trim();
 
     if (localToKeep) params.set("local", localToKeep);
     else params.delete("local");
@@ -1496,7 +1421,7 @@ export default function SearchResults({
       params.delete("origem_pais");
     }
     return params;
-  }, [searchParams, cityFilter, locationInput, locationFilter]);
+  }, [searchParams, cityFilter, locationFilter]);
 
   const handleToggleEventsMode = (enabled: boolean) => {
     const params = getParamsWithCurrentLocation();
@@ -1506,21 +1431,6 @@ export default function SearchResults({
       params.delete("achadinhos");
     }
     else params.delete("eventos");
-    setSearchParams(params);
-  };
-
-  const handleToggleCommunityFindsMode = (enabled: boolean) => {
-    const params = getParamsWithCurrentLocation();
-    params.delete("pagina");
-    if (enabled) {
-      params.set("achadinhos", "1");
-      params.delete("eventos");
-      // Achadinhos não deve herdar contexto de busca de negócios/categorias
-      params.delete("categoria");
-      params.delete("q");
-    } else {
-      params.delete("achadinhos");
-    }
     setSearchParams(params);
   };
 
@@ -1559,48 +1469,62 @@ export default function SearchResults({
         }}
       >
         <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder="Todas as categorias" />
+          <SelectValue placeholder={"Todas as categorias"} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todas as categorias</SelectItem>
+          <SelectItem value="all">{"Todas as categorias"}</SelectItem>
           {BUSINESS_CATEGORY_OPTIONS.filter((cat) => cat.id !== "tourism").map((cat) => (
               <SelectItem key={cat.id} value={cat.id}>
-               {cat.label.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduções" : cat.label.split("(")[0].trim()}
+               {getDisplayCategoryLabel(cat.id, cat.label)}
               </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      <Select
-        value={countryFilter || "all"}
-        onValueChange={(v) => {
-          const params = getParamsForAdministrativeFilterChange();
-          if (v === "all") {
-            params.delete("pais");
-            params.delete("estado");
-            params.delete("cidade");
-          } else {
+      <div className="flex items-center gap-2">
+        <Select
+          value={countryFilter}
+          onValueChange={(v) => {
+            const params = getParamsForAdministrativeFilterChange();
             params.set("pais", v);
             params.delete("estado");
             params.delete("cidade");
-          }
-          setSearchParams(params);
-        }}
-      >
-        <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder="País" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos os países</SelectItem>
-          {availableLocations
-            .filter((loc) => typeof loc?.countryCode === "string" && loc.countryCode.trim().length > 0)
-            .map((loc) => (
-              <SelectItem key={loc.countryCode} value={loc.countryCode}>
-                {loc.countryName}
-              </SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
+            setSearchParams(params);
+          }}
+        >
+          <SelectTrigger className="h-9 flex-1 text-sm">
+            <SelectValue placeholder={text.country} />
+          </SelectTrigger>
+          <SelectContent>
+            {availableLocations
+              .filter((loc) => typeof loc?.countryCode === "string" && loc.countryCode.trim().length > 0)
+              .map((loc) => (
+                <SelectItem key={loc.countryCode} value={loc.countryCode}>
+                  {getCountryDisplayName(loc.countryCode, loc.countryName)}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+        {countryFilter ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            aria-label="Remover filtro de país"
+            title="Remover filtro de país"
+            onClick={() => {
+              const params = getParamsForAdministrativeFilterChange();
+              params.delete("pais");
+              params.delete("estado");
+              params.delete("cidade");
+              setSearchParams(params);
+            }}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        ) : null}
+      </div>
 
       {selectedCountryData && (
         <Select
@@ -1618,10 +1542,10 @@ export default function SearchResults({
           }}
         >
           <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder="Estado/Província" />
+            <SelectValue placeholder={text.region} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os estados</SelectItem>
+            <SelectItem value="all">{text.allRegions}</SelectItem>
             {selectedCountryData.states
               .filter((s: any) => typeof s?.code === "string" && s.code.trim().length > 0)
               .map((s: any) => (
@@ -1644,10 +1568,10 @@ export default function SearchResults({
           }}
         >
           <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder="Cidade" />
+            <SelectValue placeholder={text.city} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas as cidades</SelectItem>
+            <SelectItem value="all">{text.allCities}</SelectItem>
             {selectedStateData.cities
               .filter((city: string) => typeof city === "string" && city.trim().length > 0)
               .map((city: string) => (
@@ -1671,42 +1595,16 @@ export default function SearchResults({
       >
         <SelectTrigger className="w-full h-9 text-sm">
           <Navigation className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-          <SelectValue placeholder="Distância" />
+          <SelectValue placeholder={text.distance} />
         </SelectTrigger>
         <SelectContent>
           {RADIUS_OPTIONS.map((radius) => (
             <SelectItem key={radius} value={String(radius)}>
-              Até {radius} km
+              {text.within} {radius} km
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <div
-        className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
-          isCommunityFindsMode ? "bg-blue-100 border-blue-500" : "bg-blue-50 border-blue-300"
-        }`}
-      >
-        <div className="inline-flex items-center gap-2 text-sm">
-          <MapPin className={`w-3.5 h-3.5 ${isCommunityFindsMode ? "text-blue-700" : "text-blue-600"}`} />
-          <span>Achadinhos</span>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isCommunityFindsMode}
-          onClick={() => handleToggleCommunityFindsMode(!isCommunityFindsMode)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            isCommunityFindsMode ? "bg-blue-500" : "bg-muted"
-          }`}
-          title={isCommunityFindsMode ? "Filtro de achadinhos ativo" : "Filtro de achadinhos desativado"}
-        >
-          <span
-            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-              isCommunityFindsMode ? "translate-x-5" : "translate-x-1"
-            }`}
-          />
-        </button>
-      </div>
       <div
         className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
           isEventMode ? "bg-amber-100 border-amber-500" : "bg-amber-50 border-amber-300"
@@ -1714,7 +1612,7 @@ export default function SearchResults({
       >
         <div className="inline-flex items-center gap-2 text-sm">
           <PartyPopper className={`w-3.5 h-3.5 ${isEventMode ? "text-amber-700" : "text-amber-600"}`} />
-          <span>Festas e eventos</span>
+          <span>{"Festas e eventos"}</span>
         </div>
         <button
           type="button"
@@ -1724,7 +1622,7 @@ export default function SearchResults({
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
             isEventMode ? "bg-amber-500" : "bg-muted"
           }`}
-          title={isEventMode ? "Filtro de eventos ativo" : "Filtro de eventos desativado"}
+          title={isEventMode ? ("Filtro de eventos ativo") : ("Filtro de eventos desativado")}
         >
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
@@ -1736,7 +1634,7 @@ export default function SearchResults({
       {hasActiveFilters && (
         <Button type="button" variant="ghost" size="sm" className="h-9 w-full justify-start text-muted-foreground" onClick={handleClearFilters}>
           <X className="w-4 h-4 mr-1" />
-          Limpar filtros
+          {text.clear}
         </Button>
       )}
     </div>
@@ -1744,134 +1642,7 @@ export default function SearchResults({
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-24">
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-                <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
-              </div>
-              <div className="leading-tight min-w-0">
-                <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{"O SEU FARO FORA DO BRASIL"}</div>
-              </div>
-            </Link>
-
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
-          </div>
-        </div>
-      </header>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSearch} className="mb-6 sm:mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-0 rounded-2xl lg:rounded-xl border border-border lg:border-2 bg-white shadow-xl lg:shadow-sm focus-within:ring-2 ring-primary/20 transition-all w-full overflow-visible p-2 lg:p-0">
-            <SearchInputWithSuggestions
-              value={searchInput}
-              onChange={setSearchInput}
-              suggestions={searchSuggestions}
-              disableLocalSuggestions
-              placeholder="Buscar por produto ou serviço (Ex: coxinha)"
-              icon="search"
-              onSubmit={(selectedValue) => {
-                const nextValue = selectedValue ?? searchInput;
-                const params = new URLSearchParams(searchParams);
-                params.delete("pagina");
-                if (nextValue.trim()) params.set("q", nextValue.trim());
-                else params.delete("q");
-                setSearchParams(params);
-              }}
-              className="rounded-xl lg:rounded-none lg:!h-12"
-              inputClassName="h-12 text-base lg:text-lg placeholder:text-[11px] lg:placeholder:text-sm"
-            />
-            <div className="hidden lg:block w-px h-8 bg-border self-center" />
-            <div className="lg:hidden h-px bg-border/50 mx-1" />
-            <SearchInputWithSuggestions
-              value={locationInput}
-              onChange={setLocationInput}
-              suggestions={citySuggestions}
-              onUseCurrentLocation={() => handleLocateMe(true)}
-              isLoading={locatingMe}
-              placeholder="Em qual cidade?"
-              icon="location"
-              useGooglePlaces
-              onSubmit={(selectedValue, meta) => {
-                (async () => {
-                  const nextValue = selectedValue ?? locationInput;
-                  setLocationInput(nextValue);
-                  const params = new URLSearchParams(searchParams);
-                  params.delete("pagina");
-                  const trimmedValue = nextValue.trim();
-                  const isCurrentLocationText =
-                    normalizeText(trimmedValue) === normalizeText(CURRENT_LOCATION_LABEL);
-                  const hasExplicitCity = !!trimmedValue && !isCurrentLocationText;
-
-                  if (hasExplicitCity) {
-                    const typedLocation = trimmedValue;
-                    params.set("local", typedLocation);
-                    params.set("cidade", meta?.city || typedLocation);
-                    if (!params.get("raio")) params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-                    // A cidade da barra principal não deve impor filtros administrativos,
-                    // pois o cadastro historico pode usar codigos diferentes (ex.: lau vs qc).
-                    params.delete("pais");
-                    params.delete("estado");
-                    params.delete("categoria");
-                    params.delete("brasileiro");
-                    params.delete("portugues");
-
-                    let coords =
-                      typeof meta?.lat === "number" && typeof meta?.lng === "number"
-                        ? { lat: meta.lat, lng: meta.lng }
-                        : resolveCoordsFromBusinesses(typedLocation);
-
-                    if (!coords && typedLocation.length >= 3) {
-                      setResolvingLocation(true);
-                      coords = await geocodeAddress(typedLocation);
-                      setResolvingLocation(false);
-                    }
-
-                    if (coords) {
-                      params.set("origem_lat", String(coords.lat));
-                      params.set("origem_lng", String(coords.lng));
-                      params.set("origem_local", typedLocation);
-                      params.set("origem_source", "city");
-                      if (meta?.countryCode) params.set("origem_pais", meta.countryCode.toLowerCase());
-                      else params.delete("origem_pais");
-                    } else {
-                      params.delete("origem_lat");
-                      params.delete("origem_lng");
-                      params.delete("origem_local");
-                      params.delete("origem_source");
-                      params.delete("origem_pais");
-                    }
-                  } else {
-                    params.delete("local");
-                    params.delete("cidade");
-                    const currentOriginSource = (params.get("origem_source") || "").toLowerCase();
-                    if (currentOriginSource === "city") {
-                      params.delete("raio");
-                      params.delete("origem_lat");
-                      params.delete("origem_lng");
-                      params.delete("origem_local");
-                      params.delete("origem_source");
-                      params.delete("origem_pais");
-                    } else {
-                      params.delete("origem_local");
-                    }
-                  }
-                  setSearchParams(params);
-                })();
-              }}
-              className="rounded-xl lg:rounded-none lg:!h-12"
-              inputClassName="h-12 text-base lg:text-lg placeholder:text-[11px] lg:placeholder:text-sm"
-            />
-            <div className="pt-2 lg:p-2 flex items-center">
-              <Button type="submit" size="sm" className="w-full lg:w-auto caramelo-gradient text-white border-0 !rounded-xl">
-                Farejar
-              </Button>
-            </div>
-          </div>
-        </form>
-
         <div className="flex flex-wrap items-center gap-2 mb-6">
           <Button
             type="button"
@@ -1881,16 +1652,16 @@ export default function SearchResults({
             onClick={() => setFiltersOpen(true)}
           >
             <SlidersHorizontal className="w-4 h-4 mr-2" />
-            Filtros
+            {text.filters}
           </Button>
           <div className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground">
             <SlidersHorizontal className="w-4 h-4" />
-            Filtros
+            {text.filters}
           </div>
           <div className="w-full sm:w-auto sm:ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleLocateMe} className="h-9 flex-1 sm:flex-none" disabled={locatingMe}>
+            <Button variant="outline" size="sm" onClick={() => { void handleLocateMe(); }} className="h-9 flex-1 sm:flex-none" disabled={locatingMe}>
               <Navigation className="w-4 h-4 mr-1" />
-              {locatingMe ? "Localizando..." : "Me localizar"}
+              {locatingMe ? ("Localizando...") : ("Me localizar")}
             </Button>
             <Button
               variant={showMap ? "default" : "outline"}
@@ -1904,66 +1675,79 @@ export default function SearchResults({
               }`}
             >
               <MapIcon className="w-4 h-4 mr-1" />
-              Mapa
+              {text.map}
             </Button>
             <Button variant={!showMap ? "default" : "outline"} size="sm" onClick={() => setShowMap(false)} className="h-9 flex-1 sm:flex-none">
               <List className="w-4 h-4 mr-1" />
-              Lista
+              {text.list}
             </Button>
           </div>
         </div>
 
         <p className="text-sm text-muted-foreground mb-6">
           {isResultsLoading || isResolvingDistanceOrigin
-            ? "Carregando resultados..."
+            ? text.loading
             : isCommunityFindsMode
-            ? `${filteredCommunityFinds.length} achadinho${filteredCommunityFinds.length !== 1 ? "s" : ""} encontrado${filteredCommunityFinds.length !== 1 ? "s" : ""}`
+            ? communityText.findsCount(filteredCommunityFinds.length)
             : isEventMode
-            ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
+            ? communityText.eventsCount(eventResults.length)
             : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
-          {query && <> para "<strong>{query}</strong>"</>}
-          {categoryFilterId && <> em <strong>{getCategoryLabel(categoryFilterId).split("(")[0].trim()}</strong></>}
-          {locationFilter && <> perto de <strong>{locationFilter}</strong></>}
-          {effectiveRadiusKm && <> em até <strong>{effectiveRadiusKm} km</strong></>}
-          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && !isResolvingDistanceOrigin && <> informe um local ou permita sua localização para usar raio</>}
-          {resolvingLocation && <> localizando referência...</>}
+          {queryLabel && <>{" para "}<strong>{queryLabel}</strong></>}
+          {categoryFilterId && <>{" em "}<strong>{getDisplayCategoryLabel(categoryFilterId)}</strong></>}
+          {locationFilter && <>{" perto de "}<strong>{locationFilter}</strong></>}
+          {effectiveRadiusKm && <>{" em até "}<strong>{effectiveRadiusKm} km</strong></>}
+          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && !isResolvingDistanceOrigin && <> {text.locationRequired}</>}
+          {resolvingLocation && <> {text.locatingReference}</>}
         </p>
         {hasCategoryLocationScope && worldwideCategoryHref && !isResultsLoading && (
           <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
             <p className="text-sm text-muted-foreground">
-              Você está vendo resultados desta categoria na sua região.
+              {text.regionalCategory}
             </p>
             <Button asChild variant="outline" size="sm" className="mt-3 shrink-0 sm:mt-0">
-              <Link to={worldwideCategoryHref}>Ver todos no mundo</Link>
+              <Link to={worldwideCategoryHref}>{text.allWorldwide}</Link>
             </Button>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
           <aside className="hidden lg:block">
-            <div className="sticky top-24 rounded-xl border border-border bg-card p-4">
+            <div className="sticky top-[var(--site-header-height)] rounded-xl border border-border bg-card p-4">
               {renderFilterControls()}
             </div>
           </aside>
 
           <div ref={resultsTopRef}>
-            {!isResultsLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? filteredCommunityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
+            {businessSearchError && isBusinessSearchMode && !isResultsLoading ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center lg:text-left">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+                  <PawPrint className="mx-auto h-14 w-14 shrink-0 text-destructive/45 lg:mx-0" />
+                  <div className="flex-1">
+                    <h2 className="mb-2 text-xl font-bold text-foreground">Não foi possível carregar a busca</h2>
+                    <p className="mb-6 text-muted-foreground">{businessSearchError}</p>
+                    <Button variant="outline" onClick={() => window.location.reload()}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : !isResultsLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? filteredCommunityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0" />
                   <div className="flex-1">
-                    <h2 className="text-xl font-bold text-foreground mb-2">Nenhum resultado encontrado</h2>
+                    <h2 className="text-xl font-bold text-foreground mb-2">{text.noResults}</h2>
                     <p className="text-muted-foreground mb-6">{emptyStateMessage}</p>
                     <div className="flex flex-col sm:flex-row gap-3 lg:justify-start justify-center">
                       {hasActiveFilters && (
                         <Button variant="outline" onClick={handleClearFilters}>
                           <X className="w-4 h-4 mr-2" />
-                          Limpar filtros
+                          {text.clear}
                         </Button>
                       )}
                       <Button onClick={() => navigate("/")}>
                         <PawPrint className="w-4 h-4 mr-2" />
-                        Voltar ao Início
+                        {text.backHome}
                       </Button>
                     </div>
                   </div>
@@ -1974,8 +1758,8 @@ export default function SearchResults({
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0 animate-pulse" />
                   <div className="flex-1">
-                    <h2 className="text-xl font-bold text-foreground mb-2">Carregando resultados...</h2>
-                    <p className="text-muted-foreground">Aguarde um instante enquanto preparamos os negócios para você.</p>
+                    <h2 className="text-xl font-bold text-foreground mb-2">{text.loading}</h2>
+                    <p className="text-muted-foreground">{text.loadingDescription}</p>
                   </div>
                 </div>
               </div>
@@ -1985,7 +1769,7 @@ export default function SearchResults({
               <div className="mb-8 rounded-xl overflow-hidden border border-border h-[400px]">
                 {fullMapSearchRequest && mapBusinessesLoading ? (
                   <div className="flex h-full items-center justify-center bg-secondary/30 p-6 text-center">
-                    <p className="text-sm text-muted-foreground">{"Carregando todos os neg\u00f3cios encontrados no mapa..."}</p>
+                    <p className="text-sm text-muted-foreground">{communityText.allMapBusinessesLoading}</p>
                   </div>
                 ) : fullMapSearchRequest && mapBusinessesError ? (
                   <div className="flex h-full items-center justify-center bg-destructive/5 p-6 text-center">
@@ -2005,9 +1789,9 @@ export default function SearchResults({
             <div className="mb-6 rounded-xl border border-border bg-card p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-semibold">Achadinhos da comunidade</h3>
+                  <h3 className="text-base font-semibold">{communityText.findsHeading}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Descobertas temporárias publicadas por usuários próximos.
+                    {communityText.findsDescription}
                   </p>
                 </div>
                 {session && (
@@ -2016,7 +1800,7 @@ export default function SearchResults({
                     variant={showCommunityFindForm ? "outline" : "default"}
                     onClick={() => setShowCommunityFindForm((prev) => !prev)}
                   >
-                    {showCommunityFindForm ? "Fechar" : "Adicionar achadinho"}
+                    {showCommunityFindForm ? communityText.close : communityText.addFind}
                   </Button>
                 )}
               </div>
@@ -2058,7 +1842,7 @@ export default function SearchResults({
                             src={findImageAssets.imageUrl}
                             srcSet={findImageAssets.srcSet}
                             sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 31vw"
-                            alt={`Foto do achadinho ${find.product_name}`}
+                            alt={`${communityText.findPhoto}: ${find.product_name}`}
                             onLoad={() => markCommunityFindImageLoaded(find.id)}
                             onError={() => markCommunityFindImageLoaded(find.id)}
                             className="w-full h-36 object-cover cursor-pointer transition-all duration-500 ease-out"
@@ -2114,10 +1898,10 @@ export default function SearchResults({
                             );
                           })()}
                           <p className="text-[11px] text-muted-foreground mt-1">
-                            {new Date(find.created_at).toLocaleDateString("pt-BR")}
+                            {new Date(find.created_at).toLocaleDateString(displayLocale)}
                           </p>
                         </div>
-                        <Badge variant="secondary">{find.category}</Badge>
+                        <Badge variant="secondary">{getCommunityFindCategoryLabel(find.category)}</Badge>
                       </div>
                       <div className="mt-3 space-y-2">
                         <Button
@@ -2133,10 +1917,10 @@ export default function SearchResults({
                             setSearchParams(params, { replace: true });
                           }}
                         >
-                          Saiba mais
+                          {communityText.learnMore}
                         </Button>
                         <div className="rounded-md border border-border bg-background/70 p-2">
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Compartilhar achadinho:</p>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">{communityText.shareFind}</p>
                         <div className="flex flex-wrap items-center gap-2">
                         <Button
                           type="button"
@@ -2144,8 +1928,8 @@ export default function SearchResults({
                           size="sm"
                           className="h-8 w-8 p-0"
                           onClick={() => void shareCommunityFind(find, "whatsapp")}
-                          title="Compartilhar no WhatsApp"
-                          aria-label="Compartilhar no WhatsApp"
+                          title={communityText.shareWhatsApp}
+                          aria-label={communityText.shareWhatsApp}
                         >
                           <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
                             <path
@@ -2160,8 +1944,8 @@ export default function SearchResults({
                           size="sm"
                           className="h-8 w-8 p-0"
                           onClick={() => void shareCommunityFind(find, "facebook")}
-                          title="Compartilhar no Facebook"
-                          aria-label="Compartilhar no Facebook"
+                          title={communityText.shareFacebook}
+                          aria-label={communityText.shareFacebook}
                         >
                           <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
                             <path
@@ -2176,8 +1960,8 @@ export default function SearchResults({
                           size="sm"
                           className="h-8 w-8 p-0"
                           onClick={() => void shareCommunityFind(find, "copy")}
-                          title="Copiar link"
-                          aria-label="Copiar link"
+                          title={communityText.copyLink}
+                          aria-label={communityText.copyLink}
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
@@ -2189,7 +1973,7 @@ export default function SearchResults({
                 </div>
               ) : (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Ainda não há achadinhos ativos na sua região.
+                  {communityText.noFinds}
                 </p>
               )}
             </div>
@@ -2247,18 +2031,18 @@ export default function SearchResults({
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                         <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
-                          Evento
+                          {communityText.event}
                         </Badge>
                       </div>
                       <div className="p-5">
                         <h3 className="font-bold text-foreground text-lg line-clamp-2 group-hover:text-primary transition-colors leading-tight">
                           {item.evt.title}
                         </h3>
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.evt.description || "Sem descrição."}</p>
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.evt.description || communityText.noDescription}</p>
                         <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
                           <p className="inline-flex items-center gap-1.5">
                             <CalendarDays className="w-4 h-4 text-amber-600" />
-                            {new Date(`${item.evt.date}T00:00:00`).toLocaleDateString("pt-BR")}
+                            {new Date(`${item.evt.date}T00:00:00`).toLocaleDateString(displayLocale)}
                           </p>
                           <p className="inline-flex items-center gap-1.5">
                             <MapPin className="w-4 h-4 text-amber-600" />
@@ -2267,13 +2051,13 @@ export default function SearchResults({
                           <p className="inline-flex items-center gap-1.5">
                             <Ticket className="w-4 h-4 text-amber-600" />
                             {item.type === "business"
-                              ? (item.evt.isFree ? "Entrada franca" : (item.evt.price || "Evento pago"))
-                              : (item.evt.is_free ? "Entrada franca" : (item.evt.price || "Evento pago"))}
+                              ? (item.evt.isFree ? communityText.freeEntry : (item.evt.price || communityText.paidEvent))
+                              : (item.evt.is_free ? communityText.freeEntry : (item.evt.price || communityText.paidEvent))}
                           </p>
                         </div>
                         <p className="mt-3 text-xs text-muted-foreground">
-                          Organizado por{" "}
-                          <strong>{item.type === "business" ? item.biz.name : "Membro da comunidade"}</strong>
+                          {communityText.organizedBy}{" "}
+                          <strong>{item.type === "business" ? item.biz.name : communityText.communityMember}</strong>
                         </p>
                       </div>
                     </Card>
@@ -2334,7 +2118,7 @@ export default function SearchResults({
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                       <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
-                        {biz.category.split("(")[0].trim()}
+                          {getDisplayCategoryLabel(biz.categoryId, biz.category)}
                       </Badge>
                       {biz.averageRating > 0 && (
                         <Badge className="absolute top-3 right-3 bg-amber-500 text-white border-0 gap-1">
@@ -2355,7 +2139,7 @@ export default function SearchResults({
                       {biz.ownerVerified ? (
                         <div className="absolute bottom-3 right-3 bg-emerald-600/95 text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
                           <Lock className="w-2.5 h-2.5" />
-                          Verificado
+                          {"Verificado"}
                         </div>
                       ) : null}
                     </div>
@@ -2369,29 +2153,29 @@ export default function SearchResults({
                             <span className="truncate">{biz.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
+                            {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryDisplayName(biz.address.countryCode || biz.address.country, getCountryName(biz.address.countryCode || biz.address.country))}`}
                           </p>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(biz.description)}</p>
+                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{stripRichTextHtml(biz.description || "")}</p>
                       {biz.categoryId === "food" && (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
                         <div className="flex flex-wrap gap-2 mt-3">
                           {biz.isVeganFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                               <Leaf className="w-3 h-3" />
-                              Vegano
+                              {homeContent.veganLabel}
                             </span>
                           ) : null}
                           {biz.isVegetarianFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-lime-100 text-lime-800">
                               <Leaf className="w-3 h-3" />
-                              Vegetariano
+                              {homeContent.vegetarianLabel}
                             </span>
                           ) : null}
                           {biz.isGlutenFreeFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
                               <WheatOff className="w-3 h-3" />
-                              Sem Glúten
+                              {homeContent.glutenFreeLabel}
                             </span>
                           ) : null}
                         </div>
@@ -2420,6 +2204,11 @@ export default function SearchResults({
                 currentPage={safeCurrentPage}
                 totalPages={totalPages}
                 getPageHref={getPageHref}
+                previousLabel={undefined}
+                nextLabel={undefined}
+                navigationLabel={undefined}
+                pageLabel={undefined}
+                ofLabel={undefined}
                 className="mt-8"
               />
             )}
@@ -2431,7 +2220,7 @@ export default function SearchResults({
         <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Filtros</DialogTitle>
+              <DialogTitle>{text.filters}</DialogTitle>
             </DialogHeader>
             {renderFilterControls()}
             <div className="pt-2">
@@ -2440,7 +2229,7 @@ export default function SearchResults({
                 className="w-full"
                 onClick={() => setFiltersOpen(false)}
               >
-                Aplicar filtros
+                {"Aplicar filtros"}
               </Button>
             </div>
           </DialogContent>
@@ -2459,10 +2248,10 @@ export default function SearchResults({
         >
             <DialogContent className="w-[calc(100vw-1rem)] max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
               <DialogHeader>
-                <DialogTitle>{selectedCommunityFind?.product_name || "Discussão do achadinho"}</DialogTitle>
+                <DialogTitle>{selectedCommunityFind?.product_name || communityText.discussion}</DialogTitle>
                 {selectedCommunityFind?.user_name ? (
                   <p className="text-sm text-muted-foreground">
-                    Farejado por <strong>{selectedCommunityFind.user_name}</strong>
+                    {communityText.spottedBy} <strong>{selectedCommunityFind.user_name}</strong>
                   </p>
                 ) : null}
               </DialogHeader>
@@ -2471,7 +2260,7 @@ export default function SearchResults({
               <div className="rounded-lg overflow-hidden border border-border">
                 <img
                   src={selectedCommunityFind.photo_url}
-                  alt={`Foto do achadinho ${selectedCommunityFind.product_name}`}
+                  alt={`${communityText.findPhoto}: ${selectedCommunityFind.product_name}`}
                   className="w-full h-48 sm:h-72 object-cover"
                 />
               </div>
@@ -2495,8 +2284,8 @@ export default function SearchResults({
                   return (
                     <>
                       <div>
-                        <p className="text-xs text-muted-foreground">Local</p>
-                        <p className="text-sm font-medium">{placeName || "Não informado"}</p>
+                        <p className="text-xs text-muted-foreground">{communityText.location}</p>
+                        <p className="text-sm font-medium">{placeName || communityText.notProvided}</p>
                         {address ? (
                           <a
                             href={mapsUrl}
@@ -2509,7 +2298,7 @@ export default function SearchResults({
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="w-full text-xs font-medium text-muted-foreground">
-                          Este item ainda está disponível neste local?
+                          {communityText.stillAvailable}
                         </p>
                         <Button
                           type="button"
@@ -2550,7 +2339,7 @@ export default function SearchResults({
 
             <div className="max-h-[300px] overflow-y-auto overflow-x-hidden space-y-3 pr-1">
               {communityFindMessagesLoading ? (
-                <p className="text-sm text-muted-foreground">Carregando mensagens...</p>
+                <p className="text-sm text-muted-foreground">{communityText.loadingMessages}</p>
               ) : threadedCommunityMessages.length === 0 ? null : (
                 threadedCommunityMessages.map(({ msg, depth }) => (
                   <div
@@ -2562,7 +2351,7 @@ export default function SearchResults({
                       {msg.user_avatar ? (
                         <img
                           src={msg.user_avatar}
-                          alt={`Avatar de ${msg.user_name || "Usuário"}`}
+                          alt={`Avatar ${"de"} ${msg.user_name || communityText.user}`}
                           className="w-9 h-9 rounded-full object-cover border border-border shrink-0 mt-0.5"
                           loading="lazy"
                         />
@@ -2575,16 +2364,16 @@ export default function SearchResults({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <p className="text-sm font-semibold text-foreground truncate">
-                            {msg.user_name || "Usuário"}
+                            {msg.user_name || communityText.user}
                           </p>
                           <span className="text-xs text-muted-foreground">•</span>
                           <p className="text-xs text-muted-foreground whitespace-nowrap">
-                            {new Date(msg.created_at).toLocaleDateString("pt-BR")} às{" "}
-                            {new Date(msg.created_at).toLocaleTimeString("pt-BR", {
+                            {new Date(msg.created_at).toLocaleDateString(displayLocale)} {"às"}{" "}
+                            {new Date(msg.created_at).toLocaleTimeString(displayLocale, {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
-                            {msg.updated_at && msg.updated_at !== msg.created_at ? " · editado" : ""}
+                            {msg.updated_at && msg.updated_at !== msg.created_at ? ` · ${communityText.edited}` : ""}
                           </p>
                         </div>
 
@@ -2605,7 +2394,7 @@ export default function SearchResults({
                                   setEditingMessageInput("");
                                 }}
                               >
-                                Cancelar
+                                {communityText.cancel}
                               </Button>
                               <Button
                                 type="button"
@@ -2613,7 +2402,7 @@ export default function SearchResults({
                                 onClick={() => void handleSaveEditCommunityFindMessage()}
                                 disabled={!editingMessageInput.trim()}
                               >
-                                Salvar
+                                {communityText.save}
                               </Button>
                             </div>
                           </div>
@@ -2634,11 +2423,11 @@ export default function SearchResults({
                               className="h-7 px-2 text-xs"
                               onClick={() => {
                                 setReplyToMessageId(msg.id);
-                                setCommunityFindMessageInput(`@${msg.user_name || "Usuário"} `);
+                                setCommunityFindMessageInput(`@${msg.user_name || communityText.user} `);
                               }}
                             >
                               <Reply className="w-3.5 h-3.5 mr-1" />
-                              Responder
+                              {communityText.reply}
                             </Button>
                           )}
                           {session && (
@@ -2654,7 +2443,7 @@ export default function SearchResults({
                                 setReportDialogOpen(true);
                               }}
                             >
-                              Denunciar
+                              {communityText.report}
                             </Button>
                           )}
                           {session?.userId === msg.user_id && (
@@ -2670,7 +2459,7 @@ export default function SearchResults({
                                 }}
                               >
                                 <Pencil className="w-3.5 h-3.5 mr-1" />
-                                Editar
+                                  {communityText.edit}
                               </Button>
                               <Button
                                 type="button"
@@ -2680,7 +2469,7 @@ export default function SearchResults({
                                 onClick={() => void handleDeleteCommunityFindMessage(msg.id)}
                               >
                                 <Trash2 className="w-3.5 h-3.5 mr-1" />
-                                Apagar
+                                  {communityText.delete}
                               </Button>
                             </>
                           )}
@@ -2694,24 +2483,24 @@ export default function SearchResults({
 
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Converse com a comunidade sobre disponibilidade, preço e reposição deste produto.
+                {communityText.discussionDescription}
               </p>
               {replyToMessageId ? (
                 <div className="text-xs text-muted-foreground flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <span>Respondendo uma mensagem</span>
+                  <span>{communityText.replying}</span>
                   <button
                     type="button"
                     className="text-primary hover:underline"
                     onClick={() => setReplyToMessageId(null)}
                   >
-                    cancelar resposta
+                    {communityText.cancelReply}
                   </button>
                 </div>
               ) : null}
               <Textarea
                 value={communityFindMessageInput}
                 onChange={(e) => setCommunityFindMessageInput(e.target.value)}
-                placeholder={session ? "Escreva sua mensagem..." : "Faça login para participar da discussão."}
+                placeholder={session ? communityText.messagePlaceholder : communityText.loginToDiscuss}
                 disabled={!session || communityFindMessageSubmitting}
                 rows={3}
               />
@@ -2732,7 +2521,7 @@ export default function SearchResults({
                     }}
                     className="w-full sm:w-auto text-amber-700 border-amber-300 hover:bg-amber-50"
                   >
-                    Denunciar achadinho
+                    {communityText.reportFind}
                   </Button>
                 ) : <span />}
                 <Button
@@ -2741,7 +2530,7 @@ export default function SearchResults({
                   disabled={!session || communityFindMessageSubmitting || !communityFindMessageInput.trim()}
                   className="w-full sm:w-auto"
                 >
-                  {communityFindMessageSubmitting ? "Enviando..." : "Enviar mensagem"}
+                  {communityFindMessageSubmitting ? communityText.sending : communityText.sendMessage}
                 </Button>
               </div>
             </div>
@@ -2756,32 +2545,32 @@ export default function SearchResults({
               }}>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
-                    <DialogTitle>Denunciar conteúdo</DialogTitle>
+                    <DialogTitle>{communityText.reportContent}</DialogTitle>
                     <DialogDescription>
-                      Sua denúncia será analisada pela equipe de administração.
+                      {communityText.reportDescription}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-3">
                     <div className="space-y-2">
-                      <Label>Motivo</Label>
+                      <Label>{communityText.reason}</Label>
                       <Select value={reportReason} onValueChange={(v) => setReportReason(v as any)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="abuso">Abuso</SelectItem>
+                          <SelectItem value="abuso">{communityText.abuse}</SelectItem>
                           <SelectItem value="spam">Spam</SelectItem>
-                          <SelectItem value="fraude">Fraude</SelectItem>
-                          <SelectItem value="ofensivo">Ofensivo</SelectItem>
-                          <SelectItem value="desinformacao">Desinformação</SelectItem>
-                          <SelectItem value="outro">Outro</SelectItem>
+                          <SelectItem value="fraude">{communityText.fraud}</SelectItem>
+                          <SelectItem value="ofensivo">{communityText.offensive}</SelectItem>
+                          <SelectItem value="desinformacao">{communityText.misinformation}</SelectItem>
+                          <SelectItem value="outro">{communityText.other}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Detalhes (opcional)</Label>
+                      <Label>{communityText.details}</Label>
                       <Textarea
                         value={reportDetails}
                         onChange={(e) => setReportDetails(e.target.value)}
-                        placeholder="Descreva brevemente o problema."
+                        placeholder={communityText.detailsPlaceholder}
                         rows={3}
                       />
                     </div>
@@ -2796,10 +2585,10 @@ export default function SearchResults({
                           setReportDialogOpen(false);
                         }}
                       >
-                        Cancelar
+                        {communityText.cancel}
                       </Button>
                       <Button type="button" onClick={() => void handleSubmitCommunityFindReport()} disabled={reportSubmitting}>
-                        {reportSubmitting ? "Enviando..." : "Enviar denúncia"}
+                        {reportSubmitting ? communityText.sending : communityText.sendReport}
                       </Button>
                     </div>
                   </div>
@@ -2818,7 +2607,7 @@ export default function SearchResults({
           </DialogHeader>
           <div className="flex justify-end">
             <Button type="button" onClick={() => setLocationNoticeOpen(false)}>
-              Entendi
+              {communityText.gotIt}
             </Button>
           </div>
         </DialogContent>
@@ -2827,4 +2616,3 @@ export default function SearchResults({
     </div>
   );
 }
-

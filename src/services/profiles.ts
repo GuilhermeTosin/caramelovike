@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
-import type { Profile, UserFrontend } from "@/types/database";
+import { fetchInFilterBatches } from "@/lib/supabaseBatches";
+import type { Profile, PublicProfile, UserFrontend } from "@/types/database";
 
 export async function getProfileById(id: string): Promise<Profile | null> {
   const { data } = await supabase
@@ -10,25 +11,33 @@ export async function getProfileById(id: string): Promise<Profile | null> {
   return data;
 }
 
-export async function getProfilesByIds(ids: string[]): Promise<Profile[]> {
+export async function getProfilesByIds(ids: string[]): Promise<PublicProfile[]> {
   const uniqueIds = [...new Set(ids.filter(Boolean))];
   if (uniqueIds.length === 0) return [];
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("*")
-    .in("id", uniqueIds);
-
-  return (data || []) as Profile[];
+  return fetchInFilterBatches<PublicProfile>(
+    uniqueIds,
+    (batch) => supabase.from("public_profiles").select("id,name,avatar").in("id", batch),
+    "public-profiles-by-id",
+  );
 }
 
 export async function updateProfile(
   id: string,
   updates: Partial<Pick<Profile, "name" | "bio" | "phone" | "location" | "avatar">>
 ): Promise<boolean> {
+  const payload = {
+    id,
+    ...(updates.name !== undefined ? { name: updates.name } : {}),
+    ...(updates.bio !== undefined ? { bio: updates.bio } : {}),
+    ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+    ...(updates.location !== undefined ? { location: updates.location } : {}),
+    ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
+  };
+
   const { error } = await supabase
     .from("profiles")
-    .upsert({ id, ...updates });
+    .upsert(payload);
   return !error;
 }
 

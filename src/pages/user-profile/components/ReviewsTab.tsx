@@ -31,14 +31,14 @@ export default function ReviewsTab({
   return (
     <TabsContent value="avaliacoes" className="mt-0">
       <div className="flex items-center gap-4 mb-6">
-        <h2 className="text-2xl font-bold text-foreground">Avaliações</h2>
+        <h2 className="text-2xl font-bold text-foreground">{"Avaliações"}</h2>
         <Tabs value={subAvaliacoesTab} onValueChange={onSubAvaliacoesTabChange} className="ml-auto">
           <TabsList>
             <TabsTrigger value="recebidas" className="text-sm">
-              Recebidas ({myReviews.length})
+              {"Recebidas"} ({myReviews.length})
             </TabsTrigger>
             <TabsTrigger value="feitas" className="text-sm">
-              Feitas ({givenReviews.length})
+              {"Feitas"} ({givenReviews.length})
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -49,7 +49,7 @@ export default function ReviewsTab({
           {myReviews.length === 0 ? (
             <Card className="p-8 text-center border-border">
               <Star className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground">Seus negócios ainda não receberam avaliações.</p>
+              <p className="text-muted-foreground">{"Seus negócios ainda não receberam avaliações."}</p>
             </Card>
           ) : (
             <div className="space-y-4">
@@ -62,7 +62,7 @@ export default function ReviewsTab({
                           {((review as { user_name?: string }).user_name || "Usuário").charAt(0)}
                         </div>
                         <span className="font-medium">{(review as { user_name?: string }).user_name || "Usuário"}</span>
-                        <span className="text-muted-foreground">em</span>
+                        <span className="text-muted-foreground">{"em"}</span>
                         <Link to={review.businessSlug} className="text-primary hover:underline font-medium">
                           {review.businessName}
                           <ExternalLink className="w-3 h-3 ml-0.5 inline" />
@@ -91,7 +91,7 @@ export default function ReviewsTab({
           {givenReviews.length === 0 ? (
             <Card className="p-8 text-center border-border">
               <Star className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground">Você ainda não avaliou nenhum negócio.</p>
+              <p className="text-muted-foreground">{"Você ainda não avaliou nenhum negócio."}</p>
             </Card>
           ) : (
             <div className="space-y-4">
@@ -103,8 +103,8 @@ export default function ReviewsTab({
                         <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-xs font-bold">
                           {(userName || "U").charAt(0)}
                         </div>
-                        <span className="font-medium">Você</span>
-                        <span className="text-muted-foreground">em</span>
+                        <span className="font-medium">{"Você"}</span>
+                        <span className="text-muted-foreground">{"em"}</span>
                         <Link to={review.businessSlug} className="text-primary hover:underline font-medium">
                           {review.businessName}
                           <ExternalLink className="w-3 h-3 ml-0.5 inline" />
@@ -124,7 +124,7 @@ export default function ReviewsTab({
                   <div className="flex gap-2 mt-3 pt-3 border-t border-border">
                     <Button size="sm" variant="outline" onClick={() => onStartEditReview(review)}>
                       <Edit3 className="w-3.5 h-3.5 mr-1.5" />
-                      Editar
+                      {"Editar"}
                     </Button>
                     <Button
                       size="sm"
@@ -138,7 +138,7 @@ export default function ReviewsTab({
                       }
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                      Remover
+                      {"Remover"}
                     </Button>
                   </div>
                 </Card>

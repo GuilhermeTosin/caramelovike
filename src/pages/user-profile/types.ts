@@ -3,8 +3,6 @@ import type {
   BusinessReport,
   BusinessVerificationRequest,
   CommunityEvent,
-  CommunityFind,
-  CommunityFindReport,
   ConversationFrontend,
   FeaturedPlacementFrontend,
   MessageFrontend,
@@ -52,12 +50,6 @@ export type ConversationPartnerMap = Record<string, { name: string; avatar: stri
 export type MessagesTabConversation = ConversationFrontend;
 export type MessagesTabMessage = MessageFrontend;
 
-export type CommunityFindEditForm = {
-  productName: string;
-  locationName: string;
-  category: CommunityFind["category"];
-};
-
 export type CommunityEventForm = {
   title: string;
   description: string;
@@ -85,11 +77,9 @@ export type FeaturedForm = {
 
 export type VerificationAdminView = "pendentes" | "verificados" | "a_vencer";
 export type ReportsView = "active" | "archived";
-export type ReportsKind = "negocios" | "achadinhos";
 
 export type OwnershipRequestList = OwnerClaimRequest[];
 export type VerificationRequestList = BusinessVerificationRequest[];
 export type BusinessReportList = BusinessReport[];
-export type CommunityFindReportList = CommunityFindReport[];
 export type FeaturedPlacementList = FeaturedPlacementFrontend[];
 export type CommunityEventList = CommunityEvent[];

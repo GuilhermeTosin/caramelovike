@@ -8,13 +8,16 @@
         "prebuild": "npm run generate:sitemaps",
         "predev": "npm run generate:sitemaps",
         "dev": "vike dev --host 0.0.0.0",
-        "build": "vike build",
-        "build:prerender": "vike build",
+        "typecheck": "tsc -b tsconfig.json --pretty false",
+        "test": "vitest run --config vitest.config.mjs --configLoader runner --pool=threads --maxWorkers=1 --no-file-parallelism",
+        "verify": "npm run typecheck && npm test",
+        "build": "npm run verify && vike build",
+        "build:prerender": "npm run verify && vike build",
         "prepreview": "npm run check:encoding",
         "lint": "eslint .",
         "preview": "vike preview --host 0.0.0.0",
-        "test:search": "vitest run src/lib/search/businessSearch.test.ts",
-        "test:events": "vitest run src/lib/search/eventSearch.test.ts",
+        "test:search": "npm test -- src/lib/search/businessSearch.test.ts",
+        "test:events": "npm test -- src/lib/search/eventSearch.test.ts",
         "test:seo:ssr": "node scripts/check-seo-ssr.mjs",
         "check:encoding": "node scripts/check-encoding.mjs",
         "fix:encoding": "node scripts/fix-encoding.mjs",
@@ -30,7 +33,8 @@
             "/contato",
             "/privacidade",
             "/termos",
-            "/negocio-verificado"
+            "/negocio-verificado",
+            "/marketplace"
         ],
         "skipThirdPartyRequests": true,
         "puppeteerArgs": [
@@ -66,7 +70,7 @@
         "@types/node": "^24.12.2",
         "@types/react": "^18.3.12",
         "@types/react-dom": "^18.3.1",
-        "@vitejs/plugin-react": "^4.3.4",
+        "@vitejs/plugin-react": "^5.2.0",
         "autoprefixer": "^10.4.20",
         "eslint": "^10.2.1",
         "eslint-plugin-react-hooks": "^7.1.1",
@@ -80,7 +84,7 @@
         "tailwindcss-animate": "^1.0.7",
         "typescript": "^5.6.3",
         "typescript-eslint": "^8.58.2",
-        "vite": "^5.4.11",
+        "vite": "^8.0.14",
         "vitest": "^4.1.7"
     }
 }

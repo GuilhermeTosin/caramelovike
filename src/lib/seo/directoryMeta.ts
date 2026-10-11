@@ -13,6 +13,16 @@ export type DirectoryPageMeta = {
   heading: string;
 };
 
+export type DirectoryAggregateMetaStats = {
+  countryBusinesses: number;
+  stateBusinesses: number;
+  cityBusinesses: number;
+  categoryBusinesses: number;
+  stateCount: number;
+  cityCount: number;
+  labels: { country: string; state: string; city: string };
+};
+
 const COUNTRY_PREPOSITIONS_PT_BR: Record<string, string> = {
   au: "na",
   br: "no",
@@ -167,5 +177,56 @@ export function getDirectoryPageMeta(urlOriginal: string | undefined, businesses
 
   const heading = "Neg\u00f3cios brasileiros em " + cityLocation;
   const description = "Consulte " + cityBusinesses.length + " " + (cityBusinesses.length === 1 ? "neg\u00f3cio brasileiro" : "neg\u00f3cios brasileiros") + " em " + cityLocation + ". Veja empresas, profissionais, restaurantes, lojas, servi\u00e7os, contatos e avalia\u00e7\u00f5es.";
+  return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
+}
+
+export function getDirectoryPageMetaFromAggregate(
+  urlOriginal: string | undefined,
+  stats: DirectoryAggregateMetaStats,
+): DirectoryPageMeta | null {
+  const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts[0] !== "negocios") return null;
+
+  const countryCode = normalizeCode(parts[1]);
+  const stateCode = normalizeCode(parts[2]);
+  const citySlug = slugify(parts[3] || "");
+  const categorySlug = parts[4] && parts[4] !== "pagina" ? slugify(parts[4]) : "";
+  const category = getDirectoryCategoryBySlug(categorySlug);
+  const pageNumber = getPageNumber(parts);
+  const pageSuffix = pageNumber > 1 ? " - Página " + pageNumber : "";
+
+  if (!countryCode) {
+    const heading = "Negócios brasileiros no exterior por país";
+    const description = "Encontre negócios brasileiros no exterior por país, estado e cidade. Descubra empresas, profissionais, restaurantes, lojas e serviços da comunidade brasileira.";
+    return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
+  }
+
+  const countryLocation = getCountryLocation(countryCode, stats.labels.country);
+  if (!stateCode) {
+    const heading = "Negócios brasileiros " + countryLocation;
+    const description = "Consulte " + stats.countryBusinesses + " negócios brasileiros " + countryLocation + ", distribuídos em " + stats.stateCount + " " + (stats.stateCount === 1 ? "estado ou região" : "estados e regiões") + ". Explore empresas, profissionais, restaurantes, lojas e serviços com atendimento à comunidade brasileira.";
+    return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
+  }
+
+  if (!citySlug) {
+    const heading = "Negócios brasileiros em " + stats.labels.state + ", " + stats.labels.country;
+    const description = "Consulte " + stats.stateBusinesses + " negócios brasileiros em " + stats.labels.state + ", " + stats.labels.country + ", presentes em " + stats.cityCount + " " + (stats.cityCount === 1 ? "cidade" : "cidades") + ". Veja empresas, profissionais, restaurantes, lojas e serviços da comunidade brasileira.";
+    return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
+  }
+
+  const cityLocation = getCityLocation(stats.labels);
+  if (category) {
+    const categoryName = category.label.toLocaleLowerCase("pt-BR");
+    const countText = stats.categoryBusinesses >= DIRECTORY_CATEGORY_MINIMUM_BUSINESSES
+      ? stats.categoryBusinesses + " " + categoryName
+      : categoryName;
+    const heading = category.label + " em " + cityLocation;
+    const description = "Encontre " + countText + " em " + cityLocation + ". Consulte endereços, horários, contatos e avaliações de negócios brasileiros.";
+    return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
+  }
+
+  const heading = "Negócios brasileiros em " + cityLocation;
+  const description = "Consulte " + stats.cityBusinesses + " " + (stats.cityBusinesses === 1 ? "negócio brasileiro" : "negócios brasileiros") + " em " + cityLocation + ". Veja empresas, profissionais, restaurantes, lojas, serviços, contatos e avaliações.";
   return { heading, title: heading + pageSuffix + " | Caramelinho.com", description: addPageToDescription(description, pageNumber) };
 }

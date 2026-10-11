@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff, CalendarDays, BadgePercent, PartyPopper, Plane, LayoutGrid } from "lucide-react";
+import { MapPin, Star, Store, Briefcase, PawPrint, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff, CalendarDays, Plane, LayoutGrid, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,16 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { getSiteContent, getMascotPhrases } from "@/data/siteContent";
 import { getHomeContent } from "@/data/homeContent";
-import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getBusinessesByPublicSearchRpc, getCountryName, getSearchSuggestions } from "@/services/businesses";
+import { buildBusinessUrl, getBusinessesByPublicSearchRpc, getCountryName } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
 import { stripRichTextHtml } from "@/lib/richText";
-import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import { DEFAULT_GEO_FALLBACK, DEFAULT_SEARCH_RADIUS_KM, calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import {
   geocodeLocationWithCountryFallback,
-  inferNearestCityFromBusinesses,
-  resolveLocationContextFromBusinesses,
 } from "@/lib/search/locationResolver";
 import SearchInputWithSuggestions, { type LocationSuggestionMeta } from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
@@ -31,16 +28,20 @@ import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { buildHomePublicSnapshot, type HomePublicSnapshot } from "@/lib/homeSnapshot";
+import { getCountryDisplayName } from "@/lib/locales";
 import { buildPublicSearchPageRequest, type PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
+import { DEFAULT_CATEGORY_SYNONYMS } from "@/services/searchPreferences";
+import { marketplaceListingPath, type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
+import type { MarketplaceListingType } from "@/types/database";
 
-type SearchMode = "businesses" | "events" | "achadinhos";
+type SearchMode = "businesses" | "events";
 
 const HOME_SEARCH_MODE_STYLES: Record<
   SearchMode,
   {
     icon: typeof Store;
     accentClass: string;
-    modeParam?: "eventos" | "achadinhos";
+    modeParam?: "eventos";
   }
 > = {
   businesses: {
@@ -52,14 +53,9 @@ const HOME_SEARCH_MODE_STYLES: Record<
     accentClass: "bg-amber-500 text-white shadow-md",
     modeParam: "eventos",
   },
-  achadinhos: {
-    icon: BadgePercent,
-    accentClass: "bg-sky-600 text-white shadow-md",
-    modeParam: "achadinhos",
-  },
 };
 
-const HOME_SEARCH_MODE_ORDER: SearchMode[] = ["businesses", "events", "achadinhos"];
+const HOME_SEARCH_MODE_ORDER: SearchMode[] = ["businesses", "events"];
 
 const HOME_CATEGORY_ICONS: Record<string, typeof Utensils> = {
   food: Utensils,
@@ -80,8 +76,6 @@ const HOME_CATEGORY_ICONS: Record<string, typeof Utensils> = {
   other: MoreHorizontal,
 };
 
-
-const HOME_PUBLIC_DATA_REFRESH_MS = 5 * 60 * 1000;
 
 const countryCodeToFlag = (countryCode: string) => {
   const normalized = (countryCode || "").trim().toUpperCase();
@@ -110,35 +104,47 @@ function formatHomeStatCount(count: number): string {
   return String(count);
 }
 
+const MARKETPLACE_TYPE_LABELS: Record<MarketplaceListingType, string> = {
+  selling: "À venda",
+  wanted: "Procurando",
+  giving_away: "Doando",
+};
+
+function formatMarketplacePreviewPrice(listing: { listing_type: MarketplaceListingType; price: number | null; currency: string }) {
+  if (listing.listing_type !== "selling" && listing.price == null) return MARKETPLACE_TYPE_LABELS[listing.listing_type];
+  if (listing.price == null) return "Preço a combinar";
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: listing.currency || "CAD" }).format(listing.price);
+}
+
 type HomeProps = {
-  initialBusinesses?: BusinessFrontend[];
-  initialBusinessesAreSearchReady?: boolean;
   initialFeaturedBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[];
   initialSearchSuggestions?: string[];
+  initialSearchSynonyms?: Record<string, string[]>;
   initialHomeSnapshot?: HomePublicSnapshot;
+  initialMarketplaceSnapshot?: MarketplaceSnapshot;
 };
 
 export default function Home({
-  initialBusinesses = [],
-  initialBusinessesAreSearchReady = false,
   initialFeaturedBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
+  initialSearchSynonyms = DEFAULT_CATEGORY_SYNONYMS,
   initialHomeSnapshot,
+  initialMarketplaceSnapshot,
 }: HomeProps = {}) {
   const siteText = getSiteContent();
   const homeText = getHomeContent();
   const mascotPhrases = getMascotPhrases();
+  const homeSeo = siteText.seo;
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("businesses");
-  const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>(initialBusinesses);
-  const [hasCompleteSearchData, setHasCompleteSearchData] = useState(initialBusinessesAreSearchReady);
   const [featuredBusinesses, setFeaturedBusinesses] = useState<BusinessFrontend[]>(initialFeaturedBusinesses);
-  const [searchSuggestions, setSearchSuggestions] = useState<string[]>(initialSearchSuggestions);
-  const [citySuggestions, setCitySuggestions] = useState<string[]>(() => extractCities(initialAvailableLocations));
+  const [searchSynonymsMap] = useState<Record<string, string[]>>(initialSearchSynonyms);
+  const citySuggestions = useMemo(() => extractCities(initialAvailableLocations), [initialAvailableLocations]);
+  const searchSuggestions = initialSearchSuggestions;
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [approxCountryCode, setApproxCountryCode] = useState("");
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
@@ -152,8 +158,8 @@ export default function Home({
   const previousSearchRef = useRef({ query: "", location: "" });
 
   useEffect(() => {
-    setSeoMeta(siteText.seo.homeTitle, siteText.seo.homeDescription);
-  }, [siteText]);
+    setSeoMeta(homeSeo.homeTitle, homeSeo.homeDescription);
+  }, [homeSeo.homeDescription, homeSeo.homeTitle]);
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -205,101 +211,45 @@ export default function Home({
 
   useEffect(() => {
     let cancelled = false;
-    const hasServerBusinesses = initialBusinesses.length > 0;
-
-    const refreshPublicData = async () => {
-      const [businessesRes, locationsRes, suggestionsRes] = await Promise.allSettled([
-        getAllBusinesses(),
-        getAvailableLocations(),
-        getSearchSuggestions(),
-      ]);
-
-      if (cancelled) return null;
-
-      if (businessesRes.status === "fulfilled") {
-        setAllBusinesses(businessesRes.value);
-        setHasCompleteSearchData(true);
-      }
-
-      if (locationsRes.status === "fulfilled") {
-        setCitySuggestions(extractCities(locationsRes.value));
-      }
-
-      if (suggestionsRes.status === "fulfilled") {
-        setSearchSuggestions(suggestionsRes.value);
-      }
-
-      return businessesRes.status === "fulfilled" ? businessesRes.value : null;
-    };
-
-    const loadData = async (refreshDirectory: boolean) => {
-      const [freshBusinesses, approxGeo] = await Promise.all([
-        refreshDirectory ? refreshPublicData() : Promise.resolve(initialBusinesses),
-        getApproxGeoByIp({
-          timeoutMs: 3000,
-          maxAgeMs: 24 * 60 * 60 * 1000,
-          fallback: DEFAULT_GEO_FALLBACK,
-        }),
-      ]);
+    const loadRegionalFeaturedBusinesses = async () => {
+      const approxGeo = await getApproxGeoByIp({
+        timeoutMs: 3000,
+        maxAgeMs: 24 * 60 * 60 * 1000,
+        fallback: DEFAULT_GEO_FALLBACK,
+      });
 
       if (cancelled) return;
 
-      const businesses = freshBusinesses && freshBusinesses.length > 0 ? freshBusinesses : initialBusinesses;
       const coords = approxGeo ? { lat: approxGeo.lat, lng: approxGeo.lng } : null;
       if (approxGeo?.countryCode) setApproxCountryCode(approxGeo.countryCode);
       if (approxGeo?.city) {
         setLocationQuery((prev) => (prev.trim() ? prev : approxGeo.city!));
       }
-      let regionalBusinesses = [...businesses];
       let region: FeaturedRegion | null = null;
 
       if (coords) {
         setUserCoords(coords);
-        regionalBusinesses = [...businesses].sort((a, b) => {
-          const distA = calculateDistance(coords.lat, coords.lng, a.address.lat, a.address.lng);
-          const distB = calculateDistance(coords.lat, coords.lng, b.address.lat, b.address.lng);
-          return distA - distB;
-        });
-        const nearest = regionalBusinesses[0];
-        if (nearest) {
-          region = {
-            countryCode: nearest.address.countryCode,
-            stateCode: nearest.address.stateCode,
-            city: nearest.address.city,
-          };
-        }
+        region = {
+          countryCode: approxGeo?.countryCode || "",
+          city: approxGeo?.city || "",
+        };
       }
 
-      const regionalFeatured = initialFeaturedBusinesses.length > 0
-        ? initialFeaturedBusinesses
-        : await getFeaturedBusinessesForRegion(region, 6);
+      const regionalFeatured = await getFeaturedBusinessesForRegion(region, 6).catch(() => [] as BusinessFrontend[]);
 
       if (cancelled) return;
 
-      setAllBusinesses(regionalBusinesses);
-      setFeaturedBusinesses(regionalFeatured);
+      if (regionalFeatured.length > 0) setFeaturedBusinesses(regionalFeatured);
     };
 
-    // The server sends only home aggregates. Load the full search index on the client
-    // so geolocation and instant search navigation remain available without bloating SSR.
-    const initialLoadTimer = hasServerBusinesses
-      ? window.setTimeout(() => void loadData(false), 1500)
-      : null;
-
-    if (!hasServerBusinesses) {
-      void loadData(true);
-    }
-
-    const refreshTimer = window.setInterval(() => {
-      void refreshPublicData();
-    }, HOME_PUBLIC_DATA_REFRESH_MS);
+    // The server already sent home aggregates and autocomplete metadata. Only
+    // fetch the small regional featured set after the IP lookup completes.
+    void loadRegionalFeaturedBusinesses();
 
     return () => {
       cancelled = true;
-      if (initialLoadTimer !== null) window.clearTimeout(initialLoadTimer);
-      window.clearInterval(refreshTimer);
     };
-  }, [initialBusinesses, initialFeaturedBusinesses]);
+  }, []);
 
   const handleUseCurrentLocationInput = async () => {
     selectedLocationRef.current = null;
@@ -313,9 +263,7 @@ export default function Home({
         return;
       }
       setUserCoords(coords);
-      const inferredCity = inferNearestCityFromBusinesses(allBusinesses, coords) || homeText.currentLocationLabel;
-      setLocationQuery("");
-      window.setTimeout(() => setLocationQuery(inferredCity), 0);
+      setLocationQuery(homeText.currentLocationLabel);
     } finally {
       setIsResolvingLocationInput(false);
     }
@@ -341,14 +289,11 @@ export default function Home({
       params.set("cidade", selectedLocationMatches && selectedLocation.meta.city ? selectedLocation.meta.city : locationText);
       params.set("local", locationText);
       params.set("raio", DEFAULT_SEARCH_RADIUS_KM);
-      const resolved = resolveLocationContextFromBusinesses(allBusinesses, locationText);
       const coords =
         selectedCoords ||
-        resolved.coords ||
         (await geocodeLocationWithCountryFallback(
           locationText,
           (selectedLocationMatches ? selectedLocation.meta.countryCode : "") ||
-            resolved.countryCode ||
             approxCountryCode ||
             DEFAULT_GEO_FALLBACK.countryCode
         ));
@@ -363,7 +308,7 @@ export default function Home({
       params.set("origem_local", locationText);
       params.set("origem_source", "city");
       const countryCode =
-        (selectedLocationMatches ? selectedLocation.meta.countryCode : "") || resolved.countryCode;
+        (selectedLocationMatches ? selectedLocation.meta.countryCode : "") || approxCountryCode;
       if (countryCode) params.set("origem_pais", countryCode.toLowerCase());
       else params.delete("origem_pais");
       return true;
@@ -393,7 +338,7 @@ export default function Home({
   };
 
   const getBusinessSearchNavigationState = async (params: URLSearchParams) => {
-    const request = buildPublicSearchPageRequest(params);
+    const request = buildPublicSearchPageRequest(params, undefined, searchSynonymsMap);
 
     try {
       const page = await getBusinessesByPublicSearchRpc(request);
@@ -435,21 +380,22 @@ export default function Home({
 
     const state = searchMode === "businesses"
       ? await getBusinessSearchNavigationState(params)
-      : hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined;
+      : undefined;
     navigate(`/buscar?${params.toString()}`, { state });
     setIsSubmittingSearch(false);
   };
 
-  const handleQuickTagSearch = async (tag: string) => {
+  const handleQuickTagSearch = async (tag: { label: string; query: string }) => {
     setIsSubmittingSearch(true);
     const params = new URLSearchParams();
     const modeParam = HOME_SEARCH_MODE_STYLES[searchMode].modeParam;
     if (modeParam) params.set(modeParam, "1");
-    params.set("q", tag.trim());
+    params.set("q", tag.query.trim());
+    params.set("q_label", tag.label.trim());
     await appendLocationContext(params, locationQuery);
     const state = searchMode === "businesses"
       ? await getBusinessSearchNavigationState(params)
-      : hasCompleteSearchData ? { preloadedBusinesses: allBusinesses } : undefined;
+      : undefined;
     navigate(`/buscar?${params.toString()}`, { state });
     setIsSubmittingSearch(false);
   };
@@ -464,7 +410,7 @@ export default function Home({
     setIsSubmittingSearch(false);
   };
 
-  const [mascotPhrase, setMascotPhrase] = useState(() => mascotPhrases[0]);
+  const [mascotPhrase, setMascotPhrase] = useState<string>(() => mascotPhrases[0]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -472,10 +418,7 @@ export default function Home({
     }, 0);
     return () => window.clearTimeout(timer);
   }, [mascotPhrases]);
-  const liveHomeSnapshot = useMemo(() => buildHomePublicSnapshot(allBusinesses), [allBusinesses]);
-  const homeSnapshot = allBusinesses.length > 0
-    ? liveHomeSnapshot
-    : initialHomeSnapshot || liveHomeSnapshot;
+  const homeSnapshot = initialHomeSnapshot || buildHomePublicSnapshot([]);
 
   const categories = useMemo(() => {
     return homeText.categories.map((cat) => ({
@@ -495,45 +438,16 @@ export default function Home({
   }, [homeSnapshot, homeText.stats]);
 
   const activeSearchMode = homeText.searchModes[searchMode];
+  const visibleSearchModes = HOME_SEARCH_MODE_ORDER;
 
   const popularCities = useMemo(
     () => homeSnapshot.popularCities.map((city) => ({ ...city, flag: countryCodeToFlag(city.countryCode) })),
     [homeSnapshot.popularCities],
   );
+  const recentMarketplaceListings = initialMarketplaceSnapshot?.items.slice(0, 3) || [];
 
   return (
     <div className="min-h-screen">
-      {/* Header/Nav */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-24">
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-                <img
-                  src="/logo-112.webp"
-                  srcSet="/logo-64.webp 64w, /logo-112.webp 112w, /logo-176.webp 176w, /logo-224.webp 224w"
-                  sizes="(min-width: 640px) 88px, 56px"
-                  alt="Caramelinho logo"
-                  width={112}
-                  height={112}
-                  decoding="async"
-                  fetchpriority="high"
-                  className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110"
-                />
-              </div>
-              <div className="leading-tight min-w-0">
-                <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">
-                  {"O SEU FARO FORA DO BRASIL".toUpperCase()}
-                </div>
-              </div>
-            </Link>
-            
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
-          </div>
-        </div>
-      </header>
-
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 caramelo-gradient opacity-5" />
@@ -551,7 +465,7 @@ export default function Home({
               }`}
             >
               <span>
-                Encontre <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>negócios brasileiros</span> no mundo todo
+                {<>Encontre <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>negócios brasileiros</span> no mundo todo</>}
               </span>
             </h1>
             <p className="mt-5 text-[1rem] sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed whitespace-pre-line">
@@ -563,7 +477,7 @@ export default function Home({
             <form onSubmit={handleSearch} className="mt-8 sm:mt-10 w-full">
               <div className="mb-3 sm:mb-4 rounded-2xl bg-white/92 px-2.5 py-2.5 sm:px-3 shadow-sm backdrop-blur-sm">
                 <div className="flex flex-wrap justify-center gap-2">
-                  {HOME_SEARCH_MODE_ORDER.map((mode) => {
+                  {visibleSearchModes.map((mode) => {
                     const modeConfig = HOME_SEARCH_MODE_STYLES[mode];
                     const modeText = homeText.searchModes[mode];
                     const ModeIcon = modeConfig.icon;
@@ -616,6 +530,7 @@ export default function Home({
                     maxSuggestions={3}
                     onUseCurrentLocation={handleUseCurrentLocationInput}
                     isLoading={isResolvingLocationInput}
+                    currentLocationLabel={"Usar minha localização"}
                     placeholder={homeText.locationPlaceholder}
                     icon="location"
                     useGooglePlaces
@@ -646,10 +561,10 @@ export default function Home({
             <div className="mt-6 flex flex-wrap gap-2 justify-center">
               {activeSearchMode.quickTags.map((tag) => (
                 <button
-                  key={tag}
+                  key={tag.query}
                   type="button"
                   onClick={() => {
-                    setSearchQuery(tag);
+                    setSearchQuery(tag.label);
                     void handleQuickTagSearch(tag);
                   }}
                   className={`px-3 py-1.5 text-xs sm:text-sm rounded-full transition-colors ${
@@ -660,11 +575,86 @@ export default function Home({
                         : "bg-sky-50 text-sky-800 hover:bg-sky-100"
                   }`}
                 >
-                  {tag}
+                  {tag.label}
                 </button>
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Marketplace preview: recent community listings stay close to the main search. */}
+      <section className="border-y border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-orange-50/70 py-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800 shadow-sm ring-1 ring-amber-200">
+                <Tag className="h-3.5 w-3.5" />
+                Marketplace da comunidade
+              </div>
+              <h2 className="text-2xl font-bold text-foreground sm:text-3xl">Produtos recentes perto de você</h2>
+              <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+                Encontre, venda ou doe produtos para brasileiros na sua região.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+              <Button asChild variant="outline" className="bg-white/80">
+                <Link to="/marketplace">Ver todos os anúncios</Link>
+              </Button>
+              <Button asChild className="caramelo-gradient text-white">
+                <Link to="/marketplace/novo">Publicar anúncio</Link>
+              </Button>
+            </div>
+          </div>
+
+          {recentMarketplaceListings.length > 0 ? (
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+              {recentMarketplaceListings.map((listing) => {
+                const image = listing.images?.[0]?.image_url;
+                const optimizedImage = image
+                  ? getOptimizedImageUrl(image, { width: 320, quality: 70, format: "webp" })
+                  : null;
+                return (
+                  <Link key={listing.id} to={marketplaceListingPath(listing)} className="group block">
+                    <Card className="h-full overflow-hidden border-amber-100 bg-white/90 transition-shadow hover:shadow-lg">
+                      <div className="flex gap-4 p-3">
+                        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-secondary sm:h-28 sm:w-28">
+                          {image ? (
+                            <img
+                              src={optimizedImage || undefined}
+                              srcSet={image ? getOptimizedImageSrcSet(image, [160, 240, 320], 70) : undefined}
+                              sizes="(min-width: 640px) 112px, 96px"
+                              alt={listing.title}
+                              loading="lazy"
+                              decoding="async"
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-amber-600/70">
+                              <Tag className="h-8 w-8" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1 py-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="line-clamp-2 text-sm font-semibold text-foreground group-hover:text-amber-700">{listing.title}</h3>
+                            <span className="shrink-0 text-xs font-semibold text-amber-700">Recente</span>
+                          </div>
+                          <p className="mt-2 text-base font-bold text-primary">{formatMarketplacePreviewPrice(listing)}</p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{listing.city}</p>
+                          <p className="mt-2 truncate text-xs text-muted-foreground">{listing.category?.name || "Marketplace"}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="mt-6 border-dashed border-amber-200 bg-white/70 p-5 text-sm text-muted-foreground">
+              Ainda não há anúncios recentes. Publique o primeiro produto da comunidade.
+            </Card>
+          )}
         </div>
       </section>
 
@@ -702,7 +692,7 @@ export default function Home({
             >
               <cat.icon className="w-7 h-7 text-primary" />
               <span className="font-medium text-sm text-center">{cat.name}</span>
-              <span className="w-full text-center text-xs text-muted-foreground">{formatBusinessCount(cat.count) + " no mundo"}</span>
+              <span className="w-full text-center text-xs text-muted-foreground">{formatBusinessCount(cat.count) + (" no mundo")}</span>
             </Link>
           ))}
         </div>
@@ -754,7 +744,7 @@ export default function Home({
                       decoding="async"
                     />
                     <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
-                      {biz.category.split("(")[0].trim()}
+                      {homeText.categories.find((category) => category.id === biz.categoryId)?.name || biz.category.split("(")[0].trim()}
                     </Badge>
                     {biz.averageRating > 0 && (
                       <Badge className="absolute top-3 right-3 bg-amber-500 text-white border-0 gap-1">
@@ -785,12 +775,12 @@ export default function Home({
                           <span className="truncate">{biz.name}</span>
                         </h3>
                         <p className="text-sm text-muted-foreground truncate">
-                          {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryName(biz.address.countryCode || biz.address.country)}`}
+                          {`${getCityDisplayName(biz.address.cityDisplayName || biz.address.city, biz.address.countryCode || biz.address.country)}, ${getCountryDisplayName(biz.address.countryCode || biz.address.country, getCountryName(biz.address.countryCode || biz.address.country))}`}
                         </p>
                       </div>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">
-                      {stripRichTextHtml(biz.description)}
+                      {stripRichTextHtml(biz.description || "")}
                     </p>
                     {biz.categoryId === "food" && (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
                       <div className="flex flex-wrap gap-1.5 mt-3">
@@ -881,17 +871,22 @@ export default function Home({
       <section className="bg-muted text-foreground py-20 border-y border-border">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="flex items-center justify-center mx-auto mb-6">
-            <img
-              src="/brazil-map-pin-112.webp"
-              srcSet="/brazil-map-pin-112.webp 112w, /brazil-map-pin-168.webp 168w, /brazil-map-pin-224.webp 224w"
-              sizes="(min-width: 640px) 112px, 96px"
-              alt="Ícone de localização com bandeira do Brasil"
-              width={112}
-              height={112}
-              loading="lazy"
-              decoding="async"
-              className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
-            />
+            <picture>
+              <source
+                type="image/webp"
+                srcSet="/brazil-map-pin-256.webp 256w, /brazil-map-pin-512.webp 512w"
+                sizes="(min-width: 640px) 112px, 96px"
+              />
+              <img
+                src="/brazil-map-pin.png"
+                alt={"Ícone de localização com bandeira do Brasil"}
+                width={512}
+                height={512}
+                loading="lazy"
+                decoding="async"
+                className="h-24 w-24 object-contain sm:h-28 sm:w-28"
+              />
+            </picture>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold mb-4">
             <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}>{homeText.ctaHeading}</span>
@@ -899,7 +894,7 @@ export default function Home({
           <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">{homeText.ctaDescription}</p>
           <div className="flex justify-center">
             <Button asChild size="lg" className="caramelo-gradient text-white border-0 font-bold">
-              <Link to="/cadastro">{homeText.ctaButton}</Link>
+              <Link to={"/cadastro"}>{homeText.ctaButton}</Link>
             </Button>
           </div>
         </div>
@@ -930,6 +925,6 @@ function normalizeText(value?: string | null): string {
 }
 
 function formatBusinessCount(count: number): string {
+
   return String(count) + " " + (count === 1 ? "neg\u00f3cio" : "neg\u00f3cios");
 }
-

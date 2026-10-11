@@ -34,7 +34,7 @@ export function getDirectoryCategoryBusinesses(
   const normalizedCity = slugify(citySlug);
 
   return businesses.filter((business) =>
-    business.primaryActivity === category.categoryId &&
+    (business.primaryActivity || business.categoryId) === category.categoryId &&
     (business.address.countryCode || "").trim().toLowerCase() === normalizedCountry &&
     (business.address.stateCode || "").trim().toLowerCase() === normalizedState &&
     getDirectoryBusinessCitySlug(business) === normalizedCity

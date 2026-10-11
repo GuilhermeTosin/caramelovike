@@ -15,6 +15,18 @@ export async function requestBusinessOwnership(
   return { ok: true, requestId: data as string };
 }
 
+export async function isCurrentUserBusinessOwner(businessId: string): Promise<boolean | null> {
+  if (!businessId) return null;
+  const { data, error } = await supabase.rpc("is_current_user_business_owner", {
+    p_business_id: businessId,
+  });
+  if (error) {
+    console.error("[isCurrentUserBusinessOwner] Nao foi possivel verificar a titularidade:", error);
+    return null;
+  }
+  return data === true;
+}
+
 export async function getMyOwnershipRequests(): Promise<OwnerClaimRequest[]> {
   const { data, error } = await supabase
     .from("owner_claim_requests")

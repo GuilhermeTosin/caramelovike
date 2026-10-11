@@ -43,8 +43,7 @@ export default function NotFound() {
               <span className="block text-primary">mas não encontrou essa página</span>
             </h1>
             <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Essa página não está disponível no momento. Mas você pode continuar explorando os melhores negócios
-              brasileiros por aqui.
+              Essa página não está disponível no momento. Mas você pode continuar explorando os melhores negócios brasileiros por aqui.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -68,7 +67,7 @@ export default function NotFound() {
                 width={420}
                 height={382}
                 loading="eager"
-                fetchPriority="high"
+                fetchpriority="high"
                 className="relative h-auto w-[220px] drop-shadow-lg sm:w-[300px] md:w-[350px]"
               />
             </div>

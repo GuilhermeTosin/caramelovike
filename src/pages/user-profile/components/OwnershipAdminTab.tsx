@@ -70,6 +70,9 @@ export default function OwnershipAdminTab({
             />
             <Button type="submit">Transferir</Button>
           </form>
+          <p className="mt-3 text-sm text-muted-foreground">
+            A transferência encerra as conversas antigas. O histórico permanece apenas com o cliente que iniciou cada conversa; o novo responsável participa de novos chats.
+          </p>
         </Card>
 
         <Card className="overflow-hidden border-border">

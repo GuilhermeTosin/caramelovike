@@ -18,18 +18,6 @@ export type AdminUserBusiness = {
   created_at: string;
 };
 
-export type AdminUserFind = {
-  id: string;
-  user_id: string;
-  product_name: string;
-  location_name: string;
-  category: string;
-  upvotes: number;
-  downvotes: number;
-  expires_at: string;
-  created_at: string;
-};
-
 export type AdminUserEvent = {
   id: string;
   owner_id: string;
@@ -53,7 +41,7 @@ export type AdminUserRecord = {
   phone: string;
   location: string;
   avatar: string;
-  role: "user" | "admin";
+  role: "user" | "editor" | "admin";
   createdAt: string;
   auth: {
     createdAt: string;
@@ -62,7 +50,6 @@ export type AdminUserRecord = {
     emailConfirmedAt: string;
   };
   businesses: AdminUserBusiness[];
-  achadinhos: AdminUserFind[];
   events: AdminUserEvent[];
 };
 
@@ -72,6 +59,7 @@ export type AdminUserProfileUpdates = {
   phone?: string;
   location?: string;
   avatar?: string;
+  role?: "user" | "editor" | "admin";
 };
 
 type AdminUsersResponse = {

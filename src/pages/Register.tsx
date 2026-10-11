@@ -9,6 +9,12 @@ import { supabase } from "@/lib/supabase";
 
 export default function Register() {
   const navigate = useNavigate();
+
+  const text = {
+    required: "Preencha todos os campos.", passwordLength: "A senha deve ter pelo menos 6 caracteres.", mismatch: "As senhas não conferem.", emailExists: "Este email já está cadastrado.",
+    confirmed: "Cadastro realizado!", confirmationSent: "Enviamos um email de confirmação para", confirmationHint: "Clique no link enviado para ativar sua conta e começar a usar o Caramelinho.", login: "Ir para o Login", home: "Voltar ao Início",
+    title: "Criar Conta", welcome: "Junte-se ao Caramelinho!", name: "Nome", namePlaceholder: "Seu nome completo", password: "Senha", passwordPlaceholder: "Mínimo 6 caracteres", confirmPassword: "Confirmar Senha", confirmPlaceholder: "Repita a senha", loading: "Cadastrando...", submit: "Criar Conta", hasAccount: "Já tem conta?", signIn: "Faça login",
+  };
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,15 +28,15 @@ export default function Register() {
     setError("");
 
     if (!name.trim() || !email.trim() || !password.trim()) {
-      setError("Preencha todos os campos.");
+      setError(text.required);
       return;
     }
     if (password.length < 6) {
-      setError("A senha deve ter pelo menos 6 caracteres.");
+      setError(text.passwordLength);
       return;
     }
     if (password !== confirmPassword) {
-      setError("As senhas não conferem.");
+      setError(text.mismatch);
       return;
     }
 
@@ -50,7 +56,7 @@ export default function Register() {
 
     if (signUpError) {
       if (signUpError.message.includes("already")) {
-        setError("Este email já está cadastrado.");
+        setError(text.emailExists);
       } else {
         setError(signUpError.message);
       }
@@ -67,20 +73,20 @@ export default function Register() {
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground mb-3">Cadastro realizado!</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-3">{text.confirmed}</h1>
           <p className="text-muted-foreground mb-2">
-            Enviamos um email de confirmação para <strong>{email}</strong>.
+            {text.confirmationSent} <strong>{email}</strong>.
           </p>
           <p className="text-sm text-muted-foreground mb-6">
-            Clique no link enviado para ativar sua conta e começar a usar o Caramelinho.
+            {text.confirmationHint}
           </p>
           <div className="flex flex-col gap-3">
             <Button onClick={() => navigate("/entrar")}>
-              Ir para o Login
+              {text.login}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
             <Button variant="outline" onClick={() => navigate("/")}>
-              Voltar ao Início
+              {text.home}
             </Button>
           </div>
         </Card>
@@ -91,22 +97,10 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="mb-8">
-          <Link to="/" className="flex items-center gap-3 mb-4">
-            <div className="w-20 h-20 flex items-center justify-center">
-                <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
-              </div>
-            <div className="leading-tight text-left">
-                <div className="font-extrabold text-[2rem] sm:text-[2.2rem] tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-base sm:text-lg font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
-              </div>
-          </Link>
-        </div>
-
         <Card className="p-6 sm:p-8 border-border">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-foreground">Criar Conta</h1>
-            <p className="text-muted-foreground mt-1">Junte-se ao Caramelinho!</p>
+            <h1 className="text-2xl font-bold text-foreground">{text.title}</h1>
+            <p className="text-muted-foreground mt-1">{text.welcome}</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
@@ -116,14 +110,14 @@ export default function Register() {
             )}
 
             <div>
-              <Label htmlFor="name">Nome</Label>
+              <Label htmlFor="name">{text.name}</Label>
               <div className="relative mt-1.5">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Seu nome completo"
+                  placeholder={text.namePlaceholder}
                   className="pl-10"
                   autoComplete="name"
                 />
@@ -139,7 +133,7 @@ export default function Register() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
+                  placeholder={"seu@email.com"}
                   className="pl-10"
                   autoComplete="email"
                 />
@@ -147,7 +141,7 @@ export default function Register() {
             </div>
 
             <div>
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="password">{text.password}</Label>
               <div className="relative mt-1.5">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -155,7 +149,7 @@ export default function Register() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={text.passwordPlaceholder}
                   className="pl-10"
                   autoComplete="new-password"
                 />
@@ -163,7 +157,7 @@ export default function Register() {
             </div>
 
             <div>
-              <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+              <Label htmlFor="confirmPassword">{text.confirmPassword}</Label>
               <div className="relative mt-1.5">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -171,7 +165,7 @@ export default function Register() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repita a senha"
+                  placeholder={text.confirmPlaceholder}
                   className="pl-10"
                   autoComplete="new-password"
                 />
@@ -179,15 +173,15 @@ export default function Register() {
             </div>
 
             <Button type="submit" className="w-full caramelo-gradient text-white" disabled={isLoading}>
-              {isLoading ? "Cadastrando..." : "Criar Conta"}
+              {isLoading ? text.loading : text.submit}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>
-              Já tem conta?{" "}
-              <Link to="/entrar" className="text-amber-600 hover:text-amber-700 font-medium">
-                Faça login
+              {text.hasAccount}{" "}
+              <Link to={"/entrar"} className="text-amber-600 hover:text-amber-700 font-medium">
+                {text.signIn}
               </Link>
             </p>
           </div>
@@ -196,11 +190,6 @@ export default function Register() {
     </div>
   );
 }
-
-
-
-
-
 
 
 

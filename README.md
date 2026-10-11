@@ -306,6 +306,15 @@ Variáveis com prefixo `VITE_` são incorporadas ao bundle do navegador. Nunca c
 
 As variáveis de produção devem ser cadastradas em **Vercel > Project Settings > Environment Variables** para os ambientes necessários.
 
+O endpoint administrativo `/api/admin-users` também precisa de uma credencial de servidor no ambiente local. Ela não pode ter prefixo `VITE_` e nunca deve ser publicada no navegador:
+
+```env
+SUPABASE_URL=https://SEU-PROJETO.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=SUA_CHAVE_DE_SERVIDOR
+```
+
+Como alternativa, ambientes Supabase que usam a chave de servidor compatível podem definir `SUPABASE_SECRET_KEY`. Depois de alterar `.env.local`, reinicie o Vite.
+
 ## Banco de dados e Supabase
 
 As migrations ficam em `supabase/migrations` e devem ser aplicadas em ordem.
@@ -560,6 +569,10 @@ VITE_SUPABASE_ANON_KEY=...
 ```
 
 Reinicie o servidor após alterar `.env`.
+
+### `API administrativa sem credenciais de servidor`
+
+O painel **Perfil > Usuários** não funciona apenas com `VITE_SUPABASE_ANON_KEY`. Configure `SUPABASE_SERVICE_ROLE_KEY` ou `SUPABASE_SECRET_KEY` no `.env.local`, sem prefixo `VITE_`, e reinicie o servidor local. Essas chaves devem permanecer somente no servidor e nas variáveis protegidas da Vercel.
 
 ### `Failed to fetch` no login ou nas consultas
 

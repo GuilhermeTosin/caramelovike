@@ -19,7 +19,7 @@ export type ApproxGeo = {
   city?: string;
   stateCode?: string;
   countryCode?: string;
-  source?: "ip" | "cache" | "fallback";
+  source?: "ip" | "cache" | "fallback" | "gps";
 };
 
 type GeoipCachePayload = {
@@ -152,8 +152,11 @@ function resolveGeoipEndpoint(rawEndpoint: string): string | null {
     const currentOrigin = window.location.origin;
     const isCaramelinhoHost =
       resolved.hostname === "caramelinho.com" || resolved.hostname === "www.caramelinho.com";
+    const isRemoteVercelGeoipEndpoint =
+      resolved.hostname.toLowerCase().endsWith(".vercel.app") &&
+      resolved.pathname.replace(/\/+$/, "") === "/api/geoip";
 
-    if (isCaramelinhoHost && resolved.origin !== currentOrigin) {
+    if ((isCaramelinhoHost || isRemoteVercelGeoipEndpoint) && resolved.origin !== currentOrigin) {
       return new URL("/api/geoip", currentOrigin).toString();
     }
 
@@ -246,7 +249,7 @@ export async function getApproxGeoByIp(options?: {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await utf8Fetch(endpoint, { signal: controller.signal });
+    const res = await utf8Fetch(endpoint, { signal: controller.signal, cache: "no-store" });
     clearTimeout(timeout);
     if (!res.ok) {
       if (options?.fallback) return { ...options.fallback, source: "fallback" };

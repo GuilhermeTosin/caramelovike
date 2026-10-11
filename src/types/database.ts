@@ -7,8 +7,15 @@ export interface Profile {
   phone: string | null;
   location: string | null;
   avatar: string | null;
-  role?: "user" | "admin";
+  role?: "user" | "editor" | "admin";
   created_at: string;
+}
+
+export interface PublicProfile {
+  id: string;
+  name: string;
+  avatar: string | null;
+  created_at?: string;
 }
 
 export interface MenuItem {
@@ -37,7 +44,7 @@ export interface BusinessEvent {
 
 export interface CommunityEvent {
   id: string;
-  owner_id: string;
+  owner_id?: string;
   business_id: string | null;
   title: string;
   description: string;
@@ -110,6 +117,74 @@ export interface CommunityFindReport {
   } | null;
 }
 
+export type MarketplaceListingType = "selling" | "wanted" | "giving_away";
+export type MarketplaceCondition = "new" | "like_new" | "good" | "used" | "parts";
+export type MarketplaceListingStatus = "draft" | "active" | "paused" | "sold" | "expired" | "removed";
+
+export interface MarketplaceCategory {
+  id: string;
+  slug: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface MarketplaceListingImage {
+  id: string;
+  listing_id: string;
+  image_url: string;
+  sort_order: number;
+}
+
+export interface MarketplaceListing {
+  id: string;
+  owner_id: string;
+  seller_business_id?: string | null;
+  show_on_business_page?: boolean;
+  listing_type: MarketplaceListingType;
+  category_id: string;
+  title: string;
+  description: string;
+  price: number | null;
+  currency: string;
+  condition: MarketplaceCondition | null;
+  country_code: string;
+  state_code: string;
+  city: string;
+  neighborhood: string | null;
+  lat: number | null;
+  lng: number | null;
+  keywords: string[];
+  video_url: string | null;
+  slug: string;
+  status: MarketplaceListingStatus;
+  view_count: number;
+  created_at: string;
+  updated_at: string;
+  images?: MarketplaceListingImage[];
+  owner_name?: string;
+  owner_avatar?: string | null;
+  owner_created_at?: string | null;
+  owner_listing_count?: number;
+  seller_business_name?: string | null;
+  seller_business_logo?: string | null;
+  seller_business_path?: string | null;
+  seller_listing_count?: number;
+  is_favorited?: boolean;
+  category?: MarketplaceCategory;
+}
+
+export interface MarketplaceReport {
+  id: string;
+  listing_id: string;
+  reporter_id: string | null;
+  reason: "fraud" | "prohibited" | "spam" | "duplicate" | "misleading" | "offensive" | "other";
+  details: string | null;
+  status: "pending" | "reviewing" | "resolved" | "rejected";
+  created_at: string;
+  listing?: Pick<MarketplaceListing, "id" | "title" | "city" | "country_code" | "state_code" | "slug" | "status"> | null;
+}
+
 export interface Review {
   id: string;
   business_id: string;
@@ -177,10 +252,17 @@ export interface Business {
   updated_at?: string;
 }
 
+export type ConversationContextType = "legacy" | "business" | "marketplace";
+
 export interface Conversation {
   id: string;
   business_id: string | null;
   business_name: string | null;
+  context_type: ConversationContextType;
+  marketplace_listing_id: string | null;
+  initiator_id: string | null;
+  closed_at: string | null;
+  closed_reason: string | null;
   last_message: string | null;
   last_message_at: string | null;
   created_at: string;
@@ -203,8 +285,8 @@ export interface Message {
 // Tipos auxiliares para o frontend (camelCase)
 export interface BusinessFrontend {
   id: string;
-  ownerId: string;
-  ownerName: string;
+  ownerId?: string;
+  ownerName?: string;
   name: string;
   slug: string;
   categoryId: string;
@@ -258,6 +340,24 @@ export interface BusinessFrontend {
   events: BusinessEvent[];
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface BusinessMapMarker {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  attendanceType: "presencial" | "online" | "hibrido";
+  address: {
+    street: string;
+    city: string;
+    citySlug?: string;
+    cityDisplayName?: string;
+    countryCode: string;
+    stateCode: string;
+    lat: number;
+    lng: number;
+  };
 }
 
 export type FeaturedScopeType = "city" | "state" | "country" | "global";
@@ -368,8 +468,12 @@ export interface BusinessVerificationRequest {
 export interface ConversationFrontend {
   id: string;
   participants: string[];
+  unreadCount?: number;
   businessId?: string;
   businessName?: string;
+  contextType?: ConversationContextType;
+  marketplaceListingId?: string;
+  closedAt?: string;
   lastMessage?: string;
   lastMessageAt?: string;
   createdAt: string;
@@ -393,7 +497,7 @@ export interface UserFrontend {
   phone: string;
   location: string;
   avatar: string;
-  role: "user" | "admin";
+  role: "user" | "editor" | "admin";
   createdAt: string;
 }
 
@@ -401,5 +505,5 @@ export interface AuthSessionFrontend {
   userId: string;
   email: string;
   name: string;
-  role?: "user" | "admin";
+  role?: "user" | "editor" | "admin";
 }

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
-import { buildBusinessUrl } from "@/services/businesses";
-import type { BusinessFrontend, CommunityFindWithVote } from "@/types/database";
+import type { BusinessMapMarker, CommunityFindWithVote } from "@/types/database";
 import { MapPin, Loader2, AlertCircle, AtSign, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { buildBusinessUrl } from "@/services/businesses";
 
 interface MapViewProps {
-  businesses: BusinessFrontend[];
+  businesses: BusinessMapMarker[];
   communityFinds?: CommunityFindWithVote[];
   center?: { lat: number; lng: number };
   zoom?: number;
@@ -18,7 +18,7 @@ type ApproximateBusinessGroup = {
   key: string;
   city: string;
   position: MapPoint;
-  businesses: BusinessFrontend[];
+  businesses: BusinessMapMarker[];
 };
 
 export default function MapView({ businesses, communityFinds = [], center, zoom = 11 }: MapViewProps) {
@@ -235,9 +235,9 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       <div className="w-full h-full min-h-[400px] rounded-xl border-2 border-dashed border-muted-foreground/30 flex items-center justify-center p-8">
         <div className="text-center">
           <MapPin className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-muted-foreground font-medium">{"Mapa indispon\u00edvel"}</p>
+          <p className="text-muted-foreground font-medium">{"Mapa indisponível"}</p>
           <p className="text-sm text-muted-foreground/60 mt-1">
-            {"Configure a chave da API Google Maps nas vari\u00e1veis de ambiente para ativar o mapa."}
+            {"Configure a chave da API Google Maps nas variáveis de ambiente para ativar o mapa."}
           </p>
         </div>
       </div>
@@ -249,7 +249,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       <div className="w-full h-full min-h-[400px] rounded-xl bg-secondary/30 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">{"Carregando mapa\u2026"}</p>
+          <p className="text-sm text-muted-foreground">{"Carregando mapa…"}</p>
         </div>
       </div>
     );
@@ -260,7 +260,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       <div className="w-full h-full min-h-[400px] rounded-xl bg-destructive/5 border border-destructive/20 flex items-center justify-center p-8">
         <div className="text-center">
           <AlertCircle className="w-10 h-10 text-destructive/60 mx-auto mb-3" />
-          <p className="text-destructive font-medium">Erro ao carregar mapa</p>
+          <p className="text-destructive font-medium">{"Erro ao carregar mapa"}</p>
           <p className="text-sm text-muted-foreground mt-1">{error}</p>
         </div>
       </div>
@@ -273,11 +273,11 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       {businesses.length > 0 && (
         <div className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-border bg-background/95 px-3 py-2 shadow-md backdrop-blur">
           <p className="text-xs font-semibold text-foreground">
-            {mappableBusinessCount} {mappableBusinessCount === 1 ? "negócio representado" : "negócios representados"} em {businessPointCount} {businessPointCount === 1 ? "ponto" : "pontos"}
+            {mappableBusinessCount} {mappableBusinessCount === 1 ? "negócio representado" : "negócios representados"} {"em"} {businessPointCount} {businessPointCount === 1 ? "ponto" : "pontos"}
           </p>
           {unmappableBusinessCount > 0 && (
             <p className="mt-0.5 text-[11px] text-amber-800">
-              {unmappableBusinessCount} {unmappableBusinessCount === 1 ? "negócio não pôde ser posicionado" : "negócios não puderam ser posicionados"} por falta de localização.
+              {unmappableBusinessCount} {unmappableBusinessCount === 1 ? "negócio não pôde ser posicionado" : "negócios não puderam ser posicionados"} {"por falta de localização."}
             </p>
           )}
         </div>
@@ -285,7 +285,7 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
       {selectedApproximateGroup && (
         <aside
           className="absolute inset-x-3 top-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-amber-200 bg-background/95 p-4 shadow-xl backdrop-blur sm:left-3 sm:right-auto sm:w-80"
-          aria-label={`Neg\u00f3cios sem endere\u00e7o f\u00edsico em ${selectedApproximateGroup.city}`}
+          aria-label={`${"Negócios sem endereço físico em"} ${selectedApproximateGroup.city}`}
         >
           <div className="flex items-start gap-3">
             <div className="rounded-full bg-amber-100 p-2 text-amber-800">
@@ -294,18 +294,19 @@ export default function MapView({ businesses, communityFinds = [], center, zoom 
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">
                 {selectedApproximateGroup.businesses.length}{" "}
-                {selectedApproximateGroup.businesses.length === 1 ? "neg\u00f3cio atende" : "neg\u00f3cios atendem"}{" "}
-                em {selectedApproximateGroup.city}
+                {selectedApproximateGroup.businesses.length === 1
+                  ? ("negócio atende")
+                  : ("negócios atendem")} {"em"} {selectedApproximateGroup.city}
               </p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {"Localiza\u00e7\u00e3o aproximada: estes neg\u00f3cios informaram a cidade de atendimento, mas n\u00e3o um endere\u00e7o f\u00edsico."}
+                {"Localização aproximada: estes negócios informaram a cidade de atendimento, mas não um endereço físico."}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setSelectedApproximateGroupKey(null)}
               className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              aria-label={"Fechar lista de neg\u00f3cios"}
+              aria-label={"Fechar lista de negócios"}
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -336,7 +337,7 @@ function hasValidCoordinates(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
 }
 
-function hasExactMapLocation(business: BusinessFrontend): boolean {
+function hasExactMapLocation(business: BusinessMapMarker): boolean {
   return (
     business.attendanceType !== "online" &&
     Boolean(business.address.street?.trim()) &&
@@ -344,7 +345,7 @@ function hasExactMapLocation(business: BusinessFrontend): boolean {
   );
 }
 
-function groupApproximateBusinesses(businesses: BusinessFrontend[]): ApproximateBusinessGroup[] {
+function groupApproximateBusinesses(businesses: BusinessMapMarker[]): ApproximateBusinessGroup[] {
   const groups = new Map<string, ApproximateBusinessGroup>();
 
   businesses.forEach((business) => {
@@ -409,7 +410,7 @@ function addMarkerClickListeners(
   });
 }
 
-function buildMarkerUrl(business: BusinessFrontend): string {
+function buildMarkerUrl(business: BusinessMapMarker): string {
   return buildBusinessUrl(business);
 }
 

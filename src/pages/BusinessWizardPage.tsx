@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileText, ImageIcon, MapPin, PawPrint, Sparkles, Upload, User, UtensilsCrossed, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,7 +21,6 @@ import {
   OTHER_PRIMARY_ACTIVITY_ID,
 } from "@/lib/businessActivities";
 import SiteFooter from "@/components/SiteFooter";
-import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 import {
   BUSINESS_CATEGORY_OPTIONS,
   createBusiness,
@@ -30,6 +29,7 @@ import {
   getCountryName,
   getStateDisplayName,
   getCategoryId,
+  getBusinessCreationEligibility,
   getBusinessesByOwner,
   getBusinessShortSlug,
   isBusinessSlugAvailable,
@@ -38,6 +38,7 @@ import {
 } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
 import { generateImagePath, uploadImage } from "@/services/storage";
+import { getHomeContent } from "@/data/homeContent";
 
 type WizardStep = 1 | 2 | 3 | 4 | 5 | 6;
 type BusinessHour = { day: string; enabled: boolean; open: string; close: string };
@@ -134,24 +135,31 @@ function parseBusinessHours(lines: string[] = []): BusinessHour[] {
 
 export default function BusinessWizardPage() {
   const navigate = useNavigate();
+
+  const message = useCallback((portuguese: string) => portuguese, []);
+  const categoryLabels = new Map(getHomeContent().categories.map((category) => [category.id, category.name]));
+  const displayBusinessDay = (day: string) => day;
   const [searchParams] = useSearchParams();
   const { session } = useAuth();
   const editingBusinessId = (searchParams.get("editBusinessId") || "").trim();
   const isEditMode = !!editingBusinessId;
+  const canManageMultipleBusinesses = session?.role === "admin" || session?.role === "editor";
   const [step, setStep] = useState<WizardStep>(1);
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingStep, setIsChangingStep] = useState(false);
   const saveInProgressRef = useRef(false);
   const stepTransitionInProgressRef = useRef(false);
   const loadedEditBusinessKeyRef = useRef<string | null>(null);
+  const originalShortSlugRef = useRef("");
   const [loadingEditBusiness, setLoadingEditBusiness] = useState(false);
+  const [checkingBusinessEligibility, setCheckingBusinessEligibility] = useState(!isEditMode);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
   const [checkingSlug, setCheckingSlug] = useState(false);
   const [onlineCityResolved, setOnlineCityResolved] = useState(false);
   const [locationCatalog, setLocationCatalog] = useState<
-    { countryCode: string; states: { code: string; cities: string[] }[] }[]
+    { countryCode: string; countryName: string; states: { code: string; name: string; cities: string[] }[] }[]
   >([]);
-  const [slugMessage, setSlugMessage] = useState("Escolha um link curto para compartilhar seu negócio.");
+  const [slugMessage, setSlugMessage] = useState(() => message("Escolha um link curto para compartilhar seu negócio."));
   const [slugStatus, setSlugStatus] = useState<"idle" | "ok" | "error">("idle");
   const [nameError, setNameError] = useState("");
   const [contactErrors, setContactErrors] = useState({
@@ -209,6 +217,37 @@ export default function BusinessWizardPage() {
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
   const [galleryTouched, setGalleryTouched] = useState(false);
 
+  useEffect(() => {
+    if (!session || isEditMode || canManageMultipleBusinesses) {
+      setCheckingBusinessEligibility(false);
+      return;
+    }
+
+    let active = true;
+    setCheckingBusinessEligibility(true);
+
+    void getBusinessCreationEligibility(session.userId)
+      .then((eligibility) => {
+        if (!active) return;
+        if (!eligibility.allowed) {
+          toast.info(eligibility.reason || "Sua conta ja possui um negocio ativo.");
+          navigate("/perfil?tab=negocios", { replace: true });
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        toast.error("Nao foi possivel validar sua conta. Tente novamente.");
+        navigate("/perfil?tab=negocios", { replace: true });
+      })
+      .finally(() => {
+        if (active) setCheckingBusinessEligibility(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canManageMultipleBusinesses, isEditMode, navigate, session]);
+
   const progress = useMemo(() => Math.round((step / TOTAL_STEPS) * 100), [step]);
   const profileCompletionData = useMemo(() => ({
     name: form.name,
@@ -255,7 +294,7 @@ export default function BusinessWizardPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (field === "name") {
       const v = String(value || "").trim();
-      setNameError(v ? "" : "Nome do negócio é obrigatório.");
+      setNameError(v ? "" : message("Nome do negócio é obrigatório."));
     }
   };
 
@@ -285,7 +324,7 @@ export default function BusinessWizardPage() {
     const slug = normalizeShortSlugFinal(form.shortSlug);
     if (!slug) {
       setSlugStatus("error");
-      setSlugMessage("Link curto é obrigatório.");
+      setSlugMessage(message("Link curto é obrigatório."));
       setCheckingSlug(false);
       return false;
     }
@@ -298,6 +337,12 @@ export default function BusinessWizardPage() {
       setSlugStatus("error");
       setSlugMessage('Não use "caramelinho" no link curto.');
       return false;
+    }
+    if (isEditMode && slugify(slug) === slugify(originalShortSlugRef.current)) {
+      setSlugStatus("ok");
+      setSlugMessage("Link atual mantido.");
+      setCheckingSlug(false);
+      return true;
     }
     setCheckingSlug(true);
     const available = await isBusinessSlugAvailable(slug, isEditMode ? editingBusinessId : undefined);
@@ -332,7 +377,7 @@ export default function BusinessWizardPage() {
     if (!slug) {
       Promise.resolve().then(() => {
         setSlugStatus("idle");
-        setSlugMessage("Digite um link curto único para seu negócio.");
+        setSlugMessage(message("Digite um link curto único para seu negócio."));
         setCheckingSlug(false);
       });
       return;
@@ -349,6 +394,14 @@ export default function BusinessWizardPage() {
       Promise.resolve().then(() => {
         setSlugStatus("error");
         setSlugMessage('Não use "caramelinho" no link curto.');
+        setCheckingSlug(false);
+      });
+      return;
+    }
+    if (isEditMode && slugify(slug) === slugify(originalShortSlugRef.current)) {
+      Promise.resolve().then(() => {
+        setSlugStatus("ok");
+        setSlugMessage("Link atual mantido.");
         setCheckingSlug(false);
       });
       return;
@@ -371,7 +424,7 @@ export default function BusinessWizardPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [form.shortSlug, step]);
+  }, [editingBusinessId, form.shortSlug, isEditMode, message, step]);
 
   useEffect(() => {
     if (!session || !isEditMode) return;
@@ -379,7 +432,7 @@ export default function BusinessWizardPage() {
     if (loadedEditBusinessKeyRef.current === editBusinessKey) return;
 
     let active = true;
-    
+
     Promise.resolve().then(async () => {
       if (!active) return;
       setLoadingEditBusiness(true);
@@ -395,6 +448,7 @@ export default function BusinessWizardPage() {
         setEditingBusiness(biz);
         const existingShortSlug = (await getBusinessShortSlug(biz.id)) || biz.slug || "";
         if (!active) return;
+        originalShortSlugRef.current = existingShortSlug;
         setForm({
           name: biz.name || "",
           shortSlug: existingShortSlug,
@@ -452,18 +506,18 @@ export default function BusinessWizardPage() {
     return () => {
       active = false;
     };
-  }, [session?.userId, isEditMode, editingBusinessId, navigate]);
+  }, [session, isEditMode, editingBusinessId, navigate]);
 
   const validateCurrentStep = async () => {
     if (step === 1) {
       if (!form.name.trim() || !form.shortSlug.trim() || !form.category) {
-        if (!form.name.trim()) setNameError("Nome do negócio é obrigatório.");
-        toast.error("Preencha nome, link curto e categoria.");
+        if (!form.name.trim()) setNameError(message("Nome do negócio é obrigatório."));
+        toast.error(message("Preencha nome, link curto e categoria."));
         return false;
       }
       const primaryActivityMissing = !isEditMode && !form.primaryActivity.trim();
       if (primaryActivityMissing || !isPrimaryActivityValid(form.category, form.primaryActivity, form.primaryActivityCustom)) {
-        toast.error("Selecione o tipo principal do neg\u00f3cio. Se n\u00e3o encontrar uma op\u00e7\u00e3o, escolha Outro tipo e descreva.");
+        toast.error(message("Selecione o tipo principal do negócio. Se não encontrar uma opção, escolha Outro tipo e descreva."));
         return false;
       }
       setNameError("");
@@ -471,7 +525,7 @@ export default function BusinessWizardPage() {
     }
     if (step === 2) {
       if (!stripRichTextHtml(form.description).trim()) {
-        toast.error("Preencha a descrição.");
+        toast.error(message("Preencha a descrição."));
         return false;
       }
       return true;
@@ -482,12 +536,12 @@ export default function BusinessWizardPage() {
       const phoneDigits = (form.phone.match(/\d/g) || []).length;
       if (phoneProvided && phoneDigits < 8) {
         setContactErrors((prev) => ({ ...prev, phone: "Telefone inválido." }));
-        toast.error("Informe um telefone válido.");
+        toast.error(message("Informe um telefone válido."));
         return false;
       }
       if (emailProvided && !isValidEmail(form.email)) {
         setContactErrors((prev) => ({ ...prev, email: "Email inválido." }));
-        toast.error("Informe um email válido.");
+        toast.error(message("Informe um email válido."));
         return false;
       }
       setContactErrors({
@@ -499,11 +553,11 @@ export default function BusinessWizardPage() {
         whatsapp: "",
       });
       if (form.hasPhysicalAddress && (!form.street.trim() || !form.city.trim() || !form.stateCode.trim())) {
-        toast.error("Complete o endereço do negócio.");
+        toast.error(message("Complete o endereço do negócio."));
         return false;
       }
       if (!form.hasPhysicalAddress && !form.city.trim()) {
-        toast.error("Selecione ao menos a cidade do seu negócio para localização nas buscas.");
+        toast.error(message("Selecione ao menos a cidade do seu negócio para localização nas buscas."));
         return false;
       }
       if (!form.hasPhysicalAddress && (!form.stateCode.trim() || !form.countryCode.trim() || !onlineCityResolved)) {
@@ -532,7 +586,7 @@ export default function BusinessWizardPage() {
           return true;
         }
 
-        toast.error("Selecione a cidade na lista de sugestões para confirmar país e província/estado.");
+        toast.error(message("Selecione a cidade na lista de sugestões para confirmar país e província/estado."));
         return false;
       }
       return true;
@@ -654,9 +708,9 @@ export default function BusinessWizardPage() {
     }
 
     if (!form.name.trim()) {
-      setNameError("Nome do negócio é obrigatório.");
+      setNameError(message("Nome do negócio é obrigatório."));
       setStep(1);
-      toast.error("Preencha o nome do negócio.");
+      toast.error(message("Preencha o nome do negócio."));
       return;
     }
 
@@ -688,9 +742,18 @@ export default function BusinessWizardPage() {
         citySlug: isUnchangedExistingLocation ? editingBusiness?.address.citySlug : undefined,
       });
 
+      const shortSlugUpdate: Record<string, string> = {};
+      if (isEditMode) {
+        if (slugify(form.shortSlug) !== slugify(originalShortSlugRef.current)) {
+          shortSlugUpdate.shortSlug = normalizeShortSlugFinal(form.shortSlug);
+        }
+      } else {
+        shortSlugUpdate.slug = normalizeShortSlugFinal(form.shortSlug || form.name);
+      }
+
       const payload = {
         name: form.name.trim(),
-        slug: normalizeShortSlugFinal(form.shortSlug || form.name),
+        ...shortSlugUpdate,
         categoryId: form.category,
         primaryActivity: form.primaryActivity,
         primaryActivityCustom: normalizePrimaryActivityCustom(form.primaryActivityCustom),
@@ -702,7 +765,7 @@ export default function BusinessWizardPage() {
         stateCode: form.stateCode.trim().toLowerCase(),
         country: form.country.trim() || getCountryName(form.countryCode.trim().toLowerCase()),
         countryCode: form.countryCode.trim().toLowerCase(),
-        attendanceType: form.hasPhysicalAddress ? "presencial" : "online",
+        attendanceType: (form.hasPhysicalAddress ? "presencial" : "online") as "presencial" | "online",
         postalCode: form.hasPhysicalAddress ? form.postalCode.trim() : "",
         lat: form.lat || 0,
         lng: form.lng || 0,
@@ -725,18 +788,25 @@ export default function BusinessWizardPage() {
       let targetBusinessId = editingBusiness?.id || "";
       if (isEditMode) {
         if (!targetBusinessId) {
-          toast.error("Negócio não encontrado para edição.");
+          toast.error(message("Negócio não encontrado para edição."));
           return;
         }
         const updated = await updateBusiness(targetBusinessId, payload);
         if (!updated) {
-          toast.error("Não foi possível salvar as alterações.");
+          toast.error(message("Não foi possível salvar as alterações."));
           return;
         }
       } else {
+        const eligibility = await getBusinessCreationEligibility(session.userId);
+        if (!eligibility.allowed) {
+          toast.info(eligibility.reason || "Sua conta ja possui um negocio ativo.");
+          navigate("/perfil?tab=negocios", { replace: true });
+          return;
+        }
+
         const created = await createBusiness(session.userId, { ...payload, photos: [] });
         if (!created) {
-          toast.error("Não foi possível criar o negócio.");
+          toast.error(message("Não foi possível criar o negócio."));
           return;
         }
         targetBusinessId = created.id;
@@ -770,11 +840,7 @@ export default function BusinessWizardPage() {
         await updateBusiness(targetBusinessId, updates);
       }
 
-      toast.success(
-        isEditMode
-          ? "Negócio atualizado com sucesso!"
-          : "Negócio enviado para análise. Esse processo pode levar até 24 horas."
-      );
+      toast.success(isEditMode ? "Negócio atualizado com sucesso!" : "Negócio enviado para análise. Esse processo pode levar até 24 horas.");
       navigate("/perfil?tab=negocios");
     } finally {
       saveInProgressRef.current = false;
@@ -783,40 +849,21 @@ export default function BusinessWizardPage() {
   };
 
   const canShowFoodToggles = getCategoryId(form.category) === "food";
-  const sharedHeader = (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-24">
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-              <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
-            </div>
-            <div className="leading-tight min-w-0">
-              <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{"O SEU FARO FORA DO BRASIL"}</div>
-            </div>
-          </Link>
-          <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
-        </div>
-      </div>
-    </header>
-  );
 
   if (!session) {
     return (
       <div className="min-h-screen bg-background">
-        {sharedHeader}
         <main className="max-w-3xl mx-auto px-4 py-16">
           <Card className="p-8 text-center">
             <User className="w-10 h-10 mx-auto text-muted-foreground/60" />
-            <h1 className="text-2xl font-bold mt-3">Entre para continuar</h1>
-            <p className="text-muted-foreground mt-2">Você precisa estar logado para usar o cadastro guiado.</p>
+            <h1 className="text-2xl font-bold mt-3">{"Entre para continuar"}</h1>
+            <p className="text-muted-foreground mt-2">{"Você precisa estar logado para usar o cadastro guiado."}</p>
             <div className="mt-6 flex items-center justify-center gap-3">
-              <Link to="/entrar">
-                <Button>Entrar</Button>
+              <Link to={"/entrar"}>
+                <Button>{"Entrar"}</Button>
               </Link>
-              <Link to="/">
-                <Button variant="outline">Voltar ao início</Button>
+              <Link to={"/"}>
+                <Button variant="outline">{"Voltar ao início"}</Button>
               </Link>
             </div>
           </Card>
@@ -829,11 +876,24 @@ export default function BusinessWizardPage() {
   if (isEditMode && loadingEditBusiness) {
     return (
       <div className="min-h-screen bg-background">
-        {sharedHeader}
         <main className="max-w-3xl mx-auto px-4 py-16">
           <Card className="p-8 text-center">
-            <h1 className="text-2xl font-bold">Carregando edição...</h1>
-            <p className="text-muted-foreground mt-2">Buscando os dados do negócio para preencher o wizard.</p>
+            <h1 className="text-2xl font-bold">{"Carregando edição..."}</h1>
+            <p className="text-muted-foreground mt-2">{"Buscando os dados do negócio para preencher o wizard."}</p>
+          </Card>
+        </main>
+        <SiteFooter />
+      </div>
+    );
+  }
+
+  if (!isEditMode && checkingBusinessEligibility) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="max-w-3xl mx-auto px-4 py-16">
+          <Card className="p-8 text-center">
+            <h1 className="text-2xl font-bold">{"Verificando sua conta..."}</h1>
+            <p className="mt-2 text-muted-foreground">{"Estamos confirmando se voce ja possui um negocio ativo."}</p>
           </Card>
         </main>
         <SiteFooter />
@@ -843,20 +903,13 @@ export default function BusinessWizardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50/50 via-background to-background">
-      {sharedHeader}
-
       <main className="max-w-5xl mx-auto px-4 py-8">
         <Card className="p-6 border-border">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-sm text-muted-foreground">Passo {step} de {TOTAL_STEPS}</p>
+              <p className="text-sm text-muted-foreground">{"Passo"} {step} {"de"} {TOTAL_STEPS}</p>
               <h1 className="text-2xl font-bold">
-                {step === 1 && "Dados principais"}
-                {step === 2 && "Descrição e busca"}
-                {step === 3 && "Contato e localização"}
-                {step === 4 && "Horários"}
-                {step === 5 && "Mídia"}
-                {step === 6 && "Revisão e confirmação"}
+                {step === 1 ? "Dados principais" : step === 2 ? "Descrição e busca" : step === 3 ? "Contato e localização" : step === 4 ? "Horários" : step === 5 ? "Mídia" : "Revisão e confirmação"}
               </h1>
             </div>
             <StepIcon className="w-6 h-6 text-amber-500" />
@@ -873,7 +926,7 @@ export default function BusinessWizardPage() {
           {step === 1 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <Label>Nome do negócio *</Label>
+                <Label>{"Nome do negócio *"}</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => updateField("name", e.target.value)}
@@ -882,7 +935,7 @@ export default function BusinessWizardPage() {
                 {nameError ? <p className="mt-1 text-xs text-red-600">{nameError}</p> : null}
               </div>
               <div className="md:col-span-2">
-                <Label>Link curto *</Label>
+                <Label>{"Link curto *"}</Label>
                 <div className="mt-1.5 flex items-center rounded-md border border-input bg-background overflow-hidden">
                   <span className="px-3 py-2 text-sm text-muted-foreground bg-secondary/50 border-r border-input whitespace-nowrap">
                     caramelinho.com/go/
@@ -896,27 +949,27 @@ export default function BusinessWizardPage() {
                   />
                 </div>
                 <p className={`mt-1 text-xs ${slugStatus === "ok" ? "text-emerald-700" : slugStatus === "error" ? "text-red-600" : "text-muted-foreground"}`}>
-                  {checkingSlug ? "Verificando disponibilidade..." : slugMessage}
+                  {checkingSlug ? ("Verificando disponibilidade...") : slugMessage}
                 </p>
               </div>
               <div className="md:col-span-2">
-                <Label>Categoria *</Label>
+                <Label>{"Categoria *"}</Label>
                 <Select value={form.category} onValueChange={(v) => updateField("category", v)}>
                   <SelectTrigger className="mt-1.5 w-full">
-                    <SelectValue placeholder="Selecione uma categoria" />
+                    <SelectValue placeholder={"Selecione uma categoria"} />
                   </SelectTrigger>
                   <SelectContent>
                     {BUSINESS_CATEGORY_OPTIONS.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
+                      <SelectItem key={cat.id} value={cat.id}>{categoryLabels.get(cat.id) || cat.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               {form.category ? (
                 <div className="md:col-span-2 rounded-md border border-amber-200 bg-amber-50/60 p-4">
-                  <Label>{"Tipo principal de neg\u00f3cio" + (!isEditMode ? " *" : "")}</Label>
+                  <Label>{"Tipo principal de negócio" + (!isEditMode ? " *" : "")}</Label>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {"Define a atividade que melhor representa seu neg\u00f3cio. Os demais servi\u00e7os podem ser informados na descri\u00e7\u00e3o e nas palavras-chave."}
+                    {"Define a atividade que melhor representa seu negócio. Os demais serviços podem ser informados na descrição e nas palavras-chave."}
                   </p>
                   <Select value={form.primaryActivity} onValueChange={(value) => updateField("primaryActivity", value)}>
                     <SelectTrigger className="mt-2 w-full bg-background"><SelectValue placeholder={isEditMode ? "Selecione o tipo principal (opcional)" : "Selecione o tipo principal"} /></SelectTrigger>
@@ -925,7 +978,7 @@ export default function BusinessWizardPage() {
                   {form.primaryActivity === OTHER_PRIMARY_ACTIVITY_ID ? (
                     <Input value={form.primaryActivityCustom} onChange={(event) => updateField("primaryActivityCustom", event.target.value.slice(0, 80))} placeholder={getPrimaryActivityCustomPlaceholder(form.category)} className="mt-2 bg-background" maxLength={80} />
                   ) : null}
-                  <p className="mt-2 text-xs text-muted-foreground">{isEditMode ? "Isso ajuda a construir um t\u00edtulo de p\u00e1gina mais fiel para buscas, sem substituir sua categoria." : "Obrigat\u00f3rio para novos neg\u00f3cios. Se n\u00e3o encontrar uma op\u00e7\u00e3o adequada, escolha Outro tipo e descreva a atividade."}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{isEditMode ? "Isso ajuda a construir um título de página mais fiel para buscas, sem substituir sua categoria." : "Obrigatório para novos negócios. Se não encontrar uma opção adequada, escolha Outro tipo e descreva a atividade."}</p>
                 </div>
               ) : null}
             </div>
@@ -934,25 +987,25 @@ export default function BusinessWizardPage() {
           {step === 2 && (
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <Label>Descrição *</Label>
+                <Label>{"Descrição *"}</Label>
                 <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                  Esta é a informação mais importante da página do seu negócio. É ela que ajuda o cliente a entender rapidamente o que você oferece, seus diferenciais e por que deve escolher você. Escreva de forma clara, objetiva e humana: diga os principais serviços/produtos, o público atendido, região de atuação e pontos fortes (ex.: rapidez, qualidade, atendimento em português, experiência, especialidades).
+                  {"Esta é a informação mais importante da página do seu negócio. É ela que ajuda o cliente a entender rapidamente o que você oferece, seus diferenciais e por que deve escolher você. Escreva de forma clara, objetiva e humana: diga os principais serviços/produtos, o público atendido, região de atuação e pontos fortes (ex.: rapidez, qualidade, atendimento em português, experiência, especialidades)."}
                 </p>
                 <RichTextEditor
                   id="business-description"
                   value={form.description}
                   onChange={(value) => updateField("description", value)}
                   className="mt-1.5"
-                  placeholder="Descreva claramente o que seu negocio oferece."
+                  placeholder={"Descreva claramente o que seu negocio oferece."}
                 />
               </div>
               <div>
-                <Label>Palavras-chave</Label>
+                <Label>{"Palavras-chave"}</Label>
                 <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                  Essas palavras ajudam seu negócio a aparecer quando alguém procura por produtos e serviços. Use termos reais que seus clientes digitam, incluindo variações e sinônimos. Exemplo: para mecânico, também use oficina, manutenção automotiva, troca de óleo. Para restaurante brasileiro, adicione comida brasileira, prato feito, almoço, jantar, delivery. Separe por vírgula e evite termos muito genéricos.
+                  {"Essas palavras ajudam seu negócio a aparecer quando alguém procura por produtos e serviços. Use termos reais que seus clientes digitam, incluindo variações e sinônimos. Exemplo: para mecânico, também use oficina, manutenção automotiva, troca de óleo. Para restaurante brasileiro, adicione comida brasileira, prato feito, almoço, jantar, delivery. Separe por vírgula e evite termos muito genéricos."}
                 </p>
                 <p className="mt-2 text-sm font-medium text-foreground">
-                  Palavras-chave (separadas por vírgula)
+                  {"Palavras-chave (separadas por vírgula)"}
                 </p>
                 <Textarea
                   value={form.keywords}
@@ -963,19 +1016,19 @@ export default function BusinessWizardPage() {
               </div>
               {canShowFoodToggles && (
                 <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
-                  <p className="text-sm font-medium text-emerald-900 mb-2">Públicos também atendidos</p>
+                  <p className="text-sm font-medium text-emerald-900 mb-2">{"Públicos também atendidos"}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
                     <label className="inline-flex items-center gap-2">
                       <input type="checkbox" checked={form.isVeganFriendly} onChange={(e) => updateField("isVeganFriendly", e.target.checked)} />
-                      Vegano
+                      {"Vegano"}
                     </label>
                     <label className="inline-flex items-center gap-2">
                       <input type="checkbox" checked={form.isVegetarianFriendly} onChange={(e) => updateField("isVegetarianFriendly", e.target.checked)} />
-                      Vegetariano
+                      {"Vegetariano"}
                     </label>
                     <label className="inline-flex items-center gap-2">
                       <input type="checkbox" checked={form.isGlutenFreeFriendly} onChange={(e) => updateField("isGlutenFreeFriendly", e.target.checked)} />
-                      Sem Glúten
+                      {"Sem Glúten"}
                     </label>
                   </div>
                 </div>
@@ -986,7 +1039,7 @@ export default function BusinessWizardPage() {
           {step === 3 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Telefone (opcional)</Label>
+                <Label>{"Telefone (opcional)"}</Label>
                 <Input
                   type="tel"
                   inputMode="tel"
@@ -998,7 +1051,7 @@ export default function BusinessWizardPage() {
                 {contactErrors.phone ? <p className="mt-1 text-xs text-red-600">{contactErrors.phone}</p> : null}
               </div>
               <div>
-                <Label>Email (opcional)</Label>
+                <Label>{"Email (opcional)"}</Label>
                 <Input
                   type="email"
                   inputMode="email"
@@ -1048,7 +1101,7 @@ export default function BusinessWizardPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <Label>Seu negócio possui endereço físico? *</Label>
+                <Label>{"Seu negócio possui endereço físico? *"}</Label>
                 <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -1059,7 +1112,7 @@ export default function BusinessWizardPage() {
                         : "bg-background border-input text-foreground hover:bg-secondary"
                     }`}
                   >
-                    Sim, possui endereço físico
+                    {"Sim, possui endereço físico"}
                   </button>
                   <button
                     type="button"
@@ -1075,17 +1128,17 @@ export default function BusinessWizardPage() {
                         : "bg-background border-input text-foreground hover:bg-secondary"
                     }`}
                   >
-                    Não, atende sem endereço físico
+                    {"Não, atende sem endereço físico"}
                   </button>
                 </div>
               </div>
               <div className="md:col-span-2">
-                <Label>{form.hasPhysicalAddress ? "Endereço *" : "Cidade base para busca *"}</Label>
+                <Label>{form.hasPhysicalAddress ? ("Endereço *") : ("Cidade base para busca *")}</Label>
                 <div className="mt-1.5">
                   {!form.hasPhysicalAddress ? (
                     <div className="space-y-2">
                       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                        Sem endereço físico: selecione a cidade principal de atendimento para aparecer nas buscas locais.
+                        {"Sem endereço físico: selecione a cidade principal de atendimento para aparecer nas buscas locais."}
                       </div>
                       <AddressAutocomplete
                         mode="city"
@@ -1115,7 +1168,7 @@ export default function BusinessWizardPage() {
                           updateField("postalCode", "");
                           setOnlineCityResolved(!!(city && resolvedStateCode && resolvedCountryCode));
                         }}
-                        placeholder="Digite e selecione sua cidade (ex: Montreal)"
+                        placeholder={"Digite e selecione sua cidade (ex: Montreal)"}
                       />
                     </div>
                   ) : (
@@ -1130,21 +1183,21 @@ export default function BusinessWizardPage() {
               <div className="md:col-span-2 rounded-md border border-border p-3 text-sm">
                 <p className="inline-flex items-center gap-2 font-medium">
                   <MapPin className="w-4 h-4" />
-                  Resumo do endereço
+                  {"Resumo do endereço"}
                 </p>
                 <p className="text-muted-foreground mt-1">
                   {!form.hasPhysicalAddress
-                    ? `${form.city?.trim() || "Cidade não preenchida"}${form.countryCode ? `, ${getCountryName(form.countryCode)}` : ""}`
+                    ? `${form.city?.trim() || ("Cidade não preenchida")}${form.countryCode ? `, ${getCountryName(form.countryCode)}` : ""}`
                     : (
                       <>
-                        {form.street?.trim() || "Endereço não preenchido"}<br />
+                        {form.street?.trim() || ("Endereço não preenchido")}<br />
                         {[
                           form.city?.trim(),
                           form.stateCode?.trim() ? getStateDisplayName(form.countryCode, form.stateCode, form.state) : "",
                           form.postalCode?.trim(),
                         ]
                           .filter(Boolean)
-                          .join(" ") || "Cidade/UF não preenchidas"}
+                          .join(" ") || ("Cidade/UF não preenchidas")}
                       </>
                     )}
                 </p>
@@ -1157,20 +1210,20 @@ export default function BusinessWizardPage() {
               <div className="rounded-lg border border-border bg-secondary/10 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <Label>{"Hor\u00e1rios de funcionamento"}</Label>
+                    <Label>{"Horários de funcionamento"}</Label>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {businessHoursTouched
-                        ? "Esses hor\u00e1rios aparecer\u00e3o na p\u00e1gina p\u00fablica do neg\u00f3cio."
-                        : "Hor\u00e1rios ainda n\u00e3o informados."}
+                        ? ("Esses horários aparecerão na página pública do negócio.")
+                        : ("Horários ainda não informados.")}
                     </p>
                   </div>
                   {businessHoursEditorOpen ? (
                     <Button type="button" variant="ghost" onClick={cancelBusinessHoursEditing}>
-                      Cancelar
+                      {"Cancelar"}
                     </Button>
                   ) : (
                     <Button type="button" variant="outline" onClick={activateBusinessHoursEditor}>
-                      {businessHoursTouched ? "Editar hor\u00e1rios" : "Adicionar hor\u00e1rio"}
+                      {businessHoursTouched ? ("Editar horários") : ("Adicionar horário")}
                     </Button>
                   )}
                 </div>
@@ -1178,14 +1231,14 @@ export default function BusinessWizardPage() {
                   <div className="mt-3 space-y-2">
                     {businessHours.map((hour) => (
                       <div key={hour.day} className="grid grid-cols-1 sm:grid-cols-[110px_90px_1fr_1fr] gap-2 items-center">
-                        <span className="text-sm font-medium">{hour.day}</span>
+                        <span className="text-sm font-medium">{displayBusinessDay(hour.day)}</span>
                         <Button
                           type="button"
                           size="sm"
                           variant={hour.enabled ? "default" : "outline"}
                           onClick={() => updateWizardBusinessHour(hour.day, { enabled: !hour.enabled })}
                         >
-                          {hour.enabled ? "Aberto" : "Fechado"}
+                          {hour.enabled ? ("Aberto") : ("Fechado")}
                         </Button>
                         <Input
                           type="time"
@@ -1207,20 +1260,20 @@ export default function BusinessWizardPage() {
                     <div className="mt-3 space-y-2 rounded-md border border-border bg-background p-3">
                       {businessHours.map((hour) => (
                         <div key={hour.day} className="flex items-center justify-between gap-3 text-sm">
-                          <span className="font-medium">{hour.day}</span>
+                          <span className="font-medium">{displayBusinessDay(hour.day)}</span>
                           <span className={businessHoursTouched ? "text-muted-foreground" : "text-amber-700"}>
                             {businessHoursTouched
                               ? hour.enabled
                                 ? `${hour.open} - ${hour.close}`
-                                : "Fechado"
-                              : "N\u00e3o informado"}
+                                : ("Fechado")
+                              : ("Não informado")}
                           </span>
                         </div>
                       ))}
                     </div>
                     {!businessHoursTouched ? (
                       <p className="mt-2 text-xs text-muted-foreground">
-                        {"Clique em Adicionar hor\u00e1rio para preencher os dias e ganhar pontos no perfil."}
+                        {"Clique em Adicionar horário para preencher os dias e ganhar pontos no perfil."}
                       </p>
                     ) : null}
                   </>
@@ -1231,74 +1284,74 @@ export default function BusinessWizardPage() {
           {step === 5 && (
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <Label>Logo</Label>
+                <Label>{"Logo"}</Label>
                 <div className="mt-1.5">
                   <label htmlFor="wizard-logo" className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary">
-                    Escolher imagem
+                    {"Escolher imagem"}
                   </label>
                 </div>
                 <Input id="wizard-logo" type="file" accept="image/*" className="hidden" onChange={(e) => handleWizardImageChange(e, "logo")} />
-                <p className="mt-1 text-xs text-muted-foreground">{logoFile ? logoFile.name : existingLogoUrl ? "Logo atual" : "Nenhum arquivo selecionado"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{logoFile ? logoFile.name : existingLogoUrl ? ("Logo atual") : ("Nenhum arquivo selecionado")}</p>
                 {logoFile ? (
                   <div className="mt-2">
                     <div className="relative w-20 h-20 rounded-md overflow-hidden border border-border">
-                      <img src={URL.createObjectURL(logoFile)} alt="Prévia da logo" className="w-full h-full object-cover" />
+                      <img src={URL.createObjectURL(logoFile)} alt={"Prévia da logo"} className="w-full h-full object-cover" />
                     </div>
                   </div>
                 ) : existingLogoUrl ? (
                   <div className="mt-2">
                     <div className="relative w-20 h-20 rounded-md overflow-hidden border border-border">
-                      <img src={existingLogoUrl} alt="Logo atual" className="w-full h-full object-cover" />
+                      <img src={existingLogoUrl} alt={"Logo atual"} className="w-full h-full object-cover" />
                     </div>
                   </div>
                 ) : null}
                 {logoFile || existingLogoUrl ? (
                   <Button type="button" size="sm" variant="outline" className="mt-2 text-destructive" onClick={() => removeWizardImage("logo")}>
                     <X className="mr-1.5 h-3.5 w-3.5" />
-                    Remover logo
+                    {"Remover logo"}
                   </Button>
                 ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 512x512 px. Tamanho máximo: 5MB.
+                  {"Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 512x512 px. Tamanho máximo: 5MB."}
                 </p>
               </div>
               <div>
-                <Label>Capa (banner)</Label>
+                <Label>{"Capa (banner)"}</Label>
                 <div className="mt-1.5">
                   <label htmlFor="wizard-hero" className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary">
-                    Escolher imagem
+                    {"Escolher imagem"}
                   </label>
                 </div>
                 <Input id="wizard-hero" type="file" accept="image/*" className="hidden" onChange={(e) => handleWizardImageChange(e, "hero")} />
-                <p className="mt-1 text-xs text-muted-foreground">{heroFile ? heroFile.name : existingHeroUrl ? "Capa atual" : "Nenhum arquivo selecionado"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{heroFile ? heroFile.name : existingHeroUrl ? ("Capa atual") : ("Nenhum arquivo selecionado")}</p>
                 {heroFile ? (
                   <div className="mt-2">
                     <div className="relative w-44 h-20 rounded-md overflow-hidden border border-border">
-                      <img src={URL.createObjectURL(heroFile)} alt="Prévia da capa" className="w-full h-full object-cover" />
+                      <img src={URL.createObjectURL(heroFile)} alt={"Prévia da capa"} className="w-full h-full object-cover" />
                     </div>
                   </div>
                 ) : existingHeroUrl ? (
                   <div className="mt-2">
                     <div className="relative w-44 h-20 rounded-md overflow-hidden border border-border">
-                      <img src={existingHeroUrl} alt="Capa atual" className="w-full h-full object-cover" />
+                      <img src={existingHeroUrl} alt={"Capa atual"} className="w-full h-full object-cover" />
                     </div>
                   </div>
                 ) : null}
                 {heroFile || existingHeroUrl ? (
                   <Button type="button" size="sm" variant="outline" className="mt-2 text-destructive" onClick={() => removeWizardImage("hero")}>
                     <X className="mr-1.5 h-3.5 w-3.5" />
-                    Remover capa
+                    {"Remover capa"}
                   </Button>
                 ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 1600x600 px. Tamanho máximo: 8MB.
+                  {"Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 1600x600 px. Tamanho máximo: 8MB."}
                 </p>
               </div>
               <div>
-                <Label>Galeria de fotos (até 8)</Label>
+                <Label>{"Galeria de fotos (até 8)"}</Label>
                 <div className="mt-1.5">
                   <label htmlFor="wizard-photos" className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary">
-                    Escolher imagens
+                    {"Escolher imagens"}
                   </label>
                 </div>
                 <Input
@@ -1327,19 +1380,19 @@ export default function BusinessWizardPage() {
                   }}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 1280x720 px. Tamanho máximo: 8MB por imagem.
+                  {"Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 1280x720 px. Tamanho máximo: 8MB por imagem."}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">{photoFiles.length} arquivo(s) selecionado(s).</p>
+                <p className="text-xs text-muted-foreground mt-1">{photoFiles.length} {"arquivo(s) selecionado(s)."}</p>
                 {photoFiles.length > 0 ? (
                   <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {photoFiles.map((file, index) => (
                       <div key={`${file.name}-${index}`} className="relative w-full aspect-square rounded-md overflow-hidden border border-border group">
-                        <img src={URL.createObjectURL(file)} alt="Prévia da galeria" className="w-full h-full object-cover" />
+                        <img src={URL.createObjectURL(file)} alt={"Prévia da galeria"} className="w-full h-full object-cover" />
                         <button
                           type="button"
                           onClick={() => removeGalleryPhotoAt(index)}
                           className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                          aria-label="Remover foto"
+                          aria-label={"Remover foto"}
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -1351,12 +1404,12 @@ export default function BusinessWizardPage() {
                   <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {existingPhotos.slice(0, 8).map((url, index) => (
                       <div key={`${url}-${index}`} className="relative w-full aspect-square rounded-md overflow-hidden border border-border group">
-                        <img src={url} alt="Foto atual" className="w-full h-full object-cover" />
+                        <img src={url} alt={"Foto atual"} className="w-full h-full object-cover" />
                         <button
                           type="button"
                           onClick={() => removeExistingGalleryPhotoAt(index)}
                           className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                          aria-label="Remover foto atual"
+                          aria-label={"Remover foto atual"}
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -1373,38 +1426,34 @@ export default function BusinessWizardPage() {
               <Card className="p-4 border-emerald-200 bg-emerald-50">
                 <p className="inline-flex items-center gap-2 text-emerald-900 font-semibold">
                   <CheckCircle2 className="w-5 h-5" />
-                  Confira os dados antes de publicar
+                  {"Confira os dados antes de publicar"}
                 </p>
                 <div className="mt-3 space-y-2 text-sm">
-                  <p><strong>Negócio:</strong> {form.name || "-"}</p>
-                  <p><strong>Link curto:</strong> caramelinho.com/go/{form.shortSlug || slugify(form.name) || "-"}</p>
-                  <p><strong>Categoria:</strong> {BUSINESS_CATEGORY_OPTIONS.find((c) => c.id === form.category)?.label || "-"}</p>
-                  <p><strong>Atendimento:</strong> {form.hasPhysicalAddress ? "Com endereço físico" : "Sem endereço físico"}</p>
+                  <p><strong>{"Negócio"}:</strong> {form.name || "-"}</p>
+                  <p><strong>{"Link curto"}:</strong> caramelinho.com/go/{form.shortSlug || slugify(form.name) || "-"}</p>
+                  <p><strong>{"Categoria"}:</strong> {categoryLabels.get(form.category) || BUSINESS_CATEGORY_OPTIONS.find((c) => c.id === form.category)?.label || "-"}</p>
+                  <p><strong>{"Atendimento"}:</strong> {form.hasPhysicalAddress ? ("Com endereço físico") : ("Sem endereço físico")}</p>
                   <p>
-                    <strong>Local base:</strong>{" "}
+                    <strong>{"Local base"}:</strong>{" "}
                     {form.city ? `${form.city}${form.stateCode ? ` (${getStateDisplayName(form.countryCode, form.stateCode, form.state)})` : ""}` : "-"}
                     {form.countryCode ? `, ${getCountryName(form.countryCode)}` : ""}
                   </p>
-                  <p><strong>Contato:</strong> {form.phone || "-"} / {form.email || "-"}</p>
-                  <p><strong>Mídia:</strong> {logoFile ? "logo" : "sem logo"}, {heroFile ? "capa" : "sem capa"}, {photoFiles.length} foto(s)</p>
+                  <p><strong>{"Contato"}:</strong> {form.phone || "-"} / {form.email || "-"}</p>
+                  <p><strong>{"Mídia"}:</strong> {logoFile ? "logo" : ("sem logo")}, {heroFile ? ("capa") : ("sem capa")}, {photoFiles.length} {"foto(s)"}</p>
                 </div>
                 <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   {getCategoryId(form.category) === "food" ? (
                     <>
-                      <p className="font-semibold">Próximo passo recomendado: Cardápio</p>
+                      <p className="font-semibold">{"Próximo passo recomendado: Cardápio"}</p>
                       <p className="mt-1">
-                        Após publicar, você poderá adicionar seu cardápio item a item (nome, descrição e preço opcional)
-                        ou enviar um cardápio completo em PDF. Isso facilita para o cliente encontrar pratos e produtos.
-                        Você encontra essa opção em <strong>Perfil &gt; Meus Negócios</strong>, no botão <strong>Cardápio</strong> do seu negócio.
+                        {<>Após publicar, você poderá adicionar seu cardápio item a item (nome, descrição e preço opcional) ou enviar um cardápio completo em PDF. Isso facilita para o cliente encontrar pratos e produtos. Você encontra essa opção em <strong>Perfil &gt; Meus Negócios</strong>, no botão <strong>Cardápio</strong> do seu negócio.</>}
                       </p>
                     </>
                   ) : (
                     <>
-                      <p className="font-semibold">Próximo passo recomendado: Serviços</p>
+                      <p className="font-semibold">{"Próximo passo recomendado: Serviços"}</p>
                       <p className="mt-1">
-                        Após publicar, você poderá cadastrar seus serviços com nome, descrição e preço opcional.
-                        Isso melhora sua presença nas buscas e ajuda o cliente a entender o que seu negócio oferece.
-                        Você encontra essa opção em <strong>Perfil &gt; Meus Negócios</strong>, no botão <strong>Serviços</strong> do seu negócio.
+                        {<>Após publicar, você poderá cadastrar seus serviços com nome, descrição e preço opcional. Isso melhora sua presença nas buscas e ajuda o cliente a entender o que seu negócio oferece. Você encontra essa opção em <strong>Perfil &gt; Meus Negócios</strong>, no botão <strong>Serviços</strong> do seu negócio.</>}
                       </p>
                     </>
                   )}
@@ -1416,13 +1465,13 @@ export default function BusinessWizardPage() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button variant="outline" onClick={goBack} disabled={step === 1 || isSaving || isChangingStep} className="w-full sm:w-auto">
               <ChevronLeft className="w-4 h-4 mr-1" />
-              Voltar
+              {"Voltar"}
             </Button>
 
             <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:justify-end">
             {step < TOTAL_STEPS ? (
               <Button onClick={goNext} disabled={isSaving || isChangingStep} className="order-1 w-full sm:w-auto">
-                Próximo
+                {"Próximo"}
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             ) : (
@@ -1430,19 +1479,19 @@ export default function BusinessWizardPage() {
                 {isSaving ? (
                   <>
                     <Upload className="w-4 h-4 mr-2 animate-pulse" />
-                    {isEditMode ? "Salvando..." : "Publicando..."}
+                    {isEditMode ? ("Salvando...") : ("Publicando...")}
                   </>
                 ) : (
                   <>
                     <PawPrint className="w-4 h-4 mr-2" />
-                    {isEditMode ? "Salvar modificações" : "Confirmar e Publicar"}
+                    {isEditMode ? ("Salvar modificações") : ("Confirmar e Publicar")}
                   </>
                 )}
               </Button>
             )}
             {isEditMode && step < TOTAL_STEPS ? (
               <Button onClick={handleSave} disabled={isSaving} className="order-1 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white border-0">
-                {isSaving ? "Salvando..." : "Salvar modificações"}
+                {isSaving ? ("Salvando...") : ("Salvar modificações")}
               </Button>
             ) : null}
           </div>

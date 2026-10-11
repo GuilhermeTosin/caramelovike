@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildDirectoryPageSnapshot } from "@/lib/directorySnapshot";
+import { buildDirectoryPagePath, buildDirectoryPageSnapshot, buildDirectoryPageSnapshotFromAggregate, parseDirectoryRoute } from "@/lib/directorySnapshot";
+import type { PublicDirectoryAggregate } from "@/services/businesses";
 import type { BusinessFrontend } from "@/types/database";
 
 function business(index: number): BusinessFrontend {
@@ -24,6 +25,33 @@ function business(index: number): BusinessFrontend {
 }
 
 describe("directory page snapshot", () => {
+  it("builds a city snapshot from database aggregates without a full catalog", () => {
+    const aggregate: PublicDirectoryAggregate = {
+      routeExists: true,
+      countryCounts: [{ code: "ca", count: 12 }],
+      stateCounts: [{ code: "qc", label: "Quebec", count: 12 }],
+      cityCounts: [{ slug: "montreal", label: "Montreal", count: 12 }],
+      categoryCounts: [{ key: "food", count: 12 }],
+      scopeTotal: 12,
+      scopeVerifiedTotal: 2,
+      scopeLatestCreatedAt: "2026-01-12",
+      currentTotal: 12,
+      totalPages: 2,
+      pageBusinesses: [business(11), business(12)],
+    };
+
+    const snapshot = buildDirectoryPageSnapshotFromAggregate(
+      "/negocios/ca/qc/montreal/pagina/2",
+      aggregate,
+    );
+
+    expect(snapshot?.totalBusinesses).toBe(12);
+    expect(snapshot?.totalPages).toBe(2);
+    expect(snapshot?.pageBusinesses.map((item) => item.name)).toEqual(["Business 11", "Business 12"]);
+    expect(snapshot?.insights?.verifiedBusinesses).toBe(2);
+    expect(snapshot?.labels).toEqual({ country: "Canadá", state: "Quebec", city: "Montreal" });
+  });
+
   it("serializes only the requested page of a city directory", () => {
     const snapshot = buildDirectoryPageSnapshot(
       "/negocios/ca/qc/montreal/pagina/2",
@@ -38,5 +66,11 @@ describe("directory page snapshot", () => {
     expect(snapshot?.pageBusinesses.map((item) => item.name)).toEqual(["Business 11", "Business 12"]);
     expect(snapshot?.pageBusinesses[0]?.description).toBe("");
     expect(snapshot?.pageBusinesses[0]?.photos).toEqual([]);
+    expect(snapshot?.pageBusinesses[0]).not.toHaveProperty("ownerId");
+    expect(snapshot?.pageBusinesses[0]).not.toHaveProperty("ownerName");
+  });
+  it("rejects paths outside the public directory", () => {
+    expect(parseDirectoryRoute("/diretorio/ca/qc/montreal/pagina/2")).toBeNull();
+    expect(buildDirectoryPagePath({ countryCode: "ca", stateCode: "qc", citySlug: "montreal", categorySlug: "", page: 1 })).toBe("/negocios/ca/qc/montreal");
   });
 });

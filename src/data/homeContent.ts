@@ -1,11 +1,16 @@
-export type HomeSearchMode = "businesses" | "events" | "achadinhos";
+export type HomeSearchMode = "businesses" | "events" | "achadinhos" | "products";
+
+export type HomeQuickTag = {
+  label: string;
+  query: string;
+};
 
 export type HomeSearchModeText = {
   label: string;
   description: string;
   placeholder: string;
   ctaLabel: string;
-  quickTags: string[];
+  quickTags: HomeQuickTag[];
 };
 
 export type HomeCategoryText = {
@@ -50,8 +55,7 @@ export type HomeContent = {
   categories: HomeCategoryText[];
 };
 
-const HOME_CONTENT_BY_LOCALE: Record<"pt-BR", HomeContent> = {
-  "pt-BR": {
+const HOME_CONTENT: HomeContent = {
     heroEyebrow: "O farejador de negócios brasileiros",
     heroTitle: "Encontre negócios brasileiros no mundo todo",
     heroSubtitle:
@@ -93,21 +97,56 @@ const HOME_CONTENT_BY_LOCALE: Record<"pt-BR", HomeContent> = {
         description: "Procure negócios brasileiros, serviços, lojas e profissionais perto de você.",
         placeholder: "Buscar por produto ou serviço (Ex: coxinha)",
         ctaLabel: "Farejar negócios",
-        quickTags: ["Padaria", "Mecânico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"],
+        quickTags: [
+          { label: "Padaria", query: "Padaria" },
+          { label: "Mecânico", query: "Mecânico" },
+          { label: "Dentista", query: "Dentista" },
+          { label: "Advogado", query: "Advogado" },
+          { label: "Restaurante", query: "Restaurante" },
+          { label: "Cabeleireiro", query: "Cabeleireiro" },
+        ],
       },
       events: {
         label: "Eventos",
         description: "Encontre festas, feiras, encontros e inaugurações da comunidade brasileira.",
         placeholder: "Buscar por festa, feira ou encontro",
         ctaLabel: "Farejar eventos",
-        quickTags: ["Festa", "Show", "Feira", "Inauguração", "Encontro", "Samba"],
+        quickTags: [
+          { label: "Festa", query: "Festa" },
+          { label: "Show", query: "Show" },
+          { label: "Feira", query: "Feira" },
+          { label: "Inauguração", query: "Inauguração" },
+          { label: "Encontro", query: "Encontro" },
+          { label: "Samba", query: "Samba" },
+        ],
       },
       achadinhos: {
         label: "Achadinhos",
         description: "Descubra promoções, ofertas e novidades compartilhadas pela comunidade.",
         placeholder: "Buscar por promoção, desconto ou novidade",
         ctaLabel: "Farejar achadinhos",
-        quickTags: ["Promoção", "Desconto", "Oferta", "Outlet", "Novidade", "Cupom"],
+        quickTags: [
+          { label: "Promoção", query: "Promoção" },
+          { label: "Desconto", query: "Desconto" },
+          { label: "Oferta", query: "Oferta" },
+          { label: "Outlet", query: "Outlet" },
+          { label: "Novidade", query: "Novidade" },
+          { label: "Cupom", query: "Cupom" },
+        ],
+      },
+      products: {
+        label: "Produtos",
+        description: "Encontre produtos anunciados pela comunidade brasileira perto de você.",
+        placeholder: "Buscar por produto",
+        ctaLabel: "Buscar produtos",
+        quickTags: [
+          { label: "Móveis", query: "Móveis" },
+          { label: "Eletrônicos", query: "Eletrônicos" },
+          { label: "Roupas", query: "Roupas" },
+          { label: "Carros", query: "Carros" },
+          { label: "Casa", query: "Casa" },
+          { label: "Doações", query: "Doações" },
+        ],
       },
     },
     categories: [
@@ -128,9 +167,8 @@ const HOME_CONTENT_BY_LOCALE: Record<"pt-BR", HomeContent> = {
       { id: "cleaning", name: "Diaristas" },
       { id: "other", name: "Outros" },
     ],
-  },
 };
 
 export function getHomeContent(): HomeContent {
-  return HOME_CONTENT_BY_LOCALE["pt-BR"];
+  return HOME_CONTENT;
 }

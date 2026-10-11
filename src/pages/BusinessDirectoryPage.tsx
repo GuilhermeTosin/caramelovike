@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import {
   buildBusinessUrl,
-  getAllBusinesses,
   getCountryName,
   getStateDisplayName,
   resolveCanonicalLocationSlug,
@@ -17,11 +16,15 @@ import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
 import { DIRECTORY_CATEGORY_MINIMUM_BUSINESSES } from "@/lib/directoryCategories";
 import {
   buildDirectoryPagePath,
-  buildDirectoryPageSnapshot,
+  loadPublicBusinessDirectoryPage,
+  parseDirectoryRoute,
   type DirectoryLevel,
   type DirectoryPageSnapshot,
 } from "@/lib/directorySnapshot";
+import { getDirectoryCategoryBySlug } from "@/lib/directoryCategories";
 import Pagination from "@/components/Pagination";
+import { getLocalizedDirectoryMeta } from "@/lib/directoryLocale";
+import { getCountryDisplayName } from "@/lib/locales";
 
 type BusinessDirectoryPageProps = {
   initialDirectorySnapshot?: DirectoryPageSnapshot;
@@ -31,81 +34,72 @@ function getLocationLabel(business: BusinessFrontend) {
   const parts = [
     getCityDisplayName(business.address.cityDisplayName || business.address.city, business.address.countryCode || business.address.country),
     getStateDisplayName(business.address.countryCode || business.address.country, business.address.stateCode, business.address.state),
-    getCountryName(business.address.countryCode || business.address.country),
+    getCountryDisplayName(business.address.countryCode || business.address.country, getCountryName(business.address.countryCode || business.address.country)),
   ].filter(Boolean);
-  return parts.join(", ") || "Localização não informada";
-}
-
-function Header() {
-  return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-24">
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-              <img
-                src="/logo.webp"
-                alt="Caramelinho logo"
-                className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110"
-              />
-            </div>
-            <div className="leading-tight min-w-0">
-              <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">
-                Caramelinho
-              </div>
-              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">
-                O SEU FARO FORA DO BRASIL
-              </div>
-            </div>
-          </Link>
-          <Link to="/buscar" className="text-sm font-semibold text-primary hover:text-primary/80">
-            Buscar negócios
-          </Link>
-        </div>
-      </div>
-    </header>
-  );
+  return parts.join(", ") || ("Localização não informada");
 }
 
 export default function BusinessDirectoryPage({ initialDirectorySnapshot }: BusinessDirectoryPageProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [directoryBusinesses, setDirectoryBusinesses] = useState<BusinessFrontend[]>([]);
-  const [loadedDirectory, setLoadedDirectory] = useState(false);
+  const [clientSnapshot, setClientSnapshot] = useState<DirectoryPageSnapshot | null>(null);
+  const [directoryLoadError, setDirectoryLoadError] = useState(false);
+  const [directoryRetry, setDirectoryRetry] = useState(0);
+  const initialSnapshotMatchesPath = initialDirectorySnapshot?.pathname === pathname;
+  const snapshot = initialSnapshotMatchesPath
+    ? initialDirectorySnapshot || null
+    : clientSnapshot?.pathname === pathname
+      ? clientSnapshot
+      : null;
 
   useEffect(() => {
+    if (initialSnapshotMatchesPath) return;
     let active = true;
-    void getAllBusinesses()
-      .then((rows) => {
-        if (active) setDirectoryBusinesses(rows);
+    setDirectoryLoadError(false);
+    const route = parseDirectoryRoute(pathname);
+    const category = route?.categorySlug ? getDirectoryCategoryBySlug(route.categorySlug) : null;
+
+    if (!route || (route.categorySlug && !category)) {
+      setDirectoryLoadError(true);
+      return () => {
+        active = false;
+      };
+    }
+
+    void loadPublicBusinessDirectoryPage(pathname, {
+      countryCode: route.countryCode,
+      stateCode: route.stateCode,
+      citySlug: route.citySlug,
+      categoryId: category?.categoryId,
+      page: route.page,
+    })
+      .then((result) => {
+        if (!active) return;
+        if (!result.routeExists || !result.snapshot) {
+          setDirectoryLoadError(true);
+          return;
+        }
+        setClientSnapshot(result.snapshot);
       })
       .catch(() => {
-        if (active) setDirectoryBusinesses([]);
-      })
-      .finally(() => {
-        if (active) setLoadedDirectory(true);
+        if (active) setDirectoryLoadError(true);
       });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [directoryRetry, initialSnapshotMatchesPath, pathname]);
 
-  const liveSnapshot = useMemo(
-    () => directoryBusinesses.length > 0 ? buildDirectoryPageSnapshot(pathname, directoryBusinesses) : null,
-    [directoryBusinesses, pathname],
-  );
-  const initialSnapshotMatchesPath = initialDirectorySnapshot?.pathname === pathname;
-  const snapshot = liveSnapshot || (initialSnapshotMatchesPath ? initialDirectorySnapshot : null);
-  const loadingBusinesses = !snapshot && !loadedDirectory;
+  const loadingBusinesses = !snapshot && !directoryLoadError;
 
   useEffect(() => {
     if (!snapshot) return;
-    setSeoMeta(snapshot.pageMeta.title, snapshot.pageMeta.description);
-    upsertMetaTag("property", "og:title", snapshot.pageMeta.title);
-    upsertMetaTag("property", "og:description", snapshot.pageMeta.description);
-    upsertMetaTag("name", "twitter:title", snapshot.pageMeta.title);
-    upsertMetaTag("name", "twitter:description", snapshot.pageMeta.description);
+    const meta = getLocalizedDirectoryMeta(snapshot);
+    setSeoMeta(meta.title, meta.description);
+    upsertMetaTag("property", "og:title", meta.title);
+    upsertMetaTag("property", "og:description", meta.description);
+    upsertMetaTag("name", "twitter:title", meta.title);
+    upsertMetaTag("name", "twitter:description", meta.description);
   }, [snapshot]);
 
   useEffect(() => {
@@ -124,45 +118,44 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
     };
   }, [navigate, snapshot]);
 
-  const title = snapshot?.pageMeta.heading || "Negócios brasileiros no exterior por país";
+  const directoryMeta = snapshot ? getLocalizedDirectoryMeta(snapshot) : null;
+  const title = directoryMeta?.heading || ("Negócios brasileiros no exterior por país");
   const categoryNotFound = !!snapshot?.route.categorySlug && (
     !snapshot.category || snapshot.totalBusinesses < DIRECTORY_CATEGORY_MINIMUM_BUSINESSES
   );
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
-
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
         <div className="max-w-4xl">
-          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Voltar para início
+          <Link to={"/"} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            {"Voltar para início"}
           </Link>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mt-4">{title}</h1>
           {snapshot && (
             <p className="mt-3 text-muted-foreground leading-relaxed">
               {snapshot.category
-                ? "Encontre " + snapshot.category.label.toLocaleLowerCase("pt-BR") + " com endereços, horários, contatos e avaliações em " + snapshot.labels.city + "."
-                : getDirectoryIntro(snapshot.level, snapshot.insights, snapshot.labels)}
+                  ? "Encontre " + snapshot.category.label.toLocaleLowerCase("pt-BR") + " com endereços, horários, contatos e avaliações em " + snapshot.labels.city + "."
+                  : getDirectoryIntro(snapshot.level, snapshot.insights, snapshot.labels)}
             </p>
           )}
         </div>
 
         {snapshot && (
-          <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Navegação do diretório">
-            <Link className="text-primary hover:underline" to="/negocios">Negócios</Link>
+          <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label={"Navegação do diretório"}>
+            <Link className="text-primary hover:underline" to={"/negocios"}>{"Negócios"}</Link>
             {snapshot.route.countryCode && (
               <>
                 <span className="text-muted-foreground">/</span>
-                <Link className="text-primary hover:underline" to={`/negocios/${snapshot.route.countryCode}`}>
-                  {snapshot.labels.country}
+                <Link className="text-primary hover:underline" to={buildDirectoryPagePath({ ...snapshot.route, stateCode: "", citySlug: "", categorySlug: "", page: 1 })}>
+                  {getCountryDisplayName(snapshot.route.countryCode, snapshot.labels.country)}
                 </Link>
               </>
             )}
             {snapshot.route.countryCode && snapshot.route.stateCode && (
               <>
                 <span className="text-muted-foreground">/</span>
-                <Link className="text-primary hover:underline" to={`/negocios/${snapshot.route.countryCode}/${snapshot.route.stateCode}`}>
+                <Link className="text-primary hover:underline" to={buildDirectoryPagePath({ ...snapshot.route, citySlug: "", categorySlug: "", page: 1 })}>
                   {snapshot.labels.state}
                 </Link>
               </>
@@ -186,7 +179,6 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
 
         {snapshot?.insights && (
           <>
-            <DirectorySummary insights={snapshot.insights} />
             {snapshot.level === "businesses" && (
               <DirectoryCategoryOverview
                 title={`Categorias com página própria em ${snapshot.labels.city}`}
@@ -201,32 +193,39 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
 
         {loadingBusinesses && (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
-            <p className="text-sm text-muted-foreground">Carregando países com negócios publicados...</p>
+            <p className="text-sm text-muted-foreground">{"Carregando países com negócios publicados..."}</p>
           </section>
         )}
 
-        {!loadingBusinesses && !snapshot && (
+        {directoryLoadError && !snapshot && (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
-            <h2 className="text-xl font-bold">Página não encontrada</h2>
-            <p className="mt-2 text-muted-foreground">Não encontramos esta página no diretório público.</p>
+            <h2 className="text-xl font-bold">{"Não foi possível carregar o diretório"}</h2>
+            <p className="mt-2 text-muted-foreground">{"Tente novamente em instantes para carregar os países com negócios publicados."}</p>
+            <button
+              type="button"
+              className="mt-4 rounded-md border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"
+              onClick={() => setDirectoryRetry((current) => current + 1)}
+            >
+              {"Tentar novamente"}
+            </button>
           </section>
         )}
 
         {categoryNotFound && snapshot && (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
-            <h2 className="text-xl font-bold">Página não encontrada</h2>
+            <h2 className="text-xl font-bold">{"Página não encontrada"}</h2>
             <p className="mt-2 text-muted-foreground">
-              Esta categoria ainda não tem negócios suficientes publicados nesta cidade.
+              {"Esta categoria ainda não tem negócios suficientes publicados nesta cidade."}
             </p>
             <Link className="mt-4 inline-block text-primary hover:underline" to={buildDirectoryPagePath({ ...snapshot.route, categorySlug: "", page: 1 })}>
-              Ver todos os negócios da cidade
+              {"Ver todos os negócios da cidade"}
             </Link>
           </section>
         )}
 
         {snapshot && !categoryNotFound && ["countries", "states", "cities"].includes(snapshot.level) && (
           <DirectoryGrid
-            title={snapshot.level === "countries" ? "Países" : snapshot.level === "states" ? "Estados e regiões" : "Cidades"}
+            title={snapshot.level === "countries" ? ("Países") : snapshot.level === "states" ? ("Estados e regiões") : "Cities"}
             items={snapshot.gridItems}
           />
         )}
@@ -239,7 +238,7 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
           <section className="mt-8 rounded-2xl border border-border bg-white overflow-hidden">
             <div className="px-5 py-4 border-b border-border bg-muted/30">
               <h2 className="font-bold text-foreground">
-                {snapshot.category ? `${snapshot.category.label} em ${snapshot.labels.city}` : `Negócios em ${snapshot.labels.city}`}
+                {snapshot.category ? `${snapshot.category.label} ${"em"} ${snapshot.labels.city}` : (`Negócios em ${snapshot.labels.city}`)}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {snapshot.totalBusinesses} {snapshot.totalBusinesses === 1 ? "negócio publicado" : "negócios publicados"}
@@ -282,6 +281,11 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
                   currentPage={snapshot.route.page}
                   totalPages={snapshot.totalPages}
                   getPageHref={(pageNumber) => buildDirectoryPagePath(snapshot.route, pageNumber)}
+                  previousLabel={undefined}
+                  nextLabel={undefined}
+                  navigationLabel={undefined}
+                  pageLabel={undefined}
+                  ofLabel={undefined}
                 />
               </div>
             )}
@@ -295,16 +299,6 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
 }
 function pluralize(count: number, singular: string, plural: string) {
   return count + " " + (count === 1 ? singular : plural);
-}
-
-function formatDirectoryDate(value?: string) {
-  if (!value || !Number.isFinite(new Date(value).getTime())) return "Sem registros";
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(value));
 }
 
 function getDirectoryIntro(
@@ -329,32 +323,6 @@ function getDirectoryIntro(
   }
   return "Em " + location.city + ", " + location.state + ", h\u00e1 " + businesses + " " + distribution + " em " + activities + ".";
 }
-function DirectorySummary({ insights }: { insights: DirectoryInsights }) {
-  return (
-    <section className="mt-8 rounded-2xl border border-border bg-white p-5">
-      <h2 className="text-xl font-bold text-foreground">{"Panorama do diret\u00f3rio"}</h2>
-      <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div>
-          <dt className="text-sm text-muted-foreground">{"Neg\u00f3cios publicados"}</dt>
-          <dd className="mt-1 text-2xl font-extrabold text-foreground">{insights.totalBusinesses}</dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">{"Tipos de neg\u00f3cio"}</dt>
-          <dd className="mt-1 text-2xl font-extrabold text-foreground">{insights.totalActivities}</dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">{"Neg\u00f3cios verificados"}</dt>
-          <dd className="mt-1 text-2xl font-extrabold text-foreground">{insights.verifiedBusinesses}</dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">{"\u00daltimo cadastro"}</dt>
-          <dd className="mt-1 text-sm font-bold text-foreground">{formatDirectoryDate(insights.latestCreatedAt)}</dd>
-        </div>
-      </dl>
-    </section>
-  );
-}
-
 function DirectoryCategoryOverview({
   title,
   insights,
@@ -405,6 +373,9 @@ function DirectoryCategoryOverview({
   );
 }
 
+function getDirectoryItemLabel(item: { label: string; href: string }) {
+  return item.label;
+}
 function DirectoryGrid({
   title,
   items,
@@ -424,7 +395,7 @@ function DirectoryGrid({
             to={item.href}
             className="rounded-2xl border border-border bg-white p-5 hover:border-primary/40 hover:shadow-sm transition-all"
           >
-            <h3 className="font-bold text-foreground">{item.label}</h3>
+            <h3 className="font-bold text-foreground">{getDirectoryItemLabel(item)}</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               {item.count} {item.count === 1 ? "neg\u00f3cio" : "neg\u00f3cios"}
             </p>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { MessageCircle, PawPrint, User } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { PawPrint, User } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
@@ -35,13 +35,15 @@ import BusinessesTab from "@/pages/user-profile/components/BusinessesTab";
 import AllBusinessesTab from "@/pages/user-profile/components/AllBusinessesTab";
 import AdminUsersTab from "@/pages/user-profile/components/AdminUsersTab";
 import EventsTab from "@/pages/user-profile/components/EventsTab";
-import CommunityFindsTab from "@/pages/user-profile/components/CommunityFindsTab";
-import EditCommunityFindDialog from "@/pages/user-profile/components/EditCommunityFindDialog";
+import MarketplaceAccountTab from "@/pages/user-profile/components/MarketplaceAccountTab";
+import MarketplaceFavoritesTab from "@/pages/user-profile/components/MarketplaceFavoritesTab";
+import MarketplaceAdminTab from "@/pages/user-profile/components/MarketplaceAdminTab";
 import VerificationAdminTab from "@/pages/user-profile/components/VerificationAdminTab";
 import BusinessModerationTab from "@/pages/user-profile/components/BusinessModerationTab";
 import OwnershipAdminTab from "@/pages/user-profile/components/OwnershipAdminTab";
 import ReportsAdminTab from "@/pages/user-profile/components/ReportsAdminTab";
 import FeaturedPlacementsTab from "@/pages/user-profile/components/FeaturedPlacementsTab";
+import BusinessQualityTab from "@/pages/user-profile/components/BusinessQualityTab";
 import UserProfileDialogs from "@/pages/user-profile/components/UserProfileDialogs";
 import { useAdminSearchSettings } from "@/pages/user-profile/hooks/useAdminSearchSettings";
 import { useAdminUsers, USER_MANAGEMENT_ADMIN_EMAIL } from "@/pages/user-profile/hooks/useAdminUsers";
@@ -55,8 +57,10 @@ import { useBusinessManagement } from "@/pages/user-profile/hooks/useBusinessMan
 
 export default function UserProfile() {
   const navigate = useNavigate();
-  const { session, user, isLoading, logout, refreshUnread, unreadMessages, refreshSession } = useAuth();
+
+  const { session, user, isLoading, logout, refreshUnread, unreadMessages, refreshSession, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const isAdmin = session?.role === "admin" || user?.role === "admin";
+  const canManageMultipleBusinesses = isAdmin || session?.role === "editor" || user?.role === "editor";
   const canManageUsers = isAdmin && String(user?.email || session?.email || "").trim().toLowerCase() === USER_MANAGEMENT_ADMIN_EMAIL;
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
@@ -84,6 +88,8 @@ export default function UserProfile() {
   const [myBusinessesSearch, setMyBusinessesSearch] = useState("");
   const [moderationPreviewBusiness, setModerationPreviewBusiness] = useState<BusinessFrontend | null>(null);
   const [verificationAdminView, setVerificationAdminView] = useState<VerificationAdminView>("pendentes");
+  const [qualityLoading, setQualityLoading] = useState(false);
+  const [qualityError, setQualityError] = useState("");
 
   const mobileContentRef = useRef<HTMLDivElement>(null);
   const communityEventDatePickerRef = useRef<HTMLInputElement>(null);
@@ -102,13 +108,11 @@ export default function UserProfile() {
       })),
     );
     setMyReviews(reviews);
-    return businesses;
   };
 
   const refreshAllBusinesses = async () => {
     const businesses = await getAllBusinesses();
     setAllBusinesses(businesses);
-    return businesses;
   };
 
   const {
@@ -150,7 +154,7 @@ export default function UserProfile() {
 
     const result = await transferBusinessOwnershipByEmail(businessId, USER_MANAGEMENT_ADMIN_EMAIL);
     if (!result.ok) {
-      throw new Error(result.error || "Não foi possível transferir o negócio.");
+      throw new Error(result.error || ("Não foi possível transferir o negócio."));
     }
 
     toast.success("Negócio transferido para sua conta.");
@@ -163,18 +167,10 @@ export default function UserProfile() {
 
   const {
     myCommunityEvents,
-    myCommunityFinds,
-    showCommunityFindForm,
-    editingCommunityFind,
-    editingCommunityFindSubmitting,
-    editingCommunityFindForm,
     savingCommunityEvent,
     editingCommunityEventId,
     communityEventFlyerFile,
     communityEventForm,
-    setShowCommunityFindForm,
-    setEditingCommunityFind,
-    setEditingCommunityFindForm,
     setCommunityEventFlyerFile,
     setCommunityEventForm,
     refreshCommunityEvents,
@@ -182,10 +178,6 @@ export default function UserProfile() {
     handleCreateCommunityEvent,
     handleStartEditCommunityEvent,
     handleDeleteCommunityEvent,
-    handleCommunityFindCreated,
-    handleDeleteCommunityFind,
-    handleStartEditCommunityFind,
-    handleSaveCommunityFindEdit,
   } = useCommunityContent({
     sessionUserId: session?.userId,
     onBusinessesRefresh: refreshOwnedBusinesses,
@@ -198,7 +190,6 @@ export default function UserProfile() {
     instagramPostUrl,
     verificationRequests,
     verificationLoading,
-    myVerificationRequests,
     pendingModerationBusinesses,
     moderationLoading,
     setVerificationBusiness,
@@ -238,19 +229,13 @@ export default function UserProfile() {
 
   const {
     reports,
-    communityFindReports,
     reportsLoading,
     reportsView,
-    reportsKind,
     setReportsView,
-    setReportsKind,
     loadReportsAdminData,
     handleReportStatus,
     handleArchiveReport,
     handleUnarchiveReport,
-    handleCommunityFindReportStatus,
-    handleArchiveCommunityFindReport,
-    handleUnarchiveCommunityFindReport,
   } = useReportsAdmin({
     isAdmin,
     sessionUserId: session?.userId,
@@ -261,7 +246,11 @@ export default function UserProfile() {
     featuredLoading,
     featuredForm,
     setFeaturedForm,
+    homeFeaturedBusinessesVisible,
+    homeFeaturedVisibilityLoading,
+    savingHomeFeaturedVisibility,
     loadFeaturedAdminData,
+    handleToggleHomeFeaturedBusinesses,
     handleFeaturedBusinessChange,
     handleCreateFeaturedPlacement,
     handleToggleFeaturedStatus,
@@ -446,6 +435,32 @@ export default function UserProfile() {
     setAllBusinessesPage(1);
   }, [allBusinessesSearch]);
 
+  useEffect(() => {
+    if (!isAdmin || activeTab !== "qualidade") return;
+    let cancelled = false;
+
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setQualityLoading(true);
+      setQualityError("");
+
+      return getAllBusinesses()
+        .then((businesses) => {
+          if (!cancelled) setAllBusinesses(businesses);
+        })
+        .catch(() => {
+          if (!cancelled) setQualityError("Não foi possível carregar os negócios para a auditoria.");
+        })
+        .finally(() => {
+          if (!cancelled) setQualityLoading(false);
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, isAdmin, false]);
+
 
   const handleMyBusinessesSearchChange = (value: string) => {
     setMyBusinessesSearch(value);
@@ -485,12 +500,12 @@ export default function UserProfile() {
 
   const handleChangePassword = async () => {
     const email = user?.email || session?.email || "";
-    if (!email) {
+    if (!email && !isPasswordRecovery) {
       toast.error("Nao foi possivel identificar o e-mail da conta.");
       return;
     }
-    if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
-      toast.error("Preencha a senha atual, a nova senha e a confirmacao.");
+    if ((!isPasswordRecovery && !currentPassword.trim()) || !newPassword.trim() || !confirmPassword.trim()) {
+      toast.error(isPasswordRecovery ? "Preencha a nova senha e a confirmacao." : "Preencha a senha atual, a nova senha e a confirmacao.");
       return;
     }
     if (newPassword.length < 6) {
@@ -503,15 +518,17 @@ export default function UserProfile() {
     }
 
     setIsChangingPassword(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password: currentPassword,
-    });
+    if (!isPasswordRecovery) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      });
 
-    if (signInError) {
-      setIsChangingPassword(false);
-      toast.error("Senha atual incorreta.");
-      return;
+      if (signInError) {
+        setIsChangingPassword(false);
+        toast.error("Senha atual incorreta.");
+        return;
+      }
     }
 
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
@@ -525,6 +542,7 @@ export default function UserProfile() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+    clearPasswordRecovery();
     toast.success("Senha atualizada com sucesso.");
   };
 
@@ -586,7 +604,7 @@ export default function UserProfile() {
       <div className={centeredShellClassName}>
         <div className="text-center">
           <PawPrint className="mx-auto mb-4 h-16 w-16 animate-pulse text-muted-foreground/30" />
-          <p className="text-muted-foreground">Carregando seu perfil...</p>
+          <p className="text-muted-foreground">{"Carregando seu perfil..."}</p>
         </div>
       </div>
     );
@@ -600,7 +618,7 @@ export default function UserProfile() {
         <div className={centeredShellClassName}>
           <div className="text-center">
             <PawPrint className="mx-auto mb-4 h-16 w-16 animate-pulse text-muted-foreground/30" />
-            <p className="text-muted-foreground">Carregando seu perfil...</p>
+            <p className="text-muted-foreground">{"Carregando seu perfil..."}</p>
           </div>
         </div>
       );
@@ -612,9 +630,9 @@ export default function UserProfile() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
             <User className="h-8 w-8 text-amber-600" />
           </div>
-          <h1 className="mb-2 text-xl font-bold">Ops! Perfil nao encontrado</h1>
+          <h1 className="mb-2 text-xl font-bold">{"Ops! Perfil nao encontrado"}</h1>
           <p className="mb-6 text-muted-foreground">
-            Nao conseguimos carregar suas informacoes. Isso pode acontecer se seu perfil ainda nao foi criado no banco de dados.
+            {"Nao conseguimos carregar suas informacoes. Isso pode acontecer se seu perfil ainda nao foi criado no banco de dados."}
           </p>
           <div className="flex flex-col gap-3">
             <Button
@@ -623,10 +641,10 @@ export default function UserProfile() {
               }}
               className="w-full border-0 caramelo-gradient text-white"
             >
-              Tentar novamente
+              {"Tentar novamente"}
             </Button>
             <Button variant="ghost" onClick={logout} className="w-full">
-              Sair da conta
+              {"Sair da conta"}
             </Button>
           </div>
         </div>
@@ -636,47 +654,6 @@ export default function UserProfile() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-50 border-b border-border bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between sm:h-24">
-            <Link to="/" className="group flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center sm:h-[5.5rem] sm:w-[5.5rem]">
-                <img src="/logo.webp" alt="Caramelinho logo" className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-110" />
-              </div>
-              <div className="min-w-0 leading-tight">
-                <div className="truncate text-lg font-extrabold tracking-tight caramelo-text-gradient sm:text-2xl">Caramelinho</div>
-                <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-foreground/75 sm:text-sm">
-                  {"O SEU FARO FORA DO BRASIL"}
-                </div>
-              </div>
-            </Link>
-
-            <div className="flex items-center gap-1.5 sm:gap-4">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <Link to="/perfil?tab=mensagens" onClick={() => setActiveTab("mensagens")} className="group relative">
-                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-secondary sm:h-10 sm:w-10">
-                    <MessageCircle className="h-5 w-5" />
-                    {unreadMessages > 0 ? (
-                      <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-primary text-[10px] font-bold text-white">
-                        {unreadMessages > 9 ? "9+" : unreadMessages}
-                      </span>
-                    ) : null}
-                  </Button>
-                </Link>
-                <Link to="/perfil">
-                  <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-full border-border px-2.5 hover:bg-secondary sm:h-10 sm:gap-2 sm:px-4">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
-                      <User className="h-3 w-3 text-primary" />
-                    </div>
-                    <span className="max-w-[90px] truncate font-medium sm:max-w-none">{session.name?.split(" ")[0] || "Perfil"}</span>
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="mx-auto flex-1 w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-8 md:flex-row lg:gap-12">
           <UserProfileNavigation
@@ -684,7 +661,6 @@ export default function UserProfile() {
             isAdmin={isAdmin}
             canManageUsers={canManageUsers}
             unreadMessages={unreadMessages}
-            myCommunityFinds={myCommunityFinds}
             onTabChange={setActiveTab}
             onLogout={() => {
               void handleLogout();
@@ -705,6 +681,7 @@ export default function UserProfile() {
               newPassword={newPassword}
               confirmPassword={confirmPassword}
               isChangingPassword={isChangingPassword}
+              isPasswordRecovery={isPasswordRecovery}
               onStartEdit={() => {
                 setIsEditing(true);
                 setEditName(user.name);
@@ -732,6 +709,7 @@ export default function UserProfile() {
               filteredMyBusinesses={filteredMyBusinesses}
               myBusinessesTotalPages={myBusinessesTotalPages}
               safeMyBusinessesPage={safeMyBusinessesPage}
+              canManageMultipleBusinesses={!!canManageMultipleBusinesses}
               getMyVerificationStatusByBusiness={getMyVerificationStatusByBusiness}
               getCategoryLabel={getCategoryLabel}
               myBusinessesSearch={myBusinessesSearch}
@@ -794,23 +772,20 @@ export default function UserProfile() {
               onDeleteCommunityEvent={handleDeleteCommunityEvent}
             />
 
-            <CommunityFindsTab
-              showCommunityFindForm={showCommunityFindForm}
-              myCommunityFinds={myCommunityFinds}
-              onToggleForm={() => setShowCommunityFindForm((prev) => !prev)}
-              onCreated={handleCommunityFindCreated}
-              onStartEditCommunityFind={handleStartEditCommunityFind}
-              onDeleteCommunityFind={handleDeleteCommunityFind}
-            />
+            <div className={activeTab === "marketplace" ? "block" : "hidden"}>
+              {session?.userId ? <MarketplaceAccountTab ownerId={session.userId} /> : null}
+            </div>
 
-            <EditCommunityFindDialog
-              editingCommunityFind={editingCommunityFind}
-              editingCommunityFindForm={editingCommunityFindForm}
-              editingCommunityFindSubmitting={editingCommunityFindSubmitting}
-              onClose={() => setEditingCommunityFind(null)}
-              onFormChange={setEditingCommunityFindForm}
-              onSave={handleSaveCommunityFindEdit}
-            />
+            <div className={activeTab === "marketplace-favoritos" ? "block" : "hidden"}>
+              {session?.userId ? <MarketplaceFavoritesTab userId={session.userId} /> : null}
+            </div>
+
+            {isAdmin ? (
+              <div className={activeTab === "marketplace-admin" ? "block" : "hidden"}>
+                <MarketplaceAdminTab />
+              </div>
+            ) : null}
+
 
             {isAdmin ? (
               <VerificationAdminTab
@@ -862,12 +837,9 @@ export default function UserProfile() {
 
             {isAdmin ? (
               <ReportsAdminTab
-                reportsKind={reportsKind}
                 reportsView={reportsView}
                 reportsLoading={reportsLoading}
                 reports={reports}
-                communityFindReports={communityFindReports}
-                onReportsKindChange={setReportsKind}
                 onReportsViewChange={setReportsView}
                 onRefresh={() => {
                   void loadReportsAdminData(reportsView);
@@ -875,9 +847,6 @@ export default function UserProfile() {
                 onReportStatus={handleReportStatus}
                 onArchiveReport={handleArchiveReport}
                 onUnarchiveReport={handleUnarchiveReport}
-                onCommunityFindReportStatus={handleCommunityFindReportStatus}
-                onArchiveCommunityFindReport={handleArchiveCommunityFindReport}
-                onUnarchiveCommunityFindReport={handleUnarchiveCommunityFindReport}
               />
             ) : null}
 
@@ -887,6 +856,9 @@ export default function UserProfile() {
                 featuredForm={featuredForm}
                 featuredPlacements={featuredPlacements}
                 featuredLoading={featuredLoading}
+                homeFeaturedBusinessesVisible={homeFeaturedBusinessesVisible}
+                homeFeaturedVisibilityLoading={homeFeaturedVisibilityLoading}
+                savingHomeFeaturedVisibility={savingHomeFeaturedVisibility}
                 setFeaturedForm={setFeaturedForm}
                 onBusinessChange={handleFeaturedBusinessChange}
                 onSubmit={handleCreateFeaturedPlacement}
@@ -895,6 +867,7 @@ export default function UserProfile() {
                 }}
                 onToggleStatus={handleToggleFeaturedStatus}
                 onDelete={handleDeleteFeaturedPlacement}
+                onHomeFeaturedVisibilityChange={handleToggleHomeFeaturedBusinesses}
               />
             ) : null}
 
@@ -915,6 +888,22 @@ export default function UserProfile() {
                 onRefreshSitemap={handleRefreshSitemap}
                 onEnableBusinessFollowLinks={handleEnableBusinessFollowLinks}
                 onDisableBusinessFollowLinks={handleDisableBusinessFollowLinks}
+              />
+            ) : null}
+
+            {isAdmin ? (
+              <BusinessQualityTab
+                businesses={allBusinesses}
+                loading={qualityLoading}
+                error={qualityError}
+                onRefresh={() => {
+                  setQualityLoading(true);
+                  setQualityError("");
+                  void getAllBusinesses()
+                    .then(setAllBusinesses)
+                    .catch(() => setQualityError("Não foi possível carregar os negócios para a auditoria."))
+                    .finally(() => setQualityLoading(false));
+                }}
               />
             ) : null}
 
@@ -973,7 +962,7 @@ export default function UserProfile() {
       />
 
       <UserProfileDialogs
-        businessCategoryOptions={BUSINESS_CATEGORY_OPTIONS}
+        businessCategoryOptions={[...BUSINESS_CATEGORY_OPTIONS]}
         creatingBusiness={creatingBusiness}
         editingBusiness={editingBusiness}
         closeBusinessEditor={closeBusinessEditor}

@@ -35,6 +35,7 @@ export default function AllBusinessesTab({
   onPageChange,
   onDeleteBusiness,
 }: AllBusinessesTabProps) {
+
   return (
     <TabsContent value="todos-negocios" className="mt-0">
       <div className="space-y-4">

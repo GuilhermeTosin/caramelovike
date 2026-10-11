@@ -9,6 +9,70 @@ type LocalRequest = IncomingMessage & {
   body?: unknown;
 };
 
+type ReactPluginConfig = Record<string, unknown> & {
+  esbuild?: {
+    jsx?: "transform" | "automatic" | "preserve";
+    jsxImportSource?: string;
+  };
+  optimizeDeps?: Record<string, unknown> & {
+    esbuildOptions?: Record<string, unknown>;
+    rolldownOptions?: Record<string, unknown>;
+  };
+};
+
+function createReactPlugins(): Plugin[] {
+  // Vike uses Rolldown Vite, while older plugin-react versions still emit esbuild options.
+  return react().map((plugin) => {
+    if (plugin.name !== "vite:react-babel" || typeof plugin.config !== "function") {
+      return plugin;
+    }
+
+    const originalConfig = plugin.config.bind(plugin) as (
+      config: unknown,
+      env: unknown,
+    ) => ReactPluginConfig | null | undefined;
+
+    return {
+      ...plugin,
+      config(config: unknown, env: unknown) {
+        const legacyConfig = originalConfig(config, env);
+        if (!legacyConfig?.esbuild && !legacyConfig?.optimizeDeps?.esbuildOptions) {
+          return legacyConfig;
+        }
+
+        const { esbuild, optimizeDeps, ...configWithoutLegacyOptions } = legacyConfig;
+        const {
+          esbuildOptions: _esbuildOptions,
+          rolldownOptions,
+          ...optimizeDepsWithoutLegacyOptions
+        } = optimizeDeps ?? {};
+
+        return {
+          ...configWithoutLegacyOptions,
+          oxc: {
+            jsx: {
+              runtime: esbuild?.jsx === "transform" ? "classic" : "automatic",
+              importSource: esbuild?.jsxImportSource ?? "react",
+            },
+          },
+          optimizeDeps: {
+            ...optimizeDepsWithoutLegacyOptions,
+            rolldownOptions: {
+              ...rolldownOptions,
+              transform: {
+                ...((rolldownOptions?.transform as Record<string, unknown> | undefined) ?? {}),
+                jsx: {
+                  runtime: esbuild?.jsx === "transform" ? "classic" : "automatic",
+                },
+              },
+            },
+          },
+        };
+      },
+    } as unknown as Plugin;
+  });
+}
+
 function readLocalRequestBody(req: IncomingMessage): Promise<unknown> {
   if (req.method === "GET" || req.method === "DELETE") return Promise.resolve(undefined);
 
@@ -105,14 +169,17 @@ function localAdminUsersPlugin(): Plugin {
   };
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), "");
   for (const key of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"]) {
     if (!process.env[key] && env[key]) process.env[key] = env[key];
   }
 
   return {
-    plugins: [react(), vike(), localAdminUsersPlugin()],
+    plugins: [...createReactPlugins(), vike(), localAdminUsersPlugin()],
+    ssr: command === "build"
+      ? { noExternal: ["react-router-dom", "react-router"] }
+      : {},
     build: {
       // react-snap usa Chromium antigo; manter target mais compatível evita
       // "Unexpected token '?'" durante o prerender.

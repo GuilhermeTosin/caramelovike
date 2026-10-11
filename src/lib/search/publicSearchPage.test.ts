@@ -4,6 +4,7 @@ import {
   isPublicBusinessSearch,
   PUBLIC_SEARCH_PAGE_SIZE,
 } from "@/lib/search/publicSearchPage";
+import { DEFAULT_CATEGORY_SYNONYMS } from "@/services/searchPreferences";
 
 describe("public search page request", () => {
   it("keeps pagination and public filters in a stable request key", () => {
@@ -51,6 +52,22 @@ describe("public search page request", () => {
       const request = buildPublicSearchPageRequest(new URLSearchParams({ categoria: categoryId }));
       expect(request.categoryId).toBe(categoryId);
     }
+  });
+
+  it("maps gender and plural variations through the configured category synonyms", () => {
+    const lawyer = buildPublicSearchPageRequest(
+      new URLSearchParams("q=advogado"),
+      PUBLIC_SEARCH_PAGE_SIZE,
+      DEFAULT_CATEGORY_SYNONYMS,
+    );
+    const femaleLawyer = buildPublicSearchPageRequest(
+      new URLSearchParams("q=advogada"),
+      PUBLIC_SEARCH_PAGE_SIZE,
+      DEFAULT_CATEGORY_SYNONYMS,
+    );
+
+    expect(lawyer.queryCategoryIds).toEqual(["legal_consulting"]);
+    expect(femaleLawyer.queryCategoryIds).toEqual(lawyer.queryCategoryIds);
   });
   it("keeps events and community finds outside the business-page RPC", () => {
     expect(isPublicBusinessSearch(new URLSearchParams("eventos=1"))).toBe(false);

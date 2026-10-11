@@ -1,9 +1,19 @@
 import type { BusinessFrontend } from "@/types/database";
-import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
+import {
+  getCategoryLabel,
+  getCountryName,
+  getPublicBusinessDirectoryAggregate,
+  getPublicBusinessDirectoryIndex,
+  getStateDisplayName,
+  slugify,
+  type PublicDirectoryAggregate,
+} from "@/services/businesses";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getDirectoryInsights, type DirectoryInsights } from "@/lib/directoryInsights";
-import { getDirectoryPageMeta, type DirectoryPageMeta } from "@/lib/seo/directoryMeta";
+import { getDirectoryPageMeta, getDirectoryPageMetaFromAggregate, type DirectoryPageMeta } from "@/lib/seo/directoryMeta";
 import {
+  DIRECTORY_CATEGORIES,
+  DIRECTORY_CATEGORY_MINIMUM_BUSINESSES,
   DIRECTORY_PAGE_SIZE,
   getDirectoryBusinessCitySlug,
   getDirectoryCategoryBusinesses,
@@ -41,6 +51,52 @@ export type DirectoryPageSnapshot = {
   totalPages: number;
   pageBusinesses: BusinessFrontend[];
 };
+
+type DirectoryAggregateRequest = {
+  countryCode?: string;
+  stateCode?: string;
+  citySlug?: string;
+  categoryId?: string;
+  page?: number;
+};
+
+export type PublicDirectoryPageResult = {
+  snapshot: DirectoryPageSnapshot | null;
+  routeExists: boolean;
+  totalPages: number;
+};
+
+const DIRECTORY_RPC_MISSING_BACKOFF_MS = 60_000;
+const LEGACY_DIRECTORY_CACHE_TTL_MS = 2 * 60_000;
+let directoryRpcMissingUntil = 0;
+let legacyDirectoryCache: { businesses: BusinessFrontend[]; expiresAt: number } | null = null;
+let legacyDirectoryRequest: Promise<BusinessFrontend[]> | null = null;
+
+function isMissingDirectoryRpc(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { code?: string; status?: number; message?: string };
+  return value.code === "PGRST202"
+    || value.code === "42883"
+    || (value.status === 404 && /get_public_business_directory/i.test(value.message || ""));
+}
+
+async function getLegacyDirectoryBusinesses() {
+  if (legacyDirectoryCache && legacyDirectoryCache.expiresAt > Date.now()) {
+    return legacyDirectoryCache.businesses;
+  }
+
+  const request = legacyDirectoryRequest || (legacyDirectoryRequest = getPublicBusinessDirectoryIndex());
+  try {
+    const businesses = await request;
+    legacyDirectoryCache = { businesses, expiresAt: Date.now() + LEGACY_DIRECTORY_CACHE_TTL_MS };
+    return businesses;
+  } catch (error) {
+    if (legacyDirectoryRequest === request) legacyDirectoryRequest = null;
+    throw error;
+  } finally {
+    if (legacyDirectoryRequest === request) legacyDirectoryRequest = null;
+  }
+}
 
 function normalizeCode(value?: string) {
   return (value || "").trim().toLowerCase();
@@ -91,47 +147,49 @@ function countBy(values: string[]) {
 
 export function parseDirectoryRoute(pathname: string): DirectoryRoute | null {
   const parts = pathname.split("/").filter(Boolean);
+  const routeParts = parts.slice(1);
+
   if (parts[0] !== "negocios") return null;
 
   const route: DirectoryRoute = {
-    countryCode: normalizeCode(parts[1]),
-    stateCode: normalizeCode(parts[2]),
-    citySlug: slugify(parts[3] || ""),
+    countryCode: normalizeCode(routeParts[0]),
+    stateCode: normalizeCode(routeParts[1]),
+    citySlug: slugify(routeParts[2] || ""),
     categorySlug: "",
     page: 1,
   };
 
-  if (parts.length === 1) return route;
-  if (parts.length === 2) return route;
-  if (parts.length === 3) return route;
-  if (parts.length === 4) return route;
-  if (parts.length === 5) {
-    route.categorySlug = slugify(parts[4]);
+  if (routeParts.length <= 3) return route;
+  if (routeParts.length === 4) {
+    route.categorySlug = slugify(routeParts[3]);
     return route;
   }
-  if (parts.length === 6 && parts[4] === "pagina" && /^\d+$/.test(parts[5])) {
-    route.page = Number(parts[5]);
+  if (routeParts.length === 5 && routeParts[3] === "pagina" && /^\d+$/.test(routeParts[4])) {
+    route.page = Number(routeParts[4]);
     return route;
   }
-  if (parts.length === 7 && parts[5] === "pagina" && /^\d+$/.test(parts[6])) {
-    route.categorySlug = slugify(parts[4]);
-    route.page = Number(parts[6]);
+  if (routeParts.length === 6 && routeParts[4] === "pagina" && /^\d+$/.test(routeParts[5])) {
+    route.categorySlug = slugify(routeParts[3]);
+    route.page = Number(routeParts[5]);
     return route;
   }
   return null;
 }
 
 export function buildDirectoryPagePath(route: DirectoryRoute, page = route.page) {
-  const parts = ["negocios", route.countryCode, route.stateCode, route.citySlug, route.categorySlug].filter(Boolean);
+  const prefix = ["negocios"];
+  const parts = [...prefix, route.countryCode, route.stateCode, route.citySlug, route.categorySlug].filter(Boolean);
   const base = `/${parts.join("/")}`;
   return page <= 1 ? base : `${base}/pagina/${page}`;
 }
 
 function compactDirectoryBusiness(business: BusinessFrontend): BusinessFrontend {
+  const publicBusiness = { ...business };
+  delete publicBusiness.ownerId;
+  delete publicBusiness.ownerName;
+
   return {
-    ...business,
-    ownerId: "",
-    ownerName: "",
+    ...publicBusiness,
     description: "",
     // The paginated directory passes this item into the business route on click.
     // Keep the cover URL so the public page never flashes the generic fallback.
@@ -214,18 +272,18 @@ export function buildDirectoryPageSnapshot(
   const cityCounts = countBy(stateBusinesses.map(getDirectoryBusinessCitySlug).filter(Boolean));
   const gridItems: DirectoryNavigationItem[] = level === "countries"
     ? Array.from(countryCounts.entries()).map(([code, count]) => ({
-      label: getCountryName(code) || code.toUpperCase(), href: `/negocios/${code}`, count,
+      label: getCountryName(code) || code.toUpperCase(), href: buildDirectoryPagePath({ ...route, countryCode: code, stateCode: "", citySlug: "", categorySlug: "", page: 1 }), count,
     }))
     : level === "states"
       ? Array.from(stateCounts.entries()).map(([code, count]) => ({
         label: stateNameByCode.get(code) || getStateDisplayName(route.countryCode, code) || code.toUpperCase(),
-        href: `/negocios/${route.countryCode}/${code}`,
+        href: buildDirectoryPagePath({ ...route, stateCode: code, citySlug: "", categorySlug: "", page: 1 }),
         count,
       }))
       : level === "cities"
         ? Array.from(cityCounts.entries()).map(([slug, count]) => ({
           label: cityNameBySlug.get(slug) || slug,
-          href: `/negocios/${route.countryCode}/${route.stateCode}/${slug}`,
+          href: buildDirectoryPagePath({ ...route, citySlug: slug, categorySlug: "", page: 1 }),
           count,
         }))
         : [];
@@ -268,5 +326,153 @@ export function buildDirectoryPageSnapshot(
     pageBusinesses: currentBusinesses
       .slice((safePage - 1) * DIRECTORY_PAGE_SIZE, safePage * DIRECTORY_PAGE_SIZE)
       .map(compactDirectoryBusiness),
+  };
+}
+
+export function buildDirectoryPageSnapshotFromAggregate(
+  pathname: string,
+  aggregate: PublicDirectoryAggregate,
+): DirectoryPageSnapshot | null {
+  const route = parseDirectoryRoute(pathname);
+  if (!route) return null;
+
+  const category = route.categorySlug ? getDirectoryCategoryBySlug(route.categorySlug) : null;
+  const level: DirectoryLevel = route.categorySlug
+    ? "categoryBusinesses"
+    : !route.countryCode
+      ? "countries"
+      : !route.stateCode
+        ? "states"
+        : !route.citySlug
+          ? "cities"
+          : "businesses";
+  const stateLabel = aggregate.stateCounts.find((item) => item.code === route.stateCode)?.label
+    || getStateDisplayName(route.countryCode, route.stateCode)
+    || route.stateCode.toUpperCase();
+  const cityLabel = aggregate.cityCounts.find((item) => item.slug === route.citySlug)?.label
+    || getCityDisplayName(route.citySlug, route.countryCode)
+    || route.citySlug;
+  const labels = {
+    country: getCountryName(route.countryCode) || route.countryCode.toUpperCase(),
+    state: stateLabel,
+    city: cityLabel,
+  };
+  const gridItems: DirectoryNavigationItem[] = level === "countries"
+    ? aggregate.countryCounts.map((item) => ({
+      label: getCountryName(item.code) || item.code.toUpperCase(),
+      href: buildDirectoryPagePath({ ...route, countryCode: item.code, stateCode: "", citySlug: "", categorySlug: "", page: 1 }),
+      count: item.count,
+    }))
+    : level === "states"
+      ? aggregate.stateCounts.map((item) => ({
+        label: item.label || getStateDisplayName(route.countryCode, item.code) || item.code.toUpperCase(),
+        href: buildDirectoryPagePath({ ...route, stateCode: item.code, citySlug: "", categorySlug: "", page: 1 }),
+        count: item.count,
+      }))
+      : level === "cities"
+        ? aggregate.cityCounts.map((item) => ({
+          label: item.label || item.slug,
+          href: buildDirectoryPagePath({ ...route, citySlug: item.slug, categorySlug: "", page: 1 }),
+          count: item.count,
+        }))
+        : [];
+  const relatedCities = level === "businesses"
+    ? aggregate.cityCounts
+      .filter((item) => item.slug !== route.citySlug)
+      .map((item) => ({
+        label: item.label || item.slug,
+        href: buildDirectoryPagePath({ ...route, citySlug: item.slug, categorySlug: "", page: 1 }),
+        count: item.count,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"))
+      .slice(0, 6)
+    : [];
+  const categoryDefinitions = new Map(DIRECTORY_CATEGORIES.map((item) => [item.categoryId, item]));
+  const categoryInsights = aggregate.categoryCounts
+    .map((item) => {
+      const categoryDefinition = categoryDefinitions.get(item.key);
+      return {
+        key: item.key,
+        label: categoryDefinition?.label || getCategoryLabel(item.key),
+        slug: categoryDefinition?.slug,
+        count: item.count,
+        isIndexable: Boolean(route.countryCode && route.stateCode && route.citySlug && categoryDefinition?.slug && item.count >= DIRECTORY_CATEGORY_MINIMUM_BUSINESSES),
+      };
+    })
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"));
+  const insights: DirectoryInsights | null = level === "categoryBusinesses"
+    ? null
+    : {
+      totalBusinesses: aggregate.scopeTotal,
+      totalActivities: categoryInsights.length,
+      verifiedBusinesses: aggregate.scopeVerifiedTotal,
+      latestCreatedAt: aggregate.scopeLatestCreatedAt,
+      categories: categoryInsights,
+    };
+  const countryBusinesses = aggregate.stateCounts.reduce((sum, item) => sum + item.count, 0);
+  const stateBusinesses = route.stateCode
+    ? route.citySlug
+      ? aggregate.cityCounts.reduce((sum, item) => sum + item.count, 0)
+      : aggregate.scopeTotal
+    : 0;
+  const pageMeta = getDirectoryPageMetaFromAggregate(pathname, {
+    countryBusinesses,
+    stateBusinesses,
+    cityBusinesses: aggregate.scopeTotal,
+    categoryBusinesses: category ? aggregate.currentTotal : 0,
+    stateCount: aggregate.stateCounts.length,
+    cityCount: aggregate.cityCounts.length,
+    labels,
+  }) || {
+    heading: "Negócios brasileiros no exterior por país",
+    title: "Negócios brasileiros no exterior por país | Caramelinho.com",
+    description: "Encontre negócios brasileiros no exterior por país, estado e cidade.",
+  };
+
+  return {
+    pathname,
+    level,
+    route: { ...route, page: Math.min(Math.max(1, route.page), aggregate.totalPages) },
+    category: category ? { slug: category.slug, label: category.label } : null,
+    labels,
+    pageMeta,
+    insights,
+    gridItems,
+    relatedCities,
+    totalBusinesses: level === "categoryBusinesses" || level === "businesses" ? aggregate.currentTotal : 0,
+    totalPages: aggregate.totalPages,
+    pageBusinesses: aggregate.pageBusinesses.map(compactDirectoryBusiness),
+  };
+}
+
+export async function loadPublicBusinessDirectoryPage(
+  pathname: string,
+  params: DirectoryAggregateRequest,
+): Promise<PublicDirectoryPageResult> {
+  if (Date.now() >= directoryRpcMissingUntil) {
+    try {
+      const aggregate = await getPublicBusinessDirectoryAggregate(params);
+      return {
+        snapshot: buildDirectoryPageSnapshotFromAggregate(pathname, aggregate),
+        routeExists: aggregate.routeExists,
+        totalPages: aggregate.totalPages,
+      };
+    } catch (error) {
+      if (!isMissingDirectoryRpc(error)) throw error;
+      directoryRpcMissingUntil = Date.now() + DIRECTORY_RPC_MISSING_BACKOFF_MS;
+    }
+  }
+
+  const snapshot = buildDirectoryPageSnapshot(pathname, await getLegacyDirectoryBusinesses());
+  const routeExists = snapshot
+    ? snapshot.level === "countries"
+      || ((snapshot.level === "states" || snapshot.level === "cities") && snapshot.gridItems.length > 0)
+      || ((snapshot.level === "businesses" || snapshot.level === "categoryBusinesses") && snapshot.totalBusinesses > 0)
+    : false;
+
+  return {
+    snapshot,
+    routeExists,
+    totalPages: snapshot?.totalPages || 1,
   };
 }

@@ -31,7 +31,8 @@ describe("getDirectoryPageMeta", () => {
     const meta = getDirectoryPageMeta(pathname, businesses);
     expect(meta?.heading).toBe(heading);
     expect(meta?.title).toBe(`${heading} | Caramelinho.com`);
-    expect(meta?.description).toContain(heading.replace("Neg\u00f3cios", "neg\u00f3cios"));
+    const location = heading.replace(/^Neg\u00f3cios brasileiros /, "");
+    expect(meta?.description).toContain(location);
   });
 
   it("identifies paginated city pages in the title and description", () => {

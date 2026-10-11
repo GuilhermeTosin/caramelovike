@@ -1,14 +1,16 @@
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { dangerouslySkipEscape, escapeInject } from "vike/server";
+import { preloadAppRoute } from "@/appRouteModules";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import type { RendererPageContext } from "@/renderer/pageContext";
 import { getSiteContent } from "@/data/siteContent";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
 import { getDirectoryPageMeta, type DirectoryPageMeta } from "@/lib/seo/directoryMeta";
-import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
+import { buildDirectoryPagePath, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import { getDirectoryCategoryBySlug } from "@/lib/directoryCategories";
+import { getCountryDisplayName, getLocaleHtmlLang, getLocaleOgCode, localizePath } from "@/lib/locales";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
 import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
@@ -21,6 +23,7 @@ import {
   buildEventStructuredData,
 } from "@/lib/seo/eventMeta";
 import { stripRichTextHtml } from "@/lib/richText";
+import type { MarketplaceListing } from "@/types/database";
 import {
   buildBusinessOfferCatalog,
   buildOpeningHoursSpecification,
@@ -33,6 +36,8 @@ type PageContext = RendererPageContext & {
   Page: React.ComponentType<{ pageContext: RendererPageContext }>;
   initialEvent?: CommunityEvent | null;
   isEventPage?: boolean;
+  initialMarketplaceListing?: MarketplaceListing | null;
+  initialMarketplaceBusinessSeller?: import("@/services/marketplace").MarketplaceBusinessSellerPage | null;
 };
 
 function getPageUrlParts(urlOriginal?: string) {
@@ -45,19 +50,116 @@ function getPageUrlParts(urlOriginal?: string) {
 
 function getCanonicalUrl(urlOriginal: string | undefined, isBusinessPage: boolean) {
   const { pathname, search } = getPageUrlParts(urlOriginal);
-  const canonicalPath = isBusinessPage ? pathname : getInternalSearchCanonicalPath(pathname);
+  if (pathname === "/index2") return "https://www.caramelinho.com/";
+  const isMarketplacePath = pathname === "/marketplace" || pathname.startsWith("/marketplace/");
+  const canonicalPath = isBusinessPage || isMarketplacePath ? pathname : getInternalSearchCanonicalPath(pathname);
   const isInternalSearch = !!getInternalSearchRobots(pathname);
-  return "https://www.caramelinho.com" + canonicalPath + (isBusinessPage || isInternalSearch ? "" : search);
+  return "https://www.caramelinho.com" + canonicalPath + (isBusinessPage || isMarketplacePath || isInternalSearch ? "" : search);
 }
 
 function getRobotsContent(urlOriginal?: string) {
-  const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
+  const url = new URL(urlOriginal || "/", "https://www.caramelinho.com");
+  const pathname = url.pathname;
 
-  const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
-  if (privatePaths.has(pathname)) return "noindex,nofollow,noarchive";
+  if (pathname === "/index2") return "noindex,follow";
+
+  const privatePaths = new Set([
+    "/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard",
+  ]);
+  if (privatePaths.has(pathname) || pathname === "/marketplace/novo" || pathname.startsWith("/marketplace/editar/")) return "noindex,nofollow,noarchive";
+  if (pathname === "/marketplace" && url.search) return "noindex,follow";
   const searchRobots = getInternalSearchRobots(pathname);
   if (searchRobots) return searchRobots;
   return "index,follow,max-image-preview:large";
+}
+
+function marketplaceListingJsonLd(listing: MarketplaceListing, canonicalUrl: string) {
+  const title = listing.title.trim();
+  const description = stripRichTextHtml(listing.description).trim();
+  const isJobListing = listing.category?.slug === "vagas-de-emprego";
+
+  // Do not describe a job as a product. Emit JobPosting only when the
+  // minimum factual fields required by the schema are available.
+  if (isJobListing) {
+    const employerName = listing.owner_name?.trim();
+    const city = listing.city.trim();
+    const countryCode = listing.country_code.trim();
+    if (!title || !description || !employerName || !listing.created_at || !city || !countryCode) return null;
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "JobPosting",
+      "@id": canonicalUrl + "#job",
+      title,
+      description,
+      datePosted: listing.created_at,
+      hiringOrganization: {
+        "@type": "Organization",
+        name: employerName,
+      },
+      jobLocation: {
+        "@type": "Place",
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: city,
+          addressRegion: listing.state_code.trim().toUpperCase() || undefined,
+          addressCountry: countryCode.toUpperCase(),
+        },
+      },
+      url: canonicalUrl,
+    };
+  }
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": canonicalUrl + "#product",
+    name: title,
+    description,
+    image: (listing.images || []).map((image) => image.image_url),
+    category: listing.category?.name,
+    url: canonicalUrl,
+    offers: listing.price !== null ? {
+      "@type": "Offer",
+      price: listing.price,
+      priceCurrency: listing.currency,
+      availability: listing.status === "active" ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
+      url: canonicalUrl,
+    } : undefined,
+  };
+}
+
+function marketplaceSellerJsonLd(seller: NonNullable<PageContext["initialMarketplaceSeller"]>, canonicalUrl: string) {
+  const name = seller.profile.name?.trim() || "Vendedor do Marketplace";
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "@id": canonicalUrl + "#profile",
+    url: canonicalUrl,
+    mainEntity: {
+      "@type": "Person",
+      "@id": canonicalUrl + "#person",
+      name,
+      image: seller.profile.avatar || undefined,
+      url: canonicalUrl,
+    },
+  };
+}
+
+function marketplaceBusinessSellerJsonLd(seller: NonNullable<PageContext["initialMarketplaceBusinessSeller"]>, canonicalUrl: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "@id": canonicalUrl + "#profile",
+    url: canonicalUrl,
+    mainEntity: {
+      "@type": "Organization",
+      "@id": canonicalUrl + "#organization",
+      name: seller.business.name,
+      logo: seller.business.logo_url || undefined,
+      url: canonicalUrl,
+    },
+  };
 }
 
 function getRobotsContentForPage(urlOriginal?: string, is404?: boolean) {
@@ -65,11 +167,13 @@ function getRobotsContentForPage(urlOriginal?: string, is404?: boolean) {
   return getRobotsContent(urlOriginal);
 }
 
-function getErrorPageMeta() {
+function getErrorPageMeta(isGone = false) {
   const content = getSiteContent();
   return {
-    title: content.seo.notFoundTitle,
-    description: content.seo.notFoundDescription,
+    title: isGone ? "Negócio removido | Caramelinho" : content.seo.notFoundTitle,
+    description: isGone
+      ? "Este negócio foi removido e este endereço não será reutilizado."
+      : content.seo.notFoundDescription,
   };
 }
 
@@ -209,6 +313,13 @@ function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] 
     };
   }
 
+  if (pathname === "/index2") {
+    return {
+      title: "Caramelinho | Nova experiência",
+      description: "Encontre negócios brasileiros, produtos e serviços no exterior em uma nova experiência do Caramelinho.",
+    };
+  }
+
   const content = getSiteContent();
   return { title: content.seo.homeTitle, description: content.seo.homeDescription };
 }
@@ -234,7 +345,7 @@ function buildWebsiteJsonLd() {
 }
 
 function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, pageImage: string) {
-  const address = business.address || {};
+  const address: BusinessFrontend["address"] = business.address;
   const latitude = Number(address.lat);
   const longitude = Number(address.lng);
   const meaningfulUpdatedAt = getMeaningfulUpdatedAt(business.updatedAt, business.createdAt);
@@ -275,7 +386,7 @@ function buildBusinessJsonLd(business: BusinessFrontend, canonicalUrl: string, p
 }
 
 function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl: string) {
-  const address = business.address || {};
+  const address: BusinessFrontend["address"] = business.address;
   const countryCode = String(address.countryCode || "").toLowerCase();
   const stateCode = String(address.stateCode || "").toLowerCase();
   const citySlug = getCanonicalCitySlug(address.city, countryCode) || slugify(address.citySlug || address.city || "");
@@ -286,7 +397,7 @@ function buildBusinessBreadcrumbJsonLd(business: BusinessFrontend, canonicalUrl:
 
   if (countryCode) {
     items.push({
-      name: getCountryName(countryCode) || countryCode.toUpperCase(),
+      name: getCountryDisplayName(countryCode, getCountryName(countryCode) || countryCode.toUpperCase()),
       item: "https://www.caramelinho.com/negocios/" + countryCode,
     });
   }
@@ -326,40 +437,77 @@ function buildDirectoryBreadcrumbJsonLd(
   snapshot?: DirectoryPageSnapshot,
 ) {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
-  const parts = pathname.split("/").filter(Boolean);
-  const countryCode = (parts[1] || "").toLowerCase();
-  const stateCode = (parts[2] || "").toLowerCase();
-  const citySlug = slugify(parts[3] || "");
-  const category = snapshot?.category || getDirectoryCategoryBySlug(parts[4]);
+  const route = snapshot?.route || parseDirectoryRoute(pathname);
+  if (!route) return null;
+
+  const countryCode = route.countryCode;
+  const stateCode = route.stateCode;
+  const citySlug = route.citySlug;
+  const category = snapshot?.category || getDirectoryCategoryBySlug(route.categorySlug);
   const cityBusiness = businesses.find((business) => {
     const businessCity = getCanonicalCitySlug(business.address.city, business.address.countryCode) || slugify(business.address.citySlug || "");
     return businessCity === citySlug && (business.address.countryCode || "").toLowerCase() === countryCode && (business.address.stateCode || "").toLowerCase() === stateCode;
   });
   const cityName = snapshot?.labels.city || (cityBusiness ? getCityDisplayName(cityBusiness.address.city, countryCode) : citySlug.split("-").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "));
-  const items = [{ name: "Neg\u00f3cios", item: "https://www.caramelinho.com/negocios" }];
-  if (countryCode) items.push({ name: getCountryName(countryCode) || countryCode.toUpperCase(), item: "https://www.caramelinho.com/negocios/" + countryCode });
-  if (stateCode) items.push({ name: snapshot?.labels.state || getStateDisplayName(countryCode, stateCode, cityBusiness?.address.state) || stateCode.toUpperCase(), item: "https://www.caramelinho.com/negocios/" + countryCode + "/" + stateCode });
-  if (citySlug) items.push({ name: cityName || citySlug, item: "https://www.caramelinho.com/negocios/" + countryCode + "/" + stateCode + "/" + citySlug });
+  const rootPath = localizePath("/negocios");
+  const items = [{ name: "Negócios", item: "https://www.caramelinho.com" + rootPath }];
+
+  if (countryCode) {
+    items.push({
+      name: getCountryDisplayName(countryCode, getCountryName(countryCode) || countryCode.toUpperCase()),
+      item: "https://www.caramelinho.com" + buildDirectoryPagePath({ ...route, stateCode: "", citySlug: "", categorySlug: "", page: 1 }),
+    });
+  }
+  if (stateCode) {
+    items.push({
+      name: snapshot?.labels.state || getStateDisplayName(countryCode, stateCode, cityBusiness?.address.state) || stateCode.toUpperCase(),
+      item: "https://www.caramelinho.com" + buildDirectoryPagePath({ ...route, citySlug: "", categorySlug: "", page: 1 }),
+    });
+  }
+  if (citySlug) {
+    items.push({
+      name: cityName || citySlug,
+      item: "https://www.caramelinho.com" + buildDirectoryPagePath({ ...route, categorySlug: "", page: 1 }),
+    });
+  }
   if (category) items.push({ name: category.label, item: canonicalUrl });
   return { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: item.item })) };
 }
 
-export function onRenderHtml(pageContext: PageContext) {
+export async function onRenderHtml(pageContext: PageContext) {
   const { Page } = pageContext;
+  const { pathname } = getPageUrlParts(pageContext.urlOriginal);
+  await preloadAppRoute(pathname);
   const pageHtml = renderToString(<Page pageContext={pageContext} />);
   const business = pageContext.initialBusiness || null;
   const event = pageContext.initialEvent || null;
   const isBusinessPage = !!pageContext.isBusinessPage;
   const isEventPage = !!pageContext.isEventPage;
-  const isDirectoryPage = pageContext.urlOriginal ? new URL(pageContext.urlOriginal, "https://www.caramelinho.com").pathname === "/negocios" || new URL(pageContext.urlOriginal, "https://www.caramelinho.com").pathname.startsWith("/negocios/") : false;
+  const isDirectoryPage = !!parseDirectoryRoute(pathname);
+  const isMarketplaceIndex = pathname === "/marketplace";
+  const isMarketplaceSeller = pathname.startsWith("/marketplace/vendedor/") && !!pageContext.initialMarketplaceSeller;
+  const isMarketplaceBusinessSeller = pathname.startsWith("/marketplace/negocio/") && !!pageContext.initialMarketplaceBusinessSeller;
+  const isMarketplaceDetail = pathname.startsWith("/marketplace/") && !!pageContext.initialMarketplaceListing;
   const canonicalUrl = isEventPage && event
     ? buildEventCanonicalUrl(event.id)
+    : (isMarketplaceIndex || isMarketplaceSeller || isMarketplaceBusinessSeller || isMarketplaceDetail)
+      ? `https://www.caramelinho.com${pathname}`
     : getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
-  const isErrorPage = !!pageContext.is404;
+  const isGone = pageContext.abortStatusCode === 410;
+  const isErrorPage = !!pageContext.is404 || pageContext.abortStatusCode === 404 || isGone || pageContext.abortReason === "not-found";
   const businessHasData = !!business;
+  const localizedBusiness = business;
   const staticMeta = isErrorPage
-    ? getErrorPageMeta()
-    : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || [], pageContext.initialDirectorySnapshot?.pageMeta);
+    ? getErrorPageMeta(isGone)
+    : isMarketplaceIndex
+      ? { title: "Marketplace | Caramelinho", description: "Compre, venda e encontre produtos perto de você no Marketplace do Caramelinho." }
+      : isMarketplaceSeller && pageContext.initialMarketplaceSeller
+        ? { title: `${pageContext.initialMarketplaceSeller.profile.name?.trim() || "Vendedor"} | Marketplace | Caramelinho`, description: `Veja os anúncios ativos e as avaliações dos negócios de ${pageContext.initialMarketplaceSeller.profile.name?.trim() || "vendedor"} no Marketplace do Caramelinho.` }
+      : isMarketplaceBusinessSeller && pageContext.initialMarketplaceBusinessSeller
+        ? { title: `${pageContext.initialMarketplaceBusinessSeller.business.name} | Marketplace | Caramelinho`, description: `Veja os anúncios ativos e as avaliações de ${pageContext.initialMarketplaceBusinessSeller.business.name} no Marketplace do Caramelinho.` }
+      : isMarketplaceDetail && pageContext.initialMarketplaceListing
+        ? { title: `${pageContext.initialMarketplaceListing.title} | Marketplace | Caramelinho`, description: `${pageContext.initialMarketplaceListing.title} em ${pageContext.initialMarketplaceListing.city}. Veja preço, condição e entre em contato com o vendedor.` }
+        : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || [], pageContext.initialDirectorySnapshot?.pageMeta);
   const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal);
   const eventMeta = event
     ? { title: buildEventSeoTitle(event), description: buildEventSeoDescription(event) }
@@ -371,14 +519,14 @@ export function onRenderHtml(pageContext: PageContext) {
   const pageTitle = isErrorPage
     ? staticMeta.title
     : isBusinessPage
-      ? (businessHasData ? buildBusinessTitle(business) : fallbackBusinessMeta.title)
+      ? (businessHasData ? buildBusinessTitle(localizedBusiness!) : fallbackBusinessMeta.title)
       : isEventPage
         ? eventMeta.title
         : staticMeta.title;
   const pageDescription = isErrorPage
     ? staticMeta.description
     : isBusinessPage
-      ? (businessHasData ? buildBusinessDescription(business) : fallbackBusinessMeta.description)
+      ? (businessHasData ? buildBusinessDescription(localizedBusiness!) : fallbackBusinessMeta.description)
       : isEventPage
         ? eventMeta.description
         : staticMeta.description;
@@ -387,13 +535,35 @@ export function onRenderHtml(pageContext: PageContext) {
       ? businessHeroAssets?.optimizedImageUrl || business.heroImage || business.logoUrl || "https://www.caramelinho.com/og-image.jpg"
       : isEventPage && event
       ? event.flyer_url || "https://www.caramelinho.com/og-image.jpg"
+      : isMarketplaceSeller && pageContext.initialMarketplaceSeller?.profile.avatar
+      ? pageContext.initialMarketplaceSeller.profile.avatar
+      : isMarketplaceBusinessSeller && pageContext.initialMarketplaceBusinessSeller?.business.logo_url
+      ? pageContext.initialMarketplaceBusinessSeller.business.logo_url
       : "https://www.caramelinho.com/og-image.jpg";
-  const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, pageContext.is404);
-  const jsonLd = isBusinessPage && businessHasData
+  const robotsContent = getRobotsContentForPage(pageContext.urlOriginal, isErrorPage);
+  const marketplaceListingStructuredData = isMarketplaceDetail && pageContext.initialMarketplaceListing
+    ? marketplaceListingJsonLd(pageContext.initialMarketplaceListing, canonicalUrl)
+    : null;
+  const jsonLd = isMarketplaceBusinessSeller && pageContext.initialMarketplaceBusinessSeller
     ? [
         { id: "website", data: buildWebsiteJsonLd() },
-        { id: "business-local", data: buildBusinessJsonLd(business, canonicalUrl, pageImage) },
-        { id: "business-breadcrumb", data: buildBusinessBreadcrumbJsonLd(business, canonicalUrl) },
+        { id: "marketplace-business-seller", data: marketplaceBusinessSellerJsonLd(pageContext.initialMarketplaceBusinessSeller, canonicalUrl) },
+      ]
+    : isMarketplaceSeller && pageContext.initialMarketplaceSeller
+    ? [
+        { id: "website", data: buildWebsiteJsonLd() },
+        { id: "marketplace-seller", data: marketplaceSellerJsonLd(pageContext.initialMarketplaceSeller, canonicalUrl) },
+      ]
+    : isMarketplaceDetail && pageContext.initialMarketplaceListing
+    ? [
+        { id: "website", data: buildWebsiteJsonLd() },
+        ...(marketplaceListingStructuredData ? [{ id: "marketplace-listing", data: marketplaceListingStructuredData }] : []),
+      ]
+    : isBusinessPage && businessHasData
+    ? [
+        { id: "website", data: buildWebsiteJsonLd() },
+        { id: "business-local", data: buildBusinessJsonLd(localizedBusiness!, canonicalUrl, pageImage) },
+        { id: "business-breadcrumb", data: buildBusinessBreadcrumbJsonLd(localizedBusiness!, canonicalUrl) },
       ]
     : isEventPage && event
       ? [
@@ -410,7 +580,7 @@ export function onRenderHtml(pageContext: PageContext) {
   const jsonLdHtml = jsonLd.map((item) => jsonLdScript(item.data, item.id)).join("\n");
 
   return escapeInject`<!doctype html>
-<html lang="pt-BR">
+<html lang="${getLocaleHtmlLang()}">
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -421,7 +591,7 @@ export function onRenderHtml(pageContext: PageContext) {
     <title>${pageTitle}</title>
     <meta name="description" content="${pageDescription}" />
     <meta property="og:site_name" content="Caramelinho.com" />
-    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:locale" content="${getLocaleOgCode()}" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="${pageTitle}" />
     <meta property="og:description" content="${pageDescription}" />

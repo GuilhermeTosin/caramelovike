@@ -24,14 +24,14 @@ export default function ProfileCompletionCard({ data, compact = false }: Profile
     <Card className="border-amber-200 bg-amber-50/70 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-amber-950">Perfil {getProfileScoreLabel(score)}</p>
+          <p className="text-sm font-semibold text-amber-950">{"Perfil"} {getProfileScoreLabel(score)}</p>
           <p className="mt-1 text-xs leading-relaxed text-amber-900/80">
             {"Perfis completos t\u00eam mais chances de aparecer em buscas relacionadas e ajudam o cliente a decidir com confian\u00e7a."}
           </p>
         </div>
         <strong className="text-2xl font-extrabold text-amber-700">{score}%</strong>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-amber-100" role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={100} aria-label="Completude do perfil">
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-amber-100" role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={100} aria-label={"Completude do perfil"}>
         <div className="h-full rounded-full bg-amber-500 transition-all duration-300" style={{ width: `${score}%` }} />
       </div>
       {pendingItems.length > 0 ? (
@@ -43,14 +43,14 @@ export default function ProfileCompletionCard({ data, compact = false }: Profile
               <span>
                 {item.label}
                 {item.progress ? <span className="text-amber-800/70"> ({item.progress})</span> : null}
-                {" "}(+{item.points - item.earned} pontos)
+                {" "}(+{item.points - item.earned} {"pontos"})
               </span>
             </div>
           ))}
         </div>
       ) : (
         <p className="mt-3 flex items-center gap-2 text-xs font-medium text-emerald-700">
-          <CheckCircle2 className="h-4 w-4" /> Perfil completo.
+          <CheckCircle2 className="h-4 w-4" /> {"Perfil completo."}
         </p>
       )}
     </Card>

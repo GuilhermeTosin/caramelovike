@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import { useEffect } from "react";
-import SiteHeaderAuthActions from "@/components/SiteHeaderAuthActions";
 
 function setMetaTag(attr: "name" | "property", key: string, content: string) {
   let meta = document.querySelector(`meta[${attr}="${key}"]`) as HTMLMetaElement | null;
@@ -52,24 +51,6 @@ export default function AboutPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-24">
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-14 h-14 sm:w-[5.5rem] sm:h-[5.5rem] flex items-center justify-center">
-                <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
-              </div>
-              <div className="leading-tight min-w-0">
-                <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
-                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{"O SEU FARO FORA DO BRASIL"}</div>
-              </div>
-            </Link>
-
-            <SiteHeaderAuthActions className="flex items-center gap-1.5 sm:gap-3" compact />
-          </div>
-        </div>
-      </header>
-
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
           ← Voltar para início
@@ -84,6 +65,8 @@ export default function AboutPage() {
               title="Caramelinho - O seu faro fora do Brasil"
               width={280}
               height={280}
+              srcSet="/logo-176.webp 176w, /logo-224.webp 224w"
+              sizes="(max-width: 640px) 220px, 280px"
               decoding="async"
               fetchpriority="high"
               loading="eager"

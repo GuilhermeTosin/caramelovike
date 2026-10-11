@@ -30,6 +30,29 @@ type Props = {
 };
 
 export default function AddCommunityFindForm({ onCreated }: Props) {
+  const text = {
+        required: "Preencha o nome do produto, o nome do local e o endereço.",
+        uploadError: "Não foi possível enviar a foto do achadinho.",
+        publishError: "Não foi possível publicar o achadinho.",
+        publishedWithPlace: "Achadinho publicado com sucesso com a localização do local selecionado.",
+        published: "Achadinho publicado com sucesso.",
+        publishedWithIp: "Achadinho publicado com sucesso usando localização aproximada por IP.",
+        geolocationError: "Não foi possível obter sua localização (GPS/IP).",
+        title: "Adicionar Achadinho",
+        description: "Compartilhe uma descoberta da comunidade com localização precisa do local.",
+        productName: "Nome do produto",
+        placeName: "Nome do local",
+        address: "Endereço/local",
+        exactLocationHint: "Selecione uma opção da lista para usar a localização exata do local.",
+        category: "Categoria",
+        selectCategory: "Selecione a categoria",
+        photo: "Foto do achadinho (opcional)",
+        formats: "Formatos aceitos: JPG, PNG e WEBP. Recomendado até 5 MB.",
+        preview: "Preview do achadinho",
+        remove: "Remover",
+        publishing: "Publicando...",
+        publish: "Publicar achadinho",
+      };
   const [productName, setProductName] = useState("");
   const [placeName, setPlaceName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
@@ -47,7 +70,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
     setSuccess(null);
 
     if (!productName.trim() || !placeName.trim() || !locationAddress.trim()) {
-      setError("Preencha o nome do produto, o nome do local e o endereço.");
+      setError(text.required);
       return;
     }
 
@@ -64,7 +87,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
         const path = generateImagePath(ownerId, "photo", photoFile.name);
         photoUrl = await uploadImage("business-images", path, photoFile);
         if (!photoUrl) {
-          setError("Não foi possível enviar a foto do achadinho.");
+          setError(text.uploadError);
           setLoading(false);
           return;
         }
@@ -81,7 +104,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
       });
 
       if (!result.ok) {
-        setError(result.error || "Não foi possível publicar o achadinho.");
+        setError(result.error || text.publishError);
         setLoading(false);
         return;
       }
@@ -95,10 +118,10 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
       setPhotoPreview(null);
       setSuccess(
         source === "place"
-          ? "Achadinho publicado com sucesso com a localização do local selecionado."
+          ? text.publishedWithPlace
           : source === "gps"
-            ? "Achadinho publicado com sucesso."
-            : "Achadinho publicado com sucesso usando localização aproximada por IP."
+            ? text.published
+            : text.publishedWithIp
       );
       setLoading(false);
       onCreated?.();
@@ -108,7 +131,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
       const approx = await getApproxGeoByIp();
       if (!approx) {
         setLoading(false);
-        setError("Não foi possível obter sua localização (GPS/IP).");
+        setError(text.geolocationError);
         return;
       }
       await publishWithCoords({ lat: approx.lat, lng: approx.lng, accuracy: null }, "ip");
@@ -148,39 +171,39 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
   return (
     <Card className="p-4 sm:p-6 border-border">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-foreground">Adicionar Achadinho</h3>
+        <h3 className="text-lg font-semibold text-foreground">{text.title}</h3>
         <p className="text-sm text-muted-foreground">
-          Compartilhe uma descoberta da comunidade com localização precisa do local.
+          {text.description}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="find-product-name">Nome do produto</Label>
+          <Label htmlFor="find-product-name">{text.productName}</Label>
           <Input
             id="find-product-name"
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
-            placeholder="Ex.: Guaraná Antarctica"
+            placeholder={"Ex.: Guaraná Antarctica"}
             maxLength={140}
             required
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="find-place-name">Nome do local</Label>
+          <Label htmlFor="find-place-name">{text.placeName}</Label>
           <Input
             id="find-place-name"
             value={placeName}
             onChange={(e) => setPlaceName(e.target.value)}
-            placeholder="Ex.: Walmart Downtown Montreal"
+            placeholder={"Ex.: Walmart Downtown Montreal"}
             maxLength={180}
             required
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="find-location-name">Endereço/local</Label>
+          <Label htmlFor="find-location-name">{text.address}</Label>
           <AddressAutocomplete
             value={locationAddress}
             onChange={(address) => {
@@ -191,18 +214,18 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
               setSelectedPlace(place);
               setLocationAddress(place.formattedAddress || `${place.city}, ${place.country}`);
             }}
-            placeholder="Ex.: Walmart, 123 Main St, Montreal"
+            placeholder={"Ex.: Walmart, 123 Main St, Montreal"}
           />
           <p className="text-xs text-muted-foreground">
-            Selecione uma opção da lista para usar a localização exata do local.
+            {text.exactLocationHint}
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label>Categoria</Label>
+          <Label>{text.category}</Label>
           <Select value={category} onValueChange={(value) => setCategory(value as CommunityFindCategory)}>
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Selecione a categoria" />
+              <SelectValue placeholder={text.selectCategory} />
             </SelectTrigger>
             <SelectContent>
               {CATEGORY_OPTIONS.map((option) => (
@@ -215,7 +238,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="find-photo">Foto do achadinho (opcional)</Label>
+          <Label htmlFor="find-photo">{text.photo}</Label>
           <input
             id="find-photo"
             type="file"
@@ -232,11 +255,11 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
             className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-md file:border file:border-border file:bg-secondary file:px-3 file:py-1.5 file:text-foreground"
           />
           <p className="text-xs text-muted-foreground">
-            Formatos aceitos: JPG, PNG e WEBP. Recomendado até 5 MB.
+            {text.formats}
           </p>
           {photoPreview ? (
             <div className="relative w-40 h-40 rounded-lg overflow-hidden border border-border">
-              <img src={photoPreview} alt="Preview do achadinho" className="w-full h-full object-cover" />
+              <img src={photoPreview} alt={text.preview} className="w-full h-full object-cover" />
               <button
                 type="button"
                 onClick={() => {
@@ -245,7 +268,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
                 }}
                 className="absolute top-1 right-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded"
               >
-                Remover
+                {text.remove}
               </button>
             </div>
           ) : null}
@@ -258,12 +281,12 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Publicando...
+              {text.publishing}
             </>
           ) : (
             <>
               <MapPin className="w-4 h-4 mr-2" />
-              Publicar achadinho
+              {text.publish}
             </>
           )}
         </Button>

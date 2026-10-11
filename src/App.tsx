@@ -1,31 +1,50 @@
-import { BrowserRouter, Route, Routes, StaticRouter, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, StaticRouter, useLocation, useNavigate } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { MarketplaceChatProvider } from "@/contexts/MarketplaceChatContext";
+import MarketplaceChatPopup from "@/components/MarketplaceChatPopup";
+import { useAuth } from "@/contexts/AuthContext";
 import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
 import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import type { HomePublicSnapshot } from "@/lib/homeSnapshot";
 import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import type { PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
-import Home from "@/pages/Home";
-import SearchResults from "@/pages/SearchResults";
-import BusinessDirectoryPage from "@/pages/BusinessDirectoryPage";
-import Register from "@/pages/Register";
-import Login from "@/pages/Login";
-import ResetPassword from "@/pages/ResetPassword";
-import UserProfile from "@/pages/UserProfile";
-import VerifiedBusinessInfo from "@/pages/VerifiedBusinessInfo";
-import EventPage from "@/pages/EventPage";
-import BusinessShortLink from "@/pages/BusinessShortLink";
-import BusinessWizardPage from "@/pages/BusinessWizardPage";
-import AboutPage from "@/pages/AboutPage";
-import ContactPage from "@/pages/ContactPage";
-import PrivacyPage from "@/pages/PrivacyPage";
-import TermsPage from "@/pages/TermsPage";
-import NotFound from "@/pages/NotFound";
+import type { MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
+import { DEFAULT_CATEGORY_SYNONYMS } from "@/services/searchPreferences";
 import BusinessPageRoute from "@/pages/BusinessPageRoute";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import SiteHeader from "@/components/SiteHeader";
+import { SearchLocationProvider } from "@/contexts/SearchLocationContext";
+import {
+  AboutPage,
+  BusinessDirectoryPage,
+  BusinessShortLink,
+  BusinessWizardPage,
+  ContactPage,
+  EventPage,
+  HomeV2,
+  Login,
+  MarketplaceBusinessSellerPage,
+  MarketplaceCreatePage,
+  MarketplaceEditPage,
+  MarketplaceListingPage,
+  MarketplacePage,
+  MarketplaceSellerPage,
+  NotFound,
+  PrivacyPage,
+  Register,
+  ResetPassword,
+  SearchResults,
+  TermsPage,
+  UserProfile,
+  VerifiedBusinessInfo,
+} from "@/appRouteModules";
+
+function RouteLoading() {
+  return <div className="min-h-[40vh]" aria-busy="true" aria-label="Carregando página" />;
+}
 
 const VercelAnalytics = lazy(async () => {
   const module = await import("@vercel/analytics/react");
@@ -56,15 +75,41 @@ function ScrollToTop() {
   return null;
 }
 
+function PasswordRecoveryRedirect() {
+  const { isPasswordRecovery } = useAuth();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    if (isPasswordRecovery && pathname !== "/redefinir-senha") {
+      navigate(`/redefinir-senha${window.location.hash}`, { replace: true });
+      return;
+    }
+
+    if (pathname === "/redefinir-senha" || typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    if (params.get("error") || params.get("error_code") || params.get("error_description")) {
+      navigate(`/redefinir-senha${window.location.hash}`, { replace: true });
+    }
+  }, [isPasswordRecovery, navigate, pathname]);
+
+  return null;
+}
+
 function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean }) {
   const { pathname, search } = useLocation();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const privatePaths = new Set(["/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard"]);
+    const privatePaths = new Set([
+      "/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard",
+    ]);
     const isPrivatePreviewPath = pathname.startsWith("/preview/negocio/");
-    const canonicalPathname = isBusinessPage ? pathname : getInternalSearchCanonicalPath(pathname);
-    const canonicalSearch = isBusinessPage || getInternalSearchRobots(pathname) ? "" : search;
+    const isExperimentalHome = pathname === "/index2";
+    const isMarketplacePath = pathname === "/marketplace" || pathname.startsWith("/marketplace/");
+    const canonicalPathname = isExperimentalHome ? "/" : isBusinessPage || isMarketplacePath ? pathname : getInternalSearchCanonicalPath(pathname);
+    const canonicalSearch = isExperimentalHome || isBusinessPage || isMarketplacePath || getInternalSearchRobots(pathname) ? "" : search;
     const canonicalPath = `${canonicalPathname}${canonicalSearch}`;
     const canonicalUrl = `${window.location.origin}${canonicalPath}`;
 
@@ -73,6 +118,11 @@ function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean
 
     if (privatePaths.has(pathname) || isPrivatePreviewPath) {
       setRobots("noindex,nofollow,noarchive");
+      return;
+    }
+
+    if (isExperimentalHome) {
+      setRobots("noindex,follow");
       return;
     }
 
@@ -96,16 +146,23 @@ type AppProps = {
   initialBusinesses?: BusinessFrontend[];
   initialBusinessesAreSearchReady?: boolean;
   initialFeaturedBusinesses?: BusinessFrontend[];
+  initialShowFeaturedBusinesses?: boolean;
+  initialRecentBusinesses?: BusinessFrontend[];
   initialAvailableLocations?: Array<{
     countryCode: string;
     countryName: string;
     states: { code: string; name: string; cities: string[] }[];
   }>;
   initialSearchSuggestions?: string[];
+  initialSearchSynonyms?: Record<string, string[]>;
   initialSearchSnapshot?: PublicSearchPageSnapshot;
   initialHomeSnapshot?: HomePublicSnapshot;
   initialDirectorySnapshot?: DirectoryPageSnapshot;
   initialEvent?: CommunityEvent | null;
+  initialMarketplaceSnapshot?: MarketplaceSnapshot;
+  initialMarketplaceListing?: import("@/types/database").MarketplaceListing | null;
+  initialMarketplaceSeller?: import("@/services/marketplace").MarketplaceSellerPage | null;
+  initialMarketplaceBusinessSeller?: import("@/services/marketplace").MarketplaceBusinessSellerPage | null;
   isBusinessPage?: boolean;
 };
 
@@ -125,34 +182,54 @@ export default function App({
   initialBusinesses = [],
   initialBusinessesAreSearchReady = false,
   initialFeaturedBusinesses = [],
+  initialShowFeaturedBusinesses = true,
+  initialRecentBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
+  initialSearchSynonyms = DEFAULT_CATEGORY_SYNONYMS,
   initialSearchSnapshot,
   initialHomeSnapshot,
   initialDirectorySnapshot,
   initialEvent = null,
+  initialMarketplaceSnapshot,
+  initialMarketplaceListing = null,
+  initialMarketplaceSeller = null,
+  initialMarketplaceBusinessSeller = null,
   isBusinessPage = false,
 }: AppProps = {}) {
   return (
     <AuthProvider>
+      <MarketplaceChatProvider>
       <AppRouter router={router} location={location}>
-        <ScrollToTop />
-        <CanonicalManager isBusinessPage={isBusinessPage} />
-        <GoogleAnalytics />
-        <Routes>
+        <SearchLocationProvider>
+          <ScrollToTop />
+          <PasswordRecoveryRedirect />
+          <CanonicalManager isBusinessPage={isBusinessPage} />
+          <GoogleAnalytics />
+          <SiteHeader
+            initialAvailableLocations={initialAvailableLocations}
+            initialSearchSuggestions={initialSearchSuggestions}
+          />
+          <div className="pt-[var(--site-header-height)]">
+          <Suspense fallback={<RouteLoading />}>
+          <Routes>
           <Route
             path="/"
             element={
-              <Home
-                initialBusinesses={initialBusinesses}
-                initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
+              <HomeV2
                 initialFeaturedBusinesses={initialFeaturedBusinesses}
+                initialShowFeaturedBusinesses={initialShowFeaturedBusinesses}
+                initialRecentBusinesses={initialRecentBusinesses}
                 initialAvailableLocations={initialAvailableLocations}
                 initialSearchSuggestions={initialSearchSuggestions}
-                initialSearchSnapshot={initialSearchSnapshot}
                 initialHomeSnapshot={initialHomeSnapshot}
+                initialMarketplaceSnapshot={initialMarketplaceSnapshot}
               />
             }
+          />
+          <Route
+            path="/index2"
+            element={<Navigate to="/" replace />}
           />
           <Route
             path="/buscar"
@@ -161,7 +238,7 @@ export default function App({
                 initialBusinesses={initialBusinesses}
                 initialBusinessesAreSearchReady={initialBusinessesAreSearchReady}
                 initialAvailableLocations={initialAvailableLocations}
-                initialSearchSuggestions={initialSearchSuggestions}
+                initialSearchSynonyms={initialSearchSynonyms}
                 initialSearchSnapshot={initialSearchSnapshot}
               />
             }
@@ -182,17 +259,29 @@ export default function App({
           <Route path="/contato" element={<ContactPage />} />
           <Route path="/privacidade" element={<PrivacyPage />} />
           <Route path="/termos" element={<TermsPage />} />
+          <Route path="/eventos" element={<Navigate to="/buscar?eventos=1" replace />} />
           <Route path="/eventos/:eventId" element={<EventPage initialEvent={initialEvent} />} />
+          <Route path="/marketplace" element={<MarketplacePage initialSnapshot={initialMarketplaceSnapshot} />} />
+          <Route path="/marketplace/novo" element={<MarketplaceCreatePage />} />
+          <Route path="/marketplace/editar/:id" element={<MarketplaceEditPage />} />
+          <Route path="/marketplace/vendedor/:ownerId" element={<MarketplaceSellerPage initialSeller={initialMarketplaceSeller} />} />
+          <Route path="/marketplace/negocio/:businessId" element={<MarketplaceBusinessSellerPage initialBusinessSeller={initialMarketplaceBusinessSeller} />} />
+          <Route path="/marketplace/:countryCode/:stateCode/:city/:slug" element={<MarketplaceListingPage initialListing={initialMarketplaceListing} />} />
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
           <Route path="/preview/negocio/:businessId" element={<BusinessPageRoute previewMode />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
           <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="/:countryCode/:businessName" element={<BusinessPageRoute initialBusiness={initialBusiness} initialBusinesses={initialBusinesses} initialSimilarBusinesses={initialSimilarBusinesses} />} />
           <Route path="*" element={<NotFound />} />
-        </Routes>
+          </Routes>
+          </Suspense>
+          </div>
+        </SearchLocationProvider>
+        <MarketplaceChatPopup />
       </AppRouter>
       <Toaster richColors position="top-center" />
       <DeferredAnalytics />
+      </MarketplaceChatProvider>
     </AuthProvider>
   );
 }

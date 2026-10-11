@@ -14,7 +14,10 @@ function render404Html() {
       :root { color-scheme: light; }
       body {
         margin: 0;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
         color: #111827;
         background: linear-gradient(180deg, #fffdf7 0%, #f7f7f2 100%);
         min-height: 100vh;
@@ -114,7 +117,10 @@ function render500Html() {
       :root { color-scheme: light; }
       body {
         margin: 0;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
         color: #111827;
         background: linear-gradient(180deg, #fffdf7 0%, #f7f7f2 100%);
         min-height: 100vh;
@@ -192,7 +198,9 @@ function render500Html() {
 }
 
 function parseBusinessPath(pathname) {
-  const parts = pathname.split("/").filter(Boolean);
+  const pathParts = pathname.split("/").filter(Boolean);
+  const parts = pathParts;
+
   if (parts.length === 4) {
     const [countryCode, stateCode, city, businessName] = parts;
     return { kind: "full", countryCode, stateCode, city, businessName };
@@ -219,11 +227,18 @@ function isKnownAppPath(pathname) {
     "/privacidade",
     "/termos",
     "/negocio/wizard",
+    "/marketplace",
   ]);
 
   if (exactPaths.has(pathname)) return true;
   if (pathname.startsWith("/negocios/")) return true;
   if (pathname.startsWith("/eventos/")) return true;
+  if (pathname.startsWith("/marketplace/")) {
+    const parts = pathname.split("/").filter(Boolean);
+    return (parts[1] === "novo" && parts.length === 2)
+      || (parts[1] === "editar" && parts.length === 3)
+      || parts.length === 5;
+  }
   if (pathname.startsWith("/preview/negocio/")) return true;
   if (pathname.startsWith("/go/")) return true;
   return !!parseBusinessPath(pathname);
@@ -255,6 +270,8 @@ function applyPublicPageCacheHeaders(res, pathname, statusCode) {
 export default async function handler(req, res) {
   const { url } = req;
   if (url === undefined) throw new Error("req.url is undefined");
+
+  const requestedUrl = new URL(url, "http://localhost");
 
   let pageContext;
   try {
@@ -288,7 +305,7 @@ export default async function handler(req, res) {
   const { body, statusCode, headers } = httpResponse;
   res.statusCode = statusCode;
   headers.forEach(([name, value]) => res.setHeader(name, value));
-  applyPublicPageCacheHeaders(res, new URL(url, "http://localhost").pathname, statusCode);
+  applyPublicPageCacheHeaders(res, requestedUrl.pathname, statusCode);
   if (statusCode === 404) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(render404Html());

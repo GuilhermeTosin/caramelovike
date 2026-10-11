@@ -104,18 +104,14 @@ export function getSiteContent(): SiteContent {
 
 export const siteContent = SITE_CONTENT_BY_LOCALE["pt-BR"];
 
-const MASCOT_PHRASES_BY_LOCALE: Record<"pt-BR", readonly string[]> = {
-  "pt-BR": [
-    "O farejador de negócios brasileiros",
-    "Achamos tudo! Até pastel na neve 🐶",
-    "Caramelinho farejou mais um negócio!",
-    "Brasileiro no exterior? A gente acha!",
-    "Farejando brasilidade pelo mundo",
-  ] as const,
-};
+export const MASCOT_PHRASES = [
+  "O farejador de negócios brasileiros",
+  "Achamos tudo! Até pastel na neve 🐶",
+  "Caramelinho farejou mais um negócio!",
+  "Brasileiro no exterior? A gente acha!",
+  "Farejando brasilidade pelo mundo",
+] as const;
 
 export function getMascotPhrases() {
-  return MASCOT_PHRASES_BY_LOCALE["pt-BR"];
+  return MASCOT_PHRASES;
 }
-
-export const MASCOT_PHRASES = MASCOT_PHRASES_BY_LOCALE["pt-BR"];

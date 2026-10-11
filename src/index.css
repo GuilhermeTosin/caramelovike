@@ -1,13 +1,28 @@
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-ext-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-ext-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/inter/latin-ext-600.css";
+@import "@fontsource/inter/latin-700.css";
+@import "@fontsource/inter/latin-ext-700.css";
+@import "@fontsource/inter/latin-800.css";
+@import "@fontsource/inter/latin-ext-800.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 html {
   scrollbar-gutter: stable;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 @layer base {
   :root {
+    --site-header-height: 12.375rem;
     --background: 0 0% 100%;
     --foreground: 20 14.3% 4.1%;
     --card: 0 0% 100%;
@@ -53,13 +68,30 @@ html {
   }
 }
 
+@media (min-width: 1024px) {
+  :root {
+    --site-header-height: 5.0625rem;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    font-kerning: normal;
+    font-optical-sizing: auto;
+    font-synthesis: none;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
   }
 
   input::placeholder,
@@ -77,6 +109,18 @@ html {
   background: linear-gradient(135deg, #BA4D0A 0%, #D86A1C 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.hero-gradient-phrase {
+  background-image: linear-gradient(90deg, #203940 0%, #2d7a4a 30%, #c89912 61%, #2d6898 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  padding-inline: 0.02em;
+  margin-inline: -0.02em;
 }
 
 .shadow-soft {

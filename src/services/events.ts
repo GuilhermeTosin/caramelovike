@@ -1,6 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import type { BusinessEvent, CommunityEvent } from "@/types/database";
 
+const PUBLIC_EVENT_SELECT = "id,business_id,title,description,date,location,is_free,price,flyer_url,ticket_url,status,created_at,updated_at";
+
 export type CommunityEventInput = {
   businessId?: string | null;
   title: string;
@@ -18,7 +20,7 @@ export async function getPublishedCommunityEvents(): Promise<CommunityEvent[]> {
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("events")
-    .select("*")
+    .select(PUBLIC_EVENT_SELECT)
     .eq("status", "published")
     .gte("date", today)
     .order("date", { ascending: true });
@@ -56,7 +58,7 @@ export async function getCommunityEventsByOwnerAndBusiness(
 export async function getCommunityEventById(id: string): Promise<CommunityEvent | null> {
   const { data, error } = await supabase
     .from("events")
-    .select("*")
+    .select(PUBLIC_EVENT_SELECT)
     .eq("id", id)
     .eq("status", "published")
     .maybeSingle();
