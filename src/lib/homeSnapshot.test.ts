@@ -22,6 +22,21 @@ function business(id: string, categoryId: string, city: string): BusinessFronten
   };
 }
 
+function portugueseBusiness(id: string, city: string, cityDisplayName: string): BusinessFrontend {
+  const result = business(id, "food", city);
+  return {
+    ...result,
+    address: {
+      ...result.address,
+      country: "Portugal",
+      countryCode: "pt",
+      state: "Lisboa",
+      stateCode: "li",
+      cityDisplayName,
+    },
+  };
+}
+
 describe("home public snapshot", () => {
   it("keeps only aggregate data needed for the home", () => {
     const snapshot = buildHomePublicSnapshot([
@@ -35,5 +50,19 @@ describe("home public snapshot", () => {
     expect(snapshot.countryCount).toBe(1);
     expect(snapshot.categoryCounts).toEqual({ food: 2, health_beauty: 1 });
     expect(snapshot.popularCities[0]).toMatchObject({ displayName: "Montreal", count: 2, href: "/negocios/ca/qc/montreal" });
+  });
+
+  it("does not let a mismatched location rename the aggregate for a larger city", () => {
+    const snapshot = buildHomePublicSnapshot([
+      portugueseBusiness("mismatched", "Lisboa", "Paço de Arcos"),
+      ...Array.from({ length: 104 }, (_, index) =>
+        portugueseBusiness(`lisboa-${index}`, "Lisboa", "Lisboa")),
+      portugueseBusiness("paco", "Paço de Arcos", "Paço de Arcos"),
+    ]);
+
+    expect(snapshot.popularCities).toEqual(expect.arrayContaining([
+      expect.objectContaining({ displayName: "Lisboa", count: 104, href: "/negocios/pt/li/lisboa" }),
+      expect.objectContaining({ displayName: "Paço de Arcos", count: 2, href: "/negocios/pt/li/paco-de-arcos" }),
+    ]));
   });
 });

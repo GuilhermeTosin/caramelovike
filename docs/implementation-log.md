@@ -24,6 +24,17 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-11 15:38:12 -04:00
+
+- Status: corrigido localmente e validado em 2026-10-11 15:39:37 -04:00.
+- Solicitacao: diagnosticar por que a cidade mais popular da secao Pelo mundo aparece como Paco de Arcos apesar de a maioria dos negocios pertencer a Lisboa.
+- Diagnostico: havia um negocio aprovado com `city = Lisboa` e `city_slug = lisboa`, mas `location_id` associado a `business_locations` de Paco de Arcos. O snapshot agrupava por `city` e selecionava o rotulo da localidade do primeiro registro, permitindo que essa divergencia renomeasse o grupo inteiro; o link continuava apontando para Lisboa.
+- Implementacao: `buildHomePublicSnapshot` agora usa o nome da localidade exibida para formar em conjunto a chave de agrupamento, o rotulo e o slug do link. Foi adicionado teste de regressao com um registro Lisboa/Paço divergente e 104 registros corretamente associados a Lisboa.
+- Arquivos: `src/lib/homeSnapshot.ts`, `src/lib/homeSnapshot.test.ts` e este registro.
+- Validacao: teste focado passou; `npm run verify` passou com typecheck e 149 testes em 29 arquivos; `npm run check:encoding` e `git diff --check` passaram. O build e a validacao visual no browser nao foram executados nesta etapa.
+- Migrations/configuracoes externas: nenhuma alteracao remota. A linha com `location_id` inconsistente continua precisando de correcao no banco, apos identificar o negocio por `id`.
+- Riscos residuais e deploy: local apenas; nao houve deploy. O snapshot agora separa grupos pelo nome canonico exibido, mas a associacao errada na linha do negocio nao e corrigida por esta mudanca de frontend.
+
 ### 2026-10-11 15:28:58 -04:00
 
 - Status: historico de migrations reconciliado em producao.
