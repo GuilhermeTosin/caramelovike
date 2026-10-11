@@ -1,6 +1,7 @@
 import { AlertTriangle, Home, Search } from "lucide-react";
 import type { RendererPageContext } from "@/renderer/pageContext";
 import NotFound from "@/pages/NotFound";
+import BusinessRemovedNotice from "@/components/BusinessRemovedNotice";
 
 export { Page };
 
@@ -67,6 +68,7 @@ function GenericErrorPage() {
 
 function Page({ pageContext }: { pageContext: RendererPageContext }) {
   const { is404, abortStatusCode, abortReason } = pageContext;
+  if (abortStatusCode === 410) return <BusinessRemovedNotice />;
   if (is404 || abortStatusCode === 404 || abortReason === "not-found") {
     return <NotFound />;
   }

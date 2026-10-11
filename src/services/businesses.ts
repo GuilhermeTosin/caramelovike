@@ -1296,6 +1296,37 @@ export async function getBusinessByHistoricalPath(
 
   return null;
 }
+
+function normalizeBusinessUrlPath(path: string): string {
+  const pathname = (path || "").split(/[?#]/, 1)[0];
+  const segments = pathname.split("/").filter(Boolean).map((segment) => {
+    try {
+      return decodeURIComponent(segment).toLowerCase();
+    } catch {
+      return segment.toLowerCase();
+    }
+  });
+  return `/${segments.join("/")}`;
+}
+
+export async function isBusinessUrlTombstoned(path: string): Promise<boolean> {
+  const routePath = normalizeBusinessUrlPath(path);
+  if (routePath === "/") return false;
+
+  const { data, error } = await supabase
+    .from("business_url_tombstones")
+    .select("route_path")
+    .eq("route_path", routePath)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[isBusinessUrlTombstoned] Could not check retired URL:", error.message);
+    return false;
+  }
+
+  return !!data;
+}
+
 export async function getBusinessBySlug(
   countryCode: string,
   stateCode: string,
@@ -1447,13 +1478,23 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
     .eq("short_slug", normalizedSlug)
     .maybeSingle();
 
+  let linkedBusinessId = shortLink?.business_id as string | undefined;
+  if (!linkedBusinessId) {
+    const { data: historicalLink } = await supabase
+      .from("business_short_link_history")
+      .select("business_id")
+      .eq("old_short_slug", normalizedSlug)
+      .maybeSingle();
+    linkedBusinessId = historicalLink?.business_id as string | undefined;
+  }
+
   let data: Business | null = null;
-  if (shortLink?.business_id) {
+  if (linkedBusinessId) {
     const { data: linkedBusiness } = await supabase
       .from("businesses")
       .select(PUBLIC_BUSINESS_DETAIL_SELECT)
       .or("moderation_status.eq.approved,moderation_status.is.null")
-      .eq("id", shortLink.business_id)
+      .eq("id", linkedBusinessId)
       .maybeSingle();
     data = (linkedBusiness as unknown as Business | null) ?? null;
   }
@@ -1493,7 +1534,27 @@ async function isHistoricalBusinessSlugAvailable(slug: string, excludeBusinessId
   const { data, error } = await query;
   // The migration may not have been applied in a local environment yet.
   if (error) return true;
-  return !data || data.length === 0;
+  if (data && data.length > 0) return false;
+
+  let shortHistoryQuery = supabase
+    .from("business_short_link_history")
+    .select("business_id")
+    .eq("old_short_slug", slug)
+    .limit(1);
+  if (excludeBusinessId) {
+    shortHistoryQuery = shortHistoryQuery.neq("business_id", excludeBusinessId);
+  }
+  const { data: shortHistory, error: shortHistoryError } = await shortHistoryQuery;
+  if (!shortHistoryError && shortHistory && shortHistory.length > 0) return false;
+
+  const { data: tombstones, error: tombstoneError } = await supabase
+    .from("business_url_tombstones")
+    .select("reserved_slug")
+    .eq("reserved_slug", slug)
+    .limit(1);
+  if (!tombstoneError && tombstones && tombstones.length > 0) return false;
+
+  return true;
 }
 export async function isBusinessSlugAvailable(
   slug: string,
@@ -1546,14 +1607,13 @@ async function generateUniqueOfficialBusinessSlug(
   const base = slugify(baseText || "");
   if (!base) return "";
 
-  let candidate = base;
-  let counter = 2;
-  while (!(await isOfficialBusinessSlugAvailable(candidate, excludeBusinessId))) {
-    candidate = `${base}-${counter}`;
-    counter += 1;
-    if (counter > 5000) break;
+  for (let suffix = 1; suffix <= 5000; suffix += 1) {
+    const candidate = suffix === 1 ? base : `${base}-${suffix}`;
+    if (await isOfficialBusinessSlugAvailable(candidate, excludeBusinessId)) {
+      return candidate;
+    }
   }
-  return candidate;
+  return "";
 }
 
 export async function getBusinessShortSlug(businessId: string): Promise<string> {
@@ -1934,6 +1994,26 @@ export async function updateBusiness(
   if (shortSlugCandidate) {
     const shortAvailable = await isBusinessSlugAvailable(shortSlugCandidate, id);
     if (!shortAvailable) return false;
+  }
+
+  const nextName = typeof normalizedUpdates.name === "string" ? normalizedUpdates.name.trim() : null;
+  if (nextName !== null) {
+    const { data: currentBusiness, error: currentBusinessError } = await supabase
+      .from("businesses")
+      .select("name")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (currentBusinessError || !currentBusiness) {
+      console.error("[updateBusiness] Could not read current business name before updating its canonical URL:", currentBusinessError);
+      return false;
+    }
+
+    if ((currentBusiness.name || "").trim() !== nextName) {
+      const canonicalSlug = await generateUniqueOfficialBusinessSlug(nextName, id);
+      if (!canonicalSlug) return false;
+      normalizedUpdates.slug = canonicalSlug;
+    }
   }
 
   // Mapear camelCase para snake_case (colunas do banco)

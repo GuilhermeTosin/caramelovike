@@ -9,6 +9,7 @@ import {
   getBusinessByCountryAndSlug,
   getBusinessByHistoricalPath,
   getBusinessByShortSlug,
+  isBusinessUrlTombstoned,
   getBusinessBySlug,
   getSearchSuggestions,
   resolveCanonicalLocationSlug,
@@ -564,6 +565,7 @@ export async function onBeforeRender(pageContext: PageContext) {
     }
 
     if (!business) {
+      if (await isBusinessUrlTombstoned(pathname)) throw render(410);
       if (isPrerendering) {
         return {
           pageContext: {
@@ -623,6 +625,7 @@ export async function onBeforeRender(pageContext: PageContext) {
   }
 
   if (!business) {
+    if (await isBusinessUrlTombstoned(pathname)) throw render(410);
     if (isPrerendering) {
       return {
         pageContext: {

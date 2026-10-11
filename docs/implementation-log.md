@@ -24,6 +24,31 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-11 12:19:10 -04:00
+
+- Status: implementado localmente em 2026-10-11 12:25:00 -04:00.
+- Solicitacao: impedir que URLs canonicas, historicas e links curtos de um negocio excluido sejam reutilizados por outro negocio; indicar a remocao com HTTP 410.
+- Diagnostico remoto read-only: o projeto Supabase vinculado tem migrations ate 00065; `business_slug_history.business_id` e `business_short_links.business_id` referenciam `businesses(id)` com `ON DELETE CASCADE`; proprietarios podem excluir os proprios negocios. Contagens: 1304 negocios, 1304 links curtos, 2 historicos ativos.
+- Escopo: adicionar tombstones de URL sem FK ou PII, trigger transacional para guardar rotas historicas, URL canonica atual e alias `/go/`, proteger verificacao de slugs e resolver as URLs aposentadas em SSR e navegacao cliente.
+- Riscos e estrategia: manter redirects antigos enquanto o negocio existe; somente ao excluir, converter seus caminhos em reservas permanentes e responder 410. Aplicar a migration antes de publicar o cliente; nao executar SQL no banco remoto. Historicos apagados por exclusoes anteriores nao podem ser reconstruidos.
+- Implementacao: migration 00066 cria tombstones sem FK para negocio, preserva os caminhos canonicos anteriores, canonicos atuais e aliases `/go/` antes dos deletes em cascata, registra alteracoes futuras de alias curto e impede reutilizacao de slugs reservados. O SSR retorna HTTP 410 com pagina explicativa; a navegacao cliente apresenta o mesmo aviso e links para continuar explorando.
+- Arquivos: `supabase/migrations/00066_reserve_deleted_business_urls.sql`, `src/services/businesses.ts`, `src/components/BusinessRemovedNotice.tsx`, `src/pages/BusinessShortLink.tsx`, `src/pages/BusinessPage.tsx`, `pages/app/+onBeforeRender.ts`, `pages/_error/+Page.tsx`, `pages/+onRenderHtml.tsx`, `src/services/businesses.update.test.ts` e este registro.
+- Validacao: ESLint dos arquivos alterados, `npm run check:encoding`, `git diff --check`, `npm run typecheck` e `npm run build` passaram; 27 arquivos de teste e 129 testes passaram. Build ainda exibe o aviso preexistente de top-level `await` em `src/pages/BusinessPageRoute.tsx:7`.
+- Migrations/configuracoes externas: migration 00066 foi criada localmente, mas NAO foi aplicada no Supabase. Aplicar a migration no banco de destino antes de publicar o codigo para garantir a protecao transacional de URLs e respostas HTTP 410. Nenhuma escrita foi feita no banco remoto.
+- Riscos residuais e deploy: URLs de negocios excluidos antes da instalacao da migration nao podem ser recuperadas automaticamente, pois os registros historicos ja foram apagados por cascata. Implementacao pronta para validar em dev apos aplicar a migration; nenhuma publicacao foi feita.
+
+### 2026-10-11 11:06:43 -04:00
+
+- Status: implementado localmente em 2026-10-11 11:12:58 -04:00.
+- Solicitacao: atualizar a URL publica canonica do negocio quando o nome for alterado, mantendo o endereco antigo funcional.
+- Diagnostico: a edicao atual preserva `businesses.slug`; a migration 00035 ja registra slugs/caminhos antigos e o resolvedor consulta esse historico para abrir o negocio no destino canonico atual.
+- Escopo: gerar slug canonico unico a partir do novo nome apenas quando o nome realmente mudar; manter o link curto `/go/` independente; aproveitar o historico e redirecionamento existentes, sem criar migration.
+- Implementacao: `updateBusiness` compara o novo nome com o valor atual e, somente quando mudou, grava um slug canonico derivado do nome. A geracao verifica slugs atuais e reservados no historico, acrescenta sufixo numerico em conflitos e falha sem gravar se nao encontrar candidato. Links curtos `/go/` nao sao alterados; o trigger existente registra a URL antiga e o SSR redireciona para a nova URL.
+- Arquivos: `src/services/businesses.ts`, `src/services/businesses.update.test.ts` e este registro.
+- Validacao: teste direcionado passou (3 testes); `npm run typecheck` passou; build passou com 27 arquivos e 126 testes; ESLint dos arquivos alterados, `npm run check:encoding` e `git diff --check` passaram. Build mantem o aviso preexistente de top-level `await` em `src/pages/BusinessPageRoute.tsx:7`.
+- Migrations/configuracoes externas: nenhuma migration nova; nenhuma escrita no banco remoto. O redirecionamento antigo requer que a migration 00035, ja referenciada pelo projeto, esteja aplicada no banco utilizado.
+- Riscos residuais e deploy: mudanca ainda local; validar em dev apos publicar o codigo. Nenhuma publicacao foi feita.
+
 ### 2026-10-10 17:22:36 -04:00
 
 - Status: implementado localmente; migration 00065 pendente de aplicacao no banco.

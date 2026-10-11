@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { PawPrint } from "lucide-react";
-import { getBusinessByShortSlug, buildBusinessUrl } from "@/services/businesses";
+import { getBusinessByShortSlug, buildBusinessUrl, isBusinessUrlTombstoned } from "@/services/businesses";
 import { Button } from "@/components/ui/button";
+import BusinessRemovedNotice from "@/components/BusinessRemovedNotice";
 
 export default function BusinessShortLink() {
   const navigate = useNavigate();
   const { businessSlug = "" } = useParams();
   const [loading, setLoading] = useState(true);
+  const [wasRemoved, setWasRemoved] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -17,6 +19,8 @@ export default function BusinessShortLink() {
         const business = await getBusinessByShortSlug(businessSlug);
         if (cancelled) return;
         if (!business) {
+          setWasRemoved(await isBusinessUrlTombstoned(`/go/${businessSlug}`));
+          if (cancelled) return;
           setLoading(false);
           return;
         }
@@ -30,6 +34,8 @@ export default function BusinessShortLink() {
       cancelled = true;
     };
   }, [businessSlug, navigate]);
+
+  if (wasRemoved) return <BusinessRemovedNotice />;
 
   if (loading) {
     return (

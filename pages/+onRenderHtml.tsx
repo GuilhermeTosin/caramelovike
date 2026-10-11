@@ -167,11 +167,13 @@ function getRobotsContentForPage(urlOriginal?: string, is404?: boolean) {
   return getRobotsContent(urlOriginal);
 }
 
-function getErrorPageMeta() {
+function getErrorPageMeta(isGone = false) {
   const content = getSiteContent();
   return {
-    title: content.seo.notFoundTitle,
-    description: content.seo.notFoundDescription,
+    title: isGone ? "Negócio removido | Caramelinho" : content.seo.notFoundTitle,
+    description: isGone
+      ? "Este negócio foi removido e este endereço não será reutilizado."
+      : content.seo.notFoundDescription,
   };
 }
 
@@ -491,11 +493,12 @@ export async function onRenderHtml(pageContext: PageContext) {
     : (isMarketplaceIndex || isMarketplaceSeller || isMarketplaceBusinessSeller || isMarketplaceDetail)
       ? `https://www.caramelinho.com${pathname}`
     : getCanonicalUrl(pageContext.urlOriginal, isBusinessPage);
-  const isErrorPage = !!pageContext.is404 || pageContext.abortStatusCode === 404 || pageContext.abortReason === "not-found";
+  const isGone = pageContext.abortStatusCode === 410;
+  const isErrorPage = !!pageContext.is404 || pageContext.abortStatusCode === 404 || isGone || pageContext.abortReason === "not-found";
   const businessHasData = !!business;
   const localizedBusiness = business;
   const staticMeta = isErrorPage
-    ? getErrorPageMeta()
+    ? getErrorPageMeta(isGone)
     : isMarketplaceIndex
       ? { title: "Marketplace | Caramelinho", description: "Compre, venda e encontre produtos perto de você no Marketplace do Caramelinho." }
       : isMarketplaceSeller && pageContext.initialMarketplaceSeller

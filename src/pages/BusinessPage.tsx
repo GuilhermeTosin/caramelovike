@@ -34,7 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { getSimilarBusinessesForBusiness, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateDisplayName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
+import { getSimilarBusinessesForBusiness, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessByHistoricalPath, getBusinessById, getCountryName, getStateDisplayName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel, isBusinessUrlTombstoned } from "@/services/businesses";
 import { getMarketplaceListingsForBusinessPage } from "@/services/marketplace";
 import { marketplaceBusinessSellerPath } from "@/lib/marketplaceSnapshot";
 import { getOrCreateBusinessConversation } from "@/services/messages";
@@ -55,6 +55,7 @@ import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { DEFAULT_BUSINESS_LOGO, getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
 import NotFound from "@/pages/NotFound";
+import BusinessRemovedNotice from "@/components/BusinessRemovedNotice";
 import { getSimilarBusinesses } from "@/lib/businessSimilar";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { preloadBusinessPageAssets } from "@/pages/BusinessPagePrefetch";
@@ -279,6 +280,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   const [business, setBusiness] = useState<BusinessFrontend | null>(seededBusiness);
   const [loading, setLoading] = useState(!seededBusiness);
+  const [businessUrlWasRemoved, setBusinessUrlWasRemoved] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(-1);
   const [reviewRating, setReviewRating] = useState<number>(0);
@@ -369,9 +371,16 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       biz = await getBusinessById(businessId, { includeUnapproved: true });
     } else if (countryCode && stateCode && city && businessName) {
       biz = await getBusinessBySlug(countryCode, stateCode, city, businessName);
+      if (!biz) {
+        biz = await getBusinessByHistoricalPath(countryCode, stateCode, city, businessName);
+      }
     } else if (countryCode && businessName) {
       biz = await getBusinessByCountryAndSlug(countryCode, businessName);
     }
+    const removedUrl = !biz && !previewMode
+      ? await isBusinessUrlTombstoned(currentPathname)
+      : false;
+    setBusinessUrlWasRemoved(removedUrl);
     setBusiness((current) => {
       if (!biz) return null;
       if (current?.id === biz.id && current.reviews.length > biz.reviews.length) {
@@ -390,6 +399,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
+    setBusinessUrlWasRemoved(false);
     setBusiness(seededBusiness);
     setLoading(!seededBusiness);
     setSelectedPhoto(null);
@@ -854,6 +864,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   }
 
   if (!business) {
+    if (businessUrlWasRemoved) return <BusinessRemovedNotice />;
     return <NotFound />;
   }
 
