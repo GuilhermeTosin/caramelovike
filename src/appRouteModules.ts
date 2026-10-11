@@ -1,4 +1,5 @@
 import { createElement, type ComponentProps, type ComponentType } from "react";
+import { isBusinessRoutePath } from "@/lib/businessRoute";
 
 type LazyPageComponent = ComponentType<any>;
 
@@ -81,12 +82,6 @@ export const MarketplaceSellerPage = MarketplaceSellerPageRoute.Component;
 export const MarketplaceBusinessSellerPage = MarketplaceBusinessSellerPageRoute.Component;
 export const MarketplaceListingPage = MarketplaceListingPageRoute.Component;
 
-function isBusinessRoute(pathname: string) {
-  return pathname.startsWith("/preview/negocio/")
-    || /^\/[a-z]{2}\/[^/]+$/i.test(pathname)
-    || /^\/[a-z]{2}\/[a-z]{2}\/[^/]+\/[^/]+$/i.test(pathname);
-}
-
 export function preloadAppRoute(pathname: string) {
   if (pathname === "/" || pathname === "/index2") return HomeV2Page.preload();
   if (pathname === "/buscar" || pathname === "/eventos") return SearchResultsPage.preload();
@@ -98,7 +93,7 @@ export function preloadAppRoute(pathname: string) {
   if (pathname === "/negocio-verificado") return VerifiedBusinessInfoPage.preload();
   if (pathname.startsWith("/eventos/")) return EventPageRoute.preload();
   if (pathname.startsWith("/go/")) return BusinessShortLinkPage.preload();
-  if (isBusinessRoute(pathname)) return Promise.resolve();
+  if (isBusinessRoutePath(pathname)) return Promise.resolve();
   if (pathname === "/sobre") return AboutPageRoute.preload();
   if (pathname === "/contato") return ContactPageRoute.preload();
   if (pathname === "/privacidade") return PrivacyPageRoute.preload();

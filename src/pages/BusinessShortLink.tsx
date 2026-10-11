@@ -10,6 +10,7 @@ export default function BusinessShortLink() {
   const { businessSlug = "" } = useParams();
   const [loading, setLoading] = useState(true);
   const [wasRemoved, setWasRemoved] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,7 +27,10 @@ export default function BusinessShortLink() {
         }
         navigate(buildBusinessUrl(business), { replace: true, state: { preloadedBusiness: business } });
       } catch {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoadFailed(true);
+          setLoading(false);
+        }
       }
     })();
 
@@ -36,6 +40,20 @@ export default function BusinessShortLink() {
   }, [businessSlug, navigate]);
 
   if (wasRemoved) return <BusinessRemovedNotice />;
+
+  if (loadFailed) {
+    return (
+      <div role="alert" className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="max-w-md text-center">
+          <h1 className="text-2xl font-bold text-foreground">Não foi possível abrir este link</h1>
+          <p className="mt-2 text-muted-foreground">O serviço está temporariamente indisponível. Tente novamente em instantes.</p>
+          <Button type="button" className="mt-6" onClick={() => window.location.reload()}>
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

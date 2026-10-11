@@ -119,8 +119,14 @@ function assertIndexablePage(path, html) {
 
 function assertDirectoryContent(path, html) {
   assert(!html.includes("Diretório público organizado por país, estado e cidade"), path + " still renders the repeated generic directory introduction.");
-  assert(html.includes("Panorama do diretório"), path + " is missing the data-backed directory summary.");
-  assert(html.includes("Tipos de neg\u00f3cio"), path + " is missing directory activity content.");
+  const visibleText = stripTags(html);
+  assert(/\b\d+\s+negócios?\s+publicados?\b/i.test(visibleText), path + " is missing the published-business count.");
+
+  return findLink(
+    extractLinks(html),
+    (href) => /^\/[a-z]{2}\/[^/]+\/[^/]+\/[^/]+$/.test(href),
+    "a server-rendered business link",
+  );
 }
 function assertSearchPage(path, html) {
   const robots = findMeta(html, "name", "robots");
@@ -174,9 +180,7 @@ async function run() {
 
   const city = await request(cityPath);
   assertIndexablePage(cityPath, city);
-  assertDirectoryContent(cityPath, city);
-  const cityLinks = extractLinks(city);
-  const businessPath = findLink(cityLinks, (href) => /^\/[a-z]{2}\/[^/]+\/[^/]+\/[^/]+$/.test(href), "a business page");
+  const businessPath = assertDirectoryContent(cityPath, city);
 
   const business = await request(businessPath);
   assertIndexablePage(businessPath, business);

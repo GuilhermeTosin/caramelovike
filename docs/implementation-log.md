@@ -24,6 +24,99 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-11 14:10:08 -04:00
+
+- Status: corrigido localmente em 2026-10-11 14:12:45 -04:00.
+- Solicitacao: corrigir o caso em que uma avaliacao removida continua visivel se a exclusao no banco confirma, mas a consulta de sincronizacao falha.
+- Escopo: atualizar imediatamente o snapshot local de avaliacoes e a nota agregada apos a exclusao confirmada; indicar falha de sincronizacao e oferecer nova tentativa sem restaurar a avaliacao removida.
+- Implementacao: apos `deleteReview` confirmar, a pagina remove a avaliacao do snapshot local, recalcula `averageRating` e a distribuicao exibida. `loadBusiness` informa sucesso/falha; se falhar, a pagina preserva o snapshot corrigido e mostra um aviso acessivel com a acao `Tentar sincronizar`. Uma leitura bem-sucedida substitui o snapshot com os dados atuais do servidor.
+- Arquivos: `src/pages/BusinessPage.tsx`, `docs/business-pages-ssr-reaudit-2026-10-11.md`, `docs/business-pages-ssr-audit-2026-10-11.md` e este registro.
+- Validacao: `npm run typecheck`, ESLint direcionado a `BusinessPage.tsx`, `npm run check:encoding` e `git diff --check` passaram. A suite automatizada nao foi executada; nao houve exclusao autenticada real. A reproducao anterior documentou o estado que esta mudanca endereca.
+- Migrations/configuracoes externas: nenhuma. Nenhuma escrita remota.
+- Riscos residuais e deploy: a nota local usa a lista de avaliacoes carregada ate a proxima sincronizacao. A nova resposta a falha nao foi simulada apos a implementacao e o deployment Vercel permanece sem smoke test; codigo local, sem commit/deploy.
+
+### 2026-10-11 13:30:01 -04:00
+
+- Status: reauditoria concluida em 2026-10-11 13:37:14 -04:00; um caso residual P2 pendente.
+- Solicitacao: repetir a auditoria das quatro correcoes de paginas de negocios: hidratacao regional, falha de banco tratada como 404, avaliacoes excluidas e teste SEO desatualizado.
+- Escopo e estrategia: revisar o worktree atual, gerar bundle de producao, executar testes/lint e validar SSR no handler real `api/ssr.js`. Testar hidratacao em regioes de tres letras no browser, simular falhas do Supabase e recarregamento de avaliacoes sem alterar dados reais, e executar o teste SEO com o endpoint de sitemap de negocios disponivel.
+- Riscos e limites: requisicoes remotas somente de leitura; simulacoes isoladas no processo local. Nenhum commit, deploy ou migration. Preservar todas as alteracoes preexistentes.
+- Resultado: os quatro cenarios originais passaram. Novo caso residual P2: delete de avaliacao confirmado seguido de erro no refetch preserva a avaliacao e a media antigas, mostra toast de sucesso e nao exibe o alerta de refresh porque `business` ainda existe.
+- Validacao: build/typecheck, 29 arquivos/148 testes e lint global passaram. Browser com bundle novo confirmou `eng`, `idf` e `qc` sem erros de hidratacao; interacao e navegacao interna tambem passaram. Handler compilado retornou 503 sem noindex em cinco falhas simuladas e 404/noindex para slug realmente ausente. SEO completou 21 verificacoes, nenhuma ignorada, incluindo handler real de sitemap de negocios. Simulacao dos handlers de avaliacao confirmou atualizacao de 2 para 1 e de 1 para 0; refetch com falha reproduziu o P2 residual.
+- Artefatos: `docs/business-pages-ssr-reaudit-2026-10-11.md`, atualizacao do relatorio original e deste registro. Aba/servidor temporarios encerrados, harness removido e sitemap gerado restaurado ao estado inicial.
+- Verificacao final: `npm run check:encoding` e `git diff --check` passaram; o aviso preexistente de normalizacao CRLF/LF em `BusinessPage.tsx` nao apontou erro de whitespace. A porta do servidor de auditoria nao ficou em escuta.
+- Migrations/configuracoes externas: nenhuma; nenhuma escrita remota ou exclusao real. Sem commit/deploy.
+- Riscos residuais e liberacao: resolver o P2 residual e repetir smoke test no deployment Vercel antes de considerar o fluxo de avaliacao completamente aprovado.
+
+### 2026-10-11 13:26:41 -04:00
+
+- Status: corrigido localmente em 2026-10-11 13:28:21 -04:00.
+- Solicitacao: corrigir o teste SEO SSR que depende de textos removidos da pagina do diretorio e para antes de verificar negocio/sitemap.
+- Diagnostico: `assertDirectoryContent` exigia `Panorama do diretorio` e `Tipos de negocio`, textos ausentes da pagina atual. A execucao interrompia antes dos casos seguintes.
+- Implementacao: removidas as expectativas de texto obsoletas. O helper verifica a ausencia da introducao generica antiga, a contagem atual de negocios publicados e um link SSR para negocio canonico, que tambem e usado na verificacao de detalhe.
+- Arquivos: `scripts/check-seo-ssr.mjs`, `docs/business-pages-ssr-audit-2026-10-11.md` e este registro.
+- Validacao: `node --check scripts/check-seo-ssr.mjs`, `npm run check:encoding` e `git diff --check` passaram. O teste SEO SSR completou 19 verificacoes, com 1 item ignorado: `/sitemaps/businesses.xml` nao e servido no Vike dev. O helper percorreu pagina de cidade e negocio, redirects, 404s e sitemap estatico. O servidor temporario foi encerrado.
+- Migrations/configuracoes externas: nenhuma. O teste fez apenas requisicoes HTTP GET; nenhuma escrita no banco.
+- Riscos residuais e deploy: corrigido somente no worktree local, sem commit/deploy. A verificacao do sitemap de negocios deve ser repetida em um host que sirva essa rota.
+
+### 2026-10-11 13:24:16 -04:00
+
+- Status: corrigido localmente em 2026-10-11 13:25:26 -04:00.
+- Solicitacao: impedir que avaliacoes excluidas continuem visiveis e que a nota antiga seja mantida apos um recarregamento bem-sucedido do negocio.
+- Diagnostico: `loadBusiness` conserva `current.reviews` e `current.averageRating` quando a resposta recente traz menos avaliacoes. Isso impede que a remocao confirmada pelo banco atualize a interface.
+- Escopo: remover a preservacao baseada em contagem e usar o snapshot completo retornado pela consulta concluida com sucesso. Manter o payload SSR como fonte inicial para hidratacao, sem refetch imediato quando a rota coincide.
+- Implementacao: removida a regra que preservava a lista e a nota anteriores quando a lista recarregada diminuia. A resposta atualizada substitui o snapshot completo, atualizando `reviews` e `averageRating`.
+- Arquivos: `src/pages/BusinessPage.tsx`, `docs/business-pages-ssr-audit-2026-10-11.md` e este registro.
+- Validacao: `npm run typecheck`, `npm test` (29 arquivos/148 testes), ESLint direcionado em `BusinessPage.tsx` e `npm run check:encoding` passaram. A hidratacao inicial segue sem refetch quando a rota corresponde ao payload SSR.
+- Migrations/configuracoes externas: nenhuma. Nenhuma avaliacao real foi excluida ou alterada para testar.
+- Riscos residuais e deploy: correcao local, sem commit/deploy; nao foi exercitada com uma exclusao real no browser ou no deployment Vercel.
+
+### 2026-10-11 13:12:31 -04:00
+
+- Status: corrigido localmente em 2026-10-11 13:17:45 -04:00.
+- Solicitacao: evitar que falhas temporarias do Supabase sejam apresentadas como paginas de negocio inexistentes.
+- Diagnostico: consultas de leitura do negocio, historico de slug, link curto e tombstones descartam `error`; `onBeforeRender` tambem captura falhas e continua como se a linha nao existisse, podendo produzir 404/410 indevido.
+- Implementacao: os servicos de lookup canonico, por pais, ID, historico, link curto e tombstone agora propagam erros do Supabase. O SSR converte falhas dessas consultas em `render(503)`; so devolve 404/410 quando as consultas concluem sem erro. Rotas `/go/` seguem a mesma regra. Navegacao cliente mostra estado de indisponibilidade temporaria em vez de rotulo de pagina inexistente.
+- Arquivos: `src/services/businesses.ts`, `src/services/businesses.read.test.ts`, `pages/app/+onBeforeRender.ts`, `src/pages/BusinessPage.tsx`, `src/pages/BusinessShortLink.tsx`, `docs/business-pages-ssr-audit-2026-10-11.md` e este registro.
+- Validacao: teste direcionado passou (7 casos); `npm run build` passou com 29 arquivos e 148 testes; typecheck e ESLint dos arquivos alterados passaram. No handler SSR de producao local, Supabase simulado com HTTP 503 produziu HTTP 503, mensagem temporaria e robots `index,follow,max-image-preview:large`; slug ausente com banco funcional continuou HTTP 404 e `noindex,nofollow,noarchive`. `npm run check:encoding` e `git diff --check` passaram.
+- Migrations/configuracoes externas: nenhuma. Testes nao alteraram dados do banco; simulacao interceptou somente fetches do processo local.
+- Riscos residuais e deploy: correcao local, sem commit/deploy; comportamento ainda precisa ser confirmado no deployment Vercel. O aviso do build sobre top-level await em `BusinessPageRoute.tsx` permanece preexistente. Consultas nao essenciais de conteudo relacionado ainda podem retornar a pagina principal com dados parciais.
+
+### 2026-10-11 13:03:10 -04:00
+
+- Status: corrigido localmente em 2026-10-11 13:06:15 -04:00.
+- Solicitacao: corrigir a hidratacao de paginas de negocios em regioes com codigos de tres letras, por exemplo `eng` e `idf`.
+- Diagnostico: `pages/+onRenderClient.tsx` e `src/appRouteModules.ts` mantem detectores duplicados de rotas, ambos exigindo duas letras no codigo de regiao. O router aceita a rota de negocio com quatro segmentos e o servidor renderiza o detalhe; no cliente, o preload especifico e pulado, causando mismatch durante `hydrateRoot`.
+- Escopo: compartilhar um unico reconhecedor das formas de rota de negocio suportadas, usa-lo no preload e no cliente antes da hidratacao, e adicionar testes para regioes de dois e tres caracteres e rotas negativas.
+- Implementacao: criado `isBusinessRoutePath` para compartilhar a deteccao entre o preload das paginas do app e `onRenderClient`. O helper reconhece os formatos de rota efetivamente usados pelo router: pais/slug, pais/regiao/cidade/slug e preview privado; a deteccao nao restringe o codigo da regiao a duas letras.
+- Arquivos: `src/lib/businessRoute.ts`, `src/lib/businessRoute.test.ts`, `src/appRouteModules.ts`, `pages/+onRenderClient.tsx`, `docs/business-pages-ssr-audit-2026-10-11.md` e este registro.
+- Validacao: teste direcionado passou (12 casos); lint dos arquivos alterados passou; typecheck passou; `npm run build` passou com 28 arquivos e 141 testes. Browser com o bundle recem-gerado confirmou as rotas do Reino Unido (`/gb/eng/...`) e Franca (`/fr/idf/...`) renderizadas e sem erros/avisos no console. `npm run check:encoding` e `git diff --check` passaram.
+- Migrations/configuracoes externas: nenhuma. Nenhum dado remoto foi alterado. Servidores temporarios foram encerrados e o sitemap regenerado pelo build foi restaurado.
+- Riscos residuais e deploy: correcao local, sem commit/deploy; ainda nao testada no deployment Vercel. O P1 separado sobre respostas `404` quando o Supabase falha e outros achados da auditoria anterior permanecem fora deste escopo.
+
+### 2026-10-11 12:58:03 -04:00
+
+- Status: auditoria concluida; promocao para producao nao recomendada antes das correcoes P1.
+- Solicitacao: revisar paginas de negocios, SSR e prontidao para producao.
+- Escopo: revisao de codigo, build, lint, testes, handler real `api/ssr.js` com bundle de producao, browser e consultas somente de leitura no Supabase vinculado. Nenhuma alteracao funcional, commit, deploy ou escrita remota.
+- Documentacao prevista e realizada: `docs/business-pages-ssr-audit-2026-10-11.md` detalha evidencias, prioridades, limitacoes e criterios de liberacao.
+- Achados: P1 no preload/hidratacao de rotas com estado de tres letras; P1 ao converter falha temporaria do banco em HTTP 404/noindex; P2 ao preservar avaliacoes excluidas no estado da pagina. O teste SEO SSR tambem exige um texto removido do diretorio e precisa ser atualizado.
+- Validacao: `npm run build` passou com 27 arquivos/129 testes e typecheck; `npm run lint` passou. SSR de tres negocios retornou 200 com H1, canonical e JSON-LD validos, sem campos publicos de proprietario. Redirects historicos e `/go` retornaram 301; caminho inexistente retornou 404. A simulacao de Supabase 503 retornou incorretamente 404. Browser reproduziu erros React 418/422 em Reino Unido/Franca, mas nao no carregamento canadense comparativo.
+- Banco: confirmou-se por leitura a existencia das tabelas de reserva/historico curto, trigger de reserva na exclusao e prefixos `v_` no trigger de slug (estruturas de 00066/00067 instaladas). A tabela `supabase_migrations.schema_migrations` nao lista versoes; execucoes manuais nao sao comprovadas por esse registro. Isto atualiza o diagnostico de instalacao sem reescrever as entradas anteriores.
+- Riscos residuais: operacoes autenticadas de escrita nao foram executadas no banco compartilhado; HTTP 410 nao foi exercitado com exclusao real, pois nao havia tombstones. O handler foi validado localmente, nao nos logs de uma nova publicacao Vercel. Build mantem aviso tolerado de top-level await.
+- Artefatos de teste: servidores temporarios encerrados; o sitemap regenerado pelo build foi restaurado ao estado inicial, preservando as alteracoes locais preexistentes da migration 00067 e do registro. `npm run check:encoding` e `git diff --check` passaram apos documentar.
+
+### 2026-10-11 12:35:38 -04:00
+
+- Status: implementado localmente em 2026-10-11 12:36:23 -04:00.
+- Solicitacao: corrigir erro PostgreSQL 42702 ao salvar edicao de negocio no ambiente dev.
+- Diagnostico: o trigger `capture_business_slug_history`, introduzido na migration 00035, declara a variavel PL/pgSQL `old_business_slug` e tambem usa esse identificador na lista de colunas de `ON CONFLICT`; a referencia fica ambigua e faz o UPDATE da linha ser revertido.
+- Implementacao: migration 00067 substitui a funcao do trigger, renomeia todas as variaveis locais com prefixo `v_` para evitar colisao com colunas usadas em `ON CONFLICT`, qualifica as referencias e preserva a atualizacao do historico e do destino canonico.
+- Arquivos: `supabase/migrations/00067_fix_business_slug_history_ambiguity.sql` e este registro.
+- Validacao: `npm run verify` passou (typecheck e 27 arquivos/129 testes); `npm run check:encoding`, `git diff --check` e ESLint dos arquivos de servico passaram. A migration foi revisada, mas nao executada localmente por falta de banco PostgreSQL de teste.
+- Migrations/configuracoes externas: 00067 ainda NAO foi aplicada no Supabase dev; executar o SQL da migration no banco antes de retestar. Nenhuma escrita remota foi feita.
+- Riscos residuais e deploy: a causa foi identificada no trigger instalado pela migration 00035. Os erros `ERR_BLOCKED_BY_CLIENT` do Google Maps e aviso de recurso preloaded nao causam a falha ao salvar. A protecao de URLs da migration 00066 permanece pendente se ainda nao tiver sido aplicada; nao publicar uma migration como aplicada sem executar no banco.
+
 ### 2026-10-11 12:19:10 -04:00
 
 - Status: implementado localmente em 2026-10-11 12:25:00 -04:00.

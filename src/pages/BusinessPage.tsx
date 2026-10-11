@@ -280,6 +280,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   const [business, setBusiness] = useState<BusinessFrontend | null>(seededBusiness);
   const [loading, setLoading] = useState(!seededBusiness);
+  const [businessLoadFailed, setBusinessLoadFailed] = useState(false);
   const [businessUrlWasRemoved, setBusinessUrlWasRemoved] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(-1);
@@ -296,6 +297,8 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const [showAllMenuItems, setShowAllMenuItems] = useState(false);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [reviewPage, setReviewPage] = useState(1);
+  const [reviewSyncFailed, setReviewSyncFailed] = useState(false);
+  const [syncingReviewSnapshot, setSyncingReviewSnapshot] = useState(false);
   const [businessMarketplace, setBusinessMarketplace] = useState<{
     businessId: string;
     items: MarketplaceListing[];
@@ -365,41 +368,54 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     currentReviewPage * REVIEWS_PER_PAGE,
   );
 
-  const loadBusiness = async () => {
+  const loadBusiness = async (): Promise<boolean> => {
     let biz: BusinessFrontend | null = null;
-    if (previewMode && businessId) {
-      biz = await getBusinessById(businessId, { includeUnapproved: true });
-    } else if (countryCode && stateCode && city && businessName) {
-      biz = await getBusinessBySlug(countryCode, stateCode, city, businessName);
-      if (!biz) {
-        biz = await getBusinessByHistoricalPath(countryCode, stateCode, city, businessName);
+    let removedUrl: boolean;
+    try {
+      if (previewMode && businessId) {
+        biz = await getBusinessById(businessId, { includeUnapproved: true });
+      } else if (countryCode && stateCode && city && businessName) {
+        biz = await getBusinessBySlug(countryCode, stateCode, city, businessName);
+        if (!biz) {
+          biz = await getBusinessByHistoricalPath(countryCode, stateCode, city, businessName);
+        }
+      } else if (countryCode && businessName) {
+        biz = await getBusinessByCountryAndSlug(countryCode, businessName);
       }
-    } else if (countryCode && businessName) {
-      biz = await getBusinessByCountryAndSlug(countryCode, businessName);
+
+      removedUrl = !biz && !previewMode
+        ? await isBusinessUrlTombstoned(currentPathname)
+        : false;
+    } catch (error) {
+      console.error("[BusinessPage] Não foi possível carregar o negócio:", error);
+      setBusinessLoadFailed(true);
+      setLoading(false);
+      return false;
     }
-    const removedUrl = !biz && !previewMode
-      ? await isBusinessUrlTombstoned(currentPathname)
-      : false;
+
+    setBusinessLoadFailed(false);
+    setReviewSyncFailed(false);
     setBusinessUrlWasRemoved(removedUrl);
-    setBusiness((current) => {
-      if (!biz) return null;
-      if (current?.id === biz.id && current.reviews.length > biz.reviews.length) {
-        return { ...localizeBusiness(biz), reviews: current.reviews, averageRating: current.averageRating };
-      }
-      return localizeBusiness(biz);
-    });
+    setBusiness(localizeBusiness(biz));
     setLoading(false);
     if (biz && !hasInitialSimilarBusinesses) {
-      setSimilarBusinesses(
-        (await getSimilarBusinessesForBusiness(biz))
-          .map((item) => localizeBusiness(item) as BusinessFrontend),
-      );
+      try {
+        setSimilarBusinesses(
+          (await getSimilarBusinessesForBusiness(biz))
+            .map((item) => localizeBusiness(item) as BusinessFrontend),
+        );
+      } catch (error) {
+        console.warn("[BusinessPage] Não foi possível carregar negócios semelhantes:", error);
+      }
     }
+    return true;
   };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
+    setBusinessLoadFailed(false);
     setBusinessUrlWasRemoved(false);
+    setReviewSyncFailed(false);
     setBusiness(seededBusiness);
     setLoading(!seededBusiness);
     setSelectedPhoto(null);
@@ -724,12 +740,41 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     setSavingEditReview(false);
   };
 
+  const handleRetryReviewSync = async () => {
+    setSyncingReviewSnapshot(true);
+    try {
+      const synchronized = await loadBusiness();
+      setReviewSyncFailed(!synchronized);
+      if (synchronized) {
+        toast.success("Avaliações sincronizadas.");
+      } else {
+        toast.error("Ainda não foi possível sincronizar as avaliações. Tente novamente.");
+      }
+    } finally {
+      setSyncingReviewSnapshot(false);
+    }
+  };
+
   const handleDeleteOwnReview = async (reviewId: string) => {
     if (!confirm("Tem certeza que deseja remover sua avaliação?")) return;
     const ok = await deleteReview(reviewId);
     if (ok) {
-      await loadBusiness();
-      toast.success("Avaliação removida!");
+      setBusiness((current) => {
+        if (!current) return current;
+        const reviews = current.reviews.filter((review) => review.id !== reviewId);
+        const averageRating = reviews.length
+          ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+          : 0;
+        return { ...current, reviews, averageRating };
+      });
+      setReviewSyncFailed(false);
+      const synchronized = await loadBusiness();
+      setReviewSyncFailed(!synchronized);
+      if (synchronized) {
+        toast.success("Avaliação removida!");
+      } else {
+        toast.success("Avaliação removida. A nota foi atualizada; tente sincronizar os dados novamente.");
+      }
       if (editingReviewId === reviewId) cancelEditReview();
     } else {
       toast.error("Erro ao remover avaliação.");
@@ -865,6 +910,17 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   if (!business) {
     if (businessUrlWasRemoved) return <BusinessRemovedNotice />;
+    if (businessLoadFailed) {
+      return (
+        <div role="alert" className="mx-auto my-12 max-w-xl rounded-xl border border-border bg-background p-6 text-center shadow-sm">
+          <h1 className="text-xl font-bold">Não foi possível abrir a página do negócio</h1>
+          <p className="mt-2 text-sm text-muted-foreground">O serviço está temporariamente indisponível. Tente novamente em instantes.</p>
+          <Button type="button" onClick={() => window.location.reload()} className="mt-4">
+            Tentar novamente
+          </Button>
+        </div>
+      );
+    }
     return <NotFound />;
   }
 
@@ -1266,6 +1322,24 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                     </div>
                   </div>
                 </Card>
+
+                {reviewSyncFailed && (
+                  <div role="status" className="mb-6 flex flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-foreground">
+                      A avaliação removida já foi retirada desta página, mas não foi possível sincronizar os dados com o servidor.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleRetryReviewSync}
+                      disabled={syncingReviewSnapshot}
+                      className="shrink-0"
+                    >
+                      {syncingReviewSnapshot ? "Sincronizando..." : "Tentar sincronizar"}
+                    </Button>
+                  </div>
+                )}
 
                 <ClientOnly>
                   <Card className="p-5 mb-6 border-border bg-secondary/30">

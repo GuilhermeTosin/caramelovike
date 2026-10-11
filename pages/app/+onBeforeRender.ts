@@ -118,6 +118,16 @@ function parseShortLinkPath(pathname: string) {
   return parts[1];
 }
 
+async function checkBusinessUrlTombstone(pathname: string, isPrerendering: boolean) {
+  try {
+    return await isBusinessUrlTombstoned(pathname);
+  } catch (error) {
+    console.error("[onBeforeRender] business URL status lookup failed:", error);
+    if (isPrerendering) throw error;
+    throw render(503);
+  }
+}
+
 function normalizeCode(value?: string) {
   return (value || "").trim().toLowerCase();
 }
@@ -557,15 +567,17 @@ export async function onBeforeRender(pageContext: PageContext) {
 
   const shortLinkSlug = parseShortLinkPath(pathname);
   if (shortLinkSlug) {
-    let business: BusinessFrontend | null = null;
+    let business: BusinessFrontend | null;
     try {
       business = await getBusinessByShortSlug(shortLinkSlug);
     } catch (error) {
       console.error("[onBeforeRender] short link lookup failed:", error);
+      if (isPrerendering) throw error;
+      throw render(503);
     }
 
     if (!business) {
-      if (await isBusinessUrlTombstoned(pathname)) throw render(410);
+      if (await checkBusinessUrlTombstone(pathname, isPrerendering)) throw render(410);
       if (isPrerendering) {
         return {
           pageContext: {
@@ -594,7 +606,7 @@ export async function onBeforeRender(pageContext: PageContext) {
     };
   }
 
-  let business: BusinessFrontend | null = null;
+  let business: BusinessFrontend | null;
   try {
     if (businessRoute.kind === "full") {
       business = await getBusinessBySlug(
@@ -608,7 +620,8 @@ export async function onBeforeRender(pageContext: PageContext) {
     }
   } catch (error) {
     console.error("[onBeforeRender] business lookup failed:", error);
-    business = null;
+    if (isPrerendering) throw error;
+    throw render(503);
   }
 
   if (!business && businessRoute.kind === "full") {
@@ -621,11 +634,13 @@ export async function onBeforeRender(pageContext: PageContext) {
       );
     } catch (error) {
       console.error("[onBeforeRender] business history lookup failed:", error);
+      if (isPrerendering) throw error;
+      throw render(503);
     }
   }
 
   if (!business) {
-    if (await isBusinessUrlTombstoned(pathname)) throw render(410);
+    if (await checkBusinessUrlTombstone(pathname, isPrerendering)) throw render(410);
     if (isPrerendering) {
       return {
         pageContext: {

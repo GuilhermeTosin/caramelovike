@@ -1280,7 +1280,7 @@ export async function getBusinessByHistoricalPath(
     );
   }
 
-  const { data: history } = await supabase
+  const { data: history, error } = await supabase
     .from("business_slug_history")
     .select("business_id")
     .eq("country_slug", normalizedCountry)
@@ -1288,6 +1288,7 @@ export async function getBusinessByHistoricalPath(
     .eq("city_slug", normalizedCity)
     .eq("old_business_slug", normalizedSlug)
     .maybeSingle();
+  if (error) throw error;
 
   if (history?.business_id) {
     // Resolve the current record so a historic URL always reaches the final canonical URL in one hop.
@@ -1319,10 +1320,7 @@ export async function isBusinessUrlTombstoned(path: string): Promise<boolean> {
     .eq("route_path", routePath)
     .maybeSingle();
 
-  if (error) {
-    console.warn("[isBusinessUrlTombstoned] Could not check retired URL:", error.message);
-    return false;
-  }
+  if (error) throw error;
 
   return !!data;
 }
@@ -1333,7 +1331,7 @@ export async function getBusinessBySlug(
   city: string,
   slug: string
 ): Promise<BusinessFrontend | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("businesses")
     .select(PUBLIC_BUSINESS_DETAIL_SELECT)
     .or("moderation_status.eq.approved,moderation_status.is.null")
@@ -1342,6 +1340,7 @@ export async function getBusinessBySlug(
     // Removemos o filtro exato de cidade pois o slug ja a anico e a cidade na URL pode estar slugificada
     .eq("slug", slug)
     .maybeSingle();
+  if (error) throw error;
 
   if (!data) return null;
 
@@ -1392,13 +1391,14 @@ export async function getBusinessByCountryAndSlug(
   countryCode: string,
   slug: string
 ): Promise<BusinessFrontend | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("businesses")
     .select(PUBLIC_BUSINESS_DETAIL_SELECT)
     .or("moderation_status.eq.approved,moderation_status.is.null")
     .eq("country_code", countryCode.toLowerCase())
     .eq("slug", slug)
     .maybeSingle();
+  if (error) throw error;
 
   if (!data) return null;
 
@@ -1434,7 +1434,8 @@ export async function getBusinessById(
     query = query.or("moderation_status.eq.approved,moderation_status.is.null");
   }
 
-  const { data } = await query.maybeSingle();
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
   if (!data) return null;
 
   const biz = data as unknown as Business;
@@ -1472,36 +1473,39 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
   const normalizedSlug = (slug || "").trim().toLowerCase();
   if (!normalizedSlug) return null;
 
-  const { data: shortLink } = await supabase
+  const { data: shortLink, error: shortLinkError } = await supabase
     .from("business_short_links")
     .select("business_id")
     .eq("short_slug", normalizedSlug)
     .maybeSingle();
+  if (shortLinkError) throw shortLinkError;
 
   let linkedBusinessId = shortLink?.business_id as string | undefined;
   if (!linkedBusinessId) {
-    const { data: historicalLink } = await supabase
+    const { data: historicalLink, error: historyError } = await supabase
       .from("business_short_link_history")
       .select("business_id")
       .eq("old_short_slug", normalizedSlug)
       .maybeSingle();
+    if (historyError) throw historyError;
     linkedBusinessId = historicalLink?.business_id as string | undefined;
   }
 
   let data: Business | null = null;
   if (linkedBusinessId) {
-    const { data: linkedBusiness } = await supabase
+    const { data: linkedBusiness, error: linkedBusinessError } = await supabase
       .from("businesses")
       .select(PUBLIC_BUSINESS_DETAIL_SELECT)
       .or("moderation_status.eq.approved,moderation_status.is.null")
       .eq("id", linkedBusinessId)
       .maybeSingle();
+    if (linkedBusinessError) throw linkedBusinessError;
     data = (linkedBusiness as unknown as Business | null) ?? null;
   }
 
   // Fallback para links legados (/go usando businesses.slug antigo)
   if (!data) {
-    const { data: legacy } = await supabase
+    const { data: legacy, error: legacyError } = await supabase
       .from("businesses")
       .select(PUBLIC_BUSINESS_DETAIL_SELECT)
       .or("moderation_status.eq.approved,moderation_status.is.null")
@@ -1509,6 +1513,7 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (legacyError) throw legacyError;
     data = (legacy as unknown as Business | null) ?? null;
   }
 
