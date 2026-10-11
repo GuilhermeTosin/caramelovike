@@ -24,6 +24,17 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-11 15:09:26 -04:00
+
+- Status: implementado e aplicado em producao em 2026-10-11 15:13:56 -04:00.
+- Solicitacao: corrigir o privilegio EXECUTE indevido de anon na nova RPC de criacao de anuncio da migration 00063.
+- Objetivo: manter a RPC acessivel a authenticated e revogar explicitamente EXECUTE de anon, tanto em instalacoes novas quanto no banco que ja recebeu a 00063.
+- Implementacao: a migration 00063 agora revoga EXECUTE de public e anon antes de conceder a authenticated. A nova migration 00068 aplica a mesma restricao a bancos existentes, sem recriar ou modificar a funcao, e solicita reload do schema PostgREST.
+- Arquivos: `supabase/migrations/00063_marketplace_business_page_featured_listings.sql`, `supabase/migrations/00068_revoke_anon_execute_marketplace_listing_rpc.sql` e este registro.
+- Validacao: a assinatura da RPC foi comparada com o catalogo do banco de producao; `npm run check:encoding` e `git diff --check` passaram. O usuario aplicou a 00068 no Supabase de producao e confirmou `anon_can_execute = false` e `authenticated_can_execute = true`.
+- Migrations/configuracoes externas: permissao corrigida em producao. A migration foi executada manualmente e continua sem registro em `supabase_migrations.schema_migrations`.
+- Riscos residuais e deploy: reconciliar o historico de migrations antes de usar `supabase db push`; nao houve deploy de codigo.
+
 ### 2026-10-11 14:10:08 -04:00
 
 - Status: corrigido localmente em 2026-10-11 14:12:45 -04:00.

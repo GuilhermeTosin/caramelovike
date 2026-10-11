@@ -127,7 +127,7 @@ $$;
 revoke execute on function public.create_marketplace_listing_with_images(
   uuid, uuid, text, uuid, text, text, numeric, text, text, text, text, text, text,
   double precision, double precision, boolean, text[], text, text, text[]
-) from public;
+) from public, anon;
 
 grant execute on function public.create_marketplace_listing_with_images(
   uuid, uuid, text, uuid, text, text, numeric, text, text, text, text, text, text,
