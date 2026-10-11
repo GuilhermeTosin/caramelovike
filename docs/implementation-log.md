@@ -24,6 +24,15 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-11 15:28:58 -04:00
+
+- Status: historico de migrations reconciliado em producao.
+- Solicitacao: alinhar o historico remoto do Supabase com as 68 migrations locais, que haviam sido aplicadas manualmente.
+- Implementacao: o usuario executou `supabase migration repair` com status `applied` para as versoes `00001` a `00068`. A operacao registrou as versoes em `supabase_migrations.schema_migrations`; nao reaplicou o SQL das migrations.
+- Validacao: a execucao final de `npx supabase migration list --linked` mostrou `Local` e `Remote` iguais para todas as versoes `00001` a `00068`, inclusive `00058`.
+- Migrations/configuracoes externas: ledger de producao reconciliado. Nenhuma migration SQL ou deploy de codigo foi executado nesta etapa.
+- Riscos residuais e deploy: nao executar `db push` sem antes revisar migrations novas e o preview; manter migrations aplicadas imutaveis e criar novas versoes para futuras alteracoes.
+
 ### 2026-10-11 15:09:26 -04:00
 
 - Status: implementado e aplicado em producao em 2026-10-11 15:13:56 -04:00.
