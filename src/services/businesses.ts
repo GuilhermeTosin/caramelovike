@@ -6,23 +6,22 @@ import { getSimilarBusinesses } from "@/lib/businessSimilar";
 import type { PublicSearchPageRequest } from "@/lib/search/publicSearchPage";
 import { fetchInFilterBatches } from "@/lib/supabaseBatches";
 
-const PUBLIC_EVENT_SELECT = "id,owner_id,business_id,title,description,date,location,is_free,price,flyer_url,ticket_url,status,created_at,updated_at";
+const PUBLIC_EVENT_SELECT = "id,business_id,title,description,date,location,is_free,price,flyer_url,ticket_url,status,created_at,updated_at";
 const PUBLIC_BUSINESS_SELECT = [
-  "id", "owner_id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom",
+  "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom",
   "description", "hero_image", "logo_url", "street", "city", "city_slug", "location_id", "state",
   "country", "country_code", "state_code", "postal_code", "lat", "lng", "attendance_type", "services",
   "service_items", "keywords", "menu", "is_vegan_friendly", "is_vegetarian_friendly", "is_gluten_free_friendly",
   "average_rating", "owner_verified", "owner_verified_until", "moderation_status", "created_at", "updated_at",
 ].join(",");
 const PUBLIC_BUSINESS_DETAIL_SELECT = [
-  "id", "owner_id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom",
+  "id", "name", "slug", "category_id", "primary_activity", "primary_activity_custom",
   "description", "hero_image", "logo_url", "street", "city", "city_slug", "location_id", "state",
   "country", "country_code", "state_code", "postal_code", "lat", "lng", "attendance_type", "services",
   "service_items", "keywords", "menu", "menu_pdf_url", "is_brazilian_owned", "serves_portuguese",
   "is_vegan_friendly", "is_vegetarian_friendly", "is_gluten_free_friendly", "photos", "phone", "email",
   "website", "instagram", "facebook", "whatsapp", "reviews", "average_rating", "owner_verified",
-  "owner_verified_until", "moderation_status", "moderation_reviewed_at", "moderation_reviewed_by",
-  "opening_hours", "promotions", "events", "created_at", "updated_at",
+  "owner_verified_until", "moderation_status", "opening_hours", "promotions", "events", "created_at", "updated_at",
 ].join(",");
 const PUBLIC_REVIEW_SELECT = "id,business_id,user_id,user_name,rating,comment,created_at";
 const PUBLIC_MAP_BUSINESS_SELECT = "id,name,slug,category_id,street,city,city_slug,country_code,state_code,lat,lng,attendance_type";
@@ -365,7 +364,7 @@ async function attachLocationDisplayNames(rows: Business[]): Promise<Business[]>
 export function toFrontend(
   b: Business,
   ownerName?: string,
-  options?: { allowFollowExternalLinks?: boolean }
+  options?: { allowFollowExternalLinks?: boolean; includeOwnerDetails?: boolean }
 ): BusinessFrontend {
   const categoryId = getCategoryId((b as any).category_id || "");
   const verifiedUntil = b.owner_verified_until || null;
@@ -376,8 +375,8 @@ export function toFrontend(
       : "approved";
   return {
     id: b.id,
-    ownerId: b.owner_id,
-    ownerName: ownerName || "Proprietário",
+    ...(options?.includeOwnerDetails && b.owner_id ? { ownerId: b.owner_id } : {}),
+    ...(options?.includeOwnerDetails && ownerName ? { ownerName } : {}),
     name: b.name,
     slug: b.slug,
     categoryId,
@@ -567,7 +566,6 @@ function toPublicDirectoryBusiness(row: Record<string, unknown>): BusinessFronte
 
   return toFrontend({
     id: String(row.id || ""),
-    owner_id: String(row.owner_id || ""),
     name: String(row.name || ""),
     slug: String(row.slug || ""),
     category_id: String(row.category_id || "other"),
@@ -815,7 +813,10 @@ export async function getSimilarBusinessesForBusiness(
   );
 }
 
-async function getAllBusinessesWithSelect(selectColumns: string): Promise<BusinessFrontend[]> {
+async function getAllBusinessesWithSelect(
+  selectColumns: string,
+  includeOwnerDetails = false,
+): Promise<BusinessFrontend[]> {
   const pageSize = 1000;
   const businessRows: Business[] = [];
 
@@ -836,14 +837,18 @@ async function getAllBusinessesWithSelect(selectColumns: string): Promise<Busine
 
   if (businessRows.length === 0) return [];
 
-  const ownerIds = [...new Set(businessRows.map((b: Business) => b.owner_id))];
+  const ownerIds = includeOwnerDetails
+    ? [...new Set(businessRows.map((b: Business) => b.owner_id).filter(Boolean))]
+    : [];
   const businessIds = businessRows.map((b) => b.id);
   const [profiles, linkedEvents, followLinkIds, enrichedBusinessRows] = await Promise.all([
-    fetchInFilterBatches<{ id: string; name: string }>(
-      ownerIds,
-      (batch) => supabase.from("public_profiles").select("id, name").in("id", batch),
-      "all-business-profiles",
-    ),
+    ownerIds.length > 0
+      ? fetchInFilterBatches<{ id: string; name: string }>(
+          ownerIds,
+          (batch) => supabase.from("public_profiles").select("id, name").in("id", batch),
+          "all-business-profiles",
+        )
+      : Promise.resolve([]),
     fetchInFilterBatches<CommunityEvent>(
       businessIds,
       (batch) => supabase.from("events").select(PUBLIC_EVENT_SELECT).in("business_id", batch).eq("status", "published"),
@@ -853,7 +858,7 @@ async function getAllBusinessesWithSelect(selectColumns: string): Promise<Busine
     attachLocationDisplayNames(businessRows),
   ]);
 
-  const ownerNames = new Map(
+  const ownerNames = new Map<string, string>(
     profiles.map((p) => [p.id, p.name])
   );
 
@@ -874,13 +879,16 @@ async function getAllBusinessesWithSelect(selectColumns: string): Promise<Busine
         events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
       } as Business,
       ownerNames.get(b.owner_id),
-      { allowFollowExternalLinks: followLinksBusinessIds.has(b.id) }
+      {
+        allowFollowExternalLinks: followLinksBusinessIds.has(b.id),
+        includeOwnerDetails,
+      }
     )
   );
 }
 
 export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
-  return getAllBusinessesWithSelect("*");
+  return getAllBusinessesWithSelect("*", true);
 }
 
 export async function getAllPublicBusinesses(): Promise<BusinessFrontend[]> {
@@ -1143,14 +1151,8 @@ export async function getBusinessesByRadiusRpc(params: {
 
   const physical = (physicalRows || []) as unknown as Business[];
 
-  const ownerIds = [...new Set(physical.map((b: Business) => b.owner_id))];
   const businessIds = physical.map((b) => b.id);
-  const [profiles, linkedEvents, followLinkIds, businessRows] = await Promise.all([
-    fetchInFilterBatches<{ id: string; name: string }>(
-      ownerIds,
-      (batch) => supabase.from("public_profiles").select("id, name").in("id", batch),
-      "radius-search-profiles",
-    ),
+  const [linkedEvents, followLinkIds, businessRows] = await Promise.all([
     fetchInFilterBatches<CommunityEvent>(
       businessIds,
       (batch) => supabase.from("events").select(PUBLIC_EVENT_SELECT).in("business_id", batch).eq("status", "published"),
@@ -1159,10 +1161,6 @@ export async function getBusinessesByRadiusRpc(params: {
     getFollowLinksBusinessIds(),
     attachLocationDisplayNames(physical),
   ]);
-
-  const ownerNames = new Map(
-    profiles.map((p) => [p.id, p.name])
-  );
 
   const linkedEventsByBusinessId = linkedEvents.reduce((acc, evt) => {
     const key = evt.business_id as string;
@@ -1182,7 +1180,7 @@ export async function getBusinessesByRadiusRpc(params: {
           ...b,
           events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
         } as Business,
-        ownerNames.get(b.owner_id),
+        undefined,
         { allowFollowExternalLinks: followLinksBusinessIds.has(b.id) }
       ),
     ])
@@ -1317,11 +1315,6 @@ export async function getBusinessBySlug(
   if (!data) return null;
 
   const biz = data as unknown as Business;
-  const { data: profile } = await supabase
-    .from("public_profiles")
-    .select("name")
-    .eq("id", biz.owner_id)
-    .maybeSingle();
 
   const { data: reviews } = await supabase
     .from("reviews")
@@ -1361,7 +1354,7 @@ export async function getBusinessBySlug(
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
   const [enrichedBiz] = await attachLocationDisplayNames([biz]);
-  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+  return toFrontend(enrichedBiz, undefined, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 export async function getBusinessByCountryAndSlug(
@@ -1379,11 +1372,6 @@ export async function getBusinessByCountryAndSlug(
   if (!data) return null;
 
   const biz = data as unknown as Business;
-  const { data: profile } = await supabase
-    .from("public_profiles")
-    .select("name")
-    .eq("id", biz.owner_id)
-    .maybeSingle();
 
   const { data: reviews } = await supabase
     .from("reviews")
@@ -1403,7 +1391,7 @@ export async function getBusinessByCountryAndSlug(
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
   const [enrichedBiz] = await attachLocationDisplayNames([biz]);
-  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+  return toFrontend(enrichedBiz, undefined, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 export async function getBusinessById(
@@ -1419,11 +1407,6 @@ export async function getBusinessById(
   if (!data) return null;
 
   const biz = data as unknown as Business;
-  const { data: profile } = await supabase
-    .from("public_profiles")
-    .select("name")
-    .eq("id", biz.owner_id)
-    .maybeSingle();
 
   const { data: reviews } = await supabase
     .from("reviews")
@@ -1451,7 +1434,7 @@ export async function getBusinessById(
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
   const [enrichedBiz] = await attachLocationDisplayNames([biz]);
-  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+  return toFrontend(enrichedBiz, undefined, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 export async function getBusinessByShortSlug(slug: string): Promise<BusinessFrontend | null> {
@@ -1491,15 +1474,10 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
   if (!data) return null;
 
   const biz = data as Business;
-  const { data: profile } = await supabase
-    .from("public_profiles")
-    .select("name")
-    .eq("id", biz.owner_id)
-    .maybeSingle();
 
   const followLinksBusinessIds = buildFollowLinksBusinessIdSet(await getFollowLinksBusinessIds());
   const [enrichedBiz] = await attachLocationDisplayNames([biz]);
-  return toFrontend(enrichedBiz, profile?.name, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
+  return toFrontend(enrichedBiz, undefined, { allowFollowExternalLinks: followLinksBusinessIds.has(biz.id) });
 }
 
 async function isHistoricalBusinessSlugAvailable(slug: string, excludeBusinessId?: string): Promise<boolean> {
@@ -1681,6 +1659,7 @@ export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFro
     };
     return toFrontend(withReviews, profile?.name, {
       allowFollowExternalLinks: followLinksBusinessIds.has(b.id),
+      includeOwnerDetails: true,
     });
   });
 }
@@ -1935,7 +1914,7 @@ export async function createBusiness(
     return null;
   }
 
-  return toFrontend(newBiz as Business);
+  return toFrontend(newBiz as Business, undefined, { includeOwnerDetails: true });
 }
 
 export async function updateBusiness(
@@ -2026,6 +2005,7 @@ export async function getPendingBusinessesForAdmin(): Promise<BusinessFrontend[]
   return enrichedBusinessRows.map((b) =>
     toFrontend(b, ownerNames.get(b.owner_id), {
       allowFollowExternalLinks: followLinksBusinessIds.has(b.id),
+      includeOwnerDetails: true,
     })
   );
 }

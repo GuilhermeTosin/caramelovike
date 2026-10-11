@@ -37,8 +37,8 @@ import { toast } from "sonner";
 import { getSimilarBusinessesForBusiness, getBusinessBySlug, getBusinessByCountryAndSlug, getBusinessById, getCountryName, getStateDisplayName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
 import { getMarketplaceListingsForBusinessPage } from "@/services/marketplace";
 import { marketplaceBusinessSellerPath } from "@/lib/marketplaceSnapshot";
-import { getOrCreateConversation } from "@/services/messages";
-import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
+import { getOrCreateBusinessConversation } from "@/services/messages";
+import { getMyOwnershipRequests, hasPendingClaimForBusiness, isCurrentUserBusinessOwner, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
 import { createBusinessReport } from "@/services/reports";
 import type { BusinessFrontend, ConversationFrontend } from "@/types/database";
@@ -289,6 +289,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const [editComment, setEditComment] = useState("");
   const [savingEditReview, setSavingEditReview] = useState(false);
   const [hasPendingOwnershipRequest, setHasPendingOwnershipRequest] = useState(false);
+  const [isCurrentBusinessOwner, setIsCurrentBusinessOwner] = useState<boolean | null>(null);
   const [showAllServices, setShowAllServices] = useState(false);
   const [showAllMenuItems, setShowAllMenuItems] = useState(false);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
@@ -583,14 +584,29 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   }, [previewMode, location.pathname]);
 
   useEffect(() => {
-    if (!session || !business || session.userId === business.ownerId) {
+    let active = true;
+    const currentBusiness = business;
+    setHasPendingOwnershipRequest(false);
+
+    if (!session || !currentBusiness?.id) {
+      setIsCurrentBusinessOwner(false);
       return;
     }
 
-    getMyOwnershipRequests().then((requests) => {
-      setHasPendingOwnershipRequest(hasPendingClaimForBusiness(requests, business));
+    setIsCurrentBusinessOwner(null);
+    void isCurrentUserBusinessOwner(currentBusiness.id).then(async (isOwner) => {
+      if (!active) return;
+      setIsCurrentBusinessOwner(isOwner);
+      if (isOwner !== false) return;
+
+      const requests = await getMyOwnershipRequests();
+      if (active) setHasPendingOwnershipRequest(hasPendingClaimForBusiness(requests, currentBusiness));
     });
-  }, [business, session]);
+
+    return () => {
+      active = false;
+    };
+  }, [business, session?.userId]);
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -637,7 +653,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     if (!business) return;
     trackBusinessClick(business.id, "internal_message", session.userId);
 
-    if (session.userId === business.ownerId) {
+    if (isCurrentBusinessOwner === true) {
       toast.info("Este é o seu próprio negócio!");
       navigate("/perfil?tab=mensagens");
       return;
@@ -645,13 +661,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
     let conversation: ConversationFrontend | null;
     try {
-      conversation = await getOrCreateConversation(
-        session.userId,
-        business.ownerId,
-        business.id,
-        business.name,
-        { type: "business" },
-      );
+      conversation = await getOrCreateBusinessConversation(session.userId, business.id);
     } catch (error) {
       console.error("[BusinessPage] Erro ao iniciar conversa:", error);
       toast.error("Não foi possível iniciar a conversa. Tente novamente mais tarde.");
@@ -659,10 +669,10 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
     }
     if (conversation) {
       refreshUnread();
-      toast.success(`Conversa com ${business.ownerName} iniciada!`);
+      toast.success(`Conversa com ${business.name} iniciada!`);
       const conversationItem: MarketplaceChatConversation = {
         conversation,
-        partnerName: business.ownerName || "Negocio",
+        partnerName: business.name,
         contextTitle: business.name,
         contextSubtitle: "Negocio",
         contextImageUrl: business.logoUrl,
@@ -766,7 +776,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
       navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`);
       return;
     }
-    if (!business || session.userId === business.ownerId) return;
+    if (!business || isCurrentBusinessOwner !== false) return;
 
     setRequestingOwnership(true);
     const result = await requestBusinessOwnership(
@@ -826,7 +836,7 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   const canRequestOwnership =
     !!business &&
-    (!session || session.userId !== business.ownerId);
+    (!session || isCurrentBusinessOwner === false);
   const reviewBreakdown = getReviewBreakdown(business?.reviews || []);
   const hasUserReview =
     !!session?.userId &&

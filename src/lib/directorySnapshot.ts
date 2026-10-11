@@ -184,10 +184,12 @@ export function buildDirectoryPagePath(route: DirectoryRoute, page = route.page)
 }
 
 function compactDirectoryBusiness(business: BusinessFrontend): BusinessFrontend {
+  const publicBusiness = { ...business };
+  delete publicBusiness.ownerId;
+  delete publicBusiness.ownerName;
+
   return {
-    ...business,
-    ownerId: "",
-    ownerName: "",
+    ...publicBusiness,
     description: "",
     // The paginated directory passes this item into the business route on click.
     // Keep the cover URL so the public page never flashes the generic fallback.

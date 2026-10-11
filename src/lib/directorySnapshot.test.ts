@@ -66,6 +66,8 @@ describe("directory page snapshot", () => {
     expect(snapshot?.pageBusinesses.map((item) => item.name)).toEqual(["Business 11", "Business 12"]);
     expect(snapshot?.pageBusinesses[0]?.description).toBe("");
     expect(snapshot?.pageBusinesses[0]?.photos).toEqual([]);
+    expect(snapshot?.pageBusinesses[0]).not.toHaveProperty("ownerId");
+    expect(snapshot?.pageBusinesses[0]).not.toHaveProperty("ownerName");
   });
   it("rejects paths outside the public directory", () => {
     expect(parseDirectoryRoute("/diretorio/ca/qc/montreal/pagina/2")).toBeNull();

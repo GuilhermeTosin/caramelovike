@@ -24,6 +24,18 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-10 17:22:36 -04:00
+
+- Status: implementado localmente; migration 00065 pendente de aplicacao no banco.
+- Solicitacao: remover `ownerId` e `ownerName` das respostas/objetos publicos de negocios, preservando os dados internos para titularidade e administracao.
+- Diagnostico: consultas publicas e a RPC do diretorio incluiam identificadores do proprietario; alguns detalhes tambem eram enriquecidos com nome de perfil. A pagina do negocio usava `ownerId` no cliente para verificar titularidade e iniciar conversas.
+- Implementacao: `toFrontend` agora omite os dados por padrao e exige opt-in explicito nas telas internas; selects publicos de negocios, eventos e destaques e os snapshots do diretorio nao incluem `owner_id`/`ownerName`; leituras administrativas e do painel autenticado mantem os campos.
+- Banco: criada a migration `supabase/migrations/00065_hide_public_business_owner_details.sql`. Ela limita colunas selecionaveis por `anon`, remove `owner_id` dos itens da RPC publica do diretorio, restringe a chamada direta da funcao interna e adiciona RPCs autenticadas para verificacao de titularidade e criacao de conversa sem enviar o UUID do proprietario pelo cliente.
+- Arquivos: `src/services/businesses.ts`, `src/services/events.ts`, `src/services/featured.ts`, `src/services/messages.ts`, `src/services/ownership.ts`, `src/pages/BusinessPage.tsx`, `src/lib/directorySnapshot.ts`, tipos e testes correspondentes, migration 00065 e este registro.
+- Validacao: `npm run typecheck` passou; `npm test` passou (26 arquivos, 123 testes); `npm run build` passou; ESLint nos arquivos alterados passou; `npm run check:encoding` passou; `git diff --check` passou. O build manteve o aviso preexistente de top-level `await` em `BusinessPageRoute.tsx`.
+- Pendencia: a migration nao foi aplicada a nenhum banco. Aplicar 00065 no banco de desenvolvimento antes de validar em runtime; sem ela, o acesso anonimo ao `owner_id` e as novas RPCs ainda refletem o estado anterior.
+- Deploy: nao publicar ate aplicar e validar a migration em dev; nenhuma alteracao remota foi executada nesta tarefa.
+
 ### 2026-10-10 17:16:06 -04:00
 
 - Status: concluido localmente em 2026-10-10 17:17:11 -04:00.

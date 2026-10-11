@@ -44,7 +44,7 @@ export interface BusinessEvent {
 
 export interface CommunityEvent {
   id: string;
-  owner_id: string;
+  owner_id?: string;
   business_id: string | null;
   title: string;
   description: string;
@@ -285,8 +285,8 @@ export interface Message {
 // Tipos auxiliares para o frontend (camelCase)
 export interface BusinessFrontend {
   id: string;
-  ownerId: string;
-  ownerName: string;
+  ownerId?: string;
+  ownerName?: string;
   name: string;
   slug: string;
   categoryId: string;

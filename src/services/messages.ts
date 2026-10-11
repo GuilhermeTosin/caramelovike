@@ -137,6 +137,49 @@ export async function getOrCreateConversation(
   return toConversationFrontend(newConv as Conversation, [senderId, receiverId]);
 }
 
+export async function getOrCreateBusinessConversation(
+  senderId: string,
+  businessId: string,
+): Promise<ConversationFrontend | null> {
+  if (!senderId || !businessId) return null;
+
+  const { data: conversationId, error: rpcError } = await supabase.rpc("create_business_conversation", {
+    p_business_id: businessId,
+  });
+  if (rpcError) {
+    console.error("[getOrCreateBusinessConversation] Erro ao criar conversa via RPC:", rpcError);
+    throw new ConversationStartError(rpcError.message, rpcError.code);
+  }
+  if (typeof conversationId !== "string" || !conversationId) {
+    throw new ConversationStartError("A RPC de conversa nao retornou um identificador.");
+  }
+
+  const [{ data: conversation, error: conversationError }, { data: participants, error: participantsError }] =
+    await Promise.all([
+      supabase.from("conversations").select("*").eq("id", conversationId).single(),
+      supabase.from("conversation_participants").select("user_id").eq("conversation_id", conversationId),
+    ]);
+
+  if (conversationError || !conversation) {
+    console.error("[getOrCreateBusinessConversation] Erro ao carregar conversa:", conversationError);
+    throw new ConversationStartError(
+      conversationError?.message || "A conversa criada nao foi retornada.",
+      conversationError?.code,
+    );
+  }
+  if (participantsError) {
+    console.error("[getOrCreateBusinessConversation] Erro ao carregar participantes:", participantsError);
+    throw new ConversationStartError(participantsError.message, participantsError.code);
+  }
+
+  const participantIds = (participants || []).map((participant) => participant.user_id);
+  if (!participantIds.includes(senderId)) {
+    throw new ConversationStartError("A conversa nao esta disponivel para este usuario.", "42501");
+  }
+
+  return toConversationFrontend(conversation as Conversation, participantIds);
+}
+
 async function getVisibleConversationIds(userId: string): Promise<string[]> {
   const { data: visibleParticipations, error: visibilityError } = await supabase
     .from("conversation_participants")

@@ -10,7 +10,7 @@ import type {
 } from "@/types/database";
 
 const FEATURED_PLACEMENT_SELECT = "id,business_id,scope_type,country_code,state_code,city,category,starts_at,ends_at,priority,status,notes,price_cents,created_at,updated_at";
-const FEATURED_BUSINESS_SELECT = "id,owner_id,name,slug,category_id,primary_activity,primary_activity_custom,description,hero_image,logo_url,street,city,city_slug,state,country,country_code,state_code,postal_code,lat,lng,attendance_type,average_rating,owner_verified,owner_verified_until,moderation_status,created_at,updated_at";
+const FEATURED_BUSINESS_SELECT = "id,name,slug,category_id,primary_activity,primary_activity_custom,description,hero_image,logo_url,street,city,city_slug,state,country,country_code,state_code,postal_code,lat,lng,attendance_type,average_rating,owner_verified,owner_verified_until,moderation_status,created_at,updated_at";
 
 export interface FeaturedRegion {
   countryCode?: string;
@@ -63,7 +63,7 @@ export async function getFeaturedPlacementsForAdmin(): Promise<FeaturedPlacement
     .order("ends_at", { ascending: true });
 
   if (error || !data) return [];
-  return (data as FeaturedPlacement[]).map(toFeaturedFrontend);
+  return (data as FeaturedPlacement[]).map((placement) => toFeaturedFrontend(placement, true));
 }
 
 export async function createFeaturedPlacement(
@@ -148,11 +148,16 @@ async function getActiveFeaturedPlacements(): Promise<FeaturedPlacementFrontend[
     .filter((placement) => isPlacementActiveNow(placement, now));
 }
 
-function toFeaturedFrontend(placement: FeaturedPlacement): FeaturedPlacementFrontend {
+function toFeaturedFrontend(
+  placement: FeaturedPlacement,
+  includeOwnerDetails = false,
+): FeaturedPlacementFrontend {
   return {
     id: placement.id,
     businessId: placement.business_id,
-    business: placement.business ? toFrontend(placement.business as Business) : undefined,
+    business: placement.business
+      ? toFrontend(placement.business as Business, undefined, { includeOwnerDetails })
+      : undefined,
     scopeType: placement.scope_type,
     countryCode: placement.country_code || "",
     stateCode: placement.state_code || "",
