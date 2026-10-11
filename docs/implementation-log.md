@@ -24,6 +24,16 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-11 15:48:28 -04:00
+
+- Status: migration aplicada em producao e dado verificado em 2026-10-11 15:53:34 -04:00.
+- Solicitacao: corrigir a associacao de localidade do negocio `Tasca dos Maricas`, cujo cadastro diz Lisboa, mas estava ligado a Paço de Arcos.
+- Implementacao: criada `00069_repair_lisbon_business_location.sql`. A migration identifica Lisboa na mesma combinacao de pais/regiao da localidade atual e atualiza somente o negocio de ID `38e5e404-cb81-4a5e-9af2-54b8b40e7452`, se nome, cidade, slug e localidade atual ainda corresponderem ao diagnostico. Exige uma unica localidade Lisboa canonica e aborta sem alteracoes se os dados divergirem; a reexecucao apos sucesso e segura.
+- Arquivos: `supabase/migrations/00069_repair_lisbon_business_location.sql` e este registro.
+- Validacao: `npm run check:encoding` e `git diff --check` passaram; SQL revisado estaticamente. O usuario confirmou `city = Lisboa`, `city_slug = lisboa`, `current_location = Lisboa` e `current_location_slug = lisboa` para o negocio corrigido. `npx supabase migration list --linked` mostrou Local e Remote iguais ate a versao `00069`.
+- Migrations/configuracoes externas: migration `00069` aplicada manualmente no SQL Editor de producao; historico remoto reconciliado pelo usuario.
+- Riscos residuais e deploy: correcao de dados confirmada. O arquivo de migration e este registro ainda precisam ser commitados/pushados para manter o repositorio alinhado ao banco remoto; nenhum deploy de codigo e necessario para a correcao dos dados.
+
 ### 2026-10-11 15:38:12 -04:00
 
 - Status: corrigido localmente e validado em 2026-10-11 15:39:37 -04:00.
