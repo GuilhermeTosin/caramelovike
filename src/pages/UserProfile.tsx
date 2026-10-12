@@ -225,6 +225,7 @@ export default function UserProfile() {
     sessionUserId: session?.userId,
     onAllBusinessesRefresh: refreshAllBusinesses,
     onOwnedBusinessesRefresh: refreshOwnedBusinesses,
+    onAdminUsersRefresh: refreshAdminUsers,
   });
 
   const {

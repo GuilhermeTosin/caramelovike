@@ -24,6 +24,34 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-12 13:40:00 -04:00
+
+- Status: concluido em 2026-10-12 13:44:34 -04:00.
+- Solicitacao: corrigir a contagem de negocios no painel Perfil > Usuarios apos
+  uma transferencia de ownership.
+- Hipotese confirmada no codigo: `/api/admin-users` carrega negocios em uma unica
+  requisicao com limite fixo, ordenados por data de criacao. O limite maximo do
+  PostgREST pode truncar o resultado e excluir negocios mais antigos, mesmo que
+  `owner_id` ja tenha sido atualizado corretamente.
+- Implementacao: a API agora percorre todos os negocios por `Range`, solicita
+  `count=exact`, usa `Content-Range` para continuar mesmo se o limite configurado
+  no PostgREST for menor que o tamanho pedido e ordena por data e ID. A lista de
+  usuarios tambem e atualizada apos transferencias diretas e aprovacoes.
+- Arquivos: `api/admin-users.ts`, `src/lib/paginateRows.ts`,
+  `src/lib/paginateRows.test.ts`, `src/pages/UserProfile.tsx`,
+  `src/pages/user-profile/hooks/useOwnershipAdmin.ts` e este registro.
+- Validacao: `npm run verify` passou (32 arquivos de teste, 169 testes); `npm run
+  lint` e `git diff --check` passaram. `npx vite build` foi bloqueado por
+  `spawn EPERM` ao iniciar o esbuild; o CLI Vite instalado nao reconhece
+  `--configLoader`. A checagem TypeScript isolada da funcao API tambem nao foi
+  possivel porque `@vercel/node` nao esta instalado neste workspace.
+- Migracoes/configuracoes externas: nenhuma. Banco de dados nao foi alterado;
+  commit e deploy nao realizados.
+- Risco residual: validar a contagem apos deploy no dev e confirmar que o
+  `owner_id` do registro transferido corresponde ao ID do novo usuario. Se
+  persistir zero, verificar o registro no Supabase; nao houve acesso ao banco
+  remoto nesta execucao.
+
 ### 2026-10-12 13:16:00 -04:00
 
 - Status: concluido em 2026-10-12 13:34:44 -04:00.

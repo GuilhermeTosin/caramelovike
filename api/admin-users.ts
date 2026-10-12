@@ -1,11 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import { fetchAllPages } from "../src/lib/paginateRows";
 
 const ADMIN_EMAIL = "contact@guilhermetosin.com";
 const AUTH_PAGE_SIZE = 1000;
 const MAX_AUTH_PAGES = 50;
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
+const REST_PAGE_SIZE = 1000;
 
 type SupabaseConfig = {
   url: string;
@@ -132,11 +134,11 @@ function jsonError(res: VercelResponse, status: number, error: string) {
   return res.status(status).json({ ok: false, error });
 }
 
-async function fetchJson<T>(
+async function fetchResponse(
   config: SupabaseConfig,
   path: string,
   init: RequestInit = {},
-): Promise<T> {
+): Promise<Response> {
   const request = (includeOpaqueBearer: boolean) =>
     fetch(config.url + path, {
       ...init,
@@ -174,7 +176,41 @@ async function fetchJson<T>(
     );
   }
 
+  return response;
+}
+
+async function fetchJson<T>(
+  config: SupabaseConfig,
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const response = await fetchResponse(config, path, init);
   return (await response.json()) as T;
+}
+
+async function fetchAllRestRows<T>(config: SupabaseConfig, path: string): Promise<T[]> {
+  return fetchAllPages(async (start, end) => {
+    const response = await fetchResponse(config, path, {
+      headers: {
+        "Range-Unit": "items",
+        Range: `${start}-${end}`,
+        Prefer: "count=exact",
+      },
+    });
+    const contentRange = response.headers.get("content-range") || "";
+    const totalSeparator = contentRange.lastIndexOf("/");
+    const totalValue = totalSeparator >= 0 ? contentRange.slice(totalSeparator + 1).trim() : "";
+    const total = totalValue ? Number(totalValue) : Number.NaN;
+    if (!Number.isSafeInteger(total) || total < 0) {
+      throw new Error("Supabase não informou o total de negócios na resposta paginada.");
+    }
+
+    const items = await response.json();
+    if (!Array.isArray(items)) {
+      throw new Error("Supabase retornou uma página de negócios em formato inválido.");
+    }
+    return { items: items as T[], total };
+  }, REST_PAGE_SIZE);
 }
 
 async function getAuthenticatedUser(config: SupabaseConfig, token: string): Promise<AuthUser | null> {
@@ -249,9 +285,9 @@ async function loadUserRecords(config: SupabaseConfig) {
   const [authUsers, profiles, businesses, events] = await Promise.all([
     listAuthUsers(config),
     fetchJson<ProfileRow[]>(config, "/rest/v1/profiles?select=*&limit=10000"),
-    fetchJson<UserRelationBusiness[]>(
+    fetchAllRestRows<UserRelationBusiness>(
       config,
-      "/rest/v1/businesses?select=id,owner_id,name,slug,city,state,country,country_code,state_code,moderation_status,created_at&limit=10000&order=created_at.desc",
+      "/rest/v1/businesses?select=id,owner_id,name,slug,city,state,country,country_code,state_code,moderation_status,created_at&order=created_at.desc,id.asc",
     ),
     fetchJson<UserRelationEvent[]>(
       config,
