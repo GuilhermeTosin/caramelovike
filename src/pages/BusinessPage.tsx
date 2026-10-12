@@ -928,6 +928,96 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
   const businessActivityDate = meaningfulUpdatedAt || business.createdAt;
   const businessActivityLabel = meaningfulUpdatedAt ? ("Informações atualizadas em") : ("Perfil publicado em");
 
+  const renderShareCard = (placement: "sidebar" | "bottom") => (
+    <Card
+      className={`p-5 border-border ${
+        placement === "sidebar" ? "hidden lg:block" : "mt-8 lg:hidden"
+      }`}
+    >
+      <h3 className="font-semibold mb-4 flex items-center gap-2">
+        <Share2 className="w-4 h-4 text-primary" />
+        {"Compartilhar página"}
+      </h3>
+      <div className="grid grid-cols-1 gap-2">
+        <Button
+          variant="outline"
+          className="justify-start"
+          onClick={() => {
+            const text = encodeURIComponent(
+              `Confira ${business.name} no Caramelinho: ${shareUrl}`,
+            );
+            window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+          }}
+        >
+          <MessageCircle className="w-4 h-4 mr-2 text-green-600" />
+          WhatsApp
+        </Button>
+        <Button
+          variant="outline"
+          className="justify-start"
+          onClick={() => {
+            const url = encodeURIComponent(shareUrl);
+            window.open(
+              `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+              "_blank",
+              "noopener,noreferrer"
+            );
+          }}
+        >
+          <Facebook className="w-4 h-4 mr-2 text-blue-600" />
+          Facebook
+        </Button>
+        <Button variant="outline" className="justify-start" onClick={handleCopyLink}>
+          <Link2 className="w-4 h-4 mr-2" />
+          {"Copiar link"}
+        </Button>
+        {canUseNativeShare && (
+          <Button variant="ghost" className="justify-start text-muted-foreground" onClick={handleNativeShare}>
+            <Share2 className="w-4 h-4 mr-2" />
+            {"Mais opções"}
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+
+  const renderBusinessPageActions = (placement: "sidebar" | "bottom") => (
+    <div
+      className={`space-y-4 ${
+        placement === "sidebar" ? "hidden lg:block" : "mt-4 lg:hidden"
+      }`}
+    >
+      {canRequestOwnership && (
+        <div className="space-y-2">
+          <Button
+            variant="ghost"
+            className="w-full text-muted-foreground hover:text-foreground"
+            onClick={handleRequestOwnership}
+            disabled={requestingOwnership || hasPendingOwnershipRequest}
+          >
+            <Store className="w-4 h-4 mr-2" />
+            {hasPendingOwnershipRequest
+              ? ("Solicitação de ownership enviada")
+              : requestingOwnership
+                ? ("Enviando solicitação...")
+                : ("Sou dono deste negócio")}
+          </Button>
+        </div>
+      )}
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={() => setReportOpen(true)}
+      >
+        {"Denunciar anúncio"}
+      </Button>
+      <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground/80">
+        <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+        {`${businessActivityLabel} ${formatDatePtBr(businessActivityDate)}`}
+      </p>
+    </div>
+  );
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -1588,81 +1678,8 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
               )}
 
 
-              <Card className="p-5 border-border">
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <Share2 className="w-4 h-4 text-primary" />
-                  {"Compartilhar página"}
-                </h3>
-                <div className="grid grid-cols-1 gap-2">
-                  <Button
-                    variant="outline"
-                    className="justify-start"
-                    onClick={() => {
-                      const text = encodeURIComponent(
-                        `Confira ${business.name} no Caramelinho: ${shareUrl}`,
-                      );
-                      window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
-                    }}
-                  >
-                    <MessageCircle className="w-4 h-4 mr-2 text-green-600" />
-                    WhatsApp
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="justify-start"
-                    onClick={() => {
-                      const url = encodeURIComponent(shareUrl);
-                      window.open(
-                        `https://www.facebook.com/sharer/sharer.php?u=${url}`,
-                        "_blank",
-                        "noopener,noreferrer"
-                      );
-                    }}
-                  >
-                    <Facebook className="w-4 h-4 mr-2 text-blue-600" />
-                    Facebook
-                  </Button>
-                  <Button variant="outline" className="justify-start" onClick={handleCopyLink}>
-                    <Link2 className="w-4 h-4 mr-2" />
-                    {"Copiar link"}
-                  </Button>
-                  {canUseNativeShare && (
-                    <Button variant="ghost" className="justify-start text-muted-foreground" onClick={handleNativeShare}>
-                      <Share2 className="w-4 h-4 mr-2" />
-                      {"Mais opções"}
-                    </Button>
-                  )}
-                </div>
-              </Card>
-
-              {canRequestOwnership && (
-                <div className="space-y-2">
-                  <Button
-                    variant="ghost"
-                    className="w-full text-muted-foreground hover:text-foreground"
-                    onClick={handleRequestOwnership}
-                    disabled={requestingOwnership || hasPendingOwnershipRequest}
-                  >
-                    <Store className="w-4 h-4 mr-2" />
-                    {hasPendingOwnershipRequest
-                      ? ("Solicitação de ownership enviada")
-                      : requestingOwnership
-                        ? ("Enviando solicitação...")
-                        : ("Sou dono deste negócio")}
-                  </Button>
-                </div>
-              )}
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setReportOpen(true)}
-              >
-                {"Denunciar anúncio"}
-              </Button>
-              <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground/80">
-                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                {`${businessActivityLabel} ${formatDatePtBr(businessActivityDate)}`}
-              </p>
+              {renderShareCard("sidebar")}
+              {renderBusinessPageActions("sidebar")}
             </div>
           </aside>
         </div>
@@ -1808,6 +1825,8 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
             </div>
           </section>
         )}
+        {renderShareCard("bottom")}
+        {renderBusinessPageActions("bottom")}
       </div>
 
       <Dialog open={reportOpen} onOpenChange={setReportOpen}>
