@@ -7,6 +7,7 @@ import MarketplaceListingCard from "@/components/MarketplaceListingCard";
 import SiteFooter from "@/components/SiteFooter";
 import { buildBusinessCategorySearchPath, buildMarketplaceSearchPath, useSearchLocation, type SearchLocation } from "@/contexts/SearchLocationContext";
 import { getHomeContent } from "@/data/homeContent";
+import { getSiteContent } from "@/data/siteContent";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { mergeRecentBusinesses } from "@/lib/homeRecentBusinesses";
@@ -232,7 +233,8 @@ export default function HomeV2({
   };
 
   useEffect(() => {
-    setSeoMeta("Caramelinho | Nova experiência", "Encontre negócios brasileiros, produtos e serviços no exterior em uma nova experiência do Caramelinho.");
+    const { homeTitle, homeDescription } = getSiteContent().seo;
+    setSeoMeta(homeTitle, homeDescription);
   }, []);
 
   return (

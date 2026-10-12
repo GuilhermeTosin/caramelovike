@@ -3,6 +3,7 @@ import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay"
 import { buildBusinessUrl } from "@/services/businesses";
 import { describe, expect, it } from "vitest";
 import {
+  buildFallbackBusinessSeoMeta,
   buildBusinessSeoDescription,
   buildBusinessSeoTitle,
   getBusinessSeoDescriptor,
@@ -26,6 +27,17 @@ const baseBusiness = {
 };
 
 describe("business SEO metadata", () => {
+  it("keeps the client fallback metadata aligned with the SSR route city", () => {
+    expect(buildFallbackBusinessSeoMeta("sao-paulo")).toEqual({
+      title: "Negócio brasileiro em Sao Paulo",
+      description: "Encontre informações de contato, avaliações e detalhes sobre negócios brasileiros em Sao Paulo.",
+    });
+    expect(buildFallbackBusinessSeoMeta()).toEqual({
+      title: "Negócio brasileiro",
+      description: "Encontre informações de contato, avaliações e detalhes sobre negócios brasileiros no exterior.",
+    });
+  });
+
   it("keeps long meta descriptions within 160 characters without adding an ellipsis", () => {
     const business = {
       ...baseBusiness,

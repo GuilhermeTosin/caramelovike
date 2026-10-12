@@ -6,14 +6,22 @@ import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import type { RendererPageContext } from "@/renderer/pageContext";
 import { getSiteContent } from "@/data/siteContent";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
-import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
+import { buildBusinessSeoDescription, buildBusinessSeoTitle, buildFallbackBusinessSeoMeta } from "@/lib/seo/businessMeta";
 import { getDirectoryPageMeta, type DirectoryPageMeta } from "@/lib/seo/directoryMeta";
 import { buildDirectoryPagePath, parseDirectoryRoute, type DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import { getDirectoryCategoryBySlug } from "@/lib/directoryCategories";
 import { getCountryDisplayName, getLocaleHtmlLang, getLocaleOgCode, localizePath } from "@/lib/locales";
 import { getCanonicalCitySlug, getCityDisplayName } from "@/lib/locationDisplay";
-import { getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
-import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
+import { getCategoryId, getCategoryLabel, getCountryName, getStateDisplayName, slugify } from "@/services/businesses";
+import { getInternalSearchCanonicalPath, getInternalSearchRobots, getRouteRobots } from "@/lib/seo/searchIndexing";
+import { buildSearchSeoMeta } from "@/lib/seo/searchMeta";
+import { getErrorPageMeta, getStaticPageMeta } from "@/lib/seo/staticPageMeta";
+import {
+  buildMarketplaceBusinessSellerSeoMeta,
+  buildMarketplaceListingSeoMeta,
+  buildMarketplaceSellerSeoMeta,
+  MARKETPLACE_INDEX_SEO_META,
+} from "@/lib/seo/marketplaceMeta";
 import { getMeaningfulUpdatedAt } from "@/lib/dates";
 import {
   buildEventBreadcrumbStructuredData,
@@ -59,18 +67,7 @@ function getCanonicalUrl(urlOriginal: string | undefined, isBusinessPage: boolea
 
 function getRobotsContent(urlOriginal?: string) {
   const url = new URL(urlOriginal || "/", "https://www.caramelinho.com");
-  const pathname = url.pathname;
-
-  if (pathname === "/index2") return "noindex,follow";
-
-  const privatePaths = new Set([
-    "/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard",
-  ]);
-  if (privatePaths.has(pathname) || pathname === "/marketplace/novo" || pathname.startsWith("/marketplace/editar/")) return "noindex,nofollow,noarchive";
-  if (pathname === "/marketplace" && url.search) return "noindex,follow";
-  const searchRobots = getInternalSearchRobots(pathname);
-  if (searchRobots) return searchRobots;
-  return "index,follow,max-image-preview:large";
+  return getRouteRobots(url.pathname, url.search);
 }
 
 function marketplaceListingJsonLd(listing: MarketplaceListing, canonicalUrl: string) {
@@ -167,16 +164,6 @@ function getRobotsContentForPage(urlOriginal?: string, is404?: boolean) {
   return getRobotsContent(urlOriginal);
 }
 
-function getErrorPageMeta(isGone = false) {
-  const content = getSiteContent();
-  return {
-    title: isGone ? "Negócio removido | Caramelinho" : content.seo.notFoundTitle,
-    description: isGone
-      ? "Este negócio foi removido e este endereço não será reutilizado."
-      : content.seo.notFoundDescription,
-  };
-}
-
 function buildPublicRuntimeEnvScript() {
   const env = {
     VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "",
@@ -246,58 +233,16 @@ function buildBusinessHeroImageAssets(imageUrl: string) {
   };
 }
 
-function titleCasePathSegment(value: string) {
-  return value
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 function buildFallbackBusinessMeta(urlOriginal: string | undefined) {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
   const parts = pathname.split("/").filter(Boolean);
-  const cityName = titleCasePathSegment(parts[2] || "");
-
-  if (parts.length === 4 && cityName) {
-    return {
-      title: "Neg\u00f3cio brasileiro em " + cityName,
-      description: "Encontre informa\u00e7\u00f5es de contato, avalia\u00e7\u00f5es e detalhes sobre neg\u00f3cios brasileiros em " + cityName + ".",
-    };
-  }
-
-  return {
-    title: "Neg\u00f3cio brasileiro",
-    description: "Encontre informa\u00e7\u00f5es de contato, avalia\u00e7\u00f5es e detalhes sobre neg\u00f3cios brasileiros no exterior.",
-  };
+  return buildFallbackBusinessSeoMeta(parts[2] || "");
 }
 
 function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] = [], directoryMeta?: DirectoryPageMeta) {
   const pathname = new URL(urlOriginal || "/", "https://www.caramelinho.com").pathname;
-  const staticPageMeta = {
-    "/sobre": {
-      title: "Sobre N\u00f3s | Caramelinho.com",
-      description: "Conhe\u00e7a o Caramelinho, a plataforma que conecta brasileiros no exterior a neg\u00f3cios e servi\u00e7os da comunidade.",
-    },
-    "/contato": {
-      title: "Contato | Caramelinho.com",
-      description: "Fale com o Caramelinho para tirar d\u00favidas, obter suporte ou conversar sobre parcerias.",
-    },
-    "/privacidade": {
-      title: "Pol\u00edtica de Privacidade | Caramelinho.com",
-      description: "Entenda como o Caramelinho coleta, utiliza e protege seus dados pessoais.",
-    },
-    "/termos": {
-      title: "Termos e Condi\u00e7\u00f5es | Caramelinho.com",
-      description: "Leia os termos e condi\u00e7\u00f5es de uso da plataforma Caramelinho.",
-    },
-    "/negocio-verificado": {
-      title: "Verifica\u00e7\u00e3o de neg\u00f3cio | Caramelinho.com",
-      description: "Entenda como solicitar a verifica\u00e7\u00e3o do seu neg\u00f3cio no Caramelinho e exiba um selo de confian\u00e7a para seus clientes.",
-    },
-  } as const;
-
-  if (pathname in staticPageMeta) return staticPageMeta[pathname as keyof typeof staticPageMeta];
+  const staticMeta = getStaticPageMeta(pathname);
+  if (staticMeta) return staticMeta;
 
   if (pathname === "/negocios" || pathname.startsWith("/negocios/")) {
     return directoryMeta || getDirectoryPageMeta(urlOriginal, businesses) || {
@@ -307,17 +252,14 @@ function getPublicPageMeta(urlOriginal?: string, businesses: BusinessFrontend[] 
   }
 
   if (pathname === "/buscar") {
-    return {
-      title: "Buscar neg\u00f3cios brasileiros | Caramelinho.com",
-      description: "Busque neg\u00f3cios, servi\u00e7os, produtos e eventos brasileiros perto de voc\u00ea no exterior.",
-    };
-  }
-
-  if (pathname === "/index2") {
-    return {
-      title: "Caramelinho | Nova experiência",
-      description: "Encontre negócios brasileiros, produtos e serviços no exterior em uma nova experiência do Caramelinho.",
-    };
+    const params = new URL(urlOriginal || "/buscar", "https://www.caramelinho.com").searchParams;
+    const rawCategory = params.get("categoria")?.trim() || "";
+    const categoryLabel = rawCategory ? getCategoryLabel(getCategoryId(rawCategory)) : "";
+    return buildSearchSeoMeta({
+      categoryLabel,
+      city: params.get("cidade") || "",
+      query: params.get("q_label") || params.get("q") || "",
+    });
   }
 
   const content = getSiteContent();
@@ -500,13 +442,13 @@ export async function onRenderHtml(pageContext: PageContext) {
   const staticMeta = isErrorPage
     ? getErrorPageMeta(isGone)
     : isMarketplaceIndex
-      ? { title: "Marketplace | Caramelinho", description: "Compre, venda e encontre produtos perto de você no Marketplace do Caramelinho." }
+      ? MARKETPLACE_INDEX_SEO_META
       : isMarketplaceSeller && pageContext.initialMarketplaceSeller
-        ? { title: `${pageContext.initialMarketplaceSeller.profile.name?.trim() || "Vendedor"} | Marketplace | Caramelinho`, description: `Veja os anúncios ativos e as avaliações dos negócios de ${pageContext.initialMarketplaceSeller.profile.name?.trim() || "vendedor"} no Marketplace do Caramelinho.` }
+        ? buildMarketplaceSellerSeoMeta(pageContext.initialMarketplaceSeller.profile.name)
       : isMarketplaceBusinessSeller && pageContext.initialMarketplaceBusinessSeller
-        ? { title: `${pageContext.initialMarketplaceBusinessSeller.business.name} | Marketplace | Caramelinho`, description: `Veja os anúncios ativos e as avaliações de ${pageContext.initialMarketplaceBusinessSeller.business.name} no Marketplace do Caramelinho.` }
+        ? buildMarketplaceBusinessSellerSeoMeta(pageContext.initialMarketplaceBusinessSeller.business.name)
       : isMarketplaceDetail && pageContext.initialMarketplaceListing
-        ? { title: `${pageContext.initialMarketplaceListing.title} | Marketplace | Caramelinho`, description: `${pageContext.initialMarketplaceListing.title} em ${pageContext.initialMarketplaceListing.city}. Veja preço, condição e entre em contato com o vendedor.` }
+        ? buildMarketplaceListingSeoMeta(pageContext.initialMarketplaceListing)
         : getPublicPageMeta(pageContext.urlOriginal, pageContext.initialBusinesses || [], pageContext.initialDirectorySnapshot?.pageMeta);
   const fallbackBusinessMeta = buildFallbackBusinessMeta(pageContext.urlOriginal);
   const eventMeta = event

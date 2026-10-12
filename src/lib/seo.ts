@@ -9,6 +9,11 @@ export function setSeoMeta(title: string, description: string) {
     document.head.appendChild(meta);
   }
   meta.setAttribute("content", description);
+
+  upsertMetaTag("property", "og:title", title);
+  upsertMetaTag("property", "og:description", description);
+  upsertMetaTag("name", "twitter:title", title);
+  upsertMetaTag("name", "twitter:description", description);
 }
 
 export function upsertMetaTag(attr: "name" | "property", key: string, content: string) {
@@ -37,6 +42,7 @@ export function setCanonical(url: string) {
 
 export function setRobots(content: string) {
   upsertMetaTag("name", "robots", content);
+  upsertMetaTag("name", "googlebot", content);
 }
 
 export function setJsonLd(id: string, payload: unknown) {

@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import { useEffect } from "react";
+import { getStaticPageMeta } from "@/lib/seo/staticPageMeta";
+
+const ABOUT_PAGE_META = getStaticPageMeta("/sobre")!;
 
 function setMetaTag(attr: "name" | "property", key: string, content: string) {
   let meta = document.querySelector(`meta[${attr}="${key}"]`) as HTMLMetaElement | null;
@@ -16,9 +19,7 @@ export default function AboutPage() {
   useEffect(() => {
     if (typeof document === "undefined") return;
 
-    const title = "Sobre Nós | Caramelinho.com";
-    const description =
-      "Conheça o Caramelinho, a plataforma que conecta brasileiros no exterior a negócios e serviços da comunidade.";
+    const { title, description } = ABOUT_PAGE_META;
     const canonicalUrl = "https://www.caramelinho.com/sobre";
     const imageUrl = "https://www.caramelinho.com/logo.png";
 

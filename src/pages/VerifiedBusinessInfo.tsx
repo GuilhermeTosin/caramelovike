@@ -3,11 +3,14 @@ import { BadgeCheck, CheckCircle2, ShieldCheck, Star, Trophy } from "lucide-reac
 import { Card } from "@/components/ui/card";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
+import { getStaticPageMeta } from "@/lib/seo/staticPageMeta";
+
+const VERIFIED_BUSINESS_PAGE_META = getStaticPageMeta("/negocio-verificado")!;
 
 export default function VerifiedBusinessInfo() {
   const text = {
-    title: "Negócio Verificado | Caramelinho",
-    description: "Saiba como conquistar o selo Negócio Verificado no Caramelinho, entender a validade de 12 meses e os critérios de renovação.",
+    title: VERIFIED_BUSINESS_PAGE_META.title,
+    description: VERIFIED_BUSINESS_PAGE_META.description,
     request: "Solicitar verificação",
     program: "Programa Negócio Verificado",
     hero: "Ganhe o selo de confiança no Caramelinho",

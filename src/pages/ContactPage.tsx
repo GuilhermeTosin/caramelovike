@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { submitContactMessage } from "@/services/contact";
 import { toast } from "sonner";
+import { getStaticPageMeta } from "@/lib/seo/staticPageMeta";
+
+const CONTACT_PAGE_META = getStaticPageMeta("/contato")!;
 
 export default function ContactPage() {
   const { session } = useAuth();
@@ -19,10 +22,7 @@ export default function ContactPage() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    setSeoMeta(
-      "Contato | Caramelinho.com",
-      "Fale com o Caramelinho para tirar dúvidas, obter suporte ou conversar sobre parcerias."
-    );
+    setSeoMeta(CONTACT_PAGE_META.title, CONTACT_PAGE_META.description);
   }, []);
 
   useEffect(() => {

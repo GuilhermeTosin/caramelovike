@@ -50,7 +50,7 @@ import MarketplaceListingCard from "@/components/MarketplaceListingCard";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setJsonLd, setRobots } from "@/lib/seo";
-import { buildBusinessSeoDescription, buildBusinessSeoTitle } from "@/lib/seo/businessMeta";
+import { buildBusinessSeoDescription, buildBusinessSeoTitle, buildFallbackBusinessSeoMeta } from "@/lib/seo/businessMeta";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { DEFAULT_BUSINESS_LOGO, getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
@@ -482,10 +482,8 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
 
   useEffect(() => {
     if (!business) {
-      setSeoMeta(
-        "Negócio brasileiro",
-        "Encontre negócios perto de você."
-      );
+      const fallbackMeta = buildFallbackBusinessSeoMeta(city);
+      setSeoMeta(fallbackMeta.title, fallbackMeta.description);
       return;
     }
     setSeoMeta(

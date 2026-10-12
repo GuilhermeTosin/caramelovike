@@ -24,6 +24,135 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-12 17:05:23 -04:00
+
+- Status: implementado e validado localmente em 2026-10-12 17:07:06 -04:00;
+  aguarda envio e validacao no deployment Preview de `dev`.
+- Solicitacao: corrigir o erro 500 ao carregar Perfil > Usuarios no deployment
+  Preview da branch `dev`.
+- Diagnostico: a invocacao falha antes de entrar no handler porque o runtime
+  ESM do Vercel nao resolve o import sem extensao
+  `../src/lib/paginateRows` em `api/admin-users.js` (`ERR_MODULE_NOT_FOUND`).
+  Confirmado no log correlacionado pelo `x-vercel-id`
+  `yul1::jfgqc-1791838948879-2f6c56f3bfd0`. O endpoint tambem importava
+  `ownershipTransfer` pelo mesmo padrao.
+- Escopo: remover imports runtime de utilitarios TypeScript fora da funcao e
+  substituir por modulo JavaScript ESM local com caminho explicito `.js`,
+  mantendo paginacao e confirmacao de ownership.
+- Implementacao: `api/admin-users.ts` agora importa os helpers de
+  `../server/adminUsersRuntime.js`; os utilitarios e testes antigos foram
+  consolidados em `server/adminUsersRuntime.js` e
+  `src/lib/adminUsersRuntime.test.ts`. O endpoint nao depende mais dos imports
+  TypeScript extensionless que causavam o crash.
+- Arquivos: `api/admin-users.ts`, `server/adminUsersRuntime.js`,
+  `src/lib/adminUsersRuntime.test.ts`, remocao de
+  `src/lib/paginateRows.ts`, `src/lib/paginateRows.test.ts`,
+  `src/lib/ownershipTransfer.ts`, `src/lib/ownershipTransfer.test.ts` e este
+  registro.
+- Validacao: `npm run verify` passou (33 arquivos de teste, 173 testes);
+  `npm run lint`, import ESM direto com Node e `git diff --check` passaram.
+- Risco/pendencia: o empacotamento da funcao no Vercel so pode ser confirmado
+  depois do deploy Preview de `dev`; nenhuma migration, dado remoto ou segredo
+  foi alterado. Ainda nao houve commit ou deploy.
+
+### 2026-10-12 14:21:25 -04:00
+
+- Status: instrumentacao local concluida em 2026-10-12 14:22:33 -04:00;
+  causa raiz do erro HTTP 500 pendente.
+- Solicitacao: corrigir erro ao carregar a aba administrativa de usuarios,
+  exibido como `[object Object]` no deployment dev.
+- Contexto: o usuario confirmou via SQL que o novo proprietario tem um negocio;
+  `dev`/`origin/dev` estao no commit `beee67b`, mas a leitura da lista agora
+  retorna erro. Sem aba autenticada ou resposta de rede disponivel nesta sessao.
+- Escopo: normalizar erros estruturados da API e permitir que uma nova tentativa
+  recupere a tela limpando erro anterior; nao alterar ownership ou banco.
+- Estrategia: extrair formatador de mensagem com testes e limpar estado de erro
+  antes de novas requisicoes e quando uma requisicao terminar com sucesso.
+- Implementacao: a interface extrai mensagem e codigo de erros aninhados em vez
+  de mostrar `[object Object]`; retries limpam o erro anterior e respostas bem-
+  sucedidas removem o estado de erro. Nenhum detalhe do banco ou do ownership e
+  alterado.
+- Arquivos: `src/lib/adminApiError.ts`, `src/lib/adminApiError.test.ts`,
+  `src/pages/user-profile/hooks/useAdminUsers.ts` e este registro.
+- Validacao: `npm run verify` passou (34 arquivos de teste, 176 testes);
+  `npm run lint` e `git diff --check` passaram. Commit e deploy nao realizados.
+- Risco: isso melhora o diagnostico e retry, mas a causa do 500 pode exigir o
+  corpo da resposta da API ou logs do deployment.
+
+### 2026-10-12 14:00:25 -04:00
+
+- Status: validacao local concluida em 2026-10-12 14:01:24 -04:00; divergencia
+  de leitura no endpoint administrativo ainda em diagnostico.
+- Solicitacao: investigar a contagem ainda zerada depois da correção de
+  paginação e da atualização da lista administrativa.
+- Contexto: `dev` e `origin/dev` estão no commit `9ee184d`; não foi possível
+  confirmar o estado do deployment Vercel nem consultar o banco remoto.
+- Hipotese encontrada no fluxo: `/api/admin-users` retornava sucesso mesmo
+  quando o `PATCH` de ownership não retornava nenhuma linha ou não confirmava o
+  novo `owner_id`, porque o resultado vazio era convertido em `null` sem erro.
+- Escopo: exigir confirmação do `owner_id` retornado pelo Supabase antes de
+  responder sucesso à transferência; não alterar dados nem migrations.
+- Estrategia: extrair a validação para função pura e cobrir retorno vazio,
+  proprietário divergente e transferência confirmada.
+- Implementacao: a API agora rejeita o resultado vazio ou divergente do `PATCH`
+  e so prossegue com a sincronizacao das solicitacoes de ownership depois de
+  confirmar o `owner_id` do destinatario.
+- Arquivos: `api/admin-users.ts`, `src/lib/ownershipTransfer.ts`,
+  `src/lib/ownershipTransfer.test.ts` e este registro.
+- Validacao local: `npm run verify` passou (33 arquivos de teste, 172 testes);
+  `npm run lint` e `git diff --check` passaram. Nenhum acesso ou alteracao ao
+  banco remoto, commit ou deploy foi feito nesta etapa.
+- Risco: nao foi possivel validar o payload do endpoint em uma sessao autenticada
+  nem confirmar o deployment Vercel ativo; a captura do endpoint e necessaria
+  antes de atribuir a divergencia a cache, codigo ou variaveis de ambiente.
+- Diagnostico recebido em 2026-10-12: consulta SQL do usuario confirmou um
+  negocio associado ao `target_user_id`. A transferencia foi persistida; a
+  contagem zero na interface aponta para deployment/ambiente da API ou resposta
+  de `/api/admin-users`, nao para falta de ownership no banco.
+- Proximo dado necessario: resposta de `GET /api/admin-users` para esse usuario
+  no deployment dev e confirmacao de que `SUPABASE_URL` nesse deployment aponta
+  para o mesmo projeto Supabase consultado no SQL.
+
+### 2026-10-12 13:40:00 -04:00
+
+- Status: concluido em 2026-10-12 13:44:34 -04:00.
+- Solicitacao: corrigir a contagem de negocios no painel Perfil > Usuarios apos
+  uma transferencia de ownership.
+- Hipotese confirmada no codigo: `/api/admin-users` carrega negocios em uma unica
+  requisicao com limite fixo, ordenados por data de criacao. O limite maximo do
+  PostgREST pode truncar o resultado e excluir negocios mais antigos, mesmo que
+  `owner_id` ja tenha sido atualizado corretamente.
+- Implementacao: a API agora percorre todos os negocios por `Range`, solicita
+  `count=exact`, usa `Content-Range` para continuar mesmo se o limite configurado
+  no PostgREST for menor que o tamanho pedido e ordena por data e ID. A lista de
+  usuarios tambem e atualizada apos transferencias diretas e aprovacoes.
+- Arquivos: `api/admin-users.ts`, `src/lib/paginateRows.ts`,
+  `src/lib/paginateRows.test.ts`, `src/pages/UserProfile.tsx`,
+  `src/pages/user-profile/hooks/useOwnershipAdmin.ts` e este registro.
+- Validacao: `npm run verify` passou (32 arquivos de teste, 169 testes); `npm run
+  lint` e `git diff --check` passaram. `npx vite build` foi bloqueado por
+  `spawn EPERM` ao iniciar o esbuild; o CLI Vite instalado nao reconhece
+  `--configLoader`. A checagem TypeScript isolada da funcao API tambem nao foi
+  possivel porque `@vercel/node` nao esta instalado neste workspace.
+- Migracoes/configuracoes externas: nenhuma. Banco de dados nao foi alterado;
+  commit e deploy nao realizados.
+- Risco residual: validar a contagem apos deploy no dev e confirmar que o
+  `owner_id` do registro transferido corresponde ao ID do novo usuario. Se
+  persistir zero, verificar o registro no Supabase; nao houve acesso ao banco
+  remoto nesta execucao.
+
+### 2026-10-12 13:16:00 -04:00
+
+- Status: concluido em 2026-10-12 13:34:44 -04:00.
+- Solicitacao: corrigir a divergencia entre o titulo SEO inicial e o titulo apos hidratacao e auditar outras rotas com metadados duplicados entre SSR e cliente.
+- Escopo: home, busca, paginas do Marketplace, pagina de verificacao, fallback de negocios, paginas estaticas e privadas, paginas 404/410, metadados sociais e robots em navegacao SPA e resolucao SSR de `/negocio/wizard`.
+- Implementacao: builders compartilhados entre SSR e cliente para busca, Marketplace, paginas estaticas e erros; home usa o mesmo titulo/descricao em ambos os ambientes; `setSeoMeta` atualiza Open Graph e Twitter; regras compartilhadas de robots mantem `robots` e `googlebot` consistentes, incluindo busca parametrizada e rotas de publicar/editar; o SSR deixa de interpretar `/negocio/wizard` como URL antiga de negocio.
+- Arquivos: `pages/+onRenderHtml.tsx`, `pages/app/+onBeforeRender.ts`, `scripts/check-seo-ssr.mjs`, `src/App.tsx`, `src/components/BusinessRemovedNotice.tsx`, `src/lib/seo.ts`, `src/lib/seo/businessMeta.ts`, `src/lib/seo/businessMeta.test.ts`, `src/lib/seo/dynamicMeta.test.ts`, `src/lib/seo/marketplaceMeta.ts`, `src/lib/seo/searchIndexing.ts`, `src/lib/seo/searchIndexing.test.ts`, `src/lib/seo/searchMeta.ts`, `src/lib/seo/staticPageMeta.ts`, `src/lib/seo/staticPageMeta.test.ts`, `src/pages/AboutPage.tsx`, `src/pages/BusinessPage.tsx`, `src/pages/ContactPage.tsx`, `src/pages/HomeV2.tsx`, `src/pages/MarketplacePage.tsx`, `src/pages/NotFound.tsx`, `src/pages/PrivacyPage.tsx`, `src/pages/SearchResults.tsx`, `src/pages/TermsPage.tsx`, `src/pages/VerifiedBusinessInfo.tsx` e este registro.
+- Validacao: `npm run verify` passou (TypeScript, 31 arquivos de teste e 164 testes); `npm run lint` passou; `npm run build` passou; `node scripts/check-seo-ssr.mjs http://127.0.0.1:4173` passou em 31 verificacoes, com uma verificacao de sitemap dinamico pulada porque o endpoint nao existe no host local.
+- Observacoes: o build manteve o aviso preexistente tolerado de top-level await em `src/pages/BusinessPageRoute.tsx:7`. A primeira tentativa do teste identificou o conflito SSR de `/negocio/wizard`; a rota foi corrigida e a auditoria repetida com sucesso.
+- Migracoes/configuracoes externas: nenhuma. Deploy/commit: nao realizados.
+- Risco residual: validar o sitemap dinamico no ambiente Vercel; ele nao e servido pelo servidor local usado na auditoria.
+
 ### 2026-10-12 11:19:35 -04:00
 
 - Status: implementado localmente em 2026-10-12 11:20:46 -04:00.

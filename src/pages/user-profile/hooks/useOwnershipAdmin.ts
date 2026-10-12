@@ -13,6 +13,7 @@ type UseOwnershipAdminOptions = {
   sessionUserId?: string;
   onAllBusinessesRefresh: () => Promise<unknown>;
   onOwnedBusinessesRefresh: (ownerId?: string) => Promise<unknown>;
+  onAdminUsersRefresh: () => void | Promise<unknown>;
 };
 
 export function useOwnershipAdmin({
@@ -20,6 +21,7 @@ export function useOwnershipAdmin({
   sessionUserId,
   onAllBusinessesRefresh,
   onOwnedBusinessesRefresh,
+  onAdminUsersRefresh,
 }: UseOwnershipAdminOptions) {
   const [ownershipRequests, setOwnershipRequests] = useState<OwnerClaimRequest[]>([]);
   const [ownershipLoading, setOwnershipLoading] = useState(false);
@@ -48,7 +50,7 @@ export function useOwnershipAdmin({
       return;
     }
     toast.success(`Ownership transferido para ${request.requester_name || request.requester_email}.`);
-    await loadOwnershipAdminData();
+    await Promise.all([loadOwnershipAdminData(), onAdminUsersRefresh()]);
   };
 
   const handleRejectOwnership = async (request: OwnerClaimRequest) => {
@@ -77,10 +79,14 @@ export function useOwnershipAdmin({
     toast.success("Ownership transferido com sucesso.");
     setTransferBusinessId("");
     setTransferEmail("");
-    await loadOwnershipAdminData();
+    const refreshTasks: Promise<unknown>[] = [
+      loadOwnershipAdminData(),
+      Promise.resolve(onAdminUsersRefresh()),
+    ];
     if (sessionUserId) {
-      await onOwnedBusinessesRefresh(sessionUserId);
+      refreshTasks.push(onOwnedBusinessesRefresh(sessionUserId));
     }
+    await Promise.all(refreshTasks);
   };
 
   return {

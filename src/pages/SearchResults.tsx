@@ -30,6 +30,7 @@ import { getCountryDisplayName, getSiteSlogan } from "@/lib/locales";
 import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
+import { buildSearchSeoMeta } from "@/lib/seo/searchMeta";
 import { getExternalLinkProps } from "@/lib/seo/externalLinks";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl, preloadResponsiveImage } from "@/lib/images";
 import { preloadBusinessPageAssets, preloadBusinessPageChunk } from "@/pages/BusinessPagePrefetch";
@@ -195,26 +196,6 @@ const DEFAULT_SEARCH_RADIUS_KM = "50";
 const RESULTS_PER_PAGE = 6;
 const STRICT_SEARCH_MODE = (import.meta.env.VITE_STRICT_SEARCH_MODE ?? "1") !== "0";
 const STRICT_SEARCH_MIN_SCORE = Number(import.meta.env.VITE_STRICT_SEARCH_MIN_SCORE ?? "3");
-
-const CATEGORY_SEO_TEXT: Record<string, string> = {
-  "Restaurantes e Alimentação": "restaurantes, padarias e cafés",
-  "Alimentação (Restaurantes, Padarias, Cafés)": "restaurantes, padarias e cafés",
-  "Serviços Automotivos": "oficinas e serviços automotivos",
-  "Saúde & Beleza": "serviços de saúde e beleza",
-  "Construção & Reformas": "serviços de construção e reformas",
-  "Advocacia & Consultoria": "advocacia, traduções e consultoria de imigração",
-  "Contabilidade & Finanças": "contabilidade e finanças",
-  "Educação & Idiomas": "educação e idiomas",
-  "Tecnologia & TI": "tecnologia e TI",
-  "Comércio & Varejo": "comércio e varejo",
-  "Transporte & Mudança": "transporte e mudança",
-  "Serviços para Pets": "serviços para pets",
-  "Cuidados Infantis e de Idosos": "cuidados infantis e de idosos",
-  "Diaristas": "diaristas e serviços de limpeza",
-  "Imobiliária": "imobiliárias e corretores",
-  "Turismo & Viagens": "turismo e viagens",
-  "Outros": "serviços diversos",
-};
 
 const CURRENT_LOCATION_LABEL = "Minha localização";
 const DEFAULT_GEO_FALLBACK = {
@@ -1100,16 +1081,13 @@ export default function SearchResults({
 
 
   useEffect(() => {
-    const baseTitle = text.businessSearch;
-    const cityText = cityFilter ? `${" em "}${cityFilter}` : "";
-    const categoryText = categoryFilterId ? (CATEGORY_SEO_TEXT[getCategoryLabel(categoryFilterId)] || getCategoryLabel(categoryFilterId).toLowerCase()) : ("negócios e serviços");
-    const queryPart = queryLabel ? `${" para "}${queryLabel}` : "";
-
-    setSeoMeta(
-      `${baseTitle}${cityText} | Caramelinho.com`,
-      `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
-    );
-  }, [queryLabel, categoryFilter, cityFilter, isCommunityFindsMode, text.businessSearch]);
+    const meta = buildSearchSeoMeta({
+      categoryLabel: categoryFilterId ? getCategoryLabel(categoryFilterId) : "",
+      city: cityFilter,
+      query: queryLabel,
+    });
+    setSeoMeta(meta.title, meta.description);
+  }, [categoryFilterId, cityFilter, queryLabel]);
 
   const results = useMemo(() => {
     // The server search RPC applies every business filter before pagination.
