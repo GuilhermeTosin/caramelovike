@@ -24,6 +24,43 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-12 18:38:58 -04:00
+
+- Status: implementacao local concluida; validacao de ingestao no GA4 e deploy pendentes.
+- Solicitacao: resolver a coleta zerada do Google Analytics e remover do perfil
+  a afirmacao enganosa de que um ID salvo significa coleta confirmada.
+- Escopo: auditar e corrigir o carregamento GA4 no cliente, pageviews da SPA,
+  diagnostico visivel para administrador e teste da chegada do evento no GA4.
+- Estrategia: configurar gtag uma unica vez, controlar `page_view` explicitamente
+  em cada navegacao, reportar falhas da API/script e permitir disparar um evento
+  de diagnostico `debug_mode` conferivel no DebugView.
+- Riscos/limites: o ID e publico, mas nao prova que pertence ao Web stream
+  correto; Tag Assistant, Realtime e DebugView precisam confirmar a ingestao na
+  propriedade. Bloqueadores de anuncios, filtros internos ou configuracao da
+  propriedade Google ficam fora do controle do codigo.
+- Implementado: inicializacao unica do `gtag.js`, envio manual de `page_view`
+  em navegacoes SPA, diagnostico de falhas da API/script, evento
+  `analytics_diagnostic` com `debug_mode` e painel que distingue ID salvo de
+  script carregado e de evento efetivamente recebido. Metadados de pagina
+  removem fragmentos e parametros sensiveis comuns antes do envio.
+- Validacao local: `npm run verify` aprovado (35 arquivos, 185 testes),
+  `npm run lint`, `npm run check:encoding`, `npm run build` e `git diff --check`
+  aprovados. O build ainda mostra o aviso preexistente de top-level await em
+  `src/pages/BusinessPageRoute.tsx`.
+- Validacao externa pendente: esta sessao nao confirmou a propriedade GA4,
+  Tag Assistant, request `g/collect` ou DebugView. A tela `ready` comprova
+  somente que o script carregou neste navegador; nao garante ingestao do Google.
+- Proximo teste: apos publicar no Preview/dev, confirmar que `/api/google-analytics`
+  retorna o ID correto, `gtag.js` carrega, `page_view` aparece no Realtime e
+  `analytics_diagnostic` aparece no DebugView. Nao compartilhar cookies,
+  tokens ou payloads com dados pessoais.
+- Migrations/configuracoes externas: nenhuma migration prevista; revisar se o
+  stream GA4 precisa desabilitar pageviews automaticos por historico para evitar
+  duplicidade com a medicao manual da SPA.
+- Migrations: nenhuma.
+- Decisao de deploy: nao publicar em producao antes de confirmar o ID do Web
+  stream e observar os eventos em Realtime/DebugView no Preview/dev.
+
 ### 2026-10-12 18:05:11 -04:00
 
 - Status: commits `c25d002`, `b3ee77b` e `30ff723` promovidos por fast-forward

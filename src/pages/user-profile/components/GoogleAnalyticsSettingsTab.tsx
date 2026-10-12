@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BarChart3, CheckCircle2, Trash2 } from "lucide-react";
+import { AlertCircle, BarChart3, CheckCircle2, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,7 +7,14 @@ import { Label } from "@/components/ui/label";
 import { TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { utf8Fetch } from "@/lib/http/utf8";
-import { getGoogleAnalyticsMeasurementId } from "@/lib/googleAnalytics";
+import {
+  getGoogleAnalyticsMeasurementId,
+  getGoogleAnalyticsRuntimeStatus,
+  GOOGLE_ANALYTICS_STATUS_EVENT,
+  notifyGoogleAnalyticsConfigChanged,
+  sendGoogleAnalyticsDiagnosticEvent,
+  type GoogleAnalyticsRuntimeStatus,
+} from "@/lib/googleAnalytics";
 import { supabase } from "@/lib/supabase";
 
 type GoogleAnalyticsSettingsTabProps = {
@@ -34,8 +41,18 @@ async function getAuthorizationHeader() {
 export default function GoogleAnalyticsSettingsTab({ enabled }: GoogleAnalyticsSettingsTabProps) {
   const [measurementId, setMeasurementId] = useState("");
   const [snippet, setSnippet] = useState("");
+  const [runtimeStatus, setRuntimeStatus] = useState<GoogleAnalyticsRuntimeStatus | null>(
+    () => getGoogleAnalyticsRuntimeStatus(),
+  );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const refreshRuntimeStatus = () => setRuntimeStatus(getGoogleAnalyticsRuntimeStatus());
+    refreshRuntimeStatus();
+    window.addEventListener(GOOGLE_ANALYTICS_STATUS_EVENT, refreshRuntimeStatus);
+    return () => window.removeEventListener(GOOGLE_ANALYTICS_STATUS_EVENT, refreshRuntimeStatus);
+  }, []);
 
   const loadSettings = async () => {
     if (!enabled) return;
@@ -82,9 +99,11 @@ export default function GoogleAnalyticsSettingsTab({ enabled }: GoogleAnalyticsS
       });
       const payload = (await response.json().catch(() => ({}))) as { measurementId?: unknown; error?: unknown };
       if (!response.ok) throw new Error(getApiErrorMessage(payload, "Erro ao salvar."));
-      setMeasurementId(getGoogleAnalyticsMeasurementId(payload.measurementId));
+      const savedId = getGoogleAnalyticsMeasurementId(payload.measurementId);
+      setMeasurementId(savedId);
       setSnippet(parsedMeasurementId);
-      toast.success("Google Analytics ativado. A altera\u00e7\u00e3o pode levar at\u00e9 um minuto para alcan\u00e7ar todas as p\u00e1ginas p\u00fablicas.");
+      notifyGoogleAnalyticsConfigChanged(savedId);
+      toast.success("ID salvo. Confira o status da tag neste navegador e valide o evento no DebugView do GA4.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "N\u00e3o foi poss\u00edvel salvar o Google Analytics.");
     } finally {
@@ -105,6 +124,7 @@ export default function GoogleAnalyticsSettingsTab({ enabled }: GoogleAnalyticsS
       if (!response.ok) throw new Error(getApiErrorMessage(payload, "Erro ao desativar."));
       setMeasurementId("");
       setSnippet("");
+      notifyGoogleAnalyticsConfigChanged("");
       toast.success("Google Analytics desativado.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "N\u00e3o foi poss\u00edvel desativar o Google Analytics.");
@@ -112,6 +132,34 @@ export default function GoogleAnalyticsSettingsTab({ enabled }: GoogleAnalyticsS
       setSaving(false);
     }
   };
+
+  const handleDiagnostic = () => {
+    if (!sendGoogleAnalyticsDiagnosticEvent()) {
+      toast.error("A tag ainda n\u00e3o est\u00e1 carregada neste navegador.");
+      return;
+    }
+    toast.success("Evento analytics_diagnostic enfileirado. Confirme-o no DebugView do GA4.");
+  };
+
+  const runtimeStatusText = (() => {
+    switch (runtimeStatus?.state) {
+      case "checking":
+        return "Consultando o ID configurado pelo servidor...";
+      case "not_configured":
+        return "A API respondeu, mas n\u00e3o encontrou um ID GA4 v\u00e1lido.";
+      case "config_error":
+        return "Falha ao consultar /api/google-analytics. A tag n\u00e3o foi inicializada.";
+      case "loading_tag":
+        return "ID recebido; aguardando o script do Google carregar. Pageviews est\u00e3o na fila.";
+      case "ready":
+        return "Script carregado neste navegador. Isso ainda n\u00e3o confirma que o GA4 recebeu os eventos.";
+      case "tag_error":
+        return "O script do Google falhou ou foi bloqueado pela rede, navegador, extens\u00e3o ou bloqueador de an\u00fancios.";
+      default:
+        return "Aguardando a verifica\u00e7\u00e3o da tag neste navegador.";
+    }
+  })();
+  const runtimeStatusIsError = runtimeStatus?.state === "config_error" || runtimeStatus?.state === "tag_error";
 
   return (
     <TabsContent value="analytics">
@@ -145,14 +193,45 @@ export default function GoogleAnalyticsSettingsTab({ enabled }: GoogleAnalyticsS
             />
           </div>
 
-          {measurementId ? (
-            <div className="flex items-center gap-2 text-sm text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" />
-              Ativo com o ID <code>{measurementId}</code>.
+          <div className="space-y-4 rounded-xl border border-border bg-secondary/20 p-4">
+            <div className="flex items-start gap-2">
+              {runtimeStatus?.state === "ready" ? (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+              ) : runtimeStatusIsError ? (
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+              ) : (
+                <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+              )}
+              <div className="space-y-1 text-sm">
+                <p className="font-semibold">Diagn\u00f3stico neste navegador</p>
+                <p aria-live="polite" className={runtimeStatusIsError ? "text-destructive" : "text-muted-foreground"}>
+                  {runtimeStatusText}
+                </p>
+                {runtimeStatus?.measurementId ? (
+                  <p className="text-xs text-muted-foreground">
+                    ID carregado: <code>{runtimeStatus.measurementId}</code>
+                    {runtimeStatus.lastPageViewAt
+                      ? ` \u00b7 \u00daltimo page_view enfileirado: ${new Date(runtimeStatus.lastPageViewAt).toLocaleTimeString()}`
+                      : ""}
+                  </p>
+                ) : null}
+              </div>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">{"Nenhuma propriedade do Google Analytics est\u00e1 ativa."}</p>
-          )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDiagnostic}
+              disabled={saving || runtimeStatus?.state !== "ready" || runtimeStatus.measurementId !== measurementId}
+            >
+              Enviar evento de diagn\u00f3stico
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              {measurementId ? (
+                <>ID salvo: <code>{measurementId}</code>. Isso confirma apenas a configura\u00e7\u00e3o armazenada, n\u00e3o o recebimento pelo Google.</>
+              ) : "Nenhum ID GA4 est\u00e1 salvo no servidor."}
+              {" Ap\u00f3s o teste, procure "}<code>analytics_diagnostic</code>{" no DebugView e "}<code>page_view</code>{" no Realtime do GA4."}
+            </p>
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={() => void handleSave()} disabled={loading || saving}>
@@ -167,7 +246,7 @@ export default function GoogleAnalyticsSettingsTab({ enabled }: GoogleAnalyticsS
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {"O script \u00e9 carregado ap\u00f3s a primeira pintura da p\u00e1gina e de forma ass\u00edncrona, para n\u00e3o disputar o LCP. Para conformidade com a LGPD, mantenha a pol\u00edtica de privacidade e, se necess\u00e1rio, adicione consentimento de cookies."}
+            {"O site controla os pageviews da SPA manualmente. No stream GA4, desative pageviews autom\u00e1ticos por mudan\u00e7a no hist\u00f3rico do navegador para evitar duplicidade. Bloqueadores podem impedir a coleta; valide com Tag Assistant/DebugView e revise consentimento e privacidade conforme as regras aplic\u00e1veis."}
           </p>
         </Card>
       </div>
