@@ -26,8 +26,9 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ### 2026-10-12 18:05:11 -04:00
 
-- Status: commit `b3ee77b` enviado para `origin/dev`; check Vercel reportou
-  `success` em 2026-10-12 18:09:15 -04:00.
+- Status: commits `c25d002`, `b3ee77b` e `30ff723` promovidos por fast-forward
+  de `dev` para `main` em 2026-10-12; check Vercel de producao reportou
+  `success`. O check do Preview tambem reportou `success`.
 - Solicitacao: enviar as correcoes P1 para `dev` e testar o comportamento.
 - Escopo: adicionar regressao da consulta de evento, executar verify/build,
   simular falha do Supabase contra o SSR compilado, confirmar ausencia de HTML
@@ -51,7 +52,19 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
   de evento recebeu 302 para o SSO da Vercel; a protecao do Preview impediu
   inspecionar o HTML/status SSR sem autenticacao. Smoke SSR local compilado
   confirmou 503/404 e `no-store` com respostas simuladas.
-- Decisao de deploy: enviado apenas para `dev`; nenhuma promocao a producao.
+- Promocao: `origin/main` avancou de `ff745de` para `30ff723`, incluindo a
+  transferencia em lote de negocios, as correcoes SSR de eventos e os testes/
+  documentos associados. A alteracao local em
+  `public/sitemaps/businesses-fallback.xml` permaneceu fora da promocao.
+- Validacao no Preview pelo usuario: evento publicado retornou 200 e UUID valido
+  sem evento retornou 404; ambos com `Cache-Control: no-store` e
+  `CDN-Cache-Control: no-store`. Para o evento publicado, `x-vercel-cache: MISS`
+  e `age: 0`; para o Preview, `x-robots-tag: noindex`.
+- Validacao HTTP direta de producao: nao concluida; a conexao de saida do
+  ambiente de execucao foi recusada. Falha temporaria do Supabase permanece
+  validada pelo smoke local simulado (503/no-store), sem derrubar o banco real.
+- Decisao de deploy: publicado em producao; check Vercel `success`. Recomenda-se
+  smoke rapido no dominio publico para confirmar a rota apos a promocao.
 
 ### 2026-10-12 18:02:03 -04:00
 
