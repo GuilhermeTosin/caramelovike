@@ -24,6 +24,32 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-12 14:00:25 -04:00
+
+- Status: validacao local concluida em 2026-10-12 14:01:24 -04:00; verificacao
+  dos dados remotos pendente.
+- Solicitacao: investigar a contagem ainda zerada depois da correção de
+  paginação e da atualização da lista administrativa.
+- Contexto: `dev` e `origin/dev` estão no commit `9ee184d`; não foi possível
+  confirmar o estado do deployment Vercel nem consultar o banco remoto.
+- Hipotese encontrada no fluxo: `/api/admin-users` retornava sucesso mesmo
+  quando o `PATCH` de ownership não retornava nenhuma linha ou não confirmava o
+  novo `owner_id`, porque o resultado vazio era convertido em `null` sem erro.
+- Escopo: exigir confirmação do `owner_id` retornado pelo Supabase antes de
+  responder sucesso à transferência; não alterar dados nem migrations.
+- Estrategia: extrair a validação para função pura e cobrir retorno vazio,
+  proprietário divergente e transferência confirmada.
+- Implementacao: a API agora rejeita o resultado vazio ou divergente do `PATCH`
+  e so prossegue com a sincronizacao das solicitacoes de ownership depois de
+  confirmar o `owner_id` do destinatario.
+- Arquivos: `api/admin-users.ts`, `src/lib/ownershipTransfer.ts`,
+  `src/lib/ownershipTransfer.test.ts` e este registro.
+- Validacao local: `npm run verify` passou (33 arquivos de teste, 172 testes);
+  `npm run lint` e `git diff --check` passaram. Nenhum acesso ou alteracao ao
+  banco remoto, commit ou deploy foi feito nesta etapa.
+- Risco: transferências anteriormente sinalizadas como sucesso podem não ter
+  sido gravadas; será necessário verificar o registro real no Supabase.
+
 ### 2026-10-12 13:40:00 -04:00
 
 - Status: concluido em 2026-10-12 13:44:34 -04:00.

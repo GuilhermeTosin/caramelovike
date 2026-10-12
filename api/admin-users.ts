@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import { fetchAllPages } from "../src/lib/paginateRows";
+import { requireTransferredBusinessOwner } from "../src/lib/ownershipTransfer";
 
 const ADMIN_EMAIL = "contact@guilhermetosin.com";
 const AUTH_PAGE_SIZE = 1000;
@@ -429,6 +430,7 @@ async function transferBusinessOwnership(
       body: JSON.stringify({ owner_id: newOwner.id }),
     },
   );
+  const updatedBusiness = requireTransferredBusinessOwner(updated[0], newOwner.id);
 
   const reviewedAt = new Date().toISOString();
   const syncTasks: Promise<unknown>[] = [
@@ -481,7 +483,7 @@ async function transferBusinessOwnership(
     }
   }
 
-  return updated[0] || null;
+  return updatedBusiness;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
