@@ -105,6 +105,32 @@ function fitMetaDescriptionText(value: string, maxLength: number): string {
   return withoutDanglingWords ? `${withoutDanglingWords}.` : "";
 }
 
+export function buildFallbackBusinessSeoMeta(citySegment = "") {
+  let decodedCity = citySegment;
+  try {
+    decodedCity = decodeURIComponent(citySegment);
+  } catch {
+    // Keep the raw route segment if it contains malformed URI encoding.
+  }
+  const city = decodedCity
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toLocaleUpperCase("pt-BR") + part.slice(1))
+    .join(" ");
+
+  if (!city) {
+    return {
+      title: "Negócio brasileiro",
+      description: "Encontre informações de contato, avaliações e detalhes sobre negócios brasileiros no exterior.",
+    };
+  }
+
+  return {
+    title: `Negócio brasileiro em ${city}`,
+    description: `Encontre informações de contato, avaliações e detalhes sobre negócios brasileiros em ${city}.`,
+  };
+}
+
 export function buildBusinessSeoTitle(business: BusinessSeoInput): string {
   const name = cleanText(business.name) || ("Neg\u00f3cio brasileiro");
   const descriptor = truncateText(getBusinessSeoDescriptorForTitle(business), 60);

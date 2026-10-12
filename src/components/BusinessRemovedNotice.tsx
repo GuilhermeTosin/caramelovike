@@ -1,6 +1,15 @@
+import { useEffect } from "react";
 import { ArrowLeft, Search, Store } from "lucide-react";
+import { getErrorPageMeta } from "@/lib/seo/staticPageMeta";
+import { setRobots, setSeoMeta } from "@/lib/seo";
 
 export default function BusinessRemovedNotice() {
+  useEffect(() => {
+    const meta = getErrorPageMeta(true);
+    setSeoMeta(meta.title, meta.description);
+    setRobots("noindex,nofollow,noarchive");
+  }, []);
+
   return (
     <main className="flex min-h-[70vh] items-center justify-center bg-background px-4 py-12 text-foreground">
       <section

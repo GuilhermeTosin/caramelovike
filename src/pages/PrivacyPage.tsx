@@ -2,13 +2,13 @@ import { Link } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { useEffect } from "react";
+import { getStaticPageMeta } from "@/lib/seo/staticPageMeta";
+
+const PRIVACY_PAGE_META = getStaticPageMeta("/privacidade")!;
 
 export default function PrivacyPage() {
   useEffect(() => {
-    setSeoMeta(
-      "Política de Privacidade | Caramelinho.com",
-      "Entenda como o Caramelinho coleta, utiliza e protege seus dados pessoais."
-    );
+    setSeoMeta(PRIVACY_PAGE_META.title, PRIVACY_PAGE_META.description);
   }, []);
 
   return (

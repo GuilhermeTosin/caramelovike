@@ -1,4 +1,7 @@
+import { useEffect } from "react";
 import { Compass, Home, Search } from "lucide-react";
+import { getErrorPageMeta } from "@/lib/seo/staticPageMeta";
+import { setRobots, setSeoMeta } from "@/lib/seo";
 
 function ActionLink({
   href,
@@ -24,8 +27,14 @@ function ActionLink({
 }
 
 export default function NotFound() {
+  useEffect(() => {
+    const meta = getErrorPageMeta();
+    setSeoMeta(meta.title, meta.description);
+    setRobots("noindex,nofollow,noarchive");
+  }, []);
+
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background to-muted/30 text-foreground">
+    <div data-page-not-found="true" className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background to-muted/30 text-foreground">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full bg-amber-200/12 blur-3xl" />
         <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-emerald-200/12 blur-3xl" />

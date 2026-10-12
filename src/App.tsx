@@ -5,8 +5,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { MarketplaceChatProvider } from "@/contexts/MarketplaceChatContext";
 import MarketplaceChatPopup from "@/components/MarketplaceChatPopup";
 import { useAuth } from "@/contexts/AuthContext";
-import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
-import { getInternalSearchCanonicalPath, getInternalSearchRobots } from "@/lib/seo/searchIndexing";
+import { setCanonical, setRobots, setSeoMeta, upsertMetaTag } from "@/lib/seo";
+import { getStaticPageMeta } from "@/lib/seo/staticPageMeta";
+import { getInternalSearchCanonicalPath, getInternalSearchRobots, getRouteRobots } from "@/lib/seo/searchIndexing";
 import type { BusinessFrontend, CommunityEvent } from "@/types/database";
 import type { HomePublicSnapshot } from "@/lib/homeSnapshot";
 import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
@@ -102,10 +103,6 @@ function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const privatePaths = new Set([
-      "/cadastro", "/entrar", "/redefinir-senha", "/perfil", "/negocio/wizard",
-    ]);
-    const isPrivatePreviewPath = pathname.startsWith("/preview/negocio/");
     const isExperimentalHome = pathname === "/index2";
     const isMarketplacePath = pathname === "/marketplace" || pathname.startsWith("/marketplace/");
     const canonicalPathname = isExperimentalHome ? "/" : isBusinessPage || isMarketplacePath ? pathname : getInternalSearchCanonicalPath(pathname);
@@ -116,24 +113,24 @@ function CanonicalManager({ isBusinessPage = false }: { isBusinessPage?: boolean
     setCanonical(canonicalUrl);
     upsertMetaTag("property", "og:url", canonicalUrl);
 
-    if (privatePaths.has(pathname) || isPrivatePreviewPath) {
+    if (document.querySelector("[data-page-not-found='true']")) {
       setRobots("noindex,nofollow,noarchive");
       return;
     }
 
-    if (isExperimentalHome) {
-      setRobots("noindex,follow");
-      return;
-    }
-
-    const searchRobots = getInternalSearchRobots(pathname);
-    if (searchRobots) {
-      setRobots(searchRobots);
-      return;
-    }
-
-    setRobots("index,follow,max-image-preview:large");
+    setRobots(getRouteRobots(pathname, search));
   }, [isBusinessPage, pathname, search]);
+
+  return null;
+}
+
+function RouteMetadataManager() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    const meta = getStaticPageMeta(pathname);
+    if (meta) setSeoMeta(meta.title, meta.description);
+  }, [pathname]);
 
   return null;
 }
@@ -205,6 +202,7 @@ export default function App({
           <ScrollToTop />
           <PasswordRecoveryRedirect />
           <CanonicalManager isBusinessPage={isBusinessPage} />
+          <RouteMetadataManager />
           <GoogleAnalytics />
           <SiteHeader
             initialAvailableLocations={initialAvailableLocations}

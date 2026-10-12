@@ -24,6 +24,18 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-12 13:16:00 -04:00
+
+- Status: concluido em 2026-10-12 13:34:44 -04:00.
+- Solicitacao: corrigir a divergencia entre o titulo SEO inicial e o titulo apos hidratacao e auditar outras rotas com metadados duplicados entre SSR e cliente.
+- Escopo: home, busca, paginas do Marketplace, pagina de verificacao, fallback de negocios, paginas estaticas e privadas, paginas 404/410, metadados sociais e robots em navegacao SPA e resolucao SSR de `/negocio/wizard`.
+- Implementacao: builders compartilhados entre SSR e cliente para busca, Marketplace, paginas estaticas e erros; home usa o mesmo titulo/descricao em ambos os ambientes; `setSeoMeta` atualiza Open Graph e Twitter; regras compartilhadas de robots mantem `robots` e `googlebot` consistentes, incluindo busca parametrizada e rotas de publicar/editar; o SSR deixa de interpretar `/negocio/wizard` como URL antiga de negocio.
+- Arquivos: `pages/+onRenderHtml.tsx`, `pages/app/+onBeforeRender.ts`, `scripts/check-seo-ssr.mjs`, `src/App.tsx`, `src/components/BusinessRemovedNotice.tsx`, `src/lib/seo.ts`, `src/lib/seo/businessMeta.ts`, `src/lib/seo/businessMeta.test.ts`, `src/lib/seo/dynamicMeta.test.ts`, `src/lib/seo/marketplaceMeta.ts`, `src/lib/seo/searchIndexing.ts`, `src/lib/seo/searchIndexing.test.ts`, `src/lib/seo/searchMeta.ts`, `src/lib/seo/staticPageMeta.ts`, `src/lib/seo/staticPageMeta.test.ts`, `src/pages/AboutPage.tsx`, `src/pages/BusinessPage.tsx`, `src/pages/ContactPage.tsx`, `src/pages/HomeV2.tsx`, `src/pages/MarketplacePage.tsx`, `src/pages/NotFound.tsx`, `src/pages/PrivacyPage.tsx`, `src/pages/SearchResults.tsx`, `src/pages/TermsPage.tsx`, `src/pages/VerifiedBusinessInfo.tsx` e este registro.
+- Validacao: `npm run verify` passou (TypeScript, 31 arquivos de teste e 164 testes); `npm run lint` passou; `npm run build` passou; `node scripts/check-seo-ssr.mjs http://127.0.0.1:4173` passou em 31 verificacoes, com uma verificacao de sitemap dinamico pulada porque o endpoint nao existe no host local.
+- Observacoes: o build manteve o aviso preexistente tolerado de top-level await em `src/pages/BusinessPageRoute.tsx:7`. A primeira tentativa do teste identificou o conflito SSR de `/negocio/wizard`; a rota foi corrigida e a auditoria repetida com sucesso.
+- Migracoes/configuracoes externas: nenhuma. Deploy/commit: nao realizados.
+- Risco residual: validar o sitemap dinamico no ambiente Vercel; ele nao e servido pelo servidor local usado na auditoria.
+
 ### 2026-10-12 11:19:35 -04:00
 
 - Status: implementado localmente em 2026-10-12 11:20:46 -04:00.

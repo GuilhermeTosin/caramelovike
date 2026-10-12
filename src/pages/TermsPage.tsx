@@ -2,13 +2,13 @@ import { Link } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { useEffect } from "react";
+import { getStaticPageMeta } from "@/lib/seo/staticPageMeta";
+
+const TERMS_PAGE_META = getStaticPageMeta("/termos")!;
 
 export default function TermsPage() {
   useEffect(() => {
-    setSeoMeta(
-      "Termos e Condições | Caramelinho.com",
-      "Leia os termos e condições de uso da plataforma Caramelinho."
-    );
+    setSeoMeta(TERMS_PAGE_META.title, TERMS_PAGE_META.description);
   }, []);
 
   return (

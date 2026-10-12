@@ -485,6 +485,12 @@ export async function onBeforeRender(pageContext: PageContext) {
     throw redirect("/", 301);
   }
 
+  // This reserved application route has two segments and would otherwise be
+  // mistaken for the legacy /:countryCode/:businessName business URL shape.
+  if (pathname === "/negocio/wizard") {
+    return { pageContext: { initialBusiness: null, isBusinessPage: false } };
+  }
+
   if (pathname === "/") {
     return {
       pageContext: {

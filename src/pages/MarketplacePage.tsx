@@ -12,6 +12,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMarketplaceChat } from "@/contexts/MarketplaceChatContext";
 import { toast } from "sonner";
 import { setSeoMeta } from "@/lib/seo";
+import {
+  buildMarketplaceBusinessSellerSeoMeta,
+  buildMarketplaceListingSeoMeta,
+  buildMarketplaceSellerSeoMeta,
+  MARKETPLACE_INDEX_SEO_META,
+} from "@/lib/seo/marketplaceMeta";
 import { DEFAULT_MARKETPLACE_DISTANCE_KM, MARKETPLACE_CATEGORIES, MARKETPLACE_DISTANCE_OPTIONS, normalizeMarketplaceDistance, normalizeMarketplaceKeywords } from "@/lib/marketplaceCategories";
 import { buildMarketplaceRequestKey, marketplaceBusinessSellerPath, marketplaceListingPath, marketplaceSellerPath, type MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
 import { contactMarketplaceSeller, createMarketplaceListing, getMarketplaceCategories, getMarketplaceListingByOwner, getMarketplaceListingByPath, getMarketplacePage, getMarketplaceBusinessSellerPage, getMarketplaceRelatedListings, getMarketplaceSellerBusinesses, getMarketplaceSellerPage, replaceMarketplaceListingImages, reportMarketplaceListing, toggleMarketplaceFavorite, updateMarketplaceListing, type MarketplaceBusinessSellerPage, type MarketplaceFilters, type MarketplaceRelatedListings, type MarketplaceSellerBusinessOption, type MarketplaceSellerPage } from "@/services/marketplace";
@@ -508,7 +514,7 @@ export default function MarketplacePage({ initialSnapshot }: SharedProps) {
   const initialSnapshotForRequest = initialSnapshot?.requestKey === appliedRequestKey ? initialSnapshot : null;
   const [snapshot, setSnapshot] = useState<MarketplaceSnapshot | null>(initialSnapshotForRequest);
 
-  useEffect(() => { setSeoMeta("Marketplace | Caramelinho", "Compre, venda e encontre produtos perto de você no Marketplace do Caramelinho."); }, []);
+  useEffect(() => { setSeoMeta(MARKETPLACE_INDEX_SEO_META.title, MARKETPLACE_INDEX_SEO_META.description); }, []);
   useEffect(() => {
     const filters: MarketplaceFilters = {
       search: appliedSearch,
@@ -1083,7 +1089,7 @@ export function MarketplaceListingPage({ initialListing }: SharedProps) {
       .finally(() => { if (active) setListingLoading(false); });
     return () => { active = false; };
   }, [initialListing, params.city, params.countryCode, params.slug, params.stateCode]);
-  useEffect(() => { if (!listing) return; setSeoMeta(`${listing.title} | Marketplace | Caramelinho`, `${listing.title} em ${listing.city}. Veja preço, condição e entre em contato com o vendedor no Marketplace do Caramelinho.`); void getMarketplaceRelatedListings(listing).then(setRelated); }, [listing]);
+  useEffect(() => { if (!listing) return; const meta = buildMarketplaceListingSeoMeta(listing); setSeoMeta(meta.title, meta.description); void getMarketplaceRelatedListings(listing).then(setRelated); }, [listing]);
   if (listingLoading) return <div className="min-h-screen bg-background" aria-busy="true" aria-label="Carregando anúncio"><Header /><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><div className="animate-pulse space-y-5"><div className="aspect-video rounded-xl bg-muted/60" /><div className="h-8 w-2/3 rounded bg-muted/60" /><div className="h-4 w-1/2 rounded bg-muted/50" /><div className="h-32 rounded bg-muted/40" /></div></main></div>;
   if (!listing) return <div className="min-h-screen bg-background"><Header /><main className="mx-auto max-w-3xl px-4 py-20 text-center"><h1 className="text-2xl font-bold">Anúncio não encontrado</h1><p className="mt-2 text-muted-foreground">Este anúncio pode ter sido removido ou não está mais disponível.</p><Button asChild className="mt-6"><Link to={marketplaceReturnTo}>Voltar ao Marketplace</Link></Button></main></div>;
   const images = listing.images || [];
@@ -1385,8 +1391,8 @@ export function MarketplaceSellerPage({ initialSeller }: { initialSeller?: Marke
 
   useEffect(() => {
     if (!seller) return;
-    const name = seller.profile.name?.trim() || "Vendedor";
-    setSeoMeta(`${name} | Vendedor do Marketplace | Caramelinho`, `Veja os anúncios ativos e as avaliações dos negócios de ${name} no Marketplace do Caramelinho.`);
+    const meta = buildMarketplaceSellerSeoMeta(seller.profile.name);
+    setSeoMeta(meta.title, meta.description);
   }, [seller]);
 
   if (loading) {
@@ -1427,7 +1433,8 @@ export function MarketplaceBusinessSellerPage({ initialBusinessSeller }: { initi
 
   useEffect(() => {
     if (!seller) return;
-    setSeoMeta(`${seller.business.name} | Marketplace | Caramelinho`, `Veja os anúncios ativos e as avaliações de ${seller.business.name} no Marketplace do Caramelinho.`);
+    const meta = buildMarketplaceBusinessSellerSeoMeta(seller.business.name);
+    setSeoMeta(meta.title, meta.description);
   }, [seller]);
 
   if (loading) {

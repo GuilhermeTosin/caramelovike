@@ -36,6 +36,11 @@ function findMeta(html, attributeName, attributeValue) {
   return "";
 }
 
+function findTitle(html) {
+  const match = html.match(/<title>([\s\S]*?)<\/title>/i);
+  return match ? decodeHtml(match[1].trim()) : "";
+}
+
 function findCanonical(html) {
   for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
     const tag = match[0];
@@ -137,6 +142,16 @@ function assertSearchPage(path, html) {
   process.stdout.write("PASS " + path + " - internal search is noindex.\n");
 }
 
+async function assertNoindexPageMeta(path, expectedTitle) {
+  const html = await request(path);
+  assert(findTitle(html) === expectedTitle, path + " has an incorrect SSR title: " + findTitle(html));
+  assert(findMeta(html, "name", "description").length > 0, path + " is missing a meta description.");
+  assert(findMeta(html, "name", "robots").includes("noindex"), path + " must remain noindex.");
+  assert(findMeta(html, "name", "googlebot").includes("noindex"), path + " must also remain noindex for Googlebot.");
+  passed += 1;
+  process.stdout.write("PASS " + path + " - route-specific noindex metadata.\n");
+}
+
 async function requestSitemap(path) {
   const response = await fetch(new URL(path, baseUrl), { redirect: "manual" });
   if (!response.ok) {
@@ -157,13 +172,36 @@ function extractSitemapUrls(xml) {
 async function run() {
   const home = await request("/");
   assertIndexablePage("/", home);
+  const expectedHomeTitle = "Caramelinho.com - Encontre negócios brasileiros no mundo";
+  assert(findTitle(home) === expectedHomeTitle, "The home SSR title must match the title set by HomeV2 after hydration.");
+  assert(findMeta(home, "property", "og:title") === expectedHomeTitle, "The home Open Graph title must match its document title.");
   assert(home.includes(">negócios</p>"), "/ is missing the server-rendered business count.");
   assert(home.includes(">categorias</p>"), "/ is missing the server-rendered category count.");
   assert(!home.includes("2.5K+"), "/ must not render the retired static review count.");
 
+  await assertRedirect("/index2", "/");
+
+  for (const [path, title] of [
+    ["/entrar", "Entrar | Caramelinho.com"],
+    ["/cadastro", "Criar conta | Caramelinho.com"],
+    ["/redefinir-senha", "Redefinir senha | Caramelinho.com"],
+    ["/perfil", "Meu perfil | Caramelinho.com"],
+    ["/negocio/wizard", "Cadastrar negócio | Caramelinho.com"],
+    ["/marketplace/novo", "Publicar anúncio | Marketplace | Caramelinho"],
+    ["/marketplace/editar/seo-test", "Editar anúncio | Marketplace | Caramelinho"],
+  ]) {
+    await assertNoindexPageMeta(path, title);
+  }
+
   for (const staticPath of ["/sobre", "/contato", "/privacidade", "/termos", "/negocio-verificado"]) {
     const staticPage = await request(staticPath);
     assertIndexablePage(staticPath, staticPage);
+    if (staticPath === "/negocio-verificado") {
+      assert(findTitle(staticPage) === "Verificação de negócio | Caramelinho.com", "Verified business SSR title must match the hydrated page title.");
+      assert(findMeta(staticPage, "name", "description") === "Entenda como solicitar a verificação do seu negócio no Caramelinho e exiba um selo de confiança para seus clientes.", "Verified business SSR description must match the hydrated page description.");
+      passed += 1;
+      process.stdout.write("PASS /negocio-verificado - SSR metadata matches hydrated metadata.\n");
+    }
   }
 
   const directoryRoot = await request("/negocios");
@@ -200,8 +238,27 @@ async function run() {
   passed += 1;
   process.stdout.write("PASS /negocios/zz - empty directory is a real 404.\n");
 
+  const unknownPagePath = "/seo-route-that-does-not-exist";
+  const unknownPage = await request(unknownPagePath, 404);
+  assert(findTitle(unknownPage) === "Página não encontrada | Caramelinho.com", "A generic 404 must use the shared not-found title.");
+  assert(findMeta(unknownPage, "name", "description").length > 0, "A generic 404 must include a meta description.");
+  assert(findMeta(unknownPage, "name", "robots").includes("noindex"), "A generic 404 must remain noindex.");
+  assert(findMeta(unknownPage, "name", "googlebot").includes("noindex"), "A generic 404 must also set noindex for Googlebot.");
+  passed += 1;
+  process.stdout.write("PASS " + unknownPagePath + " - shared noindex 404 metadata.\n");
+
   const search = await request("/buscar?categoria=food");
   assertSearchPage("/buscar?categoria=food", search);
+  assert(findTitle(search) === "Buscar negócios brasileiros | Caramelinho.com", "Search SSR title must match its hydrated title.");
+  assert(findMeta(search, "name", "description") === "Encontre restaurantes, padarias e cafés. Compare opções perto de você e fale direto com os negócios.", "Search SSR description must match the shared search metadata builder.");
+  passed += 1;
+  process.stdout.write("PASS /buscar?categoria=food - SSR title and description match hydrated metadata.\n");
+
+  const marketplaceSearch = await request("/marketplace?cidade=Montreal");
+  assert(findMeta(marketplaceSearch, "name", "robots") === "noindex,follow", "Parameterized marketplace results must remain noindex.");
+  assert(findMeta(marketplaceSearch, "name", "googlebot") === "noindex,follow", "Parameterized marketplace results must remain noindex for Googlebot.");
+  passed += 1;
+  process.stdout.write("PASS /marketplace?cidade=Montreal - parameterized Marketplace is noindex.\n");
 
   const sitemapIndex = await requestSitemap("/sitemap.xml");
   if (sitemapIndex) {
