@@ -1,6 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { fetchAllPages, requireTransferredBusinessOwner } from "../server/adminUsersRuntime.js";
+import {
+  chunkValues,
+  fetchAllPages,
+  findBusinessOwnershipConflicts,
+  normalizeBusinessIds,
+  requireTransferredBusinessOwner,
+  transferBusinessBatches,
+} from "../server/adminUsersRuntime.js";
 
 const ADMIN_EMAIL = "contact@guilhermetosin.com";
 const AUTH_PAGE_SIZE = 1000;
@@ -8,6 +15,8 @@ const MAX_AUTH_PAGES = 50;
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
 const REST_PAGE_SIZE = 1000;
+const BULK_TRANSFER_BATCH_SIZE = 40;
+const MAX_BULK_TRANSFER_BUSINESSES = 500;
 
 type SupabaseConfig = {
   url: string;
@@ -485,6 +494,134 @@ async function transferBusinessOwnership(
   return updatedBusiness;
 }
 
+function businessIdsQuery(ids: string[], select: string) {
+  const params = new URLSearchParams({
+    select,
+    id: "in.(" + ids.join(",") + ")",
+  });
+  return "/rest/v1/businesses?" + params.toString();
+}
+
+async function syncOwnershipRequests(
+  config: SupabaseConfig,
+  adminUserId: string,
+  businessIds: string[],
+) {
+  const reviewedAt = new Date().toISOString();
+  const businessFilter = "in.(" + businessIds.join(",") + ")";
+  const requests = [
+    fetchJson<OwnerClaimRequestRow[]>(
+      config,
+      "/rest/v1/owner_claim_requests?" + new URLSearchParams({
+        business_id: businessFilter,
+        requested_by: "eq." + adminUserId,
+        status: "eq.pending",
+      }).toString(),
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ status: "approved", reviewed_by: adminUserId, reviewed_at: reviewedAt }),
+      },
+    ),
+    fetchJson<OwnerClaimRequestRow[]>(
+      config,
+      "/rest/v1/owner_claim_requests?" + new URLSearchParams({
+        business_id: businessFilter,
+        requested_by: "neq." + adminUserId,
+        status: "eq.pending",
+      }).toString(),
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ status: "rejected", reviewed_by: adminUserId, reviewed_at: reviewedAt }),
+      },
+    ),
+  ];
+
+  const results = await Promise.allSettled(requests);
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error("[admin-users] bulk ownership metadata sync failed:", result.reason);
+    }
+  }
+}
+
+async function transferBusinessOwnershipBulk(
+  config: SupabaseConfig,
+  adminUserId: string,
+  sourceOwnerId: string,
+  businessIds: string[],
+) {
+  const batches = chunkValues(businessIds, BULK_TRANSFER_BATCH_SIZE);
+  const ownershipRows = await Promise.all(
+    batches.map((ids) =>
+      fetchJson<Array<Pick<UserRelationBusiness, "id" | "owner_id">>>(
+        config,
+        businessIdsQuery(ids, "id,owner_id"),
+      ),
+    ),
+  );
+  const currentBusinessRows = ownershipRows.flat();
+  const currentOwners = new Map(currentBusinessRows.map((business) => [business.id, business.owner_id]));
+  const alreadyTransferredBusinessIds = businessIds.filter((id) => currentOwners.get(id) === adminUserId);
+  const conflicts = findBusinessOwnershipConflicts(
+    businessIds,
+    currentBusinessRows,
+    sourceOwnerId,
+    adminUserId,
+  );
+  if (conflicts.length > 0) {
+    return {
+      ok: false,
+      conflict: true,
+      transferredBusinessIds: alreadyTransferredBusinessIds,
+      failedBusinessIds: businessIds.filter((id) => !alreadyTransferredBusinessIds.includes(id)),
+      conflictingBusinessIds: conflicts,
+      error: "A transferência não foi iniciada: alguns negócios não pertencem mais a este usuário. Revise a lista e tente novamente.",
+    };
+  }
+
+  const businessIdsToTransfer = businessIds.filter((id) => currentOwners.get(id) === sourceOwnerId);
+  const result = await transferBusinessBatches({
+    businessIds: businessIdsToTransfer,
+    expectedOwnerId: adminUserId,
+    batchSize: BULK_TRANSFER_BATCH_SIZE,
+    transferBatch: (ids) =>
+      fetchJson<Array<Pick<UserRelationBusiness, "id" | "owner_id">>>(
+        config,
+        businessIdsQuery(ids, "id,owner_id") + "&owner_id=eq." + encodeURIComponent(sourceOwnerId),
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+          body: JSON.stringify({ owner_id: adminUserId }),
+        },
+      ),
+    verifyBatch: (ids) =>
+      fetchJson<Array<Pick<UserRelationBusiness, "id" | "owner_id">>>(
+        config,
+        businessIdsQuery(ids, "id,owner_id"),
+      ),
+  });
+
+  for (const ids of chunkValues(result.transferredBusinessIds, BULK_TRANSFER_BATCH_SIZE)) {
+    await syncOwnershipRequests(config, adminUserId, ids);
+  }
+
+  const transferredSet = new Set([
+    ...alreadyTransferredBusinessIds,
+    ...result.transferredBusinessIds,
+  ]);
+  const transferredBusinessIds = businessIds.filter((id) => transferredSet.has(id));
+  const failedBusinessIds = businessIds.filter((id) => !transferredSet.has(id));
+  return {
+    ok: failedBusinessIds.length === 0,
+    conflict: false,
+    transferredBusinessIds,
+    failedBusinessIds,
+    error: result.error,
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate");
   res.setHeader("CDN-Cache-Control", "no-store");
@@ -547,6 +684,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           newOwnerEmail,
         );
         return res.status(200).json({ ok: true, business });
+      }
+
+      if (body.action === "transfer_business_ownership_bulk") {
+        let businessIds: string[];
+        let sourceOwnerId: string;
+        try {
+          businessIds = normalizeBusinessIds(body.businessIds, MAX_BULK_TRANSFER_BUSINESSES);
+          sourceOwnerId = normalizeBusinessIds([body.sourceOwnerId], 1)[0];
+        } catch (error) {
+          return jsonError(res, 400, error instanceof Error ? error.message : "Seleção de negócios inválida.");
+        }
+        if (sourceOwnerId === admin.user.id) {
+          return jsonError(res, 400, "Os negócios selecionados já pertencem à sua conta.");
+        }
+
+        const result = await transferBusinessOwnershipBulk(
+          admin.config,
+          admin.user.id,
+          sourceOwnerId,
+          businessIds,
+        );
+        const status = result.conflict ? 409 : result.ok ? 200 : 207;
+        return res.status(status).json(result);
       }
 
       const userId = String(body.userId || "").trim();

@@ -24,6 +24,43 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-12 17:21:13 -04:00
+
+- Status: implementado e validado localmente em 2026-10-12 17:29:40 -04:00;
+  aguardando teste autenticado no Preview de `dev`.
+- Solicitacao: permitir selecionar varios negocios de um usuario no painel
+  administrativo e transferi-los para a conta admin numa unica operacao de UI.
+- Contexto: a interface atual oferece apenas transferencia individual; o admin
+  precisa mover centenas de negocios de uma conta editor.
+- Escopo: adicionar selecao multipla e transferencia em lotes na API admin,
+  mantendo o destino fixo na conta do administrador autenticado, validando a
+  titularidade de todos os selecionados antes do primeiro PATCH e reportando
+  explicitamente qualquer lote parcialmente concluido.
+- Implementacao: `AdminUsersTab.tsx` oferece checkbox por negocio, "Selecionar
+  todos", contador e acao em lote com confirmacao. `/api/admin-users` valida IDs,
+  confere que todos ainda pertencem ao usuario de origem antes de comecar e
+  transfere para o admin autenticado em lotes de 40, condicionando cada PATCH ao
+  `owner_id` anterior. Respostas perdidas sao reconciliadas com uma nova leitura;
+  novas tentativas reconhecem negocios ja transferidos para o admin. A interface
+  remove confirmados e conflitos da lista, mantendo selecionados os pendentes.
+  As solicitacoes de ownership sao sincronizadas em lote; os triggers atuais do
+  banco continuam cuidando do encerramento de conversas.
+- Arquivos: `api/admin-users.ts`, `server/adminUsersRuntime.js`,
+  `src/lib/adminUsersRuntime.test.ts`, `src/services/ownership.ts`,
+  `src/pages/UserProfile.tsx`,
+  `src/pages/user-profile/components/AdminUsersTab.tsx` e este registro.
+- Validacao: `npm run verify` passou (33 arquivos de teste, 180 testes);
+  `npm run lint`, `git diff --check` e import ESM direto do runtime passaram;
+  `npx vike build` passou. Permanece o aviso tolerado e preexistente de top-level
+  `await` em `src/pages/BusinessPageRoute.tsx:7`.
+- Migrations/configuracoes externas: nenhuma. Nenhum dado remoto foi alterado.
+- Riscos/pendencias: ainda falta testar o fluxo em sessao admin autenticada no
+  Preview, inclusive uma selecao real com centenas de negocios. O build atualizou
+  automaticamente `public/sitemaps/businesses-fallback.xml`; essa mudanca de
+  sitemap e alheia ao recurso e permanece no worktree para revisao antes do push.
+- Decisao de deploy: sem commit ou push nesta etapa; testar no Preview antes de
+  promover.
+
 ### 2026-10-12 17:05:23 -04:00
 
 - Status: implementado e validado localmente em 2026-10-12 17:07:06 -04:00;

@@ -108,6 +108,70 @@ export async function transferBusinessOwnershipByEmail(
   return { ok: true };
 }
 
+export type BulkBusinessOwnershipTransferResult = {
+  ok: boolean;
+  transferredBusinessIds: string[];
+  failedBusinessIds: string[];
+  conflictingBusinessIds?: string[];
+  error?: string;
+};
+
+export async function transferBusinessOwnershipBulk(
+  businessIds: string[],
+  sourceOwnerId: string,
+): Promise<BulkBusinessOwnershipTransferResult> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return {
+      ok: false,
+      transferredBusinessIds: [],
+      failedBusinessIds: businessIds,
+      error: "Sessão expirada. Faça login novamente.",
+    };
+  }
+
+  const response = await utf8Fetch("/api/admin-users", {
+    method: "PATCH",
+    headers: {
+      Authorization: "Bearer " + session.access_token,
+      "Content-Type": "application/json; charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "transfer_business_ownership_bulk",
+      businessIds,
+      sourceOwnerId,
+    }),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    ok?: boolean;
+    transferredBusinessIds?: unknown;
+    failedBusinessIds?: unknown;
+    conflictingBusinessIds?: unknown;
+    error?: unknown;
+  };
+  const transferredBusinessIds = Array.isArray(payload.transferredBusinessIds)
+    ? payload.transferredBusinessIds.filter((id): id is string => typeof id === "string")
+    : [];
+  const failedBusinessIds = Array.isArray(payload.failedBusinessIds)
+    ? payload.failedBusinessIds.filter((id): id is string => typeof id === "string")
+    : response.ok ? [] : businessIds;
+  const conflictingBusinessIds = Array.isArray(payload.conflictingBusinessIds)
+    ? payload.conflictingBusinessIds.filter((id): id is string => typeof id === "string")
+    : undefined;
+
+  return {
+    ok: response.ok && payload.ok === true,
+    transferredBusinessIds,
+    failedBusinessIds,
+    conflictingBusinessIds,
+    error: typeof payload.error === "string" ? payload.error : undefined,
+  };
+}
+
 export function hasPendingClaimForBusiness(
   requests: OwnerClaimRequest[],
   business: BusinessFrontend

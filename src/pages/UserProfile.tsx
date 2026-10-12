@@ -8,7 +8,10 @@ import SiteFooter from "@/components/SiteFooter";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { updateProfile } from "@/services/profiles";
-import { transferBusinessOwnershipByEmail } from "@/services/ownership";
+import {
+  transferBusinessOwnershipByEmail,
+  transferBusinessOwnershipBulk,
+} from "@/services/ownership";
 import { generateImagePath, uploadImage } from "@/services/storage";
 import {
   BUSINESS_CATEGORY_OPTIONS,
@@ -163,6 +166,20 @@ export default function UserProfile() {
       refreshAllBusinesses(),
       refreshOwnedBusinesses(session?.userId),
     ]);
+  };
+
+  const handleBulkTransferBusinessesToAdmin = async (sourceOwnerId: string, businessIds: string[]) => {
+    if (!canManageUsers) {
+      throw new Error("Ação não autorizada.");
+    }
+
+    const result = await transferBusinessOwnershipBulk(businessIds, sourceOwnerId);
+    await Promise.allSettled([
+      refreshAdminUsers(),
+      refreshAllBusinesses(),
+      refreshOwnedBusinesses(session?.userId),
+    ]);
+    return result;
   };
 
   const {
@@ -754,6 +771,7 @@ export default function UserProfile() {
                 onSaveUser={saveAdminUser}
                 onDeleteUser={deleteAdminUser}
                 onTransferBusinessOwnership={handleTransferBusinessToAdmin}
+                onTransferBusinessOwnershipBulk={handleBulkTransferBusinessesToAdmin}
               />
             ) : null}
 

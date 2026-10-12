@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import Pagination from "@/components/Pagination";
+import type { BulkBusinessOwnershipTransferResult } from "@/services/ownership";
 import type {
   AdminUserProfileUpdates,
   AdminUserRecord,
@@ -30,6 +31,10 @@ type AdminUsersTabProps = {
   onSaveUser: (userId: string, updates: AdminUserProfileUpdates) => Promise<void>;
   onDeleteUser: (userId: string) => Promise<void>;
   onTransferBusinessOwnership: (businessId: string) => Promise<void>;
+  onTransferBusinessOwnershipBulk: (
+    sourceOwnerId: string,
+    businessIds: string[],
+  ) => Promise<BulkBusinessOwnershipTransferResult>;
 };
 
 function formatDate(value: string) {
@@ -60,6 +65,7 @@ export default function AdminUsersTab({
   onSaveUser,
   onDeleteUser,
   onTransferBusinessOwnership,
+  onTransferBusinessOwnershipBulk,
 }: AdminUsersTabProps) {
   const [selectedUser, setSelectedUser] = useState<AdminUserRecord | null>(null);
   const [editingUser, setEditingUser] = useState<AdminUserRecord | null>(null);
@@ -67,6 +73,8 @@ export default function AdminUsersTab({
   const [saving, setSaving] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [transferringBusinessId, setTransferringBusinessId] = useState<string | null>(null);
+  const [selectedBusinessIds, setSelectedBusinessIds] = useState<Set<string>>(() => new Set());
+  const [transferringBulk, setTransferringBulk] = useState(false);
 
 
   const handleTransferBusiness = async (businessId: string, businessName: string) => {
@@ -85,12 +93,59 @@ export default function AdminUsersTab({
           ? { ...current, businesses: current.businesses.filter((business) => business.id !== businessId) }
           : current,
       );
+      setSelectedBusinessIds((current) => {
+        const next = new Set(current);
+        next.delete(businessId);
+        return next;
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível transferir o negócio.");
     } finally {
       setTransferringBusinessId(null);
     }
   };
+
+  const handleBulkTransfer = async () => {
+    if (!selectedUser || selectedUser.id === adminUserId || transferringBulk) return;
+    const businessIds = selectedUser.businesses
+      .filter((business) => selectedBusinessIds.has(business.id))
+      .map((business) => business.id);
+    if (businessIds.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Transferir ${businessIds.length} negócios de ${selectedUser.name || selectedUser.email} para sua conta? O usuário atual perderá o acesso de proprietário. Os chats antigos serão encerrados e seus históricos não serão compartilhados. Se houver uma interrupção, os negócios confirmados serão removidos da seleção e os restantes poderão ser tentados novamente.`,
+    );
+    if (!confirmed) return;
+
+    setTransferringBulk(true);
+    try {
+      const result = await onTransferBusinessOwnershipBulk(selectedUser.id, businessIds);
+      const transferredIds = new Set(result.transferredBusinessIds);
+      const conflictingIds = new Set(result.conflictingBusinessIds || []);
+      const removedIds = new Set([...transferredIds, ...conflictingIds]);
+      if (removedIds.size > 0) {
+        setSelectedUser((current) => current
+          ? { ...current, businesses: current.businesses.filter((business) => !removedIds.has(business.id)) }
+          : current);
+        setSelectedBusinessIds((current) => new Set(
+          [...current].filter((businessId) => !removedIds.has(businessId)),
+        ));
+      }
+
+      if (result.ok) {
+        toast.success(`${transferredIds.size} negócios transferidos para sua conta.`);
+      } else if (transferredIds.size > 0) {
+        toast.error(result.error || `Transferência parcial: ${transferredIds.size} negócios confirmados; os demais continuam selecionados.`);
+      } else {
+        toast.error(result.error || "Nenhum negócio foi transferido.");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível transferir os negócios selecionados.");
+    } finally {
+      setTransferringBulk(false);
+    }
+  };
+
   const startEditing = (user: AdminUserRecord) => {
     setEditingUser(user);
     setEditForm({
@@ -134,6 +189,11 @@ export default function AdminUsersTab({
     } finally {
       setDeletingUserId(null);
     }
+  };
+
+  const openUserDetails = (user: AdminUserRecord) => {
+    setSelectedBusinessIds(new Set());
+    setSelectedUser(user);
   };
 
   return (
@@ -220,7 +280,7 @@ export default function AdminUsersTab({
                     </div>
 
                     <div className="flex flex-wrap gap-2 lg:justify-end">
-                      <Button type="button" size="sm" variant="outline" onClick={() => setSelectedUser(user)}>
+                      <Button type="button" size="sm" variant="outline" onClick={() => openUserDetails(user)}>
                         Ver detalhes
                       </Button>
                       <Button type="button" size="sm" variant="outline" onClick={() => startEditing(user)}>
@@ -251,7 +311,15 @@ export default function AdminUsersTab({
         </div>
       </TabsContent>
 
-      <Dialog open={Boolean(selectedUser)} onOpenChange={(open) => !open && setSelectedUser(null)}>
+      <Dialog
+        open={Boolean(selectedUser)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedUser(null);
+            setSelectedBusinessIds(new Set());
+          }
+        }}
+      >
         <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
           {selectedUser ? (
             <>
@@ -270,34 +338,99 @@ export default function AdminUsersTab({
                 </section>
 
                 <section>
-                  <h3 className="mb-2 font-semibold">Negócios ({selectedUser.businesses.length})</h3>
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="font-semibold">Negócios ({selectedUser.businesses.length})</h3>
+                    {selectedUser.businesses.length > 0 && selectedUser.id !== adminUserId ? (
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-primary"
+                          checked={selectedUser.businesses.every((business) => selectedBusinessIds.has(business.id))}
+                          disabled={transferringBulk || Boolean(transferringBusinessId)}
+                          onChange={(event) => {
+                            const checked = event.currentTarget.checked;
+                            setSelectedBusinessIds((current) => {
+                              const next = new Set(current);
+                              for (const business of selectedUser.businesses) {
+                                if (checked) next.add(business.id);
+                                else next.delete(business.id);
+                              }
+                              return next;
+                            });
+                          }}
+                          aria-label="Selecionar todos os negócios deste usuário"
+                        />
+                        Selecionar todos
+                      </label>
+                    ) : null}
+                  </div>
+
+                  {selectedBusinessIds.size > 0 && selectedUser.id !== adminUserId ? (
+                    <div className="mb-3 flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm font-medium text-foreground">
+                        {selectedBusinessIds.size} negócio{selectedBusinessIds.size === 1 ? "" : "s"} selecionado{selectedBusinessIds.size === 1 ? "" : "s"}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => void handleBulkTransfer()}
+                        disabled={transferringBulk || Boolean(transferringBusinessId)}
+                      >
+                        <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+                        {transferringBulk
+                          ? `Transferindo ${selectedBusinessIds.size} negócios...`
+                          : "Transferir selecionados para mim"}
+                      </Button>
+                    </div>
+                  ) : null}
+
                   {selectedUser.businesses.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Nenhum negócio vinculado.</p>
                   ) : (
                     <div className="space-y-2">
                       {selectedUser.businesses.map((business) => (
-                        <div key={business.id} className="rounded-lg border border-border p-3">
-                          <p className="font-medium">{business.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {[business.city, business.state, business.country].filter(Boolean).join(", ") || "Localização não informada"}
-                          </p>
-                          {business.moderation_status ? <Badge variant="secondary" className="mt-2">{business.moderation_status}</Badge> : null}
-                          <div className="mt-3 flex justify-end">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void handleTransferBusiness(business.id, business.name)}
-                              disabled={selectedUser.id === adminUserId || Boolean(transferringBusinessId)}
-                              title={selectedUser.id === adminUserId ? "Este negócio já pertence a você." : "Transferir este negócio para você"}
-                            >
-                              <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
-                              {transferringBusinessId === business.id
-                                ? "Transferindo..."
-                                : selectedUser.id === adminUserId
-                                  ? "Já é meu"
-                                  : "Transferir para mim"}
-                            </Button>
+                        <div key={business.id} className="flex items-start gap-3 rounded-lg border border-border p-3">
+                          {selectedUser.id !== adminUserId ? (
+                            <input
+                              type="checkbox"
+                              className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                              checked={selectedBusinessIds.has(business.id)}
+                              disabled={transferringBulk || Boolean(transferringBusinessId)}
+                              onChange={(event) => {
+                                const checked = event.currentTarget.checked;
+                                setSelectedBusinessIds((current) => {
+                                  const next = new Set(current);
+                                  if (checked) next.add(business.id);
+                                  else next.delete(business.id);
+                                  return next;
+                                });
+                              }}
+                              aria-label={`Selecionar ${business.name} para transferência`}
+                            />
+                          ) : null}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium">{business.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {[business.city, business.state, business.country].filter(Boolean).join(", ") || "Localização não informada"}
+                            </p>
+                            {business.moderation_status ? <Badge variant="secondary" className="mt-2">{business.moderation_status}</Badge> : null}
+                            <div className="mt-3 flex justify-end">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void handleTransferBusiness(business.id, business.name)}
+                                disabled={selectedUser.id === adminUserId || transferringBulk || Boolean(transferringBusinessId)}
+                                title={selectedUser.id === adminUserId ? "Este negócio já pertence a você." : "Transferir este negócio para você"}
+                              >
+                                <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+                                {transferringBusinessId === business.id
+                                  ? "Transferindo..."
+                                  : selectedUser.id === adminUserId
+                                    ? "Já é meu"
+                                    : "Transferir para mim"}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
