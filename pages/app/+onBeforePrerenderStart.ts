@@ -2,10 +2,9 @@ import {
   getPublicBusinessDirectoryIndex,
   buildBusinessUrl,
 } from "@/services/businesses";
-import { getPublishedCommunityEvents } from "@/services/events";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { BusinessFrontend, CommunityEvent } from "@/types/database";
+import type { BusinessFrontend } from "@/types/database";
 
 const STATIC_PUBLIC_URLS = [
   "/sobre",
@@ -60,12 +59,7 @@ async function writeGeneratedSitemapFiles(baseUrl: string) {
 }
 
 export async function onBeforePrerenderStart() {
-  const [businesses, events] = await Promise.all([
-    getPublicBusinessDirectoryIndex().catch(() => [] as BusinessFrontend[]),
-    getPublishedCommunityEvents().catch(() => [] as CommunityEvent[]),
-  ]);
-
-  const eventUrls = events.map((event) => `/eventos/${event.id}`);
+  const businesses = await getPublicBusinessDirectoryIndex().catch(() => [] as BusinessFrontend[]);
   const businessUrls = buildBusinessUrls(businesses);
 
   const baseUrl = "https://www.caramelinho.com";
@@ -80,8 +74,5 @@ export async function onBeforePrerenderStart() {
   await writeFile(join(sitemapDir, "businesses-fallback.xml"), businessFallbackXml, "utf8");
   await writeFile(join(distSitemapDir, "businesses-fallback.xml"), businessFallbackXml, "utf8");
 
-  return [
-    ...STATIC_PUBLIC_URLS,
-    ...eventUrls,
-  ];
+  return STATIC_PUBLIC_URLS;
 }

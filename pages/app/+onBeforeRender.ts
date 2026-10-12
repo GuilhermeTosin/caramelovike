@@ -341,12 +341,19 @@ export async function onBeforeRender(pageContext: PageContext) {
 
   if (pathname.startsWith("/eventos/")) {
     const eventId = pathname.split("/").filter(Boolean).at(-1) || "";
-    const event = eventId ? await getCommunityEventById(eventId).catch(() => null) : null;
+    if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(eventId)) {
+      throw render(404);
+    }
+
+    let event: CommunityEvent | null;
+    try {
+      event = await getCommunityEventById(eventId);
+    } catch (error) {
+      console.error("[onBeforeRender] published event lookup failed:", error);
+      throw render(503);
+    }
 
     if (!event) {
-      if (isPrerendering) {
-        return { pageContext: { initialEvent: null, isBusinessPage: false, isEventPage: true } };
-      }
       throw render(404);
     }
 

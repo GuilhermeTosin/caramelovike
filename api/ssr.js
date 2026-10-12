@@ -267,11 +267,20 @@ function applyPublicPageCacheHeaders(res, pathname, statusCode) {
   res.setHeader("Vercel-CDN-Cache-Control", cacheHeader);
 }
 
+function applyEventNoStoreHeaders(res, pathname) {
+  if (!normalizePathname(pathname).startsWith("/eventos/")) return;
+
+  res.setHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate");
+  res.setHeader("CDN-Cache-Control", "no-store");
+  res.setHeader("Vercel-CDN-Cache-Control", "no-store");
+}
+
 export default async function handler(req, res) {
   const { url } = req;
   if (url === undefined) throw new Error("req.url is undefined");
 
   const requestedUrl = new URL(url, "http://localhost");
+  applyEventNoStoreHeaders(res, requestedUrl.pathname);
 
   let pageContext;
   try {

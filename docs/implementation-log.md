@@ -24,6 +24,97 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-12 18:05:11 -04:00
+
+- Status: validacao local concluida em 2026-10-12 18:06:45 -04:00; commit e
+  push para `dev` em andamento.
+- Solicitacao: enviar as correcoes P1 para `dev` e testar o comportamento.
+- Escopo: adicionar regressao da consulta de evento, executar verify/build,
+  simular falha do Supabase contra o SSR compilado, confirmar ausencia de HTML
+  estatico para eventos e publicar somente os arquivos desta correcao.
+- Estrategia: preservar a alteracao preexistente em
+  `public/sitemaps/businesses-fallback.xml`; depois dos checks fazer commit e
+  push em `dev`, consultar o estado/URL do Preview e testar respostas publicas.
+- Riscos: o Preview depende do pipeline Vercel conectado a branch; nao enviar
+  o sitemap preexistente nem modificar dados remotos.
+- Validacao local: `npm run verify` passou (34 arquivos/182 testes), `npm run
+  lint`, encoding e `git diff --check` passaram. `npm run build` passou com o
+  aviso preexistente de top-level await em `BusinessPageRoute.tsx:7`; gerou sete
+  HTMLs estaticos e nenhum HTML de detalhe em `dist/client/eventos`.
+- Smoke do SSR compilado com Supabase simulado: erro 503 retornou HTTP 503 com
+  headers CDN/browser `no-store`; consulta bem-sucedida sem evento retornou 404
+  tambem sem cache. Nenhum registro real foi consultado ou alterado nesse smoke.
+- Arquivos que serao incluidos: os quatro arquivos de runtime, teste novo
+  `src/services/events.test.ts`, relatorio SEO e este registro. O sitemap
+  `public/sitemaps/businesses-fallback.xml` permanece fora do commit.
+
+### 2026-10-12 18:02:03 -04:00
+
+- Status: implementado e validado em 2026-10-12 18:03:46 -04:00.
+- Solicitacao: resolver os dois achados P1 da auditoria de SEO/SSR de eventos.
+- Escopo: preservar 404 apenas para evento ausente/invalido, responder 503
+  quando a consulta falhar, servir detalhes somente por SSR dinamico e impedir
+  cache/CDN de HTML de evento.
+- Estrategia: propagar erros do servico de eventos; mapear falha para `render(503)`;
+  remover detalhes de eventos do conjunto de prerender; confirmar a rota
+  `/eventos/:id` continua no fallback SSR e adicionar headers `no-store`.
+- Riscos: evento removido pode permanecer em caches antigos apenas ate a troca
+  do deployment; a resposta nova sera dinamica e sem cache. Nenhum dado remoto
+  sera alterado.
+- Arquivos: `src/services/events.ts`, `pages/app/+onBeforeRender.ts`,
+  `pages/app/+onBeforePrerenderStart.ts`, `api/ssr.js`,
+  `docs/seo-ssr-audit-2026-10-12.md` e este registro.
+- Resultado: `getCommunityEventById` propaga erros do Supabase e retorna `null`
+  somente para consulta bem-sucedida sem evento publicado. A rota rejeita IDs
+  malformados com 404, responde 503 para falha de consulta e 404 para evento
+  ausente/despublicado. Detalhes de eventos foram removidos do prerender; a
+  rota continua no fallback SSR do Vercel. Respostas `/eventos/:id` recebem
+  `no-store` nos headers de browser e CDN.
+- Validacao inicial: `npm run typecheck`, ESLint nos quatro arquivos alterados,
+  `git diff --check` e `npm run check:encoding` passaram. A validacao completa
+  e o smoke estao registrados na entrada seguinte.
+- Migrations/configuracoes externas: nenhuma. Nenhum dado remoto foi alterado.
+- Riscos/pendencias: a remocao do HTML estatico se efetiva no novo build/deploy;
+  nao houve build nem validacao no Preview nesta etapa. A mudanca preexistente
+  em `public/sitemaps/businesses-fallback.xml` foi preservada e nao pertence a
+  esta correcao.
+- Decisao de deploy: sem commit ou push nesta etapa; publicar um novo deployment
+  para substituir os artefatos estaticos anteriores.
+
+### 2026-10-12 17:47:59 -04:00
+
+- Status: auditoria concluida em 2026-10-12 17:57:19 -04:00.
+- Solicitacao: repetir a auditoria de SEO, SSR e links completos do site.
+- Escopo: revisar metadados, canonical, robots, JSON-LD, rotas, redirects,
+  sitemaps, respostas HTTP e links internos; testar o codigo local e amostras
+  publicas em producao sem alterar dados remotos.
+- Estrategia: teste SEO existente, testes unitarios relacionados, amostragem
+  HTTP de rotas/sitemaps e simulacoes isoladas de indisponibilidade do banco.
+- Limitacao inicial: navegador integrado bloqueado por uma preferencia de
+  permissao salva; nao contornar o bloqueio. Hidratacao e navegacao interativa
+  serao distinguidas dos testes HTTP e da revisao estatica.
+- Artefato: `docs/seo-ssr-audit-2026-10-12.md`; nenhuma correcao
+  funcional, migration, commit ou deploy faz parte desta auditoria.
+- Resultado: dois P1 (falha de banco vira 404 em evento; HTML estatico de
+  evento sem invalidacao de publicacao), sete P2 (canonical duplicada, ciclo
+  de vida de JSON-LD, geo divergente, alias /eventos vazio, falha de sitemap
+  mascarada como sucesso, paginacao ausente e empregador incorreto em vagas)
+  e dois P3 (imagem social generica e descricao fragmentada).
+- Validacao: verify passou com 180 testes/33 arquivos; lint e build passaram.
+  SEO local completou 31 checks com um skip de sitemap dinamico. Script
+  original em producao parou pela exigencia de googlebot explicito no fallback
+  404; robots=noindex continua valido para Google. Repeticao isolada em memoria,
+  sem modificar o script, concluiu 33 checks ao separar essa exigencia.
+  Amostra de 49 paginas e 72 links internos adicionais passou; sitemap real
+  tinha 1948 URLs sem duplicacao. Falhas de banco e truncamento de sitemap foram
+  reproduzidos com fetch simulado, inclusive no handler SSR compilado.
+- Limitacoes: hidratacao/SPA identificadas por codigo, sem teste interativo;
+  nao houve crawl integral, Search Console ou mudanca de status de evento real.
+  O build manteve o aviso tolerado de top-level await e regenerou o sitemap
+  fallback que ja estava modificado; nenhuma alteracao preexistente foi revertida.
+- Verificacao documental: encoding e git diff --check passaram. Servidor
+  temporario da porta 3001 encerrado; servidor preexistente preservado.
+
 ### 2026-10-12 17:21:13 -04:00
 
 - Status: implementado e validado localmente em 2026-10-12 17:29:40 -04:00;

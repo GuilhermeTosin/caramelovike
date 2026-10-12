@@ -63,7 +63,8 @@ export async function getCommunityEventById(id: string): Promise<CommunityEvent 
     .eq("status", "published")
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) throw error;
+  if (!data) return null;
   return data as CommunityEvent;
 }
 
