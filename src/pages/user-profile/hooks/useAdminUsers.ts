@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { utf8Fetch } from "@/lib/http/utf8";
+import { getAdminApiErrorMessage } from "@/lib/adminApiError";
 
 export type AdminUserBusiness = {
   id: string;
@@ -69,7 +70,7 @@ type AdminUsersResponse = {
   pageSize: number;
   total: number;
   totalPages: number;
-  error?: string;
+  error?: unknown;
 };
 
 async function adminRequest(path: string, init: RequestInit = {}) {
@@ -92,7 +93,7 @@ async function adminRequest(path: string, init: RequestInit = {}) {
   });
 
   const raw = await response.text();
-  let payload: { error?: string } & Partial<AdminUsersResponse>;
+  let payload: { error?: unknown } & Partial<AdminUsersResponse>;
   try {
     payload = JSON.parse(raw);
   } catch {
@@ -102,7 +103,9 @@ async function adminRequest(path: string, init: RequestInit = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(payload.error || "Não foi possível concluir a operação.");
+    throw new Error(
+      getAdminApiErrorMessage(payload.error) || "Não foi possível concluir a operação.",
+    );
   }
 
   return payload;
@@ -128,6 +131,7 @@ export function useAdminUsers({ enabled }: UseAdminUsersOptions) {
     let active = true;
     const timer = window.setTimeout(async () => {
       setLoading(true);
+      setError(null);
       try {
         const params = new URLSearchParams({
           page: String(page),
@@ -136,13 +140,14 @@ export function useAdminUsers({ enabled }: UseAdminUsersOptions) {
         });
         const payload = (await adminRequest("/api/admin-users?" + params.toString())) as AdminUsersResponse;
         if (!active) return;
+        setError(null);
         setUsers(payload.users || []);
         setTotal(Number(payload.total || 0));
         setTotalPages(Math.max(1, Number(payload.totalPages || 1)));
         if (payload.page && payload.page !== page) setPage(payload.page);
       } catch (error) {
         if (active) {
-          const message = error instanceof Error ? error.message : "Erro ao carregar usuários.";
+          const message = getAdminApiErrorMessage(error) || "Erro ao carregar usuários.";
           setError(message);
           toast.error(message);
         }

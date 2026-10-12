@@ -24,10 +24,34 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-12 14:21:25 -04:00
+
+- Status: instrumentacao local concluida em 2026-10-12 14:22:33 -04:00;
+  causa raiz do erro HTTP 500 pendente.
+- Solicitacao: corrigir erro ao carregar a aba administrativa de usuarios,
+  exibido como `[object Object]` no deployment dev.
+- Contexto: o usuario confirmou via SQL que o novo proprietario tem um negocio;
+  `dev`/`origin/dev` estao no commit `beee67b`, mas a leitura da lista agora
+  retorna erro. Sem aba autenticada ou resposta de rede disponivel nesta sessao.
+- Escopo: normalizar erros estruturados da API e permitir que uma nova tentativa
+  recupere a tela limpando erro anterior; nao alterar ownership ou banco.
+- Estrategia: extrair formatador de mensagem com testes e limpar estado de erro
+  antes de novas requisicoes e quando uma requisicao terminar com sucesso.
+- Implementacao: a interface extrai mensagem e codigo de erros aninhados em vez
+  de mostrar `[object Object]`; retries limpam o erro anterior e respostas bem-
+  sucedidas removem o estado de erro. Nenhum detalhe do banco ou do ownership e
+  alterado.
+- Arquivos: `src/lib/adminApiError.ts`, `src/lib/adminApiError.test.ts`,
+  `src/pages/user-profile/hooks/useAdminUsers.ts` e este registro.
+- Validacao: `npm run verify` passou (34 arquivos de teste, 176 testes);
+  `npm run lint` e `git diff --check` passaram. Commit e deploy nao realizados.
+- Risco: isso melhora o diagnostico e retry, mas a causa do 500 pode exigir o
+  corpo da resposta da API ou logs do deployment.
+
 ### 2026-10-12 14:00:25 -04:00
 
-- Status: validacao local concluida em 2026-10-12 14:01:24 -04:00; verificacao
-  dos dados remotos pendente.
+- Status: validacao local concluida em 2026-10-12 14:01:24 -04:00; divergencia
+  de leitura no endpoint administrativo ainda em diagnostico.
 - Solicitacao: investigar a contagem ainda zerada depois da correção de
   paginação e da atualização da lista administrativa.
 - Contexto: `dev` e `origin/dev` estão no commit `9ee184d`; não foi possível
@@ -47,8 +71,16 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 - Validacao local: `npm run verify` passou (33 arquivos de teste, 172 testes);
   `npm run lint` e `git diff --check` passaram. Nenhum acesso ou alteracao ao
   banco remoto, commit ou deploy foi feito nesta etapa.
-- Risco: transferências anteriormente sinalizadas como sucesso podem não ter
-  sido gravadas; será necessário verificar o registro real no Supabase.
+- Risco: nao foi possivel validar o payload do endpoint em uma sessao autenticada
+  nem confirmar o deployment Vercel ativo; a captura do endpoint e necessaria
+  antes de atribuir a divergencia a cache, codigo ou variaveis de ambiente.
+- Diagnostico recebido em 2026-10-12: consulta SQL do usuario confirmou um
+  negocio associado ao `target_user_id`. A transferencia foi persistida; a
+  contagem zero na interface aponta para deployment/ambiente da API ou resposta
+  de `/api/admin-users`, nao para falta de ownership no banco.
+- Proximo dado necessario: resposta de `GET /api/admin-users` para esse usuario
+  no deployment dev e confirmacao de que `SUPABASE_URL` nesse deployment aponta
+  para o mesmo projeto Supabase consultado no SQL.
 
 ### 2026-10-12 13:40:00 -04:00
 
