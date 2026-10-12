@@ -24,6 +24,28 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-12 11:19:35 -04:00
+
+- Status: implementado localmente em 2026-10-12 11:20:46 -04:00.
+- Solicitacao: no mobile, posicionar "Sou dono deste negocio", "Denunciar anuncio" e a data de atualizacao depois de "Compartilhar pagina", nessa ordem.
+- Escopo: reorganizar esses controles apenas em viewports mobile e preservar a disposicao desktop e os mesmos handlers/condicoes atuais.
+- Implementacao: criado um renderer responsivo para os controles. A instancia desktop continua na lateral; a instancia mobile aparece imediatamente apos o cartao de compartilhamento, ao fim do conteudo. A ordem mobile e compartilhamento, solicitacao de propriedade (quando disponivel), denuncia e data.
+- Arquivos: `src/pages/BusinessPage.tsx` e este registro.
+- Validacao: `npm run verify` passou com typecheck e 149 testes em 29 arquivos; `npx eslint src/pages/BusinessPage.tsx`, `npm run check:encoding` e `git diff --check` passaram. Validacao visual continua indisponivel devido ao bloqueio salvo do browser ao localhost.
+- Migrations/configuracoes externas: nenhuma.
+- Riscos residuais e deploy: local, sem commit/deploy. Os controles permanecem ocultos/visiveis por breakpoint para evitar duplicacao visual; nao foi feito teste manual de clique em navegador.
+
+### 2026-10-12 11:14:38 -04:00
+
+- Status: corrigido na pasta principal em 2026-10-12 11:16:54 -04:00.
+- Solicitacao: corrigir a ordem dos elementos nas paginas de negocios mobile; "Compartilhar pagina" deve ser o ultimo elemento da pagina.
+- Diagnostico: a primeira implementacao ficou apenas no worktree isolado de `dev`; a pasta principal usada para o localhost ainda tinha o cartao dentro da coluna lateral.
+- Implementacao: extraido o cartao para um renderer responsivo; a instancia desktop permanece na lateral e a instancia mobile e exibida depois de todas as secoes de conteudo, incluindo negocios similares, antes do rodape global. Os breakpoints ocultam a instancia que nao corresponde ao viewport.
+- Arquivos: `src/pages/BusinessPage.tsx` e este registro.
+- Validacao: `npm run verify` passou com typecheck e 149 testes em 29 arquivos; `npx eslint src/pages/BusinessPage.tsx`, `npm run check:encoding` e `git diff --check` passaram. Tentativa de abrir o navegador foi bloqueada por uma preferencia de seguranca salva. O Vike iniciou temporariamente na porta 3001 porque a porta 3000 estava ocupada; o processo temporario foi encerrado. Validacao visual nao concluida.
+- Migrations/configuracoes externas: nenhuma.
+- Riscos residuais e deploy: codigo local sem commit/deploy. Confirmar visualmente em um preview mobile apos o usuario permitir acesso do browser ao localhost; nao assumir que um preview remoto recebeu esta alteracao.
+
 ### 2026-10-11 15:48:28 -04:00
 
 - Status: migration aplicada em producao e dado verificado em 2026-10-11 15:53:34 -04:00.
