@@ -26,15 +26,15 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ### 2026-10-12 18:05:11 -04:00
 
-- Status: validacao local concluida em 2026-10-12 18:06:45 -04:00; commit e
-  push para `dev` em andamento.
+- Status: commit `b3ee77b` enviado para `origin/dev`; check Vercel reportou
+  `success` em 2026-10-12 18:09:15 -04:00.
 - Solicitacao: enviar as correcoes P1 para `dev` e testar o comportamento.
 - Escopo: adicionar regressao da consulta de evento, executar verify/build,
   simular falha do Supabase contra o SSR compilado, confirmar ausencia de HTML
   estatico para eventos e publicar somente os arquivos desta correcao.
 - Estrategia: preservar a alteracao preexistente em
-  `public/sitemaps/businesses-fallback.xml`; depois dos checks fazer commit e
-  push em `dev`, consultar o estado/URL do Preview e testar respostas publicas.
+  `public/sitemaps/businesses-fallback.xml`; enviar somente os arquivos
+  selecionados e testar Preview e resposta SSR apos o deploy.
 - Riscos: o Preview depende do pipeline Vercel conectado a branch; nao enviar
   o sitemap preexistente nem modificar dados remotos.
 - Validacao local: `npm run verify` passou (34 arquivos/182 testes), `npm run
@@ -44,9 +44,14 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 - Smoke do SSR compilado com Supabase simulado: erro 503 retornou HTTP 503 com
   headers CDN/browser `no-store`; consulta bem-sucedida sem evento retornou 404
   tambem sem cache. Nenhum registro real foi consultado ou alterado nesse smoke.
-- Arquivos que serao incluidos: os quatro arquivos de runtime, teste novo
+- Arquivos incluidos no commit `b3ee77b`: quatro arquivos de runtime,
   `src/services/events.test.ts`, relatorio SEO e este registro. O sitemap
-  `public/sitemaps/businesses-fallback.xml` permanece fora do commit.
+  `public/sitemaps/businesses-fallback.xml` permaneceu fora do commit.
+- Preview: check do GitHub/Vercel concluiu com `success`. O HEAD publico da rota
+  de evento recebeu 302 para o SSO da Vercel; a protecao do Preview impediu
+  inspecionar o HTML/status SSR sem autenticacao. Smoke SSR local compilado
+  confirmou 503/404 e `no-store` com respostas simuladas.
+- Decisao de deploy: enviado apenas para `dev`; nenhuma promocao a producao.
 
 ### 2026-10-12 18:02:03 -04:00
 

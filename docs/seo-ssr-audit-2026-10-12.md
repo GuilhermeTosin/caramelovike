@@ -23,13 +23,14 @@ Em 2026-10-12, os dois achados P1 foram corrigidos no codigo local:
 | Achado | Correcao | Estado |
 | --- | --- | --- |
 | SEO-01 | Erros de consulta agora chegam ao SSR como HTTP 503; 404 fica reservado a ID invalido ou evento publico inexistente. | Implementado; verify (182 testes), lint e smoke SSR passaram. |
-| SEO-02 | Detalhes de eventos deixaram de ser prerenderizados e as respostas SSR da rota usam `no-store` para browser/CDN. | Implementado; build gerou sete HTMLs e nenhum HTML de detalhe de evento. Deployment ainda necessario para substituir os artefatos publicados. |
+| SEO-02 | Detalhes de eventos deixaram de ser prerenderizados e as respostas SSR da rota usam `no-store` para browser/CDN. | Implementado; build gerou sete HTMLs e nenhum HTML de detalhe de evento. Push para dev concluido e check Vercel success. |
 
 O build local passou, com o aviso preexistente de top-level await em
 `BusinessPageRoute.tsx:7`. O smoke do handler SSR compilado simulou uma resposta
 Supabase 503 e uma consulta sem evento: recebeu 503 e 404, respectivamente,
 ambos com headers `no-store`. O teste foi simulado; nenhum registro remoto foi
-alterado. O Preview ainda precisa ser verificado apos o push.
+alterado. O HEAD publico do Preview redirecionou para o SSO da Vercel, entao
+nao foi possivel inspecionar a resposta HTML sem autenticacao.
 
 ## Verificacoes Executadas
 
