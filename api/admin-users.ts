@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { fetchAllPages } from "../src/lib/paginateRows";
-import { requireTransferredBusinessOwner } from "../src/lib/ownershipTransfer";
+import { fetchAllPages, requireTransferredBusinessOwner } from "../server/adminUsersRuntime.js";
 
 const ADMIN_EMAIL = "contact@guilhermetosin.com";
 const AUTH_PAGE_SIZE = 1000;

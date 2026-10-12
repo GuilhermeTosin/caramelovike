@@ -24,6 +24,37 @@ registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
 
+### 2026-10-12 17:05:23 -04:00
+
+- Status: implementado e validado localmente em 2026-10-12 17:07:06 -04:00;
+  aguarda envio e validacao no deployment Preview de `dev`.
+- Solicitacao: corrigir o erro 500 ao carregar Perfil > Usuarios no deployment
+  Preview da branch `dev`.
+- Diagnostico: a invocacao falha antes de entrar no handler porque o runtime
+  ESM do Vercel nao resolve o import sem extensao
+  `../src/lib/paginateRows` em `api/admin-users.js` (`ERR_MODULE_NOT_FOUND`).
+  Confirmado no log correlacionado pelo `x-vercel-id`
+  `yul1::jfgqc-1791838948879-2f6c56f3bfd0`. O endpoint tambem importava
+  `ownershipTransfer` pelo mesmo padrao.
+- Escopo: remover imports runtime de utilitarios TypeScript fora da funcao e
+  substituir por modulo JavaScript ESM local com caminho explicito `.js`,
+  mantendo paginacao e confirmacao de ownership.
+- Implementacao: `api/admin-users.ts` agora importa os helpers de
+  `../server/adminUsersRuntime.js`; os utilitarios e testes antigos foram
+  consolidados em `server/adminUsersRuntime.js` e
+  `src/lib/adminUsersRuntime.test.ts`. O endpoint nao depende mais dos imports
+  TypeScript extensionless que causavam o crash.
+- Arquivos: `api/admin-users.ts`, `server/adminUsersRuntime.js`,
+  `src/lib/adminUsersRuntime.test.ts`, remocao de
+  `src/lib/paginateRows.ts`, `src/lib/paginateRows.test.ts`,
+  `src/lib/ownershipTransfer.ts`, `src/lib/ownershipTransfer.test.ts` e este
+  registro.
+- Validacao: `npm run verify` passou (33 arquivos de teste, 173 testes);
+  `npm run lint`, import ESM direto com Node e `git diff --check` passaram.
+- Risco/pendencia: o empacotamento da funcao no Vercel so pode ser confirmado
+  depois do deploy Preview de `dev`; nenhuma migration, dado remoto ou segredo
+  foi alterado. Ainda nao houve commit ou deploy.
+
 ### 2026-10-12 14:21:25 -04:00
 
 - Status: instrumentacao local concluida em 2026-10-12 14:22:33 -04:00;
