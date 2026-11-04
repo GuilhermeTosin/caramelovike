@@ -13,7 +13,6 @@ import type { HomePublicSnapshot } from "@/lib/homeSnapshot";
 import type { DirectoryPageSnapshot } from "@/lib/directorySnapshot";
 import type { PublicSearchPageSnapshot } from "@/lib/search/publicSearchPage";
 import type { MarketplaceSnapshot } from "@/lib/marketplaceSnapshot";
-import { DEFAULT_CATEGORY_SYNONYMS } from "@/services/searchPreferences";
 import BusinessPageRoute from "@/pages/BusinessPageRoute";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import SiteHeader from "@/components/SiteHeader";
@@ -183,7 +182,7 @@ export default function App({
   initialRecentBusinesses = [],
   initialAvailableLocations = [],
   initialSearchSuggestions = [],
-  initialSearchSynonyms = DEFAULT_CATEGORY_SYNONYMS,
+  initialSearchSynonyms,
   initialSearchSnapshot,
   initialHomeSnapshot,
   initialDirectorySnapshot,

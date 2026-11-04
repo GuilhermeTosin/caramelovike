@@ -12,7 +12,7 @@ import type { BusinessFrontend } from "@/types/database";
 import { setSeoMeta, upsertMetaTag } from "@/lib/seo";
 import { getCityDisplayName } from "@/lib/locationDisplay";
 import { type DirectoryInsights } from "@/lib/directoryInsights";
-import { DEFAULT_BUSINESS_LOGO } from "@/lib/images";
+import { DEFAULT_BUSINESS_LOGO, getOptimizedImageUrl } from "@/lib/images";
 import { DIRECTORY_CATEGORY_MINIMUM_BUSINESSES } from "@/lib/directoryCategories";
 import {
   buildDirectoryPagePath,
@@ -258,7 +258,9 @@ export default function BusinessDirectoryPage({ initialDirectorySnapshot }: Busi
                 >
                   <div className="flex items-center gap-3">
                     <img
-                      src={business.logoUrl || DEFAULT_BUSINESS_LOGO}
+                      src={business.logoUrl
+                        ? getOptimizedImageUrl(business.logoUrl, { width: 240, quality: 72, format: "webp" })
+                        : DEFAULT_BUSINESS_LOGO}
                       alt=""
                       loading="lazy"
                       className="h-11 w-11 shrink-0 rounded-full border border-border bg-muted object-cover"

@@ -10,6 +10,16 @@ function isSupabaseStoragePublicUrl(url: string): boolean {
   return /\/storage\/v1\/object\/public\//.test(url);
 }
 
+function getVariantWidths(pathname: string) {
+  const fileName = pathname.split("/").pop()?.toLowerCase() || "";
+  if (fileName.startsWith("logo_")) return { thumbnail: 240, full: 700 };
+  if (fileName.startsWith("avatar_")) return { thumbnail: 160, full: 500 };
+  if (fileName.startsWith("hero_")) return { thumbnail: 640, full: 1600 };
+  if (fileName.startsWith("photo_")) return { thumbnail: 480, full: 1400 };
+  if (fileName.startsWith("event-flyer_")) return { thumbnail: 480, full: 1200 };
+  return { thumbnail: 480, full: 1600 };
+}
+
 const PRELOADED_RESPONSIVE_IMAGE_KEYS = new Set<string>();
 
 export function getOptimizedImageUrl(
@@ -18,14 +28,20 @@ export function getOptimizedImageUrl(
 ): string {
   if (!url || !isSupabaseStoragePublicUrl(url)) return url;
   const width = options.width ?? 768;
-  const quality = options.quality ?? 80;
-  const format = options.format ?? "webp";
 
   try {
     const parsed = new URL(url);
-    parsed.searchParams.set("width", String(width));
-    parsed.searchParams.set("quality", String(quality));
-    parsed.searchParams.set("format", format);
+    // Storage image transformations require the /render/image endpoint and an
+    // enabled transformations plan. Uploaded assets use durable WebP variants
+    // instead, so avoid unique query URLs that only reduce CDN cache reuse.
+    parsed.searchParams.delete("width");
+    parsed.searchParams.delete("quality");
+    parsed.searchParams.delete("format");
+
+    const variantWidths = getVariantWidths(parsed.pathname);
+    if (width <= variantWidths.thumbnail && parsed.pathname.endsWith("__full.webp")) {
+      parsed.pathname = parsed.pathname.replace(/__full\.webp$/i, "__thumb.webp");
+    }
     return parsed.toString();
   } catch {
     return url;
@@ -34,13 +50,24 @@ export function getOptimizedImageUrl(
 
 export function getOptimizedImageSrcSet(
   url: string,
-  widths: number[] = [480, 768, 1024],
-  quality = 80
+  _widths: number[] = [480, 768, 1024],
+  _quality = 80
 ): string | undefined {
   if (!url || !isSupabaseStoragePublicUrl(url)) return undefined;
-  return widths
-    .map((w) => `${getOptimizedImageUrl(url, { width: w, quality, format: "webp" })} ${w}w`)
-    .join(", ");
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete("width");
+    parsed.searchParams.delete("quality");
+    parsed.searchParams.delete("format");
+    if (!parsed.pathname.endsWith("__full.webp")) return undefined;
+
+    const thumbnail = new URL(parsed);
+    thumbnail.pathname = thumbnail.pathname.replace(/__full\.webp$/i, "__thumb.webp");
+    const variantWidths = getVariantWidths(parsed.pathname);
+    return `${thumbnail.toString()} ${variantWidths.thumbnail}w, ${parsed.toString()} ${variantWidths.full}w`;
+  } catch {
+    return undefined;
+  }
 }
 
 export function preloadResponsiveImage(

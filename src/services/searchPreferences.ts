@@ -5,6 +5,13 @@ export type CategorySynonymsMap = Record<string, string[]>;
 const STORAGE_KEY = "caramelinho_search_category_synonyms_v1";
 const DB_KEY = "category_synonyms";
 const FOLLOW_LINKS_BUSINESS_IDS_KEY = "follow_links_business_ids";
+const SEARCH_SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type TimedValue<T> = { value: T; expiresAt: number };
+let categorySynonymsCache: TimedValue<CategorySynonymsMap> | null = null;
+let categorySynonymsRequest: Promise<CategorySynonymsMap> | null = null;
+let followLinksCache: TimedValue<string[]> | null = null;
+let followLinksRequest: Promise<string[]> | null = null;
 
 export const DEFAULT_CATEGORY_SYNONYMS: CategorySynonymsMap = {
   "Restaurantes e Alimentação": ["restaurante", "restaurantes", "lanchonete", "lanchonetes", "lanches", "padaria", "padarias", "pizzaria", "pizzarias", "churrascaria", "churrascarias", "confeitaria", "confeitarias", "café", "cafés", "comida", "gastronomia", "almoço", "jantar", "marmita"],
@@ -69,22 +76,31 @@ function normalizeBusinessIdList(input: unknown): string[] {
 }
 
 export async function getGlobalCategorySynonymsConfig(): Promise<CategorySynonymsMap> {
-  try {
-    const { data, error } = await supabase
-      .from("search_settings")
-      .select("value")
-      .eq("key", DB_KEY)
-      .maybeSingle();
+  if (categorySynonymsCache && categorySynonymsCache.expiresAt > Date.now()) {
+    return categorySynonymsCache.value;
+  }
+  if (categorySynonymsRequest) return categorySynonymsRequest;
 
-    if (error || !data?.value) {
+  categorySynonymsRequest = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from("search_settings")
+        .select("value")
+        .eq("key", DB_KEY)
+        .maybeSingle();
+
+      if (error) return getCategorySynonymsConfig();
+      const normalized = data?.value ? normalizeConfig(data.value) : getCategorySynonymsConfig();
+      categorySynonymsCache = { value: normalized, expiresAt: Date.now() + SEARCH_SETTINGS_CACHE_TTL_MS };
+      if (data?.value) saveCategorySynonymsConfig(normalized);
+      return normalized;
+    } catch {
       return getCategorySynonymsConfig();
     }
-    const normalized = normalizeConfig(data.value);
-    saveCategorySynonymsConfig(normalized);
-    return normalized;
-  } catch {
-    return getCategorySynonymsConfig();
-  }
+  })().finally(() => {
+    categorySynonymsRequest = null;
+  });
+  return categorySynonymsRequest;
 }
 
 export async function saveGlobalCategorySynonymsConfig(config: CategorySynonymsMap): Promise<boolean> {
@@ -99,6 +115,7 @@ export async function saveGlobalCategorySynonymsConfig(config: CategorySynonymsM
     );
     if (error) return false;
     saveCategorySynonymsConfig(payload);
+    categorySynonymsCache = { value: payload, expiresAt: Date.now() + SEARCH_SETTINGS_CACHE_TTL_MS };
     return true;
   } catch {
     return false;
@@ -106,18 +123,28 @@ export async function saveGlobalCategorySynonymsConfig(config: CategorySynonymsM
 }
 
 export async function getFollowLinksBusinessIds(): Promise<string[]> {
-  try {
-    const { data, error } = await supabase
-      .from("search_settings")
-      .select("value")
-      .eq("key", FOLLOW_LINKS_BUSINESS_IDS_KEY)
-      .maybeSingle();
+  if (followLinksCache && followLinksCache.expiresAt > Date.now()) return followLinksCache.value;
+  if (followLinksRequest) return followLinksRequest;
 
-    if (error || !data?.value) return [];
-    return normalizeBusinessIdList(data.value);
-  } catch {
-    return [];
-  }
+  followLinksRequest = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from("search_settings")
+        .select("value")
+        .eq("key", FOLLOW_LINKS_BUSINESS_IDS_KEY)
+        .maybeSingle();
+
+      if (error) return [];
+      const ids = normalizeBusinessIdList(data?.value);
+      followLinksCache = { value: ids, expiresAt: Date.now() + SEARCH_SETTINGS_CACHE_TTL_MS };
+      return ids;
+    } catch {
+      return [];
+    }
+  })().finally(() => {
+    followLinksRequest = null;
+  });
+  return followLinksRequest;
 }
 
 export async function saveFollowLinksBusinessIds(ids: string[]): Promise<boolean> {
@@ -130,7 +157,9 @@ export async function saveFollowLinksBusinessIds(ids: string[]): Promise<boolean
       },
       { onConflict: "key" }
     );
-    return !error;
+    if (error) return false;
+    followLinksCache = { value: payload, expiresAt: Date.now() + SEARCH_SETTINGS_CACHE_TTL_MS };
+    return true;
   } catch {
     return false;
   }

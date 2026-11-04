@@ -25,6 +25,10 @@ const PUBLIC_BUSINESS_DETAIL_SELECT = [
 ].join(",");
 const PUBLIC_REVIEW_SELECT = "id,business_id,user_id,user_name,rating,comment,created_at";
 const PUBLIC_MAP_BUSINESS_SELECT = "id,name,slug,category_id,street,city,city_slug,country_code,state_code,lat,lng,attendance_type";
+const LOCATION_NAME_CACHE_TTL_MS = 60 * 60 * 1000;
+const LOCATION_QUERY_BATCH_SIZE = 75;
+const locationNameCache = new Map<string, { value: string | null; expiresAt: number }>();
+const pendingLocationNameRequests = new Map<string, Promise<string | null>>();
 
 export const BUSINESS_CATEGORY_OPTIONS = [
   { id: "food", label: "Restaurantes e Alimentação" },
@@ -339,19 +343,60 @@ async function attachLocationDisplayNames(rows: Business[]): Promise<Business[]>
   const locationIds = [...new Set(rows.map((row) => row.location_id).filter(Boolean))] as string[];
   if (locationIds.length === 0) return rows;
 
-  const data = await fetchInFilterBatches<{ id: string; display_name_pt_br: string | null }>(
-    locationIds,
-    (batch) => supabase.from("business_locations").select("id, display_name_pt_br").in("id", batch),
-    "business-locations",
-  );
+  const now = Date.now();
+  const uncachedIds = locationIds.filter((id) => {
+    const cached = locationNameCache.get(id);
+    return !cached || cached.expiresAt <= now;
+  });
+  const idsToFetch = uncachedIds.filter((id) => !pendingLocationNameRequests.has(id));
 
-  if (data.length === 0) return rows;
+  if (idsToFetch.length > 0) {
+    const request = (async () => {
+      const batches: string[][] = [];
+      for (let index = 0; index < idsToFetch.length; index += LOCATION_QUERY_BATCH_SIZE) {
+        batches.push(idsToFetch.slice(index, index + LOCATION_QUERY_BATCH_SIZE));
+      }
 
-  const namesById = new Map(
-    data
-      .filter((location: { id?: string; display_name_pt_br?: string | null }) => Boolean(location.display_name_pt_br))
-      .map((location: { id: string; display_name_pt_br: string }) => [location.id, location.display_name_pt_br]),
-  );
+      const results = await Promise.all(batches.map((batch) =>
+        supabase.from("business_locations").select("id, display_name_pt_br").in("id", batch)
+      ));
+      const failed = results.find((result) => result.error)?.error;
+      if (failed) throw failed;
+
+      const namesById = new Map(
+        results.flatMap((result) => result.data || [])
+          .map((location) => [location.id, location.display_name_pt_br || null] as const),
+      );
+      const expiresAt = Date.now() + LOCATION_NAME_CACHE_TTL_MS;
+      for (const id of idsToFetch) {
+        locationNameCache.set(id, { value: namesById.get(id) ?? null, expiresAt });
+      }
+      return namesById;
+    })();
+
+    for (const id of idsToFetch) {
+      const pending = request
+        .then((namesById) => namesById.get(id) ?? null)
+        .finally(() => {
+          if (pendingLocationNameRequests.get(id) === pending) pendingLocationNameRequests.delete(id);
+        });
+      pendingLocationNameRequests.set(id, pending);
+    }
+  }
+
+  const namesById = new Map<string, string | null>();
+  try {
+    await Promise.all(locationIds.map(async (id) => {
+      const cached = locationNameCache.get(id);
+      const value = cached && cached.expiresAt > Date.now()
+        ? cached.value
+        : await pendingLocationNameRequests.get(id);
+      namesById.set(id, value ?? null);
+    }));
+  } catch (error) {
+    console.warn("[business-locations] Cache lookup failed; keeping stored display names:", error);
+    return rows;
+  }
 
   return rows.map((row) => ({
     ...row,

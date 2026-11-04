@@ -5,26 +5,52 @@ const IMAGE_TYPES_TO_CONVERT = new Set([
   "image/jpg",
   "image/png",
   "image/webp",
+  "image/avif",
+  "image/bmp",
 ]);
+const MAX_UNCONVERTED_IMAGE_BYTES = 2 * 1024 * 1024;
 
 type ImagePreset = {
   maxWidth: number;
   maxHeight: number;
   quality: number;
+  maxBytes: number;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
+  thumbnailMaxBytes: number;
 };
 
 const DEFAULT_IMAGE_PRESET: ImagePreset = {
   maxWidth: 1600,
   maxHeight: 1600,
   quality: 0.82,
+  maxBytes: 700 * 1024,
+  thumbnailWidth: 480,
+  thumbnailHeight: 480,
+  thumbnailMaxBytes: 90 * 1024,
 };
 
 const IMAGE_PRESETS: Record<string, ImagePreset> = {
-  hero: { maxWidth: 1920, maxHeight: 1080, quality: 0.8 },
-  logo: { maxWidth: 700, maxHeight: 700, quality: 0.86 },
-  photo: { maxWidth: 1400, maxHeight: 1400, quality: 0.78 },
-  "event-flyer": { maxWidth: 1400, maxHeight: 1800, quality: 0.8 },
-  avatar: { maxWidth: 600, maxHeight: 600, quality: 0.85 },
+  hero: {
+    maxWidth: 1600, maxHeight: 900, quality: 0.8, maxBytes: 750 * 1024,
+    thumbnailWidth: 640, thumbnailHeight: 360, thumbnailMaxBytes: 110 * 1024,
+  },
+  logo: {
+    maxWidth: 700, maxHeight: 700, quality: 0.84, maxBytes: 300 * 1024,
+    thumbnailWidth: 240, thumbnailHeight: 240, thumbnailMaxBytes: 55 * 1024,
+  },
+  photo: {
+    maxWidth: 1400, maxHeight: 1400, quality: 0.78, maxBytes: 650 * 1024,
+    thumbnailWidth: 480, thumbnailHeight: 480, thumbnailMaxBytes: 90 * 1024,
+  },
+  "event-flyer": {
+    maxWidth: 1200, maxHeight: 1600, quality: 0.78, maxBytes: 700 * 1024,
+    thumbnailWidth: 480, thumbnailHeight: 640, thumbnailMaxBytes: 100 * 1024,
+  },
+  avatar: {
+    maxWidth: 500, maxHeight: 500, quality: 0.82, maxBytes: 180 * 1024,
+    thumbnailWidth: 160, thumbnailHeight: 160, thumbnailMaxBytes: 35 * 1024,
+  },
 };
 
 const IMAGE_CACHE_CONTROL = "31536000";
@@ -51,49 +77,87 @@ function fitSize(
   };
 }
 
-async function convertImageToWebp(
-  file: File,
-  preset: ImagePreset = DEFAULT_IMAGE_PRESET
-): Promise<File> {
-  if (!IMAGE_TYPES_TO_CONVERT.has(file.type)) return file;
+async function encodeBitmapToWebp(
+  bitmap: ImageBitmap,
+  maxWidth: number,
+  maxHeight: number,
+  maxBytes: number,
+  quality: number,
+): Promise<Blob> {
+  let lastBlob: Blob | null = null;
 
-  try {
-    const bitmap = await createImageBitmap(file);
+  for (const scale of [1, 0.85, 0.72]) {
     const target = fitSize(
       bitmap.width,
       bitmap.height,
-      preset.maxWidth,
-      preset.maxHeight
+      Math.max(1, Math.round(maxWidth * scale)),
+      Math.max(1, Math.round(maxHeight * scale)),
     );
     const canvas = document.createElement("canvas");
     canvas.width = target.width;
     canvas.height = target.height;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-
+    if (!ctx) throw new Error("Canvas indisponivel para otimizar a imagem.");
     ctx.drawImage(bitmap, 0, 0, target.width, target.height);
 
-    // If image is still too heavy, reduce quality progressively.
-    const encode = (quality: number) =>
-      new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, "image/webp", quality);
+    for (const qualityStep of [quality, Math.max(0.5, quality - 0.16)]) {
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/webp", qualityStep);
       });
-
-    let blob = await encode(preset.quality);
-    if (!blob) return file;
-
-    const maxTargetBytes = 950 * 1024; // ~0.95MB
-    if (blob.size > maxTargetBytes) {
-      const lowQ = Math.max(0.62, preset.quality - 0.16);
-      const lowBlob = await encode(lowQ);
-      if (lowBlob) blob = lowBlob;
+      if (!blob) continue;
+      lastBlob = blob;
+      if (blob.size <= maxBytes) return blob;
     }
+  }
 
-    const webpName = file.name.replace(/\.[^.]+$/, "") + ".webp";
-    return new File([blob], webpName, { type: "image/webp" });
+  if (!lastBlob) throw new Error("Nao foi possivel codificar a imagem como WebP.");
+  if (lastBlob.size > maxBytes) {
+    throw new Error("Imagem continua acima do limite apos compressao.");
+  }
+  return lastBlob;
+}
+
+async function convertImageToWebp(
+  file: File,
+  preset: ImagePreset = DEFAULT_IMAGE_PRESET
+): Promise<{ primary: File; thumbnail: File | null }> {
+  if (!IMAGE_TYPES_TO_CONVERT.has(file.type)) {
+    const looksLikeImage = file.type.startsWith("image/")
+      || /\.(avif|bmp|gif|heic|jpe?g|png|svg|tiff?|webp)$/i.test(file.name);
+    if (looksLikeImage && file.size > MAX_UNCONVERTED_IMAGE_BYTES) {
+      throw new Error("Formato de imagem nao suportado para compressao acima de 2 MB.");
+    }
+    return { primary: file, thumbnail: null };
+  }
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    try {
+      const primaryBlob = await encodeBitmapToWebp(
+        bitmap,
+        preset.maxWidth,
+        preset.maxHeight,
+        preset.maxBytes,
+        preset.quality,
+      );
+      const thumbnailBlob = await encodeBitmapToWebp(
+        bitmap,
+        preset.thumbnailWidth,
+        preset.thumbnailHeight,
+        preset.thumbnailMaxBytes,
+        0.72,
+      );
+      const baseName = file.name.replace(/\.[^.]+$/, "");
+      return {
+        primary: new File([primaryBlob], `${baseName}.webp`, { type: "image/webp" }),
+        thumbnail: new File([thumbnailBlob], `${baseName}.webp`, { type: "image/webp" }),
+      };
+    } finally {
+      bitmap.close();
+    }
   } catch (error) {
-    console.warn("[uploadImage] Falha ao converter para WebP, enviando original:", error);
-    return file;
+    console.warn("[uploadImage] Falha ao otimizar imagem; upload cancelado para evitar enviar o original pesado:", error);
+    throw error;
   }
 }
 
@@ -110,11 +174,29 @@ export async function uploadImage(
 ): Promise<string | null> {
   try {
     const preset = getImagePresetFromPath(path);
-    const uploadFile = await convertImageToWebp(file, preset);
-    const normalizedPath =
-      uploadFile.type === "image/webp"
-        ? path.replace(/\.[^./]+$/, ".webp")
-        : path;
+    const variants = await convertImageToWebp(file, preset);
+    const uploadFile = variants.primary;
+    const pathWithoutExtension = path.replace(/\.[^./]+$/, "");
+    const thumbnailPath = `${pathWithoutExtension}__thumb.webp`;
+    let thumbnailUploaded = false;
+
+    if (variants.thumbnail) {
+      const { error: thumbnailError } = await supabase.storage
+        .from(bucket)
+        .upload(thumbnailPath, variants.thumbnail, {
+          upsert: true,
+          cacheControl: IMAGE_CACHE_CONTROL,
+          contentType: "image/webp",
+        });
+      thumbnailUploaded = !thumbnailError;
+      if (thumbnailError) {
+        console.warn("[uploadImage] A miniatura falhou; a imagem principal sera publicada sem variante:", thumbnailError.message);
+      }
+    }
+
+    const normalizedPath = uploadFile.type === "image/webp"
+      ? `${pathWithoutExtension}${thumbnailUploaded ? "__full" : ""}.webp`
+      : path;
 
     const { data, error } = await supabase.storage
       .from(bucket)
@@ -126,6 +208,9 @@ export async function uploadImage(
 
     if (error) {
       console.error("[uploadImage] Erro no upload:", error.message);
+      if (thumbnailUploaded) {
+        await supabase.storage.from(bucket).remove([thumbnailPath]);
+      }
       return null;
     }
 
@@ -150,7 +235,10 @@ export async function removePublicImageUrls(
     const markerIndex = url.indexOf(marker);
     if (markerIndex < 0) return [];
     try {
-      return [decodeURIComponent(url.slice(markerIndex + marker.length))];
+      const path = decodeURIComponent(url.slice(markerIndex + marker.length).split("?")[0]);
+      return path.endsWith("__full.webp")
+        ? [path, path.replace(/__full\.webp$/i, "__thumb.webp")]
+        : [path];
     } catch {
       return [];
     }

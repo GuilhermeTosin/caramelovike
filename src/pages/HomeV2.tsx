@@ -290,7 +290,10 @@ export default function HomeV2({
                             >
                               <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-xl bg-[#edf0ec] sm:h-48 sm:w-48">
                                 <img
-                                  src={getOptimizedImageUrl(activeRecentBusiness.logoUrl || activeRecentBusiness.heroImage || "/cachorro-caramelo.webp", { width: 384, quality: 78, format: "webp" })}
+                                  src={getOptimizedImageUrl(
+                                    activeRecentBusiness.logoUrl || activeRecentBusiness.heroImage || "/cachorro-caramelo.webp",
+                                    { width: activeRecentBusiness.logoUrl ? 240 : 384, quality: 78, format: "webp" },
+                                  )}
                                   alt={activeRecentBusiness.name}
                                   width="384"
                                   height="384"

@@ -249,7 +249,7 @@ function normalizePathname(pathname) {
   return trimmed || "/";
 }
 
-function applyPublicPageCacheHeaders(res, pathname, statusCode) {
+function applyPublicPageCacheHeaders(res, pathname, statusCode, req) {
   if (statusCode !== 200) return;
 
   const normalizedPathname = normalizePathname(pathname);
@@ -259,6 +259,17 @@ function applyPublicPageCacheHeaders(res, pathname, statusCode) {
     cacheHeader = "s-maxage=60, must-revalidate";
   } else if (normalizedPathname === "/negocios" || normalizedPathname.startsWith("/negocios/")) {
     cacheHeader = "s-maxage=900, stale-while-revalidate=86400";
+  } else if (
+    parseBusinessPath(normalizedPathname)
+    && !normalizedPathname.startsWith("/go/")
+    && req.method === "GET"
+    && !req.headers.authorization
+    && !res.getHeader("set-cookie")
+    && !/no-store|private/i.test(String(res.getHeader("Cache-Control") || ""))
+  ) {
+    // Public business pages contain no account-specific data. Keep the shared
+    // cache short so edits and moderation changes propagate quickly.
+    cacheHeader = "s-maxage=60, stale-while-revalidate=120";
   }
   if (!cacheHeader) return;
 
@@ -314,7 +325,7 @@ export default async function handler(req, res) {
   const { body, statusCode, headers } = httpResponse;
   res.statusCode = statusCode;
   headers.forEach(([name, value]) => res.setHeader(name, value));
-  applyPublicPageCacheHeaders(res, requestedUrl.pathname, statusCode);
+  applyPublicPageCacheHeaders(res, requestedUrl.pathname, statusCode, req);
   if (statusCode === 404) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(render404Html());

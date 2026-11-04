@@ -1044,7 +1044,13 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
         <div className="absolute bottom-0 left-0 right-0 z-30 p-6 sm:p-10">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-end gap-6">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-4 border-white bg-white shrink-0">
-              <img src={business.logoUrl || DEFAULT_BUSINESS_LOGO} alt="" className="w-full h-full object-cover" />
+              <img
+                src={business.logoUrl
+                  ? getOptimizedImageUrl(business.logoUrl, { width: 240, quality: 72, format: "webp" })
+                  : DEFAULT_BUSINESS_LOGO}
+                alt=""
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="flex-1 text-white mb-2">
               <Badge className="mb-3 bg-white/20 text-white border-0 hover:bg-white/30 rounded-lg px-3 py-1">
@@ -1769,7 +1775,12 @@ export default function BusinessPage({ initialBusiness = null, initialBusinesses
                     <div className="p-5">
                       <div className="flex items-center gap-3 mb-4">
                         {item.logoUrl ? (
-                          <img src={item.logoUrl} alt="" loading="lazy" className="w-11 h-11 rounded-full object-cover ring-2 ring-border" />
+                          <img
+                            src={getOptimizedImageUrl(item.logoUrl, { width: 240, quality: 72, format: "webp" })}
+                            alt=""
+                            loading="lazy"
+                            className="w-11 h-11 rounded-full object-cover ring-2 ring-border"
+                          />
                         ) : null}
                         <div className="min-w-0">
                           <h3 className="font-bold text-foreground text-lg truncate group-hover:text-primary transition-colors leading-tight">

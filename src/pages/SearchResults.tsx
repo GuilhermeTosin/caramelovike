@@ -240,7 +240,7 @@ export default function SearchResults({
   initialBusinesses = [],
   initialBusinessesAreSearchReady = false,
   initialAvailableLocations = [],
-  initialSearchSynonyms = DEFAULT_CATEGORY_SYNONYMS,
+  initialSearchSynonyms,
   initialSearchSnapshot,
 }: SearchResultsProps = {}) {
   const navigate = useNavigate();
@@ -350,7 +350,7 @@ export default function SearchResults({
   const hasLocationContext = !!(cityFilter.trim() || locationFilter.trim());
   const effectiveRadiusKm = radiusKm;
   const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
-    initialSearchSynonyms
+    initialSearchSynonyms ?? DEFAULT_CATEGORY_SYNONYMS
   );
 
   const publicSearchRequest = useMemo(
@@ -711,7 +711,7 @@ export default function SearchResults({
         : getAvailableLocations();
       const supplementalDataPromise = Promise.allSettled([
         locationsPromise,
-        getPublishedCommunityEvents(),
+        isEventMode ? getPublishedCommunityEvents() : Promise.resolve([]),
       ]);
 
       try {
@@ -801,6 +801,7 @@ export default function SearchResults({
     initialBusinessPool,
     initialAvailableLocations,
     getCachedBusinessPage,
+    isEventMode,
   ]);
 
   useEffect(() => {
@@ -927,16 +928,18 @@ export default function SearchResults({
 
   useEffect(() => {
     let alive = true;
-    getGlobalCategorySynonymsConfig().then((cfg) => {
-      if (alive) setCategorySynonymsMap(cfg);
-    });
+    if (initialSearchSynonyms === undefined) {
+      getGlobalCategorySynonymsConfig().then((cfg) => {
+        if (alive) setCategorySynonymsMap(cfg);
+      });
+    }
     const sync = () => setCategorySynonymsMap(getCategorySynonymsConfig());
     window.addEventListener("storage", sync);
     return () => {
       alive = false;
       window.removeEventListener("storage", sync);
     };
-  }, []);
+  }, [initialSearchSynonyms]);
 
   const selectedCountryData = useMemo(() => {
     return availableLocations.find(l => l.countryCode === countryFilter);
@@ -2124,7 +2127,12 @@ export default function SearchResults({
                     <div className="p-5">
                       <div className="flex items-center gap-3 mb-4">
                         {biz.logoUrl && (
-                          <img src={biz.logoUrl} alt="" loading="lazy" className="w-11 h-11 rounded-full object-cover ring-2 ring-border" />
+                          <img
+                            src={getOptimizedImageUrl(biz.logoUrl, { width: 240, quality: 72, format: "webp" })}
+                            alt=""
+                            loading="lazy"
+                            className="w-11 h-11 rounded-full object-cover ring-2 ring-border"
+                          />
                         )}
                         <div className="min-w-0">
                           <h3 className="font-bold text-foreground text-lg truncate group-hover:text-primary transition-colors leading-tight">

@@ -2,6 +2,16 @@ import { supabase } from "@/lib/supabase";
 import type { BusinessEvent, CommunityEvent } from "@/types/database";
 
 const PUBLIC_EVENT_SELECT = "id,business_id,title,description,date,location,is_free,price,flyer_url,ticket_url,status,created_at,updated_at";
+const PUBLIC_EVENTS_CACHE_TTL_MS = 60 * 1000;
+let publishedEventsCache: { day: string; value: CommunityEvent[]; expiresAt: number } | null = null;
+let publishedEventsRequest: Promise<CommunityEvent[]> | null = null;
+let publishedEventsRevision = 0;
+
+function invalidatePublishedEventsCache() {
+  publishedEventsCache = null;
+  publishedEventsRevision += 1;
+  publishedEventsRequest = null;
+}
 
 export type CommunityEventInput = {
   businessId?: string | null;
@@ -18,15 +28,33 @@ export type CommunityEventInput = {
 
 export async function getPublishedCommunityEvents(): Promise<CommunityEvent[]> {
   const today = new Date().toISOString().slice(0, 10);
-  const { data, error } = await supabase
-    .from("events")
-    .select(PUBLIC_EVENT_SELECT)
-    .eq("status", "published")
-    .gte("date", today)
-    .order("date", { ascending: true });
+  if (publishedEventsCache?.day === today && publishedEventsCache.expiresAt > Date.now()) {
+    return publishedEventsCache.value;
+  }
+  if (publishedEventsRequest) return publishedEventsRequest;
 
-  if (error || !data) return [];
-  return data as CommunityEvent[];
+  const requestRevision = publishedEventsRevision;
+  const request = (async () => {
+    const { data, error } = await supabase
+      .from("events")
+      .select(PUBLIC_EVENT_SELECT)
+      .eq("status", "published")
+      .gte("date", today)
+      .order("date", { ascending: true });
+
+    if (error || !data) return [];
+    const events = data as CommunityEvent[];
+    if (requestRevision === publishedEventsRevision) {
+      publishedEventsCache = { day: today, value: events, expiresAt: Date.now() + PUBLIC_EVENTS_CACHE_TTL_MS };
+    }
+    return events;
+  })();
+  publishedEventsRequest = request;
+  try {
+    return await request;
+  } finally {
+    if (publishedEventsRequest === request) publishedEventsRequest = null;
+  }
 }
 
 export async function getCommunityEventsByOwner(ownerId: string): Promise<CommunityEvent[]> {
@@ -87,6 +115,7 @@ export async function createCommunityEvent(
   });
 
   if (error) return { ok: false, error: error.message };
+  invalidatePublishedEventsCache();
   return { ok: true };
 }
 
@@ -102,6 +131,7 @@ export async function deleteCommunityEvent(id: string): Promise<{ ok: boolean; e
 
   const { error } = await supabase.from("events").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
+  invalidatePublishedEventsCache();
 
   // Sincroniza legado: remove também do JSON businesses.events, se estiver vinculado.
   if (target.business_id) {
@@ -151,6 +181,7 @@ export async function updateCommunityEvent(
     .eq("id", id);
 
   if (error) return { ok: false, error: error.message };
+  invalidatePublishedEventsCache();
   return { ok: true };
 }
 
@@ -167,7 +198,10 @@ export async function replaceBusinessLinkedEvents(
 
   if (deleteError) return { ok: false, error: deleteError.message };
 
-  if (events.length === 0) return { ok: true };
+  if (events.length === 0) {
+    invalidatePublishedEventsCache();
+    return { ok: true };
+  }
 
   const rows = events.map((evt) => ({
     owner_id: ownerId,
@@ -185,5 +219,6 @@ export async function replaceBusinessLinkedEvents(
 
   const { error: insertError } = await supabase.from("events").insert(rows);
   if (insertError) return { ok: false, error: insertError.message };
+  invalidatePublishedEventsCache();
   return { ok: true };
 }

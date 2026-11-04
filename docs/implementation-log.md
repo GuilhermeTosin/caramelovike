@@ -19,10 +19,82 @@ Depois de concluir a alteracao:
 3. Registrar migrations, configuracoes externas ou etapas manuais pendentes.
 4. Registrar riscos residuais e a decisao de deploy.
 
-Padrao de data e hora: `YYYY-MM-DD HH:mm:ss -04:00`, horario de Toronto. O
-registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
+Padrao de data e hora: `YYYY-MM-DD HH:mm:ss` com o offset local de
+`America/Toronto` (`-04:00` no horario de verao e `-05:00` no horario padrao).
+O registro deve ser objetivo, auditavel e escrito em ordem cronologica reversa.
 
 ## Entradas
+
+### 2026-11-04 18:32:03 -05:00
+
+- Status: implementacao local concluida em 2026-11-04 18:51:49 -05:00; deploy e
+  validacao do consumo apos deploy pendentes.
+- Solicitacao: reduzir egress Supabase com otimizacao de imagens, reducao de
+  chamadas SSR repetidas e cache de conteudo publico, sem bloquear crawlers.
+- Escopo: uploads WebP com limites de bytes e variante thumbnail; uso das
+  variantes no frontend com fallback para arquivos antigos; eliminar chamadas
+  de eventos e sinonimos redundantes; cache curto para configuracoes, locais e
+  eventos; cache CDN somente para paginas publicas de negocios.
+- Evidencia: logs informados nesta sessao concentraram requests PostgREST em
+  chamadas SSR Node para businesses, business_locations, search_settings,
+  events e reviews. A transformacao de URL atual usa `/object/public/` com
+  parametros de imagem, que nao materializam variantes persistentes.
+- Implementado: uploads raster geram uma imagem WebP principal com limite de
+  peso por tipo e uma miniatura; logos, avatares e imagens de cards usam a
+  miniatura quando existe. Falha de compressao cancela o upload para nao enviar
+  o original pesado. Imagens antigas continuam funcionando sem variantes e
+  URLs nao usam mais parametros de transformacao ineficazes. Variantes recebem
+  cache-control de um ano.
+- Implementado: a busca de eventos so consulta a tabela no modo de eventos;
+  sinonimos SSR enviados na hidratacao nao sao consultados de novo. Configuracoes,
+  eventos e nomes de localizacao ganharam cache em memoria e deduplicacao de
+  chamadas simultaneas. Paginas canonicas publicas de negocios recebem cache
+  CDN de 60s e stale-while-revalidate de 120s, somente em GET 200, sem
+  Authorization, Set-Cookie ou headers private/no-store. Perfil, Marketplace e
+  erros nao entram nesta nova regra; paginas de eventos continuam no-store.
+- Arquivos: `api/ssr.js`, `src/App.tsx`, `src/components/ui/avatar.tsx`,
+  `src/lib/images.ts`, `src/lib/images.test.ts`, `src/pages/BusinessDirectoryPage.tsx`,
+  `src/pages/BusinessPage.tsx`, `src/pages/HomeV2.tsx`, `src/pages/SearchResults.tsx`,
+  `src/pages/UserProfile.tsx`, `src/services/businesses.ts`,
+  `src/services/events.ts`, `src/services/homeSettings.ts`,
+  `src/services/searchPreferences.ts`, `src/services/storage.ts` e este registro.
+- Validacao: `npm run verify` passou com 36 arquivos e 189 testes; `npm run lint`,
+  `npm run check:encoding` e `git diff --check` passaram; `npm run build` passou
+  com 7 documentos estaticos pre-renderizados. Permanecem avisos preexistentes
+  de Browserslist desatualizado e top-level await em `BusinessPageRoute.tsx`.
+  `npm run test:seo:ssr` nao passou porque nao havia servidor na porta 3000; o
+  teste exige localhost ou `SEO_BASE_URL`.
+- Limites e operacao: sem migration nem alteracoes de RLS/configuracao externa.
+  Variantes so serao criadas para novos uploads; objetos existentes nao foram
+  reprocessados. Nenhum crawler foi bloqueado. A reducao de egress ainda precisa
+  ser medida depois de publicar em dev, comparando Egress e Cached Egress e o
+  header `x-vercel-cache`.
+- Risco residual: conteudo publico pode ficar em cache por ate cerca de tres
+  minutos; paginas autenticadas, privadas e respostas de erro permanecem fora
+  do novo cache.
+- Decisao de deploy: local concluido; publicar primeiro em dev e medir antes de
+  promover a producao.
+
+### 2026-10-12 18:52:51 -04:00
+
+- Status: correcao local concluida; publicacao pendente.
+- Solicitacao: corrigir escapes Unicode exibidos literalmente na aba Google
+  Analytics do perfil.
+- Escopo: corrigir os rótulos JSX afetados e verificar outros escapes literais
+  no mesmo componente.
+- Estrategia: renderizar os rótulos como expressoes JavaScript para que os
+  escapes `\\u....` sejam decodificados, sem alterar a coleta GA4.
+- Implementado em `src/pages/user-profile/components/GoogleAnalyticsSettingsTab.tsx`:
+  os rótulos "Diagnóstico neste navegador" e "Enviar evento de diagnóstico"
+  agora sao expressoes JSX/JavaScript, impedindo que `\\u00f3` apareca literal.
+- Validacao: `npm run lint`, `npm run check:encoding`, `npm run build` e
+  `git diff --check` aprovados; o build incluiu `npm run verify` com 35 arquivos
+  e 185 testes aprovados. Persiste apenas o aviso preexistente de top-level
+  await em `src/pages/BusinessPageRoute.tsx`.
+- Risco: baixo; apenas texto da interface.
+- Migrations: nenhuma.
+- Deploy: pendente; a producao continua no commit `09ce730` e esta correcao
+  permanecera local ate nova publicacao.
 
 ### 2026-10-12 18:38:58 -04:00
 

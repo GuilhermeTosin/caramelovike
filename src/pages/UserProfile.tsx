@@ -491,7 +491,7 @@ export default function UserProfile() {
 
     let avatarUrl = user?.avatar || "";
     if (avatarFile) {
-      const path = generateImagePath(session.userId, "photo", avatarFile.name);
+      const path = generateImagePath(session.userId, "avatar", avatarFile.name);
       const url = await uploadImage("business-images", path, avatarFile);
       if (url) avatarUrl = url;
     }
